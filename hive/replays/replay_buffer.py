@@ -70,13 +70,10 @@ class CircularReplayBuffer(BaseReplayBuffer):
         self._compress = compress
 
         self._data_keys = ["observations", "actions", "rewards", "next_observations"]
-        self._dtype = {}
-        for key in self._data_keys:
-            self._dtype[key] = "int8"
-
-        if not self._compress:
-            for key in ["observations", "rewards", "next_observations"]:
-                self._dtype[key] = "float32"
+        self._dtype = {"observations": "int8" if self._compress else "float32",
+                       "actions": "int8",
+                       "rewards": "int8" if self._compress else "float32",
+                       "next_observations": "int8" if self._compress else "float32"}
 
         self._data = {}
         for data_key in self._data_keys:
