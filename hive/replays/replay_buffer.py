@@ -63,20 +63,23 @@ class CircularReplayBuffer(BaseReplayBuffer):
             size (int): repaly buffer capacity
             compress (bool): if False, convert data to float32 otherwise keep it as int8.
     """
+
     def __init__(self, numpy_rng, size=1e5, compress=False):
 
         self._numpy_rng = numpy_rng
         self._size = int(size)
         self._compress = compress
 
-        self._data_keys = ["observations", "actions", "rewards", "next_observations"]
-        self._dtype = {"observations": "int8" if self._compress else "float32",
-                       "actions": "int8",
-                       "rewards": "int8" if self._compress else "float32",
-                       "next_observations": "int8" if self._compress else "float32"}
+        self._dtype = {
+            "observations": "int8" if self._compress else "float32",
+            "actions": "int8",
+            "rewards": "int8" if self._compress else "float32",
+            "next_observations": "int8" if self._compress else "float32",
+            "done": "int8" if self._compress else "float32",
+        }
 
         self._data = {}
-        for data_key in self._data_keys:
+        for data_key in self._dtype:
             self._data[data_key] = [None] * int(size)
 
         self._write_index = -1
@@ -91,8 +94,10 @@ class CircularReplayBuffer(BaseReplayBuffer):
         """
         self._write_index = (self._write_index + 1) % self._size
         self._n = int(min(self._size, self._n + 1))
-        for key in self._data:
-            self._data[key][self._write_index] = np.asarray(data[key], dtype=self._dtype[key])
+        for idx, key in enumerate(self._data):
+            self._data[key][self._write_index] = np.asarray(
+                data[idx], dtype=self._dtype[key]
+            )
 
     def sample(self, batch_size=32):
         """
@@ -102,12 +107,16 @@ class CircularReplayBuffer(BaseReplayBuffer):
             batch_size (int): .
         """
         if self._n < batch_size:
-            raise IndexError("Buffer does not have batch_size=%d transitions yet." % batch_size)
+            raise IndexError(
+                "Buffer does not have batch_size=%d transitions yet." % batch_size
+            )
 
         indices = self._numpy_rng.choice(self._n, size=batch_size, replace=False)
         rval = {}
         for key in self._data:
-            rval[key] = np.asarray([self._data[key][idx] for idx in indices], dtype="float32")
+            rval[key] = np.asarray(
+                [self._data[key][idx] for idx in indices], dtype="float32"
+            )
 
         return rval
 
