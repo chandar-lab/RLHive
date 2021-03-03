@@ -128,3 +128,15 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .DS_Store
+
+# vim editing and such
+*.*~
+
+# PyCharm
+.idea
+
+# Vscode
+.vscode
+
+# WandB
+wandb/
