@@ -5,14 +5,24 @@ from hive.envs.env_spec import EnvSpec
 
 
 class GymEnv(BaseEnv):
+    """
+    Class for loading gym built-in environments.
+    """
 
     def __init__(self, env_name):
+        """
+        Args:
+            env_name: Name of the environment (NOTE: make sure it is available at gym.envs.registry.all())
+        """
         super(GymEnv, self).__init__()
 
         self._env = gym.make(env_name)
-        self.env_specs = EnvSpec(env_name=env_name,
-                                 obs_dim=self._env.observation_space.shape,
-                                 act_dim=self._env.action_space.n)
+        self.env_spec = EnvSpec(env_name=env_name,
+                                obs_dim=self._env.observation_space.shape,
+                                act_dim=self._env.action_space.n)
+        
+        # Since we have a single agent environment, the only agent should take a turn at each time step.
+        # So, turn is always zero.
         self._turn = 0
 
     def reset(self):
@@ -24,7 +34,7 @@ class GymEnv(BaseEnv):
         return observation, reward, done, self._turn, info
 
     def render(self, mode='rgb_array'):
-        self._env.render(mode=mode)
+        return self._env.render(mode=mode)
 
     def seed(self, seed=None):
         self._env.seed(seed=seed)

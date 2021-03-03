@@ -86,9 +86,9 @@ class BaseEnv(ABC):
         pass
 
     @property
-    def env_specs(self):
+    def env_spec(self):
         return self._env_spec
 
-    @env_specs.setter
-    def env_specs(self, env_spec):
+    @env_spec.setter
+    def env_spec(self, env_spec):
         self._env_spec = env_spec
