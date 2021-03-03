@@ -1,1 +1,1 @@
-from mlp import SimpleMLP
+from .mlp import SimpleMLP

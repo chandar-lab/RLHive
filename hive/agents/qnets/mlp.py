@@ -12,7 +12,7 @@ class SimpleMLP(nn.Module):
         self.hidden_layers = nn.Sequential(
             *[
                 nn.Sequential(nn.Linear(hidden_units, hidden_units), nn.ReLU())
-                for _ in range(num_hidden_layers)
+                for _ in range(num_hidden_layers - 1)
             ]
         )
         self.output_layer = nn.Linear(hidden_units, env_spec.act_dim)
