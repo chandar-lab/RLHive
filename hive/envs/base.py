@@ -42,48 +42,32 @@ class BaseEnv(ABC):
         """
         Displays a rendered frame from the environment.
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def seed(self, seed=None):
         """
         Reseeds the environment.
         """
-        pass
-
-    def get_random_observation(self):
-        """
-        Returns a valid random observation of the environment.
-
-        Returns:
-            observation: A random observation that is an element of environment's observation space.
-            turn (int): The index of the agent which should take turn.
-        """
-        pass
-
-    def set_observation(self, observation, turn=None):
-        """
-        Changes the observation and turn in the environment to the input values.
-        """
-        pass
+        raise NotImplementedError
 
     def save(self, save_dir):
         """
         Saves the environment.
         """
-        pass
+        raise NotImplementedError
 
     def load(self, load_dir):
         """
         Loads the environment.
         """
-        pass
+        raise NotImplementedError
 
     def close(self):
         """
         Additional clean up operations
         """
-        pass
+        raise NotImplementedError
 
     @property
     def env_spec(self):
