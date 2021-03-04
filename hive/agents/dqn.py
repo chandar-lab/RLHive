@@ -1,14 +1,13 @@
 import copy
-
 import numpy as np
 import torch
+
 from hive import replays
 from hive.utils import logging, schedule
+from .agent import Agent
 
-from . import agent
 
-
-class DQNAgent(agent.Agent):
+class DQNAgent(Agent):
     """An agent implementing the DQN algorithm. Uses an epsilon greedy
     exploration policy
     """
@@ -25,7 +24,7 @@ class DQNAgent(agent.Agent):
         target_net_update_schedule=None,
         epsilon_schedule=None,
         learn_schedule=None,
-        seed=42,
+        rng=None,
         batch_size=32,
         device="cpu",
         logger=None,
@@ -53,7 +52,7 @@ class DQNAgent(agent.Agent):
                 the course of training.
             learn_schedule: Schedule determining when the learning process actually
                 starts.
-            seed (int): Seed used for the random number generator.
+            rng: numpy random number generator.
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
             device: Device on which all computations should be run.
@@ -64,7 +63,9 @@ class DQNAgent(agent.Agent):
         # Should this be a copy or should we implement a more standard func approximator copy
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         self._optimizer = optimizer(self._qnet.parameters())
-        self._rng = np.random.default_rng(seed=seed)
+        self._rng = rng
+        if self._rng is None:
+            self._rng = np.random.default_rng(seed=42)
         self._replay_buffer = replay_buffer
         if replay_buffer is None:
             self._replay_buffer = replays.CircularReplayBuffer(self._rng)
@@ -122,16 +123,16 @@ class DQNAgent(agent.Agent):
         Args:
             update_info: dictionary containing all the necessary information to
             update the agent. Should contain a full transition, with keys for
-            "state_0", "action", "reward", "state_1", and "done".
+            "observation", "action", "reward", "next_observation", and "done".
         """
 
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(
             (
-                update_info["state_0"],
+                update_info["observation"],
                 update_info["action"],
                 update_info["reward"],
-                update_info["state_1"],
+                update_info["next_observation"],
                 update_info["done"],
             )
         )
