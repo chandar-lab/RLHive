@@ -1,5 +1,4 @@
 import argparse
-import gym
 import numpy as np
 import torch
 from hive import agents, envs, replays
@@ -12,7 +11,7 @@ def run_single_agent_training(environment, agent, logger, training_schedule):
     cum_reward = 0
     while training_schedule.update():
         action = agent.act(obs_0, training=True)
-        next_observation, reward, done, info = environment.step(action)
+        next_observation, reward, done, turn, info = environment.step(action)
         agent.update(
             {
                 "observation": observation,
@@ -20,6 +19,7 @@ def run_single_agent_training(environment, agent, logger, training_schedule):
                 "reward": reward,
                 "next_observation": next_observation,
                 "done": done,
+                "turn": turn,
                 "info": info,
             }
         )
@@ -37,13 +37,8 @@ def run_single_agent_training(environment, agent, logger, training_schedule):
 
 def set_up_dqn_experiment(args):
     # This is v1 hardcoded experiment. Should be initialized using command line arguments
-    environment = gym.make(args.environment)
-    # environment = gym.make("MountainCar-v0")
-    env_spec = envs.EnvSpec(
-        args.environment,
-        environment.observation_space.shape[0],
-        environment.action_space.n,
-    )
+    environment = envs.GymEnv(args.environment)
+    env_spec = environment.env_spec
     agent_logger = logging.WandbLogger(
         args.project_name,
         args.run_name,
