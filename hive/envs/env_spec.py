@@ -15,8 +15,23 @@ class EnvSpec:
                 include items such as random seeds or parameters used to create
                 the environment
         """
-        self.env_name = env_name
-        self.obs_dim = obs_dim
-        self.act_dim = act_dim
-        if env_info is None:
-            self.env_info = {}
+        self._env_name = env_name
+        self._obs_dim = obs_dim
+        self._act_dim = act_dim
+        self._env_info = {} if env_info is None else env_info
+
+    @property
+    def env_name(self):
+        return self._env_name
+
+    @property
+    def obs_dim(self):
+        return self._obs_dim
+
+    @property
+    def act_dim(self):
+        return self._act_dim
+
+    @property
+    def env_info(self):
+        return self._env_info
