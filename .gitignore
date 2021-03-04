@@ -129,8 +129,14 @@ dmypy.json
 .pyre/
 .DS_Store
 
-# IDE
+# vim editing and such
+*.*~
+
+# PyCharm
+.idea
+
+# Vscode
 .vscode/
 
-# Logging
+# WandB
 wandb/
