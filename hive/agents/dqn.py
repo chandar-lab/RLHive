@@ -46,7 +46,7 @@ class DQNAgent(Agent):
                 average of the target net parameters and the qnet parameters.
             target_net_update_fraction (float): The weight given to the target
                 net parameters in a soft update.
-            target_net_update_schedule: Schedule deterimining how frequently the
+            target_net_update_schedule: Schedule determining how frequently the
                 target net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
@@ -93,6 +93,7 @@ class DQNAgent(Agent):
         if self._learn_schedule is None:
             self._learn_schedule = schedule.SwitchSchedule(False, True, 5000)
 
+    @torch.no_grad()
     def act(self, observation, training=False):
         # Determine and log the value of epsilon
         if training:
@@ -106,7 +107,7 @@ class DQNAgent(Agent):
         if self._logger.should_log():
             self._logger.log_scalar("epsilon", epsilon)
 
-        # Sample action. With epsilon probablility choose random action,
+        # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._env_spec.act_dim)
