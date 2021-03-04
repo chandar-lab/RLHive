@@ -9,6 +9,7 @@ from hive.utils import logging, schedule
 def run_single_agent_training(environment, agent, logger, training_schedule):
     observation = environment.reset()
     cum_reward = 0
+    agent.train()
     while training_schedule.update():
         action = agent.act(obs_0, training=True)
         next_observation, reward, done, turn, info = environment.step(action)

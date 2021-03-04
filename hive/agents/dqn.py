@@ -93,10 +93,25 @@ class DQNAgent(Agent):
         if self._learn_schedule is None:
             self._learn_schedule = schedule.SwitchSchedule(False, True, 5000)
 
+    def train(self):
+        """Changes the agent to training mode."""
+        super().train()
+        self._qnet.train()
+        self._target_qnet.train()
+
+    def eval(self):
+        """Changes the agent to evaluation mode."""
+        super().eval()
+        self._qnet.eval()
+        self._target_qnet.eval()
+
     @torch.no_grad()
-    def act(self, observation, training=False):
+    def act(self, observation):
+        """Returns the action for the agent. If in training mode, follows an epsilon
+        greedy policy. Otherwise, returns the action with the highest q value."""
+
         # Determine and log the value of epsilon
-        if training:
+        if self._training:
             if not self._learn_schedule.update():
                 epsilon = 1.0
             else:
