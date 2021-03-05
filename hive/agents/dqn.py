@@ -1,9 +1,10 @@
+import os
 import copy
 import numpy as np
 import torch
 
 from hive import replays
-from hive.utils import logging, schedule
+from hive.utils import logging, schedule, utils
 from .agent import Agent
 
 
@@ -203,8 +204,29 @@ class DQNAgent(Agent):
             self._target_qnet.load_state_dict(self._qnet.state_dict())
 
     def save(self, dname):
-        pass
+        torch.save(
+            {
+                "qnet": self._qnet.state_dict(),
+                "target_qnet": self._target_qnet.state_dict(),
+                "optimizer": self._optimizer.state_dict(),
+                "learn_schedule": self._learn_schedule,
+                "epsilon_schedule": self._epsilon_schedule,
+                "target_net_update_schedule": self._target_net_update_schedule,
+                "rng": rng,
+            },
+            os.path.join(dname, "agent.pt"),
+        )
+        replay_dir = os.path.join(dname, "replay")
+        utils.create_folder(replay_dir)
+        self._replay_buffer.save(replay_dir)
 
     def load(self, dname):
-        pass
-
+        checkpoint = torch.load(os.path.join(dname, "agent.pt"))
+        self._qnet = checkpoint["qnet"]
+        self._target_qnet = checkpoint["target_qnet"]
+        self._optimizer = checkpoint["optimizer"]
+        self._learn_schedule = checkpoint["learn_schedule"]
+        self._epsilon_schedule = checkpoint["epsilon_schedule"]
+        self._target_net_update_schedule = checkpoint["target_net_update_schedule"]
+        self._rng = checkpoint["rng"]
+        self._replay_buffer.load(os.path.join(dname, "replay"))
