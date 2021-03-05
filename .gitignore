@@ -136,7 +136,7 @@ dmypy.json
 .idea
 
 # Vscode
-.vscode
+.vscode/
 
 # WandB
 wandb/

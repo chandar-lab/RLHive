@@ -1,1 +1,1 @@
-from mlp import SimpleMLP
+from hive.agents.qnets.mlp import SimpleMLP

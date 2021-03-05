@@ -1,1 +1,1 @@
-from replay_buffer import CircularReplayBuffer
+from hive.replays.replay_buffer import CircularReplayBuffer
