@@ -20,6 +20,7 @@ class DQNAgent(Agent):
         optimizer,
         replay_buffer=None,
         discount_rate=0.99,
+        grad_clip=None,
         target_net_soft_update=False,
         target_net_update_fraction=0.05,
         target_net_update_schedule=None,
@@ -179,8 +180,11 @@ class DQNAgent(Agent):
             loss = self._loss_fn(pred_qvals, q_targets)
             if self._logger.should_log():
                 self._logger.log_scalar("loss", loss)
-
             loss.backward()
+            if self._grad_clip is not None:
+                torch.nn.utils.clip_grad_value_(
+                    self._qnet.parameters(), self._grad_clip
+                )
             self._optimizer.step()
 
         except IndexError:

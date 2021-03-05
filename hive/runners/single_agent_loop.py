@@ -57,6 +57,7 @@ def set_up_dqn_experiment(args):
             rng, size=args.replay_size, compress=args.replay_compress
         ),
         discount_rate=args.discount_rate,
+        grad_clip=args.grad_clip,
         target_net_soft_update=args.target_net_soft_update,
         target_net_update_fraction=args.target_net_update_fraction,
         target_net_update_schedule=schedule.PeriodicSchedule(
@@ -92,6 +93,7 @@ if __name__ == "__main__":
     parser.add_argument("--replay-size", type=int, default=100000)
     parser.add_argument("--replay-compress", type=bool, default=False)
     parser.add_argument("--discount-rate", type=float, default=0.99)
+    parser.add_argument("--grad-clip", type=float, default=None)
     parser.add_argument("--target-net-soft-update", type=bool, default=False)
     parser.add_argument("--target-net-update-fraction", type=float, default=0.05)
     parser.add_argument("--target-net-update-period", type=int, default=10000)
