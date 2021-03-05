@@ -7,11 +7,11 @@ from hive.utils import logging, schedule
 
 
 def run_single_agent_training(environment, agent, logger, training_schedule):
-    observation = environment.reset()
+    observation, _ = environment.reset()
     cum_reward = 0
     agent.train()
     while training_schedule.update():
-        action = agent.act(obs_0, training=True)
+        action = agent.act(observation)
         next_observation, reward, done, turn, info = environment.step(action)
         agent.update(
             {
@@ -31,7 +31,7 @@ def run_single_agent_training(environment, agent, logger, training_schedule):
             if logger.should_log():
                 logger.log_scalar("cum_reward", cum_reward)
             cum_reward = 0
-            observation = environment.reset()
+            observation, _ = environment.reset()
         else:
             observation = next_observation
 
@@ -85,11 +85,11 @@ def set_up_dqn_experiment(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", "--environment", default="CartPole-v1")
-    parser.add_argument("-p" "--project-name", default="Hive-v1")
-    parser.add_argument("-t" "--run-name", default="test-run")
-    parser.add_argument("-l" "--agent-log-frequency", type=int, default=50)
-    parser.add_argument("-t" "--training-steps", type=int, default=1000000)
-    parser.add_argument("-r" "--random-seed", type=int, default=42)
+    parser.add_argument("-p", "--project-name", default="Hive-v1")
+    parser.add_argument("-n", "--run-name", default="test-run")
+    parser.add_argument("-l", "--agent-log-frequency", type=int, default=50)
+    parser.add_argument("-t", "--training-steps", type=int, default=1000000)
+    parser.add_argument("-r", "--random-seed", type=int, default=42)
     parser.add_argument("--replay-size", type=int, default=100000)
     parser.add_argument("--replay-compress", type=bool, default=False)
     parser.add_argument("--discount-rate", type=float, default=0.99)
@@ -104,5 +104,5 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--device", type=str, default="cpu")
     args = parser.parse_args()
-    environment, agent, training_schedule, logger = set_up_experiment(args)
+    environment, agent, training_schedule, logger = set_up_dqn_experiment(args)
     run_single_agent_training(environment, agent, logger, training_schedule)

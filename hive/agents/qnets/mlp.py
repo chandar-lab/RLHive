@@ -7,7 +7,7 @@ class SimpleMLP(nn.Module):
     def __init__(self, env_spec, hidden_units=256, num_hidden_layers=1):
         super().__init__()
         self.input_layer = nn.Sequential(
-            nn.Linear(env_spec.obs_dim, hidden_units), nn.ReLU()
+            nn.Linear(env_spec.obs_dim[0], hidden_units), nn.ReLU()
         )
         self.hidden_layers = nn.Sequential(
             *[

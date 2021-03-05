@@ -22,11 +22,11 @@ class Agent(abc.ABC):
         """
         pass
 
-    def train():
+    def train(self):
         """Changes the agent to training mode."""
         self._training = True
 
-    def eval():
+    def eval(self):
         """Changes the agent to evaluation mode"""
         self._training = False
 
