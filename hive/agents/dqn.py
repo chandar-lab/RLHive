@@ -64,7 +64,6 @@ class DQNAgent(Agent):
         """
         self._qnet = qnet
         self._env_spec = env_spec
-        # Should this be a copy or should we implement a more standard func approximator copy
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         self._optimizer = optimizer(self._qnet.parameters())
         self._rng = np.random.default_rng(seed=seed)
@@ -116,11 +115,10 @@ class DQNAgent(Agent):
                 epsilon = 1.0
             else:
                 epsilon = self._epsilon_schedule.update()
+            if self._logger.update_step():
+                self._logger.log_scalar("epsilon", epsilon)
         else:
             epsilon = 0
-        self._logger.update_step()
-        if self._logger.should_log():
-            self._logger.log_scalar("epsilon", epsilon)
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
@@ -177,7 +175,9 @@ class DQNAgent(Agent):
 
             loss = self._loss_fn(pred_qvals, q_targets)
             if self._logger.should_log():
-                self._logger.log_scalar("loss", loss)
+                self._logger.log_scalar(
+                    "train_loss" if self._training else "test_loss", loss
+                )
             loss.backward()
             if self._grad_clip is not None:
                 torch.nn.utils.clip_grad_value_(

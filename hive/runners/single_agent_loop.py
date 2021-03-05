@@ -6,38 +6,69 @@ from hive.agents import qnets
 from hive.utils import logging, schedule
 
 
-def run_single_agent_training(environment, agent, logger, training_schedule):
-    observation, _ = environment.reset()
-    cum_reward = 0
+def run_single_agent_training(
+    environment, agent, training_schedule, testing_schedule, train_logger, test_logger
+):
     agent.train()
+    episode_metrics = {
+        "cumulative_reward": 0,
+        "episode_length": 0,
+    }
+    observation, _ = environment.reset()
     while training_schedule.update():
-        action = agent.act(observation)
-        next_observation, reward, done, turn, info = environment.step(action)
-        agent.update(
-            {
-                "observation": observation,
-                "action": action,
-                "reward": reward,
-                "next_observation": next_observation,
-                "done": done,
-                "turn": turn,
-                "info": info,
-            }
+        done, observation = run_one_step(
+            environment, agent, observation, episode_metrics
         )
-        cum_reward += reward
 
         if done:
-            logger.update_step()
-            if logger.should_log():
-                logger.log_scalar("cum_reward", cum_reward)
-            cum_reward = 0
+            if train_logger.update_step():
+                train_logger.log_metrics(episode_metrics)
+            episode_metrics = {
+                "cumulative_reward": 0,
+                "episode_length": 0,
+            }
+            if testing_schedule.update():
+                # Run the testing loop for one episode
+                agent.eval()
+                done = False
+                observation, _ = environment.reset()
+                while not done:
+                    done, observation = run_one_step(
+                        environment, agent, observation, episode_metrics
+                    )
+
+                if test_logger.update_step():
+                    test_logger.log_metrics(episode_metrics)
+
+                # Reset the agent for training
+                agent.train()
+                episode_metrics = {
+                    "cumulative_reward": 0,
+                    "episode_length": 0,
+                }
             observation, _ = environment.reset()
-        else:
-            observation = next_observation
+
+
+def run_one_step(environment, agent, observation, episode_metrics):
+    action = agent.act(observation)
+    next_observation, reward, done, turn, info = environment.step(action)
+    agent.update(
+        {
+            "observation": observation,
+            "action": action,
+            "reward": reward,
+            "next_observation": next_observation,
+            "done": done,
+            "turn": turn,
+            "info": info,
+        }
+    )
+    episode_metrics["cumulative_reward"] += reward
+    episode_metrics["episode_length"] += 1
+    return done, next_observation
 
 
 def set_up_dqn_experiment(args):
-    # This is v1 hardcoded experiment. Should be initialized using command line arguments
     environment = envs.GymEnv(args.environment)
     env_spec = environment.env_spec
     agent_logger = logging.WandbLogger(
@@ -74,13 +105,21 @@ def set_up_dqn_experiment(args):
         logger=agent_logger,
     )
     training_schedule = schedule.SwitchSchedule(True, False, args.training_steps)
-    logger = logging.WandbLogger(
-        args.project_name,
-        args.run_name,
-        logger_schedule=schedule.ConstantSchedule(True),
-        logger_name="runner",
+    testing_schedule = schedule.PeriodicSchedule(False, True, args.test_frequency)
+    train_logger = logging.WandbLogger(
+        args.project_name, args.run_name, logger_name="train",
     )
-    return environment, agent, training_schedule, logger
+    test_logger = logging.WandbLogger(
+        args.project_name, args.run_name, logger_name="test",
+    )
+    return (
+        environment,
+        agent,
+        training_schedule,
+        testing_schedule,
+        train_logger,
+        test_logger,
+    )
 
 
 if __name__ == "__main__":
@@ -91,6 +130,7 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--agent-log-frequency", type=int, default=50)
     parser.add_argument("-t", "--training-steps", type=int, default=1000000)
     parser.add_argument("-r", "--random-seed", type=int, default=42)
+    parser.add_argument("--test-frequency", type=int, default=10)
     parser.add_argument("--replay-size", type=int, default=100000)
     parser.add_argument("--replay-compress", type=bool, default=False)
     parser.add_argument("--discount-rate", type=float, default=0.99)
@@ -105,5 +145,19 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--device", type=str, default="cpu")
     args = parser.parse_args()
-    environment, agent, training_schedule, logger = set_up_dqn_experiment(args)
-    run_single_agent_training(environment, agent, logger, training_schedule)
+    (
+        environment,
+        agent,
+        training_schedule,
+        testing_schedule,
+        train_logger,
+        test_logger,
+    ) = set_up_dqn_experiment(args)
+    run_single_agent_training(
+        environment,
+        agent,
+        training_schedule,
+        training_schedule,
+        train_logger,
+        test_logger,
+    )
