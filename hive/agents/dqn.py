@@ -3,9 +3,11 @@ import copy
 import numpy as np
 import torch
 
-from hive import replays
-from hive.utils import logging, schedule, utils
-from .agent import Agent
+from hive.replays import CircularReplayBuffer
+from hive.utils.logging import NullLogger
+from hive.utils.utils import create_folder
+from hive.utils.schedule import PeriodicSchedule, LinearSchedule, SwitchSchedule
+from hive.agents.agent import Agent
 
 
 class DQNAgent(Agent):
@@ -70,7 +72,7 @@ class DQNAgent(Agent):
             self._rng = np.random.default_rng(seed=42)
         self._replay_buffer = replay_buffer
         if replay_buffer is None:
-            self._replay_buffer = replays.CircularReplayBuffer(self._rng)
+            self._replay_buffer = CircularReplayBuffer(self._rng)
         self._discount_rate = discount_rate
         self._grad_clip = grad_clip
         self._target_net_soft_update = target_net_soft_update
@@ -80,20 +82,18 @@ class DQNAgent(Agent):
         self._batch_size = batch_size
         self._logger = logger
         if self._logger is None:
-            self._logger = logging.NullLogger()
+            self._logger = NullLogger()
 
         self._target_net_update_schedule = target_net_update_schedule
         if self._target_net_update_schedule is None:
-            self._target_net_update_schedule = schedule.PeriodicSchedule(
-                False, True, 10000
-            )
+            self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
         self._epsilon_schedule = epsilon_schedule
         if self._epsilon_schedule is None:
-            self._epsilon_schedule = schedule.LinearSchedule(1, 0.1, 100000)
+            self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
 
         self._learn_schedule = learn_schedule
         if self._learn_schedule is None:
-            self._learn_schedule = schedule.SwitchSchedule(False, True, 5000)
+            self._learn_schedule = SwitchSchedule(False, True, 5000)
 
     def train(self):
         """Changes the agent to training mode."""
@@ -221,7 +221,7 @@ class DQNAgent(Agent):
             os.path.join(dname, "agent.pt"),
         )
         replay_dir = os.path.join(dname, "replay")
-        utils.create_folder(replay_dir)
+        create_folder(replay_dir)
         self._replay_buffer.save(replay_dir)
 
     def load(self, dname):

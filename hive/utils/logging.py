@@ -1,6 +1,6 @@
 import abc
 import wandb
-from . import schedule
+from hive.utils.schedule import ConstantSchedule
 
 
 class Logger(abc.ABC):
@@ -79,7 +79,7 @@ class NullLogger(ScheduledLogger):
     """
 
     def __init__():
-        super().__init__(schedule.ConstantSchedule(False))
+        super().__init__(ConstantSchedule(False))
 
     def log_scalar(self, name, value):
         pass

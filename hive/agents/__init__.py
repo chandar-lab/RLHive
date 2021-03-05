@@ -1,2 +1,2 @@
-from .dqn import DQNAgent
+from hive.agents.dqn import DQNAgent
 
