@@ -92,6 +92,10 @@ class DQNAgent(Agent):
         if self._learn_schedule is None:
             self._learn_schedule = SwitchSchedule(False, True, 5000)
 
+        self._state = {
+            'episode_start': True
+        }
+
     def train(self):
         """Changes the agent to training mode."""
         super().train()
@@ -122,12 +126,16 @@ class DQNAgent(Agent):
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
+        observation = torch.tensor(observation).to(self._device).float()
+        qvals = self._qnet(observation).cpu()
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._env_spec.act_dim)
         else:
-            observation = torch.tensor(observation).to(self._device).float()
-            qvals = self._qnet(observation).cpu()
             action = torch.argmax(qvals).numpy()
+        
+        if self._logger.should_log() and self._state['episode_start']:
+            self._logger.log_scalar("train_qval" if self._training else "test_qval", torch.max(qvals))
+            self._state['episode_start'] = False
         return action
 
     def update(self, update_info):
@@ -151,6 +159,9 @@ class DQNAgent(Agent):
             )
         )
 
+        if update_info['done']:
+            self._state['episode_start'] = True
+        
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
