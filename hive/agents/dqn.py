@@ -28,7 +28,7 @@ class DQNAgent(Agent):
         target_net_update_schedule=None,
         epsilon_schedule=None,
         learn_schedule=None,
-        rng=None,
+        seed=42,
         batch_size=32,
         device="cpu",
         logger=None,
@@ -56,7 +56,7 @@ class DQNAgent(Agent):
                 the course of training.
             learn_schedule: Schedule determining when the learning process actually
                 starts.
-            rng: numpy random number generator.
+            seed: Seed for numpy random number generator.
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
             device: Device on which all computations should be run.
@@ -67,12 +67,10 @@ class DQNAgent(Agent):
         # Should this be a copy or should we implement a more standard func approximator copy
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         self._optimizer = optimizer(self._qnet.parameters())
-        self._rng = rng
-        if self._rng is None:
-            self._rng = np.random.default_rng(seed=42)
+        self._rng = np.random.default_rng(seed=seed)
         self._replay_buffer = replay_buffer
         if replay_buffer is None:
-            self._replay_buffer = CircularReplayBuffer(self._rng)
+            self._replay_buffer = CircularReplayBuffer(np.random.default_rng(seed=seed))
         self._discount_rate = discount_rate
         self._grad_clip = grad_clip
         self._target_net_soft_update = target_net_soft_update

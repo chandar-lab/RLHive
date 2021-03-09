@@ -48,13 +48,14 @@ def set_up_dqn_experiment(args):
         ),
         logger_name="agent",
     )
-    rng = np.random.default_rng(seed=args.random_seed)
     agent = agents.DQNAgent(
         qnet=qnets.SimpleMLP(env_spec),
         env_spec=env_spec,
         optimizer=torch.optim.Adam,
         replay_buffer=replays.CircularReplayBuffer(
-            rng, size=args.replay_size, compress=args.replay_compress
+            np.random.default_rng(args.random_seed),
+            size=args.replay_size,
+            compress=args.replay_compress,
         ),
         discount_rate=args.discount_rate,
         grad_clip=args.grad_clip,
@@ -67,7 +68,7 @@ def set_up_dqn_experiment(args):
             args.epsilon_start, args.epsilon_end, args.epsilon_steps
         ),
         learn_schedule=schedule.SwitchSchedule(False, True, args.learn_start),
-        rng=rng,
+        seed=args.random_seed,
         batch_size=args.batch_size,
         device=args.device,
         logger=agent_logger,
