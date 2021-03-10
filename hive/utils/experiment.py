@@ -24,25 +24,33 @@ class Experiment(object):
         self._config = None
         self._logger = None
         self._train_statistics = None
-        self._agent = None
+        self._agents = None
         self._environment = None
 
-    def register_experiment(self, config=None, logger=None, train_statistics=None, 
-        agent=None, environment=None):
+    def register_experiment(
+        self,
+        config=None,
+        logger=None,
+        train_statistics=None,
+        agents=None,
+        environment=None,
+    ):
         """Registers all the components of an experiment.
 
         Args:
             config: a config dictionary.
             logger: a logger object.
             train_statistics: a train_statistics dictionary.
-            agent: an agent object.
+            agents: either an agent object or a list of agents.
             environment: an environment object.
         """
 
         self._config = config
         self._logger = logger
         self._train_statistics = train_statistics
-        self._agent = agent
+        if agents is not None and not isinstance(agents, list):
+            agents = [agents]
+        self._agents = agents
         self._environment = environment
 
     def save(self, tag="current"):
@@ -72,8 +80,11 @@ class Experiment(object):
             file_name = os.path.join(save_dir, "train_statistics.p")
             self._train_statistics.save(file_name)
 
-        if self._agent is not None:
-            self._agent.save(save_dir)
+        if self._agents is not None:
+            for idx, agent in enumerate(self._agents):
+                agent_dir = os.path.join(save_dir, f"agent_{idx}")
+                create_folder(agent_dir)
+                agent.save(agent_dir)
 
         if self._environment is not None:
             file_name = os.path.join(save_dir, "environment.p")
@@ -124,7 +135,9 @@ class Experiment(object):
                 self._train_statistics.load(file_name)
 
             if self._agent is not None:
-                self._agent.load(save_dir)
+                for idx, agent in enumerate(self._agents):
+                    agent_dir = os.path.join(save_dir, f"agent_{idx}")
+                    agent.load(agent_dir)
 
             if self._environment is not None:
                 file_name = os.path.join(save_dir, "environment.p")
