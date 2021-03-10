@@ -27,7 +27,7 @@ def run_single_agent_training(
                 "cumulative_reward": 0,
                 "episode_length": 0,
             }
-            if testing_schedule.update():
+            while testing_schedule.update():
                 # Run the testing loop for one episode
                 agent.eval()
                 done = False
@@ -107,7 +107,9 @@ def set_up_dqn_experiment(args):
         logger=agent_logger,
     )
     training_schedule = schedule.SwitchSchedule(True, False, args.training_steps)
-    testing_schedule = schedule.PeriodicSchedule(False, True, args.test_frequency)
+    testing_schedule = schedule.DoublePeriodicSchedule(
+        False, True, args.test_frequency, args.num_test_episodes
+    )
 
     train_logger = logging.get_logger(
         args.logger_type,
@@ -144,6 +146,7 @@ if __name__ == "__main__":
     parser.add_argument("--logger-offline", action="store_true")
     parser.add_argument("--logger-type", default="wandb", choices=["wandb", "null"])
     parser.add_argument("--test-frequency", type=int, default=10)
+    parser.add_argument("--num-test-episodes", type=int, default=1)
     parser.add_argument("--replay-size", type=int, default=100000)
     parser.add_argument("--replay-compress", type=bool, default=False)
     parser.add_argument("--discount-rate", type=float, default=0.99)
