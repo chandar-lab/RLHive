@@ -92,9 +92,7 @@ class DQNAgent(Agent):
         if self._learn_schedule is None:
             self._learn_schedule = SwitchSchedule(False, True, 5000)
 
-        self._state = {
-            'episode_start': True
-        }
+        self._state = {"episode_start": True}
 
     def train(self):
         """Changes the agent to training mode."""
@@ -132,10 +130,12 @@ class DQNAgent(Agent):
             action = self._rng.integers(self._env_spec.act_dim)
         else:
             action = torch.argmax(qvals).numpy()
-        
-        if self._logger.should_log() and self._state['episode_start']:
-            self._logger.log_scalar("train_qval" if self._training else "test_qval", torch.max(qvals))
-            self._state['episode_start'] = False
+
+        if self._logger.should_log() and self._state["episode_start"]:
+            self._logger.log_scalar(
+                "train_qval" if self._training else "test_qval", torch.max(qvals)
+            )
+            self._state["episode_start"] = False
         return action
 
     def update(self, update_info):
@@ -147,21 +147,21 @@ class DQNAgent(Agent):
             update the agent. Should contain a full transition, with keys for
             "observation", "action", "reward", "next_observation", and "done".
         """
+        if update_info["done"]:
+            self._state["episode_start"] = True
 
         # Add the most recent transition to the replay buffer.
-        self._replay_buffer.add(
-            (
-                update_info["observation"],
-                update_info["action"],
-                update_info["reward"],
-                update_info["next_observation"],
-                update_info["done"],
+        if self._training:
+            self._replay_buffer.add(
+                (
+                    update_info["observation"],
+                    update_info["action"],
+                    update_info["reward"],
+                    update_info["next_observation"],
+                    update_info["done"],
+                )
             )
-        )
 
-        if update_info['done']:
-            self._state['episode_start'] = True
-        
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
@@ -189,18 +189,19 @@ class DQNAgent(Agent):
                 self._logger.log_scalar(
                     "train_loss" if self._training else "test_loss", loss
                 )
-            loss.backward()
-            if self._grad_clip is not None:
-                torch.nn.utils.clip_grad_value_(
-                    self._qnet.parameters(), self._grad_clip
-                )
-            self._optimizer.step()
+            if self._training:
+                loss.backward()
+                if self._grad_clip is not None:
+                    torch.nn.utils.clip_grad_value_(
+                        self._qnet.parameters(), self._grad_clip
+                    )
+                self._optimizer.step()
 
         except IndexError:
             pass
 
         # Update target network
-        if self._target_net_update_schedule.update():
+        if self._training and self._target_net_update_schedule.update():
             self._update_target()
 
     def _update_target(self):
