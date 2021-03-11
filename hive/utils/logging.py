@@ -79,7 +79,7 @@ class NullLogger(ScheduledLogger):
     framework that ask for a logger.
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         super().__init__(ConstantSchedule(False))
 
     def log_scalar(self, name, value):
@@ -105,7 +105,13 @@ class WandbLogger(ScheduledLogger):
     """
 
     def __init__(
-        self, project_name, run_name, logger_schedule=None, logger_name="wandb",
+        self,
+        project_name,
+        run_name,
+        logger_schedule=None,
+        logger_name="wandb",
+        offline=False,
+        **kwargs,
     ):
         """Constructor for the WandbLogger.
         
@@ -144,3 +150,18 @@ class WandbLogger(ScheduledLogger):
 
     def load(self, dir_name):
         pass
+
+
+def get_logger(name, **kwargs):
+    """Function to create logger based on logger name.
+
+    Args:
+        name (str): Type of logger to be created.
+        kwargs: All of the arguments needed to create the logger in a dictionary. Can 
+            contain additional arguments that will be ignored. Note, every logger class
+            added to this function must have a **kwargs argument in the constructor.
+    """
+    if name == "null":
+        return NullLogger(**kwargs)
+    elif name == "wandb":
+        return WandbLogger(**kwargs)

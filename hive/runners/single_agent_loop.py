@@ -71,13 +71,15 @@ def run_one_step(environment, agent, observation, episode_metrics):
 def set_up_dqn_experiment(args):
     environment = envs.GymEnv(args.environment)
     env_spec = environment.env_spec
-    agent_logger = logging.WandbLogger(
-        args.project_name,
-        args.run_name,
+    agent_logger = logging.get_logger(
+        args.logger_type,
+        project_name=args.project_name,
+        run_name=args.run_name,
         logger_schedule=schedule.PeriodicSchedule(
             False, True, args.agent_log_frequency
         ),
         logger_name="agent",
+        offline=args.logger_offline,
     )
     agent = agents.DQNAgent(
         qnet=qnets.SimpleMLP(env_spec),
@@ -108,11 +110,20 @@ def set_up_dqn_experiment(args):
     testing_schedule = schedule.DoublePeriodicSchedule(
         False, True, args.test_frequency, args.num_test_episodes
     )
-    train_logger = logging.WandbLogger(
-        args.project_name, args.run_name, logger_name="train",
+
+    train_logger = logging.get_logger(
+        args.logger_type,
+        project_name=args.project_name,
+        run_name=args.run_name,
+        logger_name="train",
+        offline=args.logger_offline,
     )
-    test_logger = logging.WandbLogger(
-        args.project_name, args.run_name, logger_name="test",
+    test_logger = logging.get_logger(
+        args.logger_type,
+        project_name=args.project_name,
+        run_name=args.run_name,
+        logger_name="test",
+        offline=args.logger_offline,
     )
     return (
         environment,
@@ -132,6 +143,8 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--agent-log-frequency", type=int, default=50)
     parser.add_argument("-t", "--training-steps", type=int, default=1000000)
     parser.add_argument("-r", "--random-seed", type=int, default=42)
+    parser.add_argument("--logger-offline", action="store_true")
+    parser.add_argument("--logger-type", default="wandb", choices=["wandb", "null"])
     parser.add_argument("--test-frequency", type=int, default=10)
     parser.add_argument("--num-test-episodes", type=int, default=1)
     parser.add_argument("--replay-size", type=int, default=100000)
