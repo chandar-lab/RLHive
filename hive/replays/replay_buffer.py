@@ -90,7 +90,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         Adds data to the buffer
 
         Args:
-            data (tuple): (state, action, reward, next_state)
+            data (tuple): (observation, action, reward, next_observation, done)
         """
         self._write_index = (self._write_index + 1) % self._size
         self._n = int(min(self._size, self._n + 1))
@@ -146,7 +146,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
 
         for key in self._data:
             full_name = os.path.join(fname, "{}.npy".format(key))
-            with open(full_name, "w") as f:
+            with open(full_name, "wb") as f:
                 np.save(f, self._data[key])
 
     def load(self, fname):
@@ -169,5 +169,5 @@ class CircularReplayBuffer(BaseReplayBuffer):
 
         for key in self._data:
             full_name = os.path.join(fname, "{}.npy".format(key))
-            with open(full_name, "r") as f:
-                self._data[key] = np.load(f)
+            with open(full_name, "rb") as f:
+                self._data[key] = np.load(f, allow_pickle=True)
