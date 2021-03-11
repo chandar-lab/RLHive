@@ -9,7 +9,8 @@ class Schedule(abc.ABC):
 
     @abc.abstractmethod
     def update():
-        """Update the value of the variable we are tracking and return the updated value."""
+        """Update the value of the variable we are tracking and return the updated value. 
+        The first call to update will return the initial value of the schedule."""
         pass
 
 
@@ -30,7 +31,7 @@ class LinearSchedule(Schedule):
         steps = max(int(steps), 1)
         self._delta = (end_value - init_value) / steps
         self._end_value = end_value
-        self._value = init_value + self._delta
+        self._value = init_value - self._delta
 
     def get_value(self):
         return self._value
@@ -78,7 +79,7 @@ class SwitchSchedule(Schedule):
                 value to the on value.
         """
 
-        self._steps = 0
+        self._steps = -1
         self._flip_step = steps
         self._off_value = off_value
         self._on_value = on_value
@@ -90,12 +91,42 @@ class SwitchSchedule(Schedule):
             return self._on_value
 
     def update(self):
-        value = self.get_value()
         self._steps += 1
+        value = self.get_value()
         return value
 
 
-class PeriodicSchedule(Schedule):
+class DoublePeriodicSchedule(Schedule):
+    """Returns off value for off period, then switches to returning on value for on
+        period. Alternates between the two.
+    """
+
+    def __init__(self, off_value, on_value, off_period, on_period):
+        """
+        Args:
+            on_value: the value to be returned for the on period.
+            off_value: the value to be returned for the off period.
+            on_period (int): the number of steps in the on period.
+            off_period (int): the number of steps in the off period.
+        """
+        self._steps = -1
+        self._off_period = off_period
+        self._total_period = self._off_period + on_period
+        self._off_value = off_value
+        self._on_value = on_value
+
+    def get_value(self):
+        if (self._steps % self._total_period) < self._off_period:
+            return self._off_value
+        else:
+            return self._on_value
+
+    def update(self):
+        self._steps += 1
+        return self.get_value()
+
+
+class PeriodicSchedule(DoublePeriodicSchedule):
     """Returns one value on the first step of each period of a predefined number of
         steps. Returns another value otherwise.
     """
@@ -107,17 +138,4 @@ class PeriodicSchedule(Schedule):
             off_value: the value to be returned for every other step in the period.
             period (int): the number of steps in the period.
         """
-        self._steps = 0
-        self._period = period
-        self._off_value = off_value
-        self._on_value = on_value
-
-    def get_value(self):
-        if (self._steps % self._period) == 0:
-            return self._on_value
-        else:
-            return self._off_value
-
-    def update(self):
-        self._steps += 1
-        return self.get_value()
+        super().__init__(off_value, on_value, period - 1, 1)

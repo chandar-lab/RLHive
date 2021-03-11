@@ -66,6 +66,7 @@ class ScheduledLogger(Logger):
 
     def update_step(self):
         self._logger_schedule.update()
+        return self.should_log()
 
     def should_log(self):
         return self._logger_schedule.get_value()
@@ -78,7 +79,7 @@ class NullLogger(ScheduledLogger):
     framework that ask for a logger.
     """
 
-    def __init__():
+    def __init__(self):
         super().__init__(ConstantSchedule(False))
 
     def log_scalar(self, name, value):
@@ -87,10 +88,10 @@ class NullLogger(ScheduledLogger):
     def log_metrics(self, metrics):
         pass
 
-    def save(dir_name):
+    def save(self, dir_name):
         pass
 
-    def load(dir_name):
+    def load(self, dir_name):
         pass
 
 
@@ -103,7 +104,9 @@ class WandbLogger(ScheduledLogger):
     have the same project and run names.
     """
 
-    def __init__(self, project_name, run_name, logger_schedule, logger_name="wandb"):
+    def __init__(
+        self, project_name, run_name, logger_schedule=None, logger_name="wandb",
+    ):
         """Constructor for the WandbLogger.
         
         Args:
@@ -114,24 +117,30 @@ class WandbLogger(ScheduledLogger):
             logger_name (str): Used to differentiate between different loggers/timescales
                 in the same run.
         """
+        if logger_schedule is None:
+            logger_schedule = ConstantSchedule(True)
         super().__init__(logger_schedule)
+        self._logger_name = logger_name
         self._step = 0
         self._step_name = f"{logger_name}_step"
         wandb.init(project=project_name, name=run_name)
 
     def update_step(self):
-        super().update_step()
         self._step += 1
+        return super().update_step()
 
     def log_scalar(self, name, value):
-        wandb.log({name: value, self._step_name: self._step})
+        wandb.log({f"{self._logger_name}_{name}": value, self._step_name: self._step})
 
     def log_metrics(self, metrics):
+        metrics = {
+            f"{self._logger_name}_{name}": value for (name, value) in metrics.items()
+        }
         metrics[self._step_name] = self._step
         wandb.log(metrics)
 
-    def save(dir_name):
+    def save(self, dir_name):
         pass
 
-    def load(dir_name):
+    def load(self, dir_name):
         pass
