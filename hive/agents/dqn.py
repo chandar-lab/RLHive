@@ -20,6 +20,7 @@ class DQNAgent(Agent):
         qnet,
         env_spec,
         optimizer,
+        id=0,
         replay_buffer=None,
         discount_rate=0.99,
         grad_clip=None,
@@ -32,6 +33,7 @@ class DQNAgent(Agent):
         batch_size=32,
         device="cpu",
         logger=None,
+        log_frequency=100,
     ):
         """
         Args:
@@ -80,7 +82,10 @@ class DQNAgent(Agent):
         self._logger = logger
         if self._logger is None:
             self._logger = NullLogger()
-
+        self._timescale = f"dqn_agent_{id}"
+        self._logger.register_timescale(
+            self._timescale, PeriodicSchedule(False, True, log_frequency)
+        )
         self._target_net_update_schedule = target_net_update_schedule
         if self._target_net_update_schedule is None:
             self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
@@ -117,8 +122,8 @@ class DQNAgent(Agent):
                 epsilon = 1.0
             else:
                 epsilon = self._epsilon_schedule.update()
-            if self._logger.update_step():
-                self._logger.log_scalar("epsilon", epsilon)
+            if self._logger.update_step(self._timescale):
+                self._logger.log_scalar("epsilon", epsilon, self._timescale)
         else:
             epsilon = 0
 
@@ -131,9 +136,11 @@ class DQNAgent(Agent):
         else:
             action = torch.argmax(qvals).numpy()
 
-        if self._logger.should_log() and self._state["episode_start"]:
+        if self._logger.should_log(self._timescale) and self._state["episode_start"]:
             self._logger.log_scalar(
-                "train_qval" if self._training else "test_qval", torch.max(qvals)
+                "train_qval" if self._training else "test_qval",
+                torch.max(qvals),
+                self._timescale,
             )
             self._state["episode_start"] = False
         return action
@@ -185,9 +192,11 @@ class DQNAgent(Agent):
             )
 
             loss = self._loss_fn(pred_qvals, q_targets)
-            if self._logger.should_log():
+            if self._logger.should_log(self._timescale):
                 self._logger.log_scalar(
-                    "train_loss" if self._training else "test_loss", loss
+                    "train_loss" if self._training else "test_loss",
+                    loss,
+                    self._timescale,
                 )
             if self._training:
                 loss.backward()
@@ -226,7 +235,7 @@ class DQNAgent(Agent):
                 "learn_schedule": self._learn_schedule,
                 "epsilon_schedule": self._epsilon_schedule,
                 "target_net_update_schedule": self._target_net_update_schedule,
-                "rng": rng,
+                "rng": self._rng,
             },
             os.path.join(dname, "agent.pt"),
         )

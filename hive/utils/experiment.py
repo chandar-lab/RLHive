@@ -9,7 +9,7 @@ from hive.utils.utils import create_folder
 class Experiment(object):
     """Implementation of a simple experiment class."""
 
-    def __init__(self, name, dir_name):
+    def __init__(self, name, dir_name, schedule):
         """Initializes an experiment object.
 
         Args:
@@ -18,7 +18,9 @@ class Experiment(object):
         """
 
         self._name = name
-        self._dir_name = dir_name
+        self._dir_name = os.path.join(dir_name, name)
+        self._schedule = schedule
+        self._step = 0
         create_folder(self._dir_name)
 
         self._config = None
@@ -53,6 +55,13 @@ class Experiment(object):
         self._agents = agents
         self._environment = environment
 
+    def update_step(self):
+        self._step += 1
+        return self._schedule.update()
+
+    def should_save(self):
+        return self._schedule.get_value()
+
     def save(self, tag="current"):
         """Saves the experiment.
         Args:
@@ -73,8 +82,9 @@ class Experiment(object):
             self._config.save(file_name)
 
         if self._logger is not None:
-            file_name = os.path.join(save_dir, "logger")
-            self._logger.save(file_name)
+            folder_name = os.path.join(save_dir, "logger")
+            create_folder(folder_name)
+            self._logger.save(folder_name)
 
         if self._train_statistics is not None:
             file_name = os.path.join(save_dir, "train_statistics.p")

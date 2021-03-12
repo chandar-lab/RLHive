@@ -3,11 +3,11 @@ import numpy as np
 import torch
 from hive import agents, envs, replays
 from hive.agents import qnets
-from hive.utils import logging, schedule
+from hive.utils import logging, schedule, utils, experiment
 
 
 def run_single_agent_training(
-    environment, agent, training_schedule, testing_schedule, train_logger, test_logger
+    environment, agent, training_schedule, testing_schedule, logger, experiment_manager,
 ):
     agent.train()
     episode_metrics = {
@@ -21,8 +21,8 @@ def run_single_agent_training(
         )
 
         if done:
-            if train_logger.update_step():
-                train_logger.log_metrics(episode_metrics)
+            if logger.update_step("train_episodes"):
+                logger.log_metrics(episode_metrics, "train_episodes")
             episode_metrics = {
                 "cumulative_reward": 0,
                 "episode_length": 0,
@@ -37,8 +37,8 @@ def run_single_agent_training(
                         environment, agent, observation, episode_metrics
                     )
 
-                if test_logger.update_step():
-                    test_logger.log_metrics(episode_metrics)
+                if logger.update_step("test_episodes"):
+                    logger.log_metrics(episode_metrics, "test_episodes")
 
                 # Reset the agent for training
                 agent.train()
@@ -47,6 +47,8 @@ def run_single_agent_training(
                     "episode_length": 0,
                 }
             observation, _ = environment.reset()
+        if experiment_manager.update_step():
+            experiment_manager.save()
 
 
 def run_one_step(environment, agent, observation, episode_metrics):
@@ -71,15 +73,22 @@ def run_one_step(environment, agent, observation, episode_metrics):
 def set_up_dqn_experiment(args):
     environment = envs.GymEnv(args.environment)
     env_spec = environment.env_spec
-    agent_logger = logging.get_logger(
+    external_logger = logging.get_logger(
         args.logger_type,
         project_name=args.project_name,
         run_name=args.run_name,
-        logger_schedule=schedule.PeriodicSchedule(
-            False, True, args.agent_log_frequency
-        ),
-        logger_name="agent",
+        timescales=["train_episodes", "test_episodes"],
+        logger_schedules={
+            "agent": schedule.PeriodicSchedule(False, True, args.agent_log_frequency),
+        },
         offline=args.logger_offline,
+    )
+    chomp_logger = logging.get_logger(
+        "chomp", timescales=["train_episodes", "test_episodes"],
+    )
+    logger = logging.CompositeLogger(
+        timescales=["train_episodes", "test_episodes", "agent"],
+        logger_list=[external_logger, chomp_logger],
     )
     agent = agents.DQNAgent(
         qnet=qnets.SimpleMLP(env_spec),
@@ -104,34 +113,31 @@ def set_up_dqn_experiment(args):
         seed=args.random_seed,
         batch_size=args.batch_size,
         device=args.device,
-        logger=agent_logger,
+        logger=logger,
+        log_frequency=args.agent_log_frequency,
     )
     training_schedule = schedule.SwitchSchedule(True, False, args.training_steps)
     testing_schedule = schedule.DoublePeriodicSchedule(
         False, True, args.test_frequency, args.num_test_episodes
     )
+    saving_schedule = schedule.PeriodicSchedule(False, True, args.save_freq)
+    saving_schedule.update()  # Don't save on first step
+    config = utils.Chomp()
+    config.add_from_dict(vars(args))
+    experiment_manager = experiment.Experiment(
+        args.run_name, args.save_dir, saving_schedule
+    )
+    experiment_manager.register_experiment(
+        config=config, agents=agent, logger=chomp_logger,
+    )
 
-    train_logger = logging.get_logger(
-        args.logger_type,
-        project_name=args.project_name,
-        run_name=args.run_name,
-        logger_name="train",
-        offline=args.logger_offline,
-    )
-    test_logger = logging.get_logger(
-        args.logger_type,
-        project_name=args.project_name,
-        run_name=args.run_name,
-        logger_name="test",
-        offline=args.logger_offline,
-    )
     return (
         environment,
         agent,
         training_schedule,
         testing_schedule,
-        train_logger,
-        test_logger,
+        logger,
+        experiment_manager,
     )
 
 
@@ -143,6 +149,8 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--agent-log-frequency", type=int, default=50)
     parser.add_argument("-t", "--training-steps", type=int, default=1000000)
     parser.add_argument("-r", "--random-seed", type=int, default=42)
+    parser.add_argument("--save-dir", default="./experiment")
+    parser.add_argument("--save-freq", type=int, default=100000)
     parser.add_argument("--logger-offline", action="store_true")
     parser.add_argument("--logger-type", default="wandb", choices=["wandb", "null"])
     parser.add_argument("--test-frequency", type=int, default=10)
@@ -166,14 +174,15 @@ if __name__ == "__main__":
         agent,
         training_schedule,
         testing_schedule,
-        train_logger,
-        test_logger,
+        logger,
+        experiment_manager,
     ) = set_up_dqn_experiment(args)
     run_single_agent_training(
         environment,
         agent,
         training_schedule,
-        training_schedule,
-        train_logger,
-        test_logger,
+        testing_schedule,
+        logger,
+        experiment_manager,
     )
+
