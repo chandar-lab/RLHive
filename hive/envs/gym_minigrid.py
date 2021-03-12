@@ -3,6 +3,7 @@ from gym_minigrid.wrappers import FullyObsWrapper, OneHotPartialObsWrapper, \
      FlatObsWrapper, ImgObsWrapper
 
 from hive.envs.gym_env import GymEnv
+from hive.envs.env_spec import EnvSpec
 
 
 class GymMiniGridEnv(GymEnv):
@@ -42,6 +43,10 @@ class GymMiniGridEnv(GymEnv):
         if image_observation:
             self._env = ImgObsWrapper(self._env)
 
+        self.env_spec = EnvSpec(env_name=env_name,
+                                obs_dim=self._env.observation_space.shape,
+                                act_dim=self._env.action_space.n)
+        
 
     def render(self, mode='rgb_array'):
         #TODO 
