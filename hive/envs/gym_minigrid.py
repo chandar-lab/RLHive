@@ -15,7 +15,7 @@ class GymMiniGridEnv(GymEnv):
         self, 
         env_name,
         fully_observable=True,
-        one_hot_partial_observable=True,
+        one_hot_partial_observable=False,
         flatten_observation=True,
         image_observation=False
     ):
