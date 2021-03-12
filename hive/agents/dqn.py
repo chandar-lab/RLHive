@@ -245,9 +245,9 @@ class DQNAgent(Agent):
 
     def load(self, dname):
         checkpoint = torch.load(os.path.join(dname, "agent.pt"))
-        self._qnet = checkpoint["qnet"]
-        self._target_qnet = checkpoint["target_qnet"]
-        self._optimizer = checkpoint["optimizer"]
+        self._qnet.load_state_dict(checkpoint["qnet"])
+        self._target_qnet.load_state_dict(checkpoint["target_qnet"])
+        self._optimizer.load_state_dict(checkpoint["optimizer"])
         self._learn_schedule = checkpoint["learn_schedule"]
         self._epsilon_schedule = checkpoint["epsilon_schedule"]
         self._target_net_update_schedule = checkpoint["target_net_update_schedule"]

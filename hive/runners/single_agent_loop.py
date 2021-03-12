@@ -49,6 +49,7 @@ def run_single_agent_training(
             observation, _ = environment.reset()
         if experiment_manager.update_step():
             experiment_manager.save()
+    experiment_manager.save()
 
 
 def run_one_step(environment, agent, observation, episode_metrics):
@@ -124,12 +125,20 @@ def set_up_dqn_experiment(args):
     saving_schedule.update()  # Don't save on first step
     config = utils.Chomp()
     config.add_from_dict(vars(args))
+    config.training_schedule = training_schedule
+    config.testing_schedule = testing_schedule
+    config.saving_schedule = saving_schedule
     experiment_manager = experiment.Experiment(
         args.run_name, args.save_dir, saving_schedule
     )
     experiment_manager.register_experiment(
-        config=config, agents=agent, logger=chomp_logger,
+        config=config, agents=agent, logger=logger,
     )
+    if args.resume:
+        experiment_manager.resume()
+        training_schedule = config.training_schedule
+        testing_schedule = config.testing_schedule
+        saving_schedule = config.saving_schedule
 
     return (
         environment,
@@ -143,7 +152,7 @@ def set_up_dqn_experiment(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-e", "--environment", default="CartPole-v1")
+    parser.add_argument("-e", "--environment", default="CartPole-v0")
     parser.add_argument("-p", "--project-name", default="Hive-v1")
     parser.add_argument("-n", "--run-name", default="test-run")
     parser.add_argument("-l", "--agent-log-frequency", type=int, default=50)
@@ -151,6 +160,7 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--random-seed", type=int, default=42)
     parser.add_argument("--save-dir", default="./experiment")
     parser.add_argument("--save-freq", type=int, default=100000)
+    parser.add_argument("--resume", action="store_true")
     parser.add_argument("--logger-offline", action="store_true")
     parser.add_argument("--logger-type", default="wandb", choices=["wandb", "null"])
     parser.add_argument("--test-frequency", type=int, default=10)

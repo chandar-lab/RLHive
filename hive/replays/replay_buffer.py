@@ -170,4 +170,4 @@ class CircularReplayBuffer(BaseReplayBuffer):
         for key in self._data:
             full_name = os.path.join(fname, "{}.npy".format(key))
             with open(full_name, "rb") as f:
-                self._data[key] = np.load(f)
+                self._data[key] = np.load(f, allow_pickle=True)

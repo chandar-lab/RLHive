@@ -113,6 +113,20 @@ class ScheduledLogger(Logger):
     def should_log(self, timescale):
         return self._logger_schedules[timescale].get_value()
 
+    def save(self, dir_name):
+        logger_state = Chomp()
+        logger_state.timescales = self._timescales
+        logger_state.schedules = self._logger_schedules
+        logger_state.steps = self._steps
+        logger_state.save(os.path.join(dir_name, "logger_state.p"))
+
+    def load(self, dir_name):
+        logger_state = Chomp()
+        logger_state.load(os.path.join(dir_name, "logger_state.p"))
+        self._timescales = logger_state.timescales
+        self._logger_schedules = logger_state.schedules
+        self._steps = logger_state.steps
+
 
 class NullLogger(ScheduledLogger):
     """A null logger that does not log anything. 
@@ -188,12 +202,6 @@ class WandbLogger(ScheduledLogger):
         )
         wandb.log(metrics)
 
-    def save(self, dir_name):
-        pass
-
-    def load(self, dir_name):
-        pass
-
 
 class ChompLogger(ScheduledLogger):
     def __init__(self, timescales, logger_schedules=None):
@@ -220,10 +228,12 @@ class ChompLogger(ScheduledLogger):
             )
 
     def save(self, dir_name):
-        self._log_data.save(os.path.join(dir_name, "chomp_logger.pkl"))
+        super().save(dir_name)
+        self._log_data.save(os.path.join(dir_name, "log_data.p"))
 
     def load(self, dir_name):
-        self._log_data.load(os.path.join(dir_name, "chomp_logger.pkl"))
+        super().load(dir_name)
+        self._log_data.load(os.path.join(dir_name, "log_data.p"))
 
 
 class CompositeLogger(Logger):

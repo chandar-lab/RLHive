@@ -137,14 +137,14 @@ class Experiment(object):
                 self._config.load(file_name)
 
             if self._logger is not None:
-                file_name = os.path.join(save_dir, "logger")
-                self._logger.load(file_name)
+                folder_name = os.path.join(save_dir, "logger")
+                self._logger.load(folder_name)
 
             if self._train_statistics is not None:
                 file_name = os.path.join(save_dir, "train_statistics.p")
                 self._train_statistics.load(file_name)
 
-            if self._agent is not None:
+            if self._agents is not None:
                 for idx, agent in enumerate(self._agents):
                     agent_dir = os.path.join(save_dir, f"agent_{idx}")
                     agent.load(agent_dir)
