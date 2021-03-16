@@ -24,10 +24,9 @@ for i in range(400):
 
 def test_add_to_buffer():
     """
-    test adding a batch to the buffer
-    Args:
-            data:
+        test adding one transition to the buffer
     """
+
     observation, _ = environment.reset()
     action = rng.integers(environment._env_spec.act_dim)
     next_observation, reward, done, turn, info = environment.step(action)
