@@ -50,6 +50,8 @@ def test_sample_from_buffer(batch_size):
     assert batch["rewards"].shape == (batch_size,)
     assert batch["next_observations"].shape == (batch_size, 4)
     assert batch["done"].shape == (batch_size,)
+    batch = buffer.sample(batch_size=buffer.size())
+    assert batch["observations"].shape == (buffer.size(), 4)
 
 
 def test_saving_buffer(tmpdir):
