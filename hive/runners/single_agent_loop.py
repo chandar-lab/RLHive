@@ -1,10 +1,12 @@
 import argparse
+import copy
 import numpy as np
-import yaml
 import torch
+import yaml
+
 from hive import agents, envs, replays
 from hive.agents import qnets
-from hive.utils import logging, schedule, utils, experiment
+from hive.utils import experiment, logging, schedule, utils
 
 
 def run_single_agent_training(
@@ -88,7 +90,7 @@ def load_config(args):
 
 
 def set_up_experiment(config):
-
+    original_config = utils.Chomp(copy.deepcopy(config))
     environment = envs.get_env(config["environment"])
     env_spec = environment.env_spec
 
@@ -119,7 +121,7 @@ def set_up_experiment(config):
         config["run_name"], config["save_dir"], saving_schedule
     )
     experiment_manager.register_experiment(
-        config=utils.Chomp(config), logger=logger, experiment_state=state, agents=agent,
+        config=original_config, logger=logger, experiment_state=state, agents=agent,
     )
     if config.get("resume", False):
         experiment_manager.resume()
