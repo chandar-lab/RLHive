@@ -1,8 +1,9 @@
 import os
 import abc
+import copy
 import wandb
-from hive.utils.schedule import ConstantSchedule, Schedule
-from hive.utils.utils import Chomp, create_folder
+from hive.utils.schedule import ConstantSchedule, Schedule, get_schedule
+from hive.utils.utils import Chomp, create_folder, create_class_constructor
 
 
 class Logger(abc.ABC):
@@ -87,12 +88,19 @@ class ScheduledLogger(Logger):
             }
         elif isinstance(logger_schedules, Schedule):
             self._logger_schedules = {
-                timescale: logger_schedules for timescale in self._timescales
+                timescale: copy.deepcopy(logger_schedules)
+                for timescale in self._timescales
             }
         else:
             raise ValueError(
                 "logger_schedule must be a dict, list of Schedules, or Schedule object"
             )
+        for timescale, schedule in self._logger_schedules.items():
+            if isinstance(schedule, dict):
+                self._logger_schedules[timescale] = get_schedule(
+                    schedule["name"], schedule["kwargs"]
+                )
+
         for timescale in self._timescales:
             if timescale not in self._logger_schedules:
                 self._logger_schedules[timescale] = ConstantSchedule(True)
@@ -237,12 +245,14 @@ class ChompLogger(ScheduledLogger):
 
 
 class CompositeLogger(Logger):
-    def __init__(self, timescales, logger_list):
-        super().__init__(timescales)
+    def __init__(self, logger_list):
+        super().__init__([])
         self._logger_list = logger_list
+        for idx, logger in enumerate(self._logger_list):
+            if isinstance(logger, dict):
+                self._logger_list[idx] = get_logger(logger)
 
     def register_timescale(self, timescale, schedule=None):
-        super().register_timescale(timescale)
         for logger in self._logger_list:
             if isinstance(logger, ScheduledLogger):
                 logger.register_timescale(timescale, schedule)
@@ -283,18 +293,12 @@ class CompositeLogger(Logger):
             logger.load(load_dir)
 
 
-def get_logger(name, **kwargs):
-    """Function to create logger based on logger name.
-
-    Args:
-        name (str): Type of logger to be created.
-        kwargs: All of the arguments needed to create the logger in a dictionary. Can 
-            contain additional arguments that will be ignored. Note, every logger class
-            added to this function must have a **kwargs argument in the constructor.
-    """
-    if name == "null":
-        return NullLogger(**kwargs)
-    elif name == "wandb":
-        return WandbLogger(**kwargs)
-    elif name == "chomp":
-        return ChompLogger(**kwargs)
+get_logger = create_class_constructor(
+    Logger,
+    {
+        "NullLogger": NullLogger,
+        "WandbLogger": WandbLogger,
+        "ChompLogger": ChompLogger,
+        "CompositeLogger": CompositeLogger,
+    },
+)

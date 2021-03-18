@@ -3,11 +3,17 @@ import copy
 import numpy as np
 import torch
 
-from hive.replays import CircularReplayBuffer
-from hive.utils.logging import NullLogger
-from hive.utils.utils import create_folder
-from hive.utils.schedule import PeriodicSchedule, LinearSchedule, SwitchSchedule
+from hive.replays import CircularReplayBuffer, get_replay
+from hive.utils.logging import NullLogger, get_logger
+from hive.utils.utils import create_folder, get_optimizer_fn
+from hive.utils.schedule import (
+    PeriodicSchedule,
+    LinearSchedule,
+    SwitchSchedule,
+    get_schedule,
+)
 from hive.agents.agent import Agent
+from hive.agents.qnets import get_qnet
 
 
 class DQNAgent(Agent):
@@ -19,7 +25,7 @@ class DQNAgent(Agent):
         self,
         qnet,
         env_spec,
-        optimizer,
+        optimizer_fn=None,
         id=0,
         replay_buffer=None,
         discount_rate=0.99,
@@ -64,13 +70,18 @@ class DQNAgent(Agent):
             device: Device on which all computations should be run.
             logger: Logger used to log agent's metrics.
         """
-        self._qnet = qnet
-        self._env_spec = env_spec
+        if isinstance(qnet, dict):
+            qnet["kwargs"]["env_spec"] = env_spec
+        self._qnet = get_qnet(qnet)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
-        self._optimizer = optimizer(self._qnet.parameters())
+        self._env_spec = env_spec
+        optimizer_fn = get_optimizer_fn(optimizer_fn)
+        if optimizer_fn is None:
+            optimizer_fn = torch.optim.Adam
+        self._optimizer = optimizer_fn(self._qnet.parameters())
         self._rng = np.random.default_rng(seed=seed)
-        self._replay_buffer = replay_buffer
-        if replay_buffer is None:
+        self._replay_buffer = get_replay(replay_buffer)
+        if self._replay_buffer is None:
             self._replay_buffer = CircularReplayBuffer(np.random.default_rng(seed=seed))
         self._discount_rate = discount_rate
         self._grad_clip = grad_clip
@@ -79,21 +90,21 @@ class DQNAgent(Agent):
         self._device = torch.device(device)
         self._loss_fn = torch.nn.SmoothL1Loss()
         self._batch_size = batch_size
-        self._logger = logger
+        self._logger = get_logger(logger)
         if self._logger is None:
             self._logger = NullLogger()
         self._timescale = f"dqn_agent_{id}"
         self._logger.register_timescale(
             self._timescale, PeriodicSchedule(False, True, log_frequency)
         )
-        self._target_net_update_schedule = target_net_update_schedule
+        self._target_net_update_schedule = get_schedule(target_net_update_schedule)
         if self._target_net_update_schedule is None:
             self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
-        self._epsilon_schedule = epsilon_schedule
+        self._epsilon_schedule = get_schedule(epsilon_schedule)
         if self._epsilon_schedule is None:
             self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
 
-        self._learn_schedule = learn_schedule
+        self._learn_schedule = get_schedule(learn_schedule)
         if self._learn_schedule is None:
             self._learn_schedule = SwitchSchedule(False, True, 5000)
 

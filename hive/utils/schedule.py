@@ -1,4 +1,5 @@
 import abc
+from hive.utils.utils import create_class_constructor
 
 
 class Schedule(abc.ABC):
@@ -139,3 +140,15 @@ class PeriodicSchedule(DoublePeriodicSchedule):
             period (int): the number of steps in the period.
         """
         super().__init__(off_value, on_value, period - 1, 1)
+
+
+get_schedule = create_class_constructor(
+    Schedule,
+    {
+        "LinearSchedule": LinearSchedule,
+        "ConstantSchedule": ConstantSchedule,
+        "SwitchSchedule": SwitchSchedule,
+        "PeriodicSchedule": PeriodicSchedule,
+        "DoublePeriodicSchedule": DoublePeriodicSchedule,
+    },
+)
