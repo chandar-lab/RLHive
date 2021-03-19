@@ -97,10 +97,13 @@ def set_up_experiment(config):
     logger_config = config.get("loggers", None)
     if logger_config is None or len(logger_config) == 0:
         logger = logging.NullLogger()
-    elif len(logger_config) == 1:
-        logger = logging.get_logger(logger_config[0])
     else:
-        logger = logging.CompositeLogger(logger_config)
+        for logger in logger_config:
+            logger["kwargs"]["timescales"] = ["train_episodes", "test_episodes"]
+        if len(logger_config) == 1:
+            logger = logging.get_logger(logger_config[0])
+        else:
+            logger = logging.CompositeLogger(logger_config)
 
     config["agents"][0]["kwargs"]["env_spec"] = env_spec
     config["agents"][0]["kwargs"]["logger"] = logger

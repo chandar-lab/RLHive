@@ -73,16 +73,10 @@ agents:
 loggers:
   -
     name: ChompLogger
-    kwargs: 
-      timescales:
-        - 'train_episodes'
-        - 'test_episodes'
+    kwargs: {}
   -
     name: WandbLogger
     kwargs:
       project_name: Hive-v1
       run_name: *run_name
-      timescales:
-        - 'train_episodes'
-        - 'test_episodes'
       offline: False
