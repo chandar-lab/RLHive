@@ -86,6 +86,24 @@ class Chomp:
 
 
 def create_class_constructor(base_class, class_dict):
+    """Creates a constructor function for subclasses of base_class.
+    
+    The constructor function returned takes in either None, a object that is an 
+    instance of base_class, or a dictionary config. If the argument is None or an
+    instance of base_class, it is returned without modification. If it is a
+    dictionary, the config should have two keys: name and kwargs. The name 
+    parameter is used to lookup the correct class from class_dict and the object is
+    created using kwargs as parameters.
+
+    Args:
+        base_class (type|"callable"): If base_class is a type, it is used to verify
+            the type of the object passed to the constructor. If base_class is the
+            string "callable", the object passed to the constructor is simply checked
+            to see if it's callable.
+        class_dict: A dictionary of class names to callables that can be passed kwargs
+            to create the necessary objects.
+    """
+
     def constructor(object_or_config):
         if object_or_config is None:
             return None

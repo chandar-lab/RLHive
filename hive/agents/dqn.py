@@ -47,12 +47,15 @@ class DQNAgent(Agent):
                 for an input observation.
             env_spec: The specification of the environment the agent will be
                 running in.
-            optimizer: A function that takes in a list of parameters to optimize
+            optimizer_fn: A function that takes in a list of parameters to optimize
                 and returns the optimizer.
+            id: ID used to create the timescale in the logger for the agent.
             replay_buffer: The replay buffer that the agent will push observations
                 to and sample from during learning.
             discount_rate (float): A number between 0 and 1 specifying how much
                 future rewards are discounted by the agent.
+            grad_clip (float): Gradients will be clipped to between 
+                [-grad_clip, gradclip]
             target_net_soft_update (bool): Whether the target net parameters are 
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
@@ -69,6 +72,7 @@ class DQNAgent(Agent):
                 during learning.
             device: Device on which all computations should be run.
             logger: Logger used to log agent's metrics.
+            log_frequency (int): How often to log the agent's metrics.
         """
         if isinstance(qnet, dict):
             qnet["kwargs"]["env_spec"] = env_spec
