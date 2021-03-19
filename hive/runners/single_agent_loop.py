@@ -144,7 +144,7 @@ def set_up_experiment(config):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", default="./config.yaml")
+    parser.add_argument("-c", "--config", default="./config.yml")
     parser.add_argument("-a", "--agent-config")
     parser.add_argument("-e", "--env-config")
     parser.add_argument("-l", "--logger-config")
