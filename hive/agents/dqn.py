@@ -113,6 +113,7 @@ class DQNAgent(Agent):
             self._learn_schedule = SwitchSchedule(False, True, 5000)
 
         self._state = {"episode_start": True}
+        self._training = False
 
     def train(self):
         """Changes the agent to training mode."""
