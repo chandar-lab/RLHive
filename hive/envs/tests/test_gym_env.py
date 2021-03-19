@@ -26,11 +26,12 @@ def test_env_spec(env_name, mock_gym):
 def test_reset_func(env_name, mock_gym):
     hive_env = GymEnv(env_name)
     hive_observation, hive_turn = hive_env.reset()
-    
+
     assert isinstance(hive_observation, np.ndarray)
     assert isinstance(hive_turn, int)
     assert hive_turn == 0
     assert hive_observation.shape == hive_env.env_spec.obs_dim
+
 
 @pytest.mark.parametrize("env_name", test_environments)
 def test_step_func(env_name, mock_gym):
