@@ -24,11 +24,13 @@ jobs:
         echo $CONDA/bin >> $GITHUB_PATH && echo "CONDA=$CONDA" >> $GITHUB_ENV
         sudo chmod -R a+rw $CONDA/lib/python3.8/
     - name: Cache python environment
+      env:
+        cache_version: 2
       uses: actions/cache@v2
       with:
         # conda cache files are stored in `$CONDA/pkgs` on Linux/macOS
         path: ${{ env.CONDA }}/lib/python3.8/
-        key: ${{ runner.os }}-conda-${{ hashFiles('environment.yml') }}
+        key: ${{ runner.os }}-conda-v${{ env.cache_version }}-${{ hashFiles('environment.yml') }}
         restore-keys: |
           ${{ runner.os }}-conda-
           ${{ runner.os }}-
