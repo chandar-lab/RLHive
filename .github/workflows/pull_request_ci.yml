@@ -22,6 +22,7 @@ jobs:
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
         echo $CONDA/bin >> $GITHUB_PATH && echo "CONDA=$CONDA" >> $GITHUB_ENV
+        sudo chmod -R a+rw $CONDA/lib/python3.8/
     - name: Cache python environment
       uses: actions/cache@v2
       with:
