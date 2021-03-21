@@ -13,14 +13,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+
     - name: Set up Python 3.8
       uses: actions/setup-python@v2
       with:
         python-version: 3.8
+
     - name: Add conda to system path
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
         echo $CONDA/bin >> $GITHUB_PATH
+
     - name: Cache conda packages
       uses: actions/cache@v2
       with:
@@ -30,6 +33,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-conda-
           ${{ runner.os }}-
+
     - name: Cache pip
       uses: actions/cache@v2
       with:
@@ -40,9 +44,11 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-pip-
           ${{ runner.os }}-
+
     - name: Install dependencies
       run: |
         conda env update --file environment.yml --name base
+
     - name: Test with pytest
       run: |
         python -m pytest
