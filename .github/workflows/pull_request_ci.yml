@@ -21,8 +21,7 @@ jobs:
     - name: Add conda to system path
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
-        echo $CONDA/bin >> $GITHUB_PATH
-
+        echo $CONDA/bin >> $GITHUB_PATH && echo "CONDA=$CONDA" >> $GITHUB_ENV
     - name: Cache conda packages
       uses: actions/cache@v2
       with:
