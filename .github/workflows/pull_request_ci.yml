@@ -30,10 +30,10 @@ jobs:
       with:
         # conda cache files are stored in `$CONDA/pkgs` on Linux/macOS
         path: ${{ env.CONDA }}/lib/python3.8/
-        key: ${{ runner.os }}-conda-v${{ env.cache_version }}-${{ hashFiles('environment.yml') }}
+        key: v${{ env.cache_version }}-${{ runner.os }}-conda-${{ hashFiles('environment.yml') }}
         restore-keys: |
-          ${{ runner.os }}-conda-
-          ${{ runner.os }}-
+          v${{ env.cache_version }}-${{ runner.os }}-conda-
+          v${{ env.cache_version }}-${{ runner.os }}-
 
     - name: Install dependencies
       run: |
