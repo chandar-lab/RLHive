@@ -7,7 +7,7 @@ from hive import envs, replays
 
 @pytest.fixture()
 def initial_buffer():
-    environment = envs.GymEnv('CartPole-v1')
+    environment = envs.GymEnv("CartPole-v1")
     rng = np.random.default_rng(seed=100)
     buffer = replays.CircularReplayBuffer(rng, size=500, compress=True)
 
@@ -15,11 +15,7 @@ def initial_buffer():
     for i in range(400):
         action = rng.integers(environment._env_spec.act_dim)
         next_observation, reward, done, turn, info = environment.step(action)
-        buffer.add((observation,
-                    action,
-                    reward,
-                    next_observation,
-                    done))
+        buffer.add((observation, action, reward, next_observation, done))
         observation = next_observation
         if done:
             observation, _ = environment.reset()
@@ -27,7 +23,6 @@ def initial_buffer():
     return buffer, environment, rng
 
 
-@pytest.fixture()
 def test_add_to_buffer(initial_buffer):
     """
         test adding one transition to the buffer
@@ -36,11 +31,7 @@ def test_add_to_buffer(initial_buffer):
     observation, _ = environment.reset()
     action = rng.integers(environment._env_spec.act_dim)
     next_observation, reward, done, turn, info = environment.step(action)
-    buffer.add((observation,
-                action,
-                reward,
-                next_observation,
-                done))
+    buffer.add((observation, action, reward, next_observation, done))
     assert buffer.size() == 401
 
 
