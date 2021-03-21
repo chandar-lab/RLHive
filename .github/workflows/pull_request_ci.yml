@@ -25,7 +25,7 @@ jobs:
         sudo chmod -R a+rw $CONDA/lib/python3.8/
     - name: Cache python environment
       env:
-        cache_version: 2
+        cache_version: 3
       uses: actions/cache@v2
       with:
         # conda cache files are stored in `$CONDA/pkgs` on Linux/macOS
