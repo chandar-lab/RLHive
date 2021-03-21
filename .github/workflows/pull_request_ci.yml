@@ -44,5 +44,5 @@ jobs:
         python -m pytest
     - name: Update conda permissions
       run: |
-      sudo chmod -R a+rw $CONDA/lib/python3.8/
+        sudo chmod -R a+rw $CONDA/lib/python3.8/
 
