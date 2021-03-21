@@ -28,7 +28,7 @@ jobs:
       uses: actions/cache@v2
       with:
         # conda cache files are stored in `$CONDA/pkgs` on Linux/macOS
-        path: ${CONDA}/pkgs
+        path: ${{ env.CONDA }}/pkgs
         key: ${{ runner.os }}-conda-${{ hashFiles('environment.yml') }}
         restore-keys: |
           ${{ runner.os }}-conda-
