@@ -24,7 +24,6 @@ def initial_buffer():
     return buffer, environment, seed
 
 
-@pytest.fixture()
 def test_add_to_buffer(initial_buffer):
     """
         test adding one transition to the buffer
