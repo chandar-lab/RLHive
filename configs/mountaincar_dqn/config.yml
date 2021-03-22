@@ -86,3 +86,4 @@ loggers:
       project_name: Hive-v1
       run_name: *run_name
       offline: False
+
