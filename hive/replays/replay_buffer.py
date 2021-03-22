@@ -90,7 +90,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         Adds data to the buffer
 
         Args:
-            data (tuple): (state, action, reward, next_state)
+            data (tuple): (observation, action, reward, next_observation, done)
         """
         self._write_index = (self._write_index + 1) % self._size
         self._n = int(min(self._size, self._n + 1))
