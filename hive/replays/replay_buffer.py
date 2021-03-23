@@ -59,14 +59,14 @@ class CircularReplayBuffer(BaseReplayBuffer):
     """A simple circular replay buffers.
 
     Args:
-            numpy_rng (int): Container for a pseudo-random number generator.
             size (int): repaly buffer capacity
             compress (bool): if False, convert data to float32 otherwise keep it as int8.
+            seed (int): Seed for a pseudo-random number generator.
     """
 
-    def __init__(self, numpy_rng, size=1e5, compress=False):
+    def __init__(self, size=1e5, compress=False, seed=42):
 
-        self._numpy_rng = numpy_rng
+        self._numpy_rng = np.random.default_rng(seed)
         self._size = int(size)
         self._compress = compress
 

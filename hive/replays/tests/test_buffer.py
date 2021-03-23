@@ -8,8 +8,9 @@ from hive import envs, replays
 @pytest.fixture()
 def initial_buffer():
     environment = envs.GymEnv("CartPole-v1")
-    rng = np.random.default_rng(seed=100)
-    buffer = replays.CircularReplayBuffer(rng, size=500, compress=True)
+    seed = 100
+    rng = np.random.default_rng(seed)
+    buffer = replays.CircularReplayBuffer(size=500, compress=True, seed=seed)
 
     observation, _ = environment.reset()
     for i in range(400):
@@ -20,14 +21,15 @@ def initial_buffer():
         if done:
             observation, _ = environment.reset()
 
-    return buffer, environment, rng
+    return buffer, environment, seed
 
 
 def test_add_to_buffer(initial_buffer):
     """
         test adding one transition to the buffer
     """
-    buffer, environment, rng = initial_buffer
+    buffer, environment, seed = initial_buffer
+    rng = np.random.default_rng(seed)
     observation, _ = environment.reset()
     action = rng.integers(environment._env_spec.act_dim)
     next_observation, reward, done, turn, info = environment.step(action)
@@ -65,11 +67,11 @@ def test_loading_buffer(tmpdir, batch_size, initial_buffer):
     """
         test sampling a batch from the buffer
     """
-    buffer, environment, rng = initial_buffer
+    buffer, environment, seed = initial_buffer
     buffer.save(tmpdir / "saved_test_buffer")
     assert os.path.exists(tmpdir / "saved_test_buffer") is True
 
-    buffer_loaded = replays.CircularReplayBuffer(rng, size=500, compress=True)
+    buffer_loaded = replays.CircularReplayBuffer(size=500, compress=True, seed=seed)
     buffer_loaded.load(tmpdir / "saved_test_buffer")
     assert buffer.size() == 400
     batch = buffer_loaded.sample(batch_size)
