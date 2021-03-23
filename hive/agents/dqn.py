@@ -74,6 +74,7 @@ class DQNAgent(Agent):
             logger: Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
         """
+        super().__init__(id=f"dqn_agent_{id}")
         if isinstance(qnet, dict):
             qnet["kwargs"]["env_spec"] = env_spec
         self._qnet = get_qnet(qnet)
@@ -97,7 +98,7 @@ class DQNAgent(Agent):
         self._logger = get_logger(logger)
         if self._logger is None:
             self._logger = NullLogger()
-        self._timescale = f"dqn_agent_{id}"
+        self._timescale = self.id
         self._logger.register_timescale(
             self._timescale, PeriodicSchedule(False, True, log_frequency)
         )
