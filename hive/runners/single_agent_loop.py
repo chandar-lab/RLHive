@@ -72,7 +72,7 @@ def run_one_step(environment, agent, observation, episode_metrics):
 
 
 def set_up_dqn_experiment(args):
-    environment = envs.MiniGridSingleAgent(args.environment)
+    environment = envs.GymEnv(args.environment)
     env_spec = environment.env_spec
     external_logger = logging.get_logger(
         args.logger_type,
@@ -92,7 +92,7 @@ def set_up_dqn_experiment(args):
         logger_list=[external_logger, chomp_logger],
     )
     agent = agents.DQNAgent(
-        qnet=qnets.SimpleMLP(env_spec, hidden_units=512, num_hidden_layers=3),
+        qnet=qnets.SimpleMLP(env_spec),
         env_spec=env_spec,
         optimizer=torch.optim.Adam,
         replay_buffer=replays.CircularReplayBuffer(
