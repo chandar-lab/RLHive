@@ -1,19 +1,15 @@
-# Create dqn with objects
-# Create dqn with configs
-# Run train step, confirm change in state, confirm stuff added to replay
-# Run eval step, confirm no change in state, replay
-# Test syncing
-# Test saving/loading
-import pytest
+from copy import deepcopy
 from unittest.mock import Mock
+import numpy as np
+import pytest
 import torch
-from hive.envs import EnvSpec
+
 from hive.agents import DQNAgent
 from hive.agents.qnets import SimpleMLP
-from torch.optim import Adam
+from hive.envs import EnvSpec
 from hive.replays import CircularReplayBuffer
 from hive.utils import schedule
-import numpy as np
+from torch.optim import Adam
 
 
 @pytest.fixture
@@ -39,19 +35,22 @@ def agent_with_mock_optimizer(env_spec):
     return agent
 
 
-def test_create_agent_with_objects(env_spec):
+@pytest.fixture
+def agent_with_optimizer(env_spec):
     agent = DQNAgent(
         qnet=SimpleMLP(env_spec, hidden_units=5, num_hidden_layers=1),
         env_spec=env_spec,
         optimizer_fn=Adam,
         replay_buffer=CircularReplayBuffer(size=10),
+        target_net_update_fraction=0.25,
+        target_net_soft_update=True,
         target_net_update_schedule=schedule.PeriodicSchedule(False, True, 5),
         epsilon_schedule=schedule.LinearSchedule(1.0, 0.1, 20),
         learn_schedule=schedule.SwitchSchedule(False, True, 2),
         device="cpu",
+        batch_size=2,
     )
-    action = agent.act(np.zeros(2))
-    assert action < 2
+    return agent
 
 
 def test_create_agent_with_configs(env_spec):
@@ -193,6 +192,84 @@ def test_target_net_hard_update(agent_with_mock_optimizer):
 
     # Assert that the target network was updated successfully
     check_target_network_value(agent_with_mock_optimizer._target_qnet, 1.0)
+
+
+def test_save_load(agent_with_optimizer, tmpdir):
+    agent_1 = agent_with_optimizer
+    agent_2 = deepcopy(agent_with_optimizer)
+    agent_1.train()
+
+    # Run agent_1 so that it's internal state is different than agent_2
+    observation = np.ones(2)
+    for idx in range(10):
+        action = agent_1.act(observation)
+        assert action < 2
+        next_observation = np.ones(2) * (idx + 1)
+        agent_1.update(
+            {
+                "action": action,
+                "observation": observation,
+                "next_observation": next_observation,
+                "reward": 1,
+                "done": False,
+            }
+        )
+        observation = next_observation
+
+    # Make sure agent_1 and agent_2 have different internal states
+    assert not check_dicts_equal(agent_1._qnet.state_dict(), agent_2._qnet.state_dict())
+    assert not check_dicts_equal(
+        agent_1._target_qnet.state_dict(), agent_2._target_qnet.state_dict()
+    )
+    assert not check_dicts_equal(
+        agent_1._optimizer.state_dict(), agent_2._optimizer.state_dict()
+    )
+    assert agent_1._learn_schedule._steps != agent_2._learn_schedule._steps
+    assert agent_1._epsilon_schedule._value != agent_2._epsilon_schedule._value
+    assert (
+        agent_1._target_net_update_schedule._steps
+        != agent_2._target_net_update_schedule._steps
+    )
+    assert agent_1._rng.bit_generator.state != agent_2._rng.bit_generator.state
+
+    # Save agent_1 and load it's state back into agent_2
+    save_dir = tmpdir.mkdir("agent")
+    agent_1.save(save_dir)
+    agent_2.load(save_dir)
+
+    # Make sure that agent_1 and agent_2 have the same internal state
+    assert check_dicts_equal(agent_1._qnet.state_dict(), agent_2._qnet.state_dict())
+    assert check_dicts_equal(
+        agent_1._target_qnet.state_dict(), agent_2._target_qnet.state_dict()
+    )
+    assert check_dicts_equal(
+        agent_1._optimizer.state_dict(), agent_2._optimizer.state_dict()
+    )
+    assert agent_1._learn_schedule._steps == agent_2._learn_schedule._steps
+    assert agent_1._epsilon_schedule._value == agent_2._epsilon_schedule._value
+    assert (
+        agent_1._target_net_update_schedule._steps
+        == agent_2._target_net_update_schedule._steps
+    )
+    assert agent_1._rng.bit_generator.state == agent_2._rng.bit_generator.state
+
+
+def check_dicts_equal(dict_1, dict_2):
+    """Used to recursively check if two dictionaries are equal."""
+    if list(dict_1.keys()) != list(dict_2.keys()):
+        return False
+    for key in dict_1:
+        value_1 = dict_1[key]
+        value_2 = dict_2[key]
+        if isinstance(dict_1[key], dict) and check_dicts_equal(value_1, value_2):
+            continue
+        elif isinstance(dict_1[key], torch.Tensor):
+            value_1 = value_1.numpy()
+            value_2 = value_2.numpy()
+        value_2 = pytest.approx(value_2)
+        if value_1 != value_2:
+            return False
+    return True
 
 
 def check_target_network_value(network, value):
