@@ -17,9 +17,9 @@ def get_gym_env(env_name):
 @pytest.mark.parametrize("env_name", test_environments)
 def test_env_spec(env_name, get_gym_env):
     hive_env = GymEnv(env_name)
-    mock_env = get_gym_env
-    assert hive_env.env_spec.obs_dim == mock_env.observation_space.shape
-    assert hive_env.env_spec.act_dim == mock_env.action_space.n
+    gym_env = get_gym_env
+    assert hive_env.env_spec.obs_dim == gym_env.observation_space.shape
+    assert hive_env.env_spec.act_dim == gym_env.action_space.n
 
 
 @pytest.mark.parametrize("env_name", test_environments)
