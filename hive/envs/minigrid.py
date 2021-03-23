@@ -5,7 +5,7 @@ from gym_minigrid.wrappers import FullyObsWrapper, RGBImgObsWrapper, FlatObsWrap
 
 from hive.envs.gym_env import GymEnv
 from hive.envs.env_spec import EnvSpec
-from hive.envs.wrappers.minigrid_wrappers import FlatObsNoMissionWrapper
+from hive.envs.wrappers.gym_wrappers import FlattenWrapper
 
 
 class MiniGridSingleAgent(GymEnv):
@@ -40,14 +40,12 @@ class MiniGridSingleAgent(GymEnv):
         elif image_based_obs:
             self._env = RGBImgPartialObsWrapper(self._env)
 
-        if use_mission:
+        if not use_mission:
+            self._env = ImgObsWrapper(self._env)
             if not image_based_obs:
-                self._env = FlatObsWrapper(self._env)
-        else:
-            if not image_based_obs:
-                self._env = FlatObsNoMissionWrapper(self._env)
-            else:
-                self._env = ImgObsWrapper(self._env)
+                self._env = FlattenWrapper(self._env)
+        elif not image_based_obs:
+            self._env = FlatObsWrapper(self._env)
 
         self.env_spec = EnvSpec(env_name=env_name,
                                 obs_dim=self._env.observation_space.shape,
