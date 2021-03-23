@@ -9,21 +9,21 @@ test_environments = ["CartPole-v0", "MountainCar-v0"]
 
 
 @pytest.fixture()
-def mock_gym(env_name):
+def get_gym_env(env_name):
     env = gym.make(env_name)
     return env
 
 
 @pytest.mark.parametrize("env_name", test_environments)
-def test_env_spec(env_name, mock_gym):
+def test_env_spec(env_name, get_gym_env):
     hive_env = GymEnv(env_name)
-    mock_env = mock_gym
+    mock_env = get_gym_env
     assert hive_env.env_spec.obs_dim == mock_env.observation_space.shape
     assert hive_env.env_spec.act_dim == mock_env.action_space.n
 
 
 @pytest.mark.parametrize("env_name", test_environments)
-def test_reset_func(env_name, mock_gym):
+def test_reset_func(env_name):
     hive_env = GymEnv(env_name)
     hive_observation, hive_turn = hive_env.reset()
 
@@ -34,7 +34,7 @@ def test_reset_func(env_name, mock_gym):
 
 
 @pytest.mark.parametrize("env_name", test_environments)
-def test_step_func(env_name, mock_gym):
+def test_step_func(env_name):
     hive_env = GymEnv(env_name)
     for action in range(hive_env.env_spec.act_dim):
         hive_env.reset()
