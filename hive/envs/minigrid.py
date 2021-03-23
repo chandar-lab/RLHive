@@ -16,35 +16,37 @@ class MiniGridSingleAgent(GymEnv):
     def __init__(
             self,
             env_name,
-            image_based_obs=False,
+            rgb_obs=False,
+            flattened_obs=True,
             fully_observable=True,
             use_mission=False
     ):
         """
         Args:
             env_name: Name of the environment
-            image_based_obs: True if observations should be images, otherwise
-            they are one dimensional vectors (flatten observation)
+            rgb_obs: True if observations should be rgb-like images
+            flattened_obs: True for flattening the observation into one dimensional vector
             fully_observable: True if fully observable
             use_mission: True if mission should be in the observation, in which case:
-             if using image_based grid, the observation is a dict of keys, image and mission.
-             if using flattened observations, then the observation has the mission encoded in it.
+             if using rgb_obs or non-rgb non-flattened grid, the observation is a dict of keys, image and mission.
+             if using non-rgb flattened observations, then the observation has the mission encoded in it.
         """
 
         super(MiniGridSingleAgent, self).__init__(env_name=env_name)
 
         if fully_observable:
             self._env = FullyObsWrapper(self._env)
-            if image_based_obs:
+            if rgb_obs:
                 self._env = RGBImgObsWrapper(self._env)
-        elif image_based_obs:
+        elif rgb_obs:
             self._env = RGBImgPartialObsWrapper(self._env)
 
         if not use_mission:
             self._env = ImgObsWrapper(self._env)
-            if not image_based_obs:
+            if flattened_obs:
                 self._env = FlattenWrapper(self._env)
-        elif not image_based_obs:
+        elif not rgb_obs:
+            # Encode the mission into observation vector
             self._env = FlatObsWrapper(self._env)
 
         self.env_spec = EnvSpec(env_name=env_name,
