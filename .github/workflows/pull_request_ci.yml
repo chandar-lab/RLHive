@@ -1,0 +1,31 @@
+name: Python unit tests for Hive
+
+on:
+  pull_request:
+    branches:
+      - dev 
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+
+    - name: Cache pip
+      uses: actions/cache@v2
+      with:
+        path: ${{ env.pythonLocation }}
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+    - name: Install dependencies
+      run: |
+        pip install --upgrade --upgrade-strategy eager -r requirements.txt
+    - name: Test with pytest
+      run: |
+        python -m pytest

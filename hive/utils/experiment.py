@@ -25,7 +25,7 @@ class Experiment(object):
 
         self._config = None
         self._logger = None
-        self._train_statistics = None
+        self._experiment_state = None
         self._agents = None
         self._environment = None
 
@@ -33,7 +33,7 @@ class Experiment(object):
         self,
         config=None,
         logger=None,
-        train_statistics=None,
+        experiment_state=None,
         agents=None,
         environment=None,
     ):
@@ -42,14 +42,14 @@ class Experiment(object):
         Args:
             config: a config dictionary.
             logger: a logger object.
-            train_statistics: a train_statistics dictionary.
+            experiment_state: a experiment_state dictionary.
             agents: either an agent object or a list of agents.
             environment: an environment object.
         """
 
         self._config = config
         self._logger = logger
-        self._train_statistics = train_statistics
+        self._experiment_state = experiment_state
         if agents is not None and not isinstance(agents, list):
             agents = [agents]
         self._agents = agents
@@ -86,9 +86,9 @@ class Experiment(object):
             create_folder(folder_name)
             self._logger.save(folder_name)
 
-        if self._train_statistics is not None:
-            file_name = os.path.join(save_dir, "train_statistics.p")
-            self._train_statistics.save(file_name)
+        if self._experiment_state is not None:
+            file_name = os.path.join(save_dir, "experiment_state.p")
+            self._experiment_state.save(file_name)
 
         if self._agents is not None:
             for idx, agent in enumerate(self._agents):
@@ -140,9 +140,9 @@ class Experiment(object):
                 folder_name = os.path.join(save_dir, "logger")
                 self._logger.load(folder_name)
 
-            if self._train_statistics is not None:
-                file_name = os.path.join(save_dir, "train_statistics.p")
-                self._train_statistics.load(file_name)
+            if self._experiment_state is not None:
+                file_name = os.path.join(save_dir, "experiment_state.p")
+                self._experiment_state.load(file_name)
 
             if self._agents is not None:
                 for idx, agent in enumerate(self._agents):
