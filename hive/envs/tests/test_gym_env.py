@@ -9,15 +9,14 @@ test_environments = ["CartPole-v0", "MountainCar-v0"]
 
 
 @pytest.fixture()
-def get_gym_env(env_name):
+def gym_env(env_name):
     env = gym.make(env_name)
     return env
 
 
 @pytest.mark.parametrize("env_name", test_environments)
-def test_env_spec(env_name, get_gym_env):
+def test_env_spec(env_name, gym_env):
     hive_env = GymEnv(env_name)
-    gym_env = get_gym_env
     assert hive_env.env_spec.obs_dim == gym_env.observation_space.shape
     assert hive_env.env_spec.act_dim == gym_env.action_space.n
 
