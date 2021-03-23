@@ -14,10 +14,10 @@ class FlattenWrapper(gym.core.ObservationWrapper):
         img_size = reduce(operator.mul, env.observation_space.shape, 1)
 
         self.observation_space = gym.spaces.Box(
-            low=0,
-            high=255,
+            low=env.observation_space.low.flatten(),
+            high=env.observation_space.high.flatten(),
             shape=(img_size,),
-            dtype='uint8'
+            dtype=env.observation_space.dtype
         )
 
     def observation(self, obs):

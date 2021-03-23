@@ -28,8 +28,8 @@ class MiniGridSingleAgent(GymEnv):
             flattened_obs: True for flattening the observation into one dimensional vector
             fully_observable: True if fully observable
             use_mission: True if mission should be in the observation, in which case:
-             if using rgb_obs or non-rgb non-flattened grid, the observation is a dict of keys, image and mission.
-             if using non-rgb flattened observations, then the observation has the mission encoded in it.
+             if using non-flattened grid, the observation is a dict of keys, image and mission.
+             if using flattened observations, then the observation has the mission encoded in it.
         """
 
         super(MiniGridSingleAgent, self).__init__(env_name=env_name)
@@ -45,7 +45,7 @@ class MiniGridSingleAgent(GymEnv):
             self._env = ImgObsWrapper(self._env)
             if flattened_obs:
                 self._env = FlattenWrapper(self._env)
-        elif not rgb_obs:
+        elif flattened_obs:
             # Encode the mission into observation vector
             self._env = FlatObsWrapper(self._env)
 
