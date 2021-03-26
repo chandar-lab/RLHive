@@ -9,7 +9,7 @@ class Agent(abc.ABC):
         self._id = str(id)
 
     @property
-    def id():
+    def id(self):
         return self._id
 
     @abc.abstractmethod
