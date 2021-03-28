@@ -18,9 +18,15 @@ class GymEnv(BaseEnv):
         super().__init__(self.create_env_spec(env_name, **kwargs), num_players)
 
     def create_env(self, env_name, **kwargs):
+        """Function used to create the environment. Subclasses can override this method
+        if they are using a gym style environment that needs special logic.
+        """
         self._env = gym.make(env_name)
 
     def create_env_spec(self, env_name, **kwargs):
+        """Function used to create the specification. Subclasses can override this method
+        if they are using a gym style environment that needs special logic.
+        """
         if isinstance(self._env.observation_space, gym.spaces.Tuple):
             obs_spaces = self._env.observation_space.spaces
         else:

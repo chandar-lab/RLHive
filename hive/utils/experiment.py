@@ -12,6 +12,11 @@ class Experiment(object):
     def __init__(self, name, dir_name, schedule):
         """Initializes an experiment object.
 
+        The experiment state is an exposed property of objects of this class. It can
+        be used to keep track of objects that need to be saved to keep track of the
+        experiment, but don't fit in one of the standard categories. One example of
+        this is the various schedules used in the Runner class.
+
         Args:
             name: str, name of the experiment.
             dir_name: str, absolute path to the directory to save/load the experiment.
@@ -38,7 +43,6 @@ class Experiment(object):
         Args:
             config: a config dictionary.
             logger: a logger object.
-            experiment_state: a experiment_state dictionary.
             agents: either an agent object or a list of agents.
             environment: an environment object.
         """
