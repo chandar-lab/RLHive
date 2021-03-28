@@ -1,0 +1,89 @@
+# General training loop config
+run_name: &run_name 'minigrid-empty-5x5-dqn'
+training_schedule:
+  name: 'SwitchSchedule'
+  kwargs:
+    off_value: True
+    on_value: False
+    steps: 1000000
+testing_schedule:
+  name: 'DoublePeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    off_period: 10
+    on_period: 1
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 50000
+save_dir: 'experiment'
+
+# Environment config
+environment:
+  name: 'MiniGridSingleAgent'
+  kwargs:
+    env_name: 'MiniGrid-Empty-5x5-v0'
+
+# List of agents for the experiment. In single agent, only the first agent in
+# the list is used.
+agents:
+  -
+    name: 'DQNAgent'
+    kwargs:
+      qnet:
+        name: 'SimpleMLP'
+        kwargs:
+          hidden_units: 256
+          num_hidden_layers: 3
+      optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr : 0.001
+      id: 0
+      replay_buffer:
+        name: 'CircularReplayBuffer'
+        kwargs:
+          seed: 42
+          size: 50000
+      discount_rate: .99
+      grad_clip : True
+      target_net_soft_update : True
+      target_net_update_fraction : 0.25
+      target_net_update_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 100
+      epsilon_schedule:
+        name: 'LinearSchedule'
+        kwargs:
+          init_value: .5
+          end_value: .1
+          steps: 10000
+      learn_schedule:
+        name: 'SwitchSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          steps: 5000
+      seed: 42
+      batch_size: 128
+      device: 'cpu'
+      log_frequency: 100
+
+# List of logger configs used.
+loggers:
+  -
+    name: ChompLogger
+    kwargs: {}
+  -
+    name: WandbLogger
+    kwargs:
+      project_name: Hive-v1
+      run_name: *run_name
+      offline: False
+
