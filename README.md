@@ -1,6 +1,6 @@
 [![Python unit tests for Hive](https://github.com/chandar-lab/RLHive/actions/workflows/pull_request_ci.yml/badge.svg)](https://github.com/chandar-lab/RLHive/actions/workflows/pull_request_ci.yml)
 
-[**Installing**](#installing) | [**Running**](#running) | [**Configuring**](#creating-an-experiment) | [**Contributing**](#contributing)
+[**Installing**](#installing) | [**Configuring**](#creating-an-experiment) | [**Running**](#running) | [**Contributing**](#contributing)
 # RLHive
 RLHive is a library of reinforcement learning agents and all the other components needed to create a reinforcement learning experiment. We provide support for both single agent and multi agent environments. 
 ## Installing
