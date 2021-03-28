@@ -4,136 +4,154 @@ import numpy as np
 import torch
 import yaml
 
-from hive import agents, envs, replays
-from hive.agents import qnets
+from hive import agents as agent_lib
+from hive import envs, replays
 from hive.utils import experiment, logging, schedule, utils
+from hive.runners.utils import load_config, Metrics, TransitionInfo
 
 
-class Metrics:
-    def __init__(self, agents, agent_metrics, episode_metrics):
-        self._metrics = {}
-        self._agent_metrics = agent_metrics
-        self._episode_metrics = episode_metrics
-        self._agent_ids = [agent.id for agent in agents]
-        self.reset_metrics()
-
-    def reset_metrics(self):
-        for agent_id in self._agent_ids:
-            self._metrics[agent.id] = {}
-            for metric_name, metric_value in self._agent_metrics:
-                self._metrics[agent.id][metric_name] = (
-                    metric_value() if callable(metric_value) else metric_value
-                )
-
-        for metric_name, metric_value in self._episode_metrics:
-            self._metrics[metric_name] = (
-                metric_value() if callable(metric_value) else metric_value
+class Runner:
+    def __init__(
+        self,
+        environment,
+        agents,
+        logger,
+        experiment_manager,
+        train_steps,
+        train_episodes,
+        test_frequency,
+        test_num_episodes,
+    ):
+        self._environment = environment
+        self._agents = agents
+        self._logger = logger
+        self._experiment_manager = experiment_manager
+        if train_steps == -1:
+            self._train_step_schedule = schedule.ConstantSchedule(True)
+        else:
+            self._train_step_schedule = schedule.SwitchSchedule(
+                True, False, train_steps
             )
-
-    def get_flat_dict(self):
-        metrics = {}
-        for metric, _ in self._episode_metrics:
-            metrics[metric] = self._metrics[metric]
-        for agent_id in self._agent_ids:
-            for metric, _ in self._agent_metrics:
-                metrics[f"{agent_id}_{metric}"] = self._metrics[agent_id][metric]
-        return metrics
-
-    def __getitem__(self, key):
-        return self._metrics[key]
-
-    def __setitem__(self, key, value):
-        self._metrics[key] = value
-
-
-def train_mode(agents, training):
-    for agent in agents:
-        agent.train() if training else agent.eval()
-
-
-def run_multi_agent_training(
-    environment,
-    agents,
-    training_schedule,
-    testing_schedule,
-    logger,
-    experiment_manager,
-):
-    train_mode(agents, True)
-    episode_metrics = Metrics(
-        agents, [("reward", 0), ("episode_length", 0)], [("full_episode_length", 0)],
-    )
-
-    num_done = 0
-    observation, turn = environment.reset()
-
-    while training_schedule.update():
-        done, observation, turn = run_one_step(
-            environment, agents[turn], observation, episode_metrics
+        if train_episodes == -1:
+            self._train_episode_schedule = schedule.ConstantSchedule(True)
+        else:
+            self._train_episode_schedule = schedule.SwitchSchedule(
+                True, False, train_episodes
+            )
+        if test_frequency == -1:
+            self._test_schedule = schedule.ConstantSchedule(False)
+        else:
+            self._test_schedule = schedule.DoublePeriodicSchedule(
+                False, True, test_frequency, test_num_episodes
+            )
+        self._train_step_schedule.update()
+        self._test_schedule.update()
+        self._experiment_manager.experiment_state.add_from_dict(
+            {
+                "train_step_schedule": self._train_step_schedule,
+                "train_episode_schedule": self._train_episode_schedule,
+                "test_schedule": self._test_schedule,
+            }
         )
+
+        self._transition_info = TransitionInfo(self._agents)
+
+    def train_mode(self, training):
+        for agent in self._agents:
+            agent.train() if training else agent.eval()
+
+    def create_episode_metrics(self):
+        return Metrics(
+            self._agents,
+            [("reward", 0), ("episode_length", 0)],
+            [("full_episode_length", 0)],
+        )
+
+    def run_one_step(self, observation, turn, episode_metrics):
+        agent = self._agents[turn]
+        if self._transition_info.is_started(agent):
+            info = self._transition_info.get_info(agent)
+            agent.update(info)
+            episode_metrics[agent.id]["reward"] += info["reward"]
+            episode_metrics[agent.id]["episode_length"] += 1
+            episode_metrics["full_episode_length"] += 1
+        else:
+            self._transition_info.start_agent(agent)
+        action = agent.act(observation)
+        next_observation, reward, done, turn, other_info = self._environment.step(
+            action
+        )
+        self._transition_info.record_info(
+            agent,
+            {
+                "observation": observation,
+                "action": action,
+                "next_observation": next_observation,
+                "info": other_info,
+            },
+        )
+        self._transition_info.update_all_rewards(reward)
+        return done, next_observation, turn
+
+    def run_end_step(self, episode_metrics):
+        for agent in self._agents:
+            info = self._transition_info.get_info(agent, done=True)
+            agent.update(info)
+            episode_metrics[agent.id]["reward"] += info["reward"]
+            episode_metrics[agent.id]["episode_length"] += 1
+            episode_metrics["full_episode_length"] += 1
+
+    def run_episode(self):
+        self._transition_info.reset()
+        episode_metrics = self.create_episode_metrics()
+        done = False
+        observation, turn = self._environment.reset()
+        while self._train_step_schedule.get_value() and not done:
+            done, observation, turn = self.run_one_step(
+                observation, turn, episode_metrics
+            )
+            self._train_step_schedule.update()
         if done:
-            num_done += 1
-        if num_done == len(agents):
-            if logger.update_step("train_episodes"):
-                logger.log_metrics(episode_metrics.get_flat_dict(), "train_episodes")
-            episode_metrics.reset_metrics()
-            while testing_schedule.update():
-                # Run the testing loop for one episode
-                train_mode(agents, False)
-                num_done = 0
-                observation, turn = environment.reset()
-                while num_done < len(agents):
-                    done, observation, turn = run_one_step(
-                        environment, agents[turn], observation, episode_metrics
+            self.run_end_step(episode_metrics)
+        return episode_metrics
+
+    def run_training(self):
+        self.train_mode(True)
+        while (
+            self._train_episode_schedule.update()
+            and self._train_step_schedule.get_value()
+        ):
+            self.train_mode(True)
+            episode_metrics = self.run_episode()
+            if self._logger.update_step("train_episodes"):
+                self._logger.log_metrics(
+                    episode_metrics.get_flat_dict(), "train_episodes"
+                )
+            while self._test_schedule.update():
+                self.train_mode(False)
+                episode_metrics = self.run_episode()
+                if self._logger.update_step("test_episodes"):
+                    self._logger.log_metrics(
+                        episode_metrics.get_flat_dict(), "test_episodes"
                     )
-                    if done:
-                        num_done += 1
+            if self._experiment_manager.update_step():
+                self._experiment_manager.save()
 
-                if logger.update_step("test_episodes"):
-                    logger.log_metrics(episode_metrics.get_flat_dict(), "test_episodes")
+        self.train_mode(False)
+        episode_metrics = self.run_episode()
+        self._logger.update_step("test_episodes")
+        self._logger.log_metrics(episode_metrics.get_flat_dict(), "test_episodes")
+        self._experiment_manager.save()
 
-                # Reset the agent for training
-                train_mode(agents, True)
-                episode_metrics.reset_metrics()
-            num_done = 0
-            observation, turn = environment.reset()
-        if experiment_manager.update_step():
-            experiment_manager.save()
-    experiment_manager.save()
-
-
-def run_one_step(environment, agent, observation, episode_metrics):
-    action = agent.act(observation)
-    next_observation, reward, done, turn, info = environment.step(action)
-    agent.update(
-        {
-            "observation": observation,
-            "action": action,
-            "reward": reward,
-            "next_observation": next_observation,
-            "done": done,
-            "info": info,
-        }
-    )
-    episode_metrics[agent.id]["reward"] += reward
-    episode_metrics[agent.id]["episode_length"] += 1
-    episode_metrics["full_episode_length"] += 1
-    return done, next_observation, turn
-
-
-def load_config(args):
-    with open(args.config) as f:
-        config = yaml.safe_load(f)
-    if args.agent_config is not None:
-        with open(args.agent_config) as f:
-            config["agents"] = yaml.safe_load(f)
-    if args.env_config is not None:
-        with open(args.env_config) as f:
-            config["environment"] = yaml.safe_load(f)
-    if args.logger_config is not None:
-        with open(args.logger_config) as f:
-            config["loggers"] = yaml.safe_load(f)
-    return config
+    def resume(self):
+        self._experiment_manager.resume()
+        self._train_step_schedule = self._experiment_manager.experiment_state[
+            "train_step_schedule"
+        ]
+        self._train_episode_schedule = self._experiment_manager.experiment_state[
+            "train_episode_schedule"
+        ]
+        self._test_schedule = self._experiment_manager.experiment_state["test_schedule"]
 
 
 def set_up_experiment(config):
@@ -153,42 +171,34 @@ def set_up_experiment(config):
             logger = logging.CompositeLogger(logger_config)
 
     agents = []
-    for agent_config in config["agents"]:
-        agent_config["kwargs"]["env_spec"] = env_spec
+    for idx, agent_config in enumerate(config["agents"]):
+        agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
+        agent_config["kwargs"]["act_dim"] = env_spec.act_dim[idx]
         agent_config["kwargs"]["logger"] = logger
-        agents.append(agents.get_agent(agent_config))
+        agents.append(agent_lib.get_agent(agent_config))
 
-    training_schedule = schedule.get_schedule(config["training_schedule"])
-    testing_schedule = schedule.get_schedule(config["testing_schedule"])
     saving_schedule = schedule.get_schedule(config["saving_schedule"])
-    state = utils.Chomp(
-        {
-            "training_schedule": training_schedule,
-            "testing_schedule": testing_schedule,
-            "saving_schedule": saving_schedule,
-        }
-    )
 
     experiment_manager = experiment.Experiment(
         config["run_name"], config["save_dir"], saving_schedule
     )
     experiment_manager.register_experiment(
-        config=original_config, logger=logger, experiment_state=state, agents=agents,
+        config=original_config, logger=logger, agents=agents,
     )
-    if config.get("resume", False):
-        experiment_manager.resume()
-        training_schedule = state.training_schedule
-        testing_schedule = state.testing_schedule
-        saving_schedule = state.saving_schedule
-
-    return (
+    runner = Runner(
         environment,
         agents,
-        training_schedule,
-        testing_schedule,
         logger,
         experiment_manager,
+        config.get("train_steps", -1),
+        config.get("train_episodes", -1),
+        config.get("test_frequency", -1),
+        config.get("test_num_episodes", 1),
     )
+    if config.get("resume", False):
+        runner.resume()
+
+    return runner
 
 
 if __name__ == "__main__":
@@ -199,20 +209,5 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--logger-config")
     args = parser.parse_args()
     config = load_config(args)
-    (
-        environment,
-        agents,
-        training_schedule,
-        testing_schedule,
-        logger,
-        experiment_manager,
-    ) = set_up_experiment(config)
-    run_single_agent_training(
-        environment,
-        agents,
-        training_schedule,
-        testing_schedule,
-        logger,
-        experiment_manager,
-    )
-
+    runner = set_up_experiment(config)
+    runner.run_training()

@@ -23,7 +23,7 @@ save_dir: 'experiment'
 
 # Environment config
 environment:
-  name: 'MiniGridSingleAgent'
+  name: 'MiniGridEnv'
   kwargs:
     env_name: 'MiniGrid-Empty-5x5-v0'
 

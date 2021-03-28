@@ -1,25 +1,30 @@
 import gym_minigrid
 
-from gym_minigrid.wrappers import FullyObsWrapper, RGBImgObsWrapper, FlatObsWrapper, \
-    RGBImgPartialObsWrapper, ImgObsWrapper
+from gym_minigrid.wrappers import (
+    FullyObsWrapper,
+    RGBImgObsWrapper,
+    FlatObsWrapper,
+    RGBImgPartialObsWrapper,
+    ImgObsWrapper,
+)
 
 from hive.envs.gym_env import GymEnv
 from hive.envs.env_spec import EnvSpec
 from hive.envs.wrappers.gym_wrappers import FlattenWrapper
 
 
-class MiniGridSingleAgent(GymEnv):
+class MiniGridEnv(GymEnv):
     """
     Class for loading MiniGrid environments (https://github.com/maximecb/gym-minigrid).
     """
 
-    def __init__(
-            self,
-            env_name,
-            rgb_obs=False,
-            flattened_obs=True,
-            fully_observable=True,
-            use_mission=False
+    def create_env(
+        self,
+        env_name,
+        rgb_obs=False,
+        flattened_obs=True,
+        fully_observable=True,
+        use_mission=False,
     ):
         """
         Args:
@@ -31,8 +36,6 @@ class MiniGridSingleAgent(GymEnv):
              if using non-flattened grid, the observation is a dict of keys, image and mission.
              if using flattened observations, then the observation has the mission encoded in it.
         """
-
-        super(MiniGridSingleAgent, self).__init__(env_name=env_name)
 
         if fully_observable:
             self._env = FullyObsWrapper(self._env)
@@ -49,10 +52,6 @@ class MiniGridSingleAgent(GymEnv):
             # Encode the mission into observation vector
             self._env = FlatObsWrapper(self._env)
 
-        self.env_spec = EnvSpec(env_name=env_name,
-                                obs_dim=self._env.observation_space.shape,
-                                act_dim=self._env.action_space.n)
-
-    def render(self, mode='rgb_array'):
+    def render(self, mode="rgb_array"):
         # TODO
         pass
