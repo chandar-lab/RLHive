@@ -28,5 +28,7 @@ jobs:
       run: |
         pip install --upgrade --upgrade-strategy eager -r requirements.txt
     - name: Test with pytest
+      env:
+        GITHUB_CI: True
       run: |
         python -m pytest
