@@ -20,8 +20,11 @@ def env_spec():
 @pytest.fixture
 def agent_with_mock_optimizer(env_spec):
     agent = DQNAgent(
-        qnet=SimpleMLP(env_spec, hidden_units=5, num_hidden_layers=1),
-        env_spec=env_spec,
+        qnet=SimpleMLP(
+            env_spec.obs_dim, env_spec.act_dim, hidden_units=5, num_hidden_layers=1
+        ),
+        obs_dim=env_spec.obs_dim,
+        act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
         replay_buffer=CircularReplayBuffer(size=10),
         target_net_update_fraction=0.25,
@@ -38,8 +41,11 @@ def agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def agent_with_optimizer(env_spec):
     agent = DQNAgent(
-        qnet=SimpleMLP(env_spec, hidden_units=5, num_hidden_layers=1),
-        env_spec=env_spec,
+        qnet=SimpleMLP(
+            env_spec.obs_dim, env_spec.act_dim, hidden_units=5, num_hidden_layers=1
+        ),
+        obs_dim=env_spec.obs_dim,
+        act_dim=env_spec.act_dim,
         optimizer_fn=Adam,
         replay_buffer=CircularReplayBuffer(size=10),
         target_net_update_fraction=0.25,
@@ -59,7 +65,8 @@ def test_create_agent_with_configs(env_spec):
             "name": "SimpleMLP",
             "kwargs": {"hidden_units": 5, "num_hidden_layers": 1},
         },
-        env_spec=env_spec,
+        obs_dim=env_spec.obs_dim,
+        act_dim=env_spec.act_dim,
         optimizer_fn={"name": "Adam", "kwargs": {"lr": 0.01}},
         replay_buffer={"name": "CircularReplayBuffer", "kwargs": {"size": 10}},
         target_net_update_schedule={
