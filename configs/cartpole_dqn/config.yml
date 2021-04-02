@@ -21,10 +21,10 @@ environment:
 # the list is used.
 agents: 
   - 
-    name: 'DQNAgent'
+    name: 'DuelingDQNAgent'
     kwargs:
       qnet:
-        name: 'SimpleMLP'
+        name: 'DuelingMLP'
         kwargs: 
           hidden_units: 256
           num_hidden_layers: 2
