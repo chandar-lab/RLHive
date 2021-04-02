@@ -52,19 +52,9 @@ class DuelingMLP(nn.Module):
         val = self.relu(self.fc1_val(x))
         val = self.fc2_val(val)
 
-        # print("val shape = ", val.shape)
-        # print("adv shape = ", adv.shape)
-        # print("adv mean shape = ", adv.mean(1).shape)
         if len(adv.shape) == 1:
-            print("val shape = ", val.shape)
-            print("adv shape = ", adv.shape)
-            print("adv mean shape = ", adv.mean(0).shape)
-            print("val = ", val)
-            print("adv = ", adv)
-            print("mean = ", adv.mean(0))
             x = val + adv - adv.mean(0)
-            print("x shape = ", x.shape)
-            print("x = ", x)
         else:
             x = val + adv - adv.mean(1).unsqueeze(1).expand(x.shape[0], self.out_dim)
+
         return x
