@@ -198,32 +198,18 @@ class DoubleDQNAgent(Agent):
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            # print("********** verifying shapes ************ ")
-            # print("observations shape = ", batch["observations"].shape)
-            # print("action shape = ", batch["actions"].shape)
-            # print("reward shape = ", batch["rewards"].shape)
-            # print("next observation shape = ", batch["next_observations"].shape)
-            # print("done shape = ", batch["done"].shape)
             pred_qvals = self._qnet(batch["observations"])
-            # print("pred_qvals shape = ", pred_qvals.shape)
             actions = batch["actions"].long()
             pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
-            # print("pred_qvals shape = ", pred_qvals.shape)
 
             # Compute 1-step Q targets
             next_action = self._qnet(batch["next_observations"])
-            # print("next_action shape = ", next_action.shape)
             _ , next_action = torch.max(next_action, dim=1)
-            # print("next_action shape = ", next_action.shape)
             next_qvals = self._target_qnet(batch["next_observations"])
-            # print("next_qvals shape = ", next_qvals.shape)
             next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
-            # print("next_qvals shape = ", next_qvals.shape)
             q_targets = batch["rewards"] + self._discount_rate * next_qvals * (
                 1 - batch["done"]
             )
-            # print("q_targets shape = ", q_targets.shape)
-
 
             loss = self._loss_fn(pred_qvals, q_targets)
             if self._logger.should_log(self._timescale):
