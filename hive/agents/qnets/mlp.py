@@ -22,7 +22,7 @@ class SimpleMLP(nn.Module):
 
 
 class DuelingMLP(nn.Module):
-    """Simple MLP function approximator for Q-Learning."""
+    """Dueling MLP function approximator for Q-Learning."""
 
     def __init__(self, in_dim, out_dim, hidden_units=256, num_hidden_layers=1):
         super().__init__()
@@ -58,3 +58,28 @@ class DuelingMLP(nn.Module):
             x = val + adv - adv.mean(1).unsqueeze(1).expand(x.shape[0], self.out_dim)
 
         return x
+
+
+class DistributionalMLP(nn.Module):
+    """Simple distributionalMLP function approximator for Q-Learning."""
+
+    def __init__(self, in_dim, out_dim, hidden_units=256, num_hidden_layers=1, num_atoms=10):
+        super().__init__()
+        self.input_layer = nn.Sequential(nn.Linear(in_dim[0], hidden_units), nn.ReLU())
+        self.hidden_layers = nn.Sequential(
+            *[
+                nn.Sequential(nn.Linear(hidden_units, hidden_units), nn.ReLU())
+                for _ in range(num_hidden_layers - 1)
+            ]
+        )
+        self.output_layer = nn.Linear(hidden_units, out_dim)
+        self.out_dim = out_dim
+        self.num_atoms = num_atoms
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+        x = self.input_layer(x)
+        x = self.hidden_layers(x)
+        logits = x.view(batch_size, self.out_dim, self.num_atoms)
+        probs = nn.functional.softmax(logits, 2)
+        return probs
