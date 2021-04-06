@@ -94,8 +94,6 @@ class NoisyLinear(nn.Module):
         self.in_features = in_dim
         self.out_features = out_dim
         self.std_init = std_init
-        # print("out_dim = ", out_dim)
-        # print("in dim = ", in_dim)
         self.weight_mu = nn.Parameter(torch.empty(out_dim, in_dim))
         self.weight_sigma = nn.Parameter(torch.empty(out_dim, in_dim))
         self.register_buffer('weight_epsilon', torch.empty(out_dim, in_dim))
@@ -130,31 +128,21 @@ class NoisyLinear(nn.Module):
 
 
 class NoisyMLP(nn.Module):
+    # ref: https://github.com/qfettes/DeepRL-Tutorials/blob/master/05.DQN-NoisyNets.ipynb
     def __init__(self, in_dim, out_dim, hidden_units, num_hidden_layers, sigma_init=0.5):
         super(NoisyMLP, self).__init__()
 
         self.input_shape = in_dim
         self.num_actions = out_dim
 
-        # self.conv1 = nn.Conv2d(self.input_shape[0], 32, kernel_size=8, stride=4)
-        # self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        # self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
-
         self.fc1 = NoisyLinear(self.input_shape[0], 512, sigma_init)
         self.fc2 = NoisyLinear(512, self.num_actions, sigma_init)
 
     def forward(self, x):
-        # x = F.relu(self.conv1(x))
-        # x = F.relu(self.conv2(x))
-        # x = F.relu(self.conv3(x))
-        # x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
 
         return x
-
-    # def feature_size(self):
-    #     return self.conv3(self.conv2(self.conv1(torch.zeros(1, *self.input_shape)))).view(1, -1).size(1)
 
     def sample_noise(self):
         self.fc1.sample_noise()

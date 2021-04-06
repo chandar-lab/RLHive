@@ -135,26 +135,10 @@ class NoisyDQNAgent(Agent):
         """Returns the action for the agent. If in training mode, follows an epsilon
         greedy policy. Otherwise, returns the action with the highest q value."""
 
-        # Determine and log the value of epsilon
-        # if self._training:
-        #     if not self._learn_schedule.update():
-        #         epsilon = 1.0
-        #     else:
-        #         epsilon = self._epsilon_schedule.update()
-        #     if self._logger.update_step(self._timescale):
-        #         self._logger.log_scalar("epsilon", epsilon, self._timescale)
-        # else:
-        #     epsilon = 0
-
-        # Sample action. With epsilon probability choose random action,
-        # otherwise select the action with the highest q-value.
         observation = torch.tensor(observation).to(self._device).float()
         self._qnet.sample_noise()
         qvals = self._qnet(observation).cpu()
 
-        # if self._rng.random() < epsilon:
-        #     action = self._rng.integers(self._act_dim)
-        # else:
         action = torch.argmax(qvals).numpy()
 
         if self._logger.should_log(self._timescale) and self._state["episode_start"]:
