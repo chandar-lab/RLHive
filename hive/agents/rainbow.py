@@ -26,6 +26,9 @@ class DQNAgent(Agent):
         qnet,
         obs_dim,
         act_dim,
+        v_min,
+        v_max,
+        atoms,
         optimizer_fn=None,
         id=0,
         replay_buffer=None,
@@ -121,8 +124,57 @@ class DQNAgent(Agent):
         self._state = {"episode_start": True}
         self._training = False
 
-        self.dueling = dueling
-        self.double = double
+        self._dueling = dueling
+        self._double = double
+
+        self._atoms = atoms
+        self._v_min = v_min
+        self._v_max = v_max
+        self._supports = torch.linspace(self.v_min, self.v_max, self.atoms).view(1, 1, self.atoms).to(self._device)
+        self._delta = (self.v_max - self.v_min) / (self.atoms - 1)
+        self._nsteps = 1
+
+    def get_max_next_state_action(self, next_states):
+        next_dist = self._qnet(next_states) * self._supports
+        return next_dist.sum(dim=2).max(1)[1].view(next_states.size(0), 1, 1).expand(-1, -1, self._atoms)
+
+    def projection_distribution(self, batch):
+        batch_obs = batch["observations"]
+        batch_action = batch["actions"].long()
+        batch_next_obs = batch["next_observations"]
+        batch_reward = batch["rewards"]
+        batch_not_done = 1 - batch["done"]
+
+        with torch.no_grad():
+            max_next_dist = torch.zeros((self._batch_size, 1, self._atoms), device=self._device,
+                                        dtype=torch.float) + 1./self._atoms
+
+            # TO-DO: if not empty_next_state_values:
+            max_next_action = self.get_max_next_state_action(batch_next_obs)
+            self._target_qnet.sample_noise()
+            max_next_dist[batch_not_done] = self._target_qnet(batch_next_obs).gather(1, max_next_action)
+            max_next_dist = max_next_dist.squeeze()
+
+            Tz = batch_reward.view(-1, 1) + (self._discount_rate ** self._nsteps) * self._supports.view(1, -1) * batch_not_done.to(
+                torch.float).view(-1, 1)
+            Tz = Tz.clamp(self._v_min, self._v_max)
+            b = (Tz - self._v_min) / self._delta
+            l = b.floor().to(torch.int64)
+            u = b.ceil().to(torch.int64)
+            l[(u > 0) * (l == u)] -= 1
+            u[(l < (self._atoms - 1)) * (l == u)] += 1
+
+            offset = torch.linspace(0, (self._batch_size - 1) * self._atoms, self._batch_size).unsqueeze(dim=1).expand(
+                self._batch_size, self._atoms).to(batch_action)
+            m = batch_obs.new_zeros(self._batch_size, self._atoms)
+            m.view(-1).index_add_(0, (l + offset).view(-1),
+                                  (max_next_dist * (u.float() - b)).view(-1))
+            m.view(-1).index_add_(0, (u + offset).view(-1),
+                                  (max_next_dist * (b - l.float())).view(-1))
+
+        return m
+
+
 
     def train(self):
         """Changes the agent to training mode."""
@@ -142,32 +194,36 @@ class DQNAgent(Agent):
         greedy policy. Otherwise, returns the action with the highest q value."""
 
         # Determine and log the value of epsilon
-        if self._training:
-            if not self._learn_schedule.update():
-                epsilon = 1.0
-            else:
-                epsilon = self._epsilon_schedule.update()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_scalar("epsilon", epsilon, self._timescale)
-        else:
-            epsilon = 0
+        # if self._training:
+        #     if not self._learn_schedule.update():
+        #         epsilon = 1.0
+        #     else:
+        #         epsilon = self._epsilon_schedule.update()
+        #     if self._logger.update_step(self._timescale):
+        #         self._logger.log_scalar("epsilon", epsilon, self._timescale)
+        # else:
+        #     epsilon = 0
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
         observation = torch.tensor(observation).to(self._device).float()
-        qvals = self._qnet(observation).cpu()
-        if self._rng.random() < epsilon:
-            action = self._rng.integers(self._act_dim)
-        else:
-            action = torch.argmax(qvals).numpy()
+        self._qnet.sample_noise()
+        a = self._qnet(observation) * self._supports
+        a = a.sum(dim=2).max(1)[1].view(1,1)
+        action = a.item()
+        # qvals = self._qnet(observation).cpu()
+        # if self._rng.random() < epsilon:
+        #     action = self._rng.integers(self._act_dim)
+        # else:
+        #     action = torch.argmax(qvals).numpy()
 
-        if self._logger.should_log(self._timescale) and self._state["episode_start"]:
-            self._logger.log_scalar(
-                "train_qval" if self._training else "test_qval",
-                torch.max(qvals),
-                self._timescale,
-            )
-            self._state["episode_start"] = False
+        # if self._logger.should_log(self._timescale) and self._state["episode_start"]:
+        #     self._logger.log_scalar(
+        #         "train_qval" if self._training else "test_qval",
+        #         torch.max(qvals),
+        #         self._timescale,
+        #     )
+        #     self._state["episode_start"] = False
         return action
 
     def update(self, update_info):
