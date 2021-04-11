@@ -16,7 +16,7 @@ from hive.agents.agent import Agent
 from hive.agents.qnets import get_qnet
 
 
-class DQNAgent(Agent):
+class RainbowDQNAgent(Agent):
     """An agent implementing the DQN algorithm. Uses an epsilon greedy
     exploration policy
     """
@@ -44,8 +44,10 @@ class DQNAgent(Agent):
         device="cpu",
         logger=None,
         log_frequency=100,
-        dueling=True,
         double=True,
+        dueling=True,
+        distributional=True,
+        noisy=True,
     ):
         """
         Args:
@@ -84,7 +86,7 @@ class DQNAgent(Agent):
         if isinstance(qnet, dict):
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
-            qnet["kwargs"]["dueling"] = self.dueling
+            # qnet["kwargs"]["dueling"] = self.dueling
 
         self._qnet = get_qnet(qnet)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
@@ -144,6 +146,7 @@ class DQNAgent(Agent):
         batch_next_obs = batch["next_observations"]
         batch_reward = batch["rewards"]
         batch_not_done = 1 - batch["done"]
+        print("inside projection ")
 
         with torch.no_grad():
             max_next_dist = torch.zeros((self._batch_size, 1, self._atoms), device=self._device,
