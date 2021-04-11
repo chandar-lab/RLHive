@@ -190,6 +190,7 @@ class RainbowMLP(nn.Module):
         #
         # return x
         final = val + adv - adv.mean(dim=1).view(-1, 1, self.atoms)
+        print("final shape = ", final.shape)
         return F.softmax(final, dim=2)
 
     def sample_noise(self):

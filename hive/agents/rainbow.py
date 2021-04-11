@@ -132,8 +132,8 @@ class RainbowDQNAgent(Agent):
         self._atoms = atoms
         self._v_min = v_min
         self._v_max = v_max
-        self._supports = torch.linspace(self.v_min, self.v_max, self.atoms).view(1, 1, self.atoms).to(self._device)
-        self._delta = (self.v_max - self.v_min) / (self.atoms - 1)
+        self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).view(1, 1, self._atoms).to(self._device)
+        self._delta = (self._v_max - self._v_min) / (self._atoms - 1)
         self._nsteps = 1
 
     def get_max_next_state_action(self, next_states):
@@ -211,6 +211,10 @@ class RainbowDQNAgent(Agent):
         # otherwise select the action with the highest q-value.
         observation = torch.tensor(observation).to(self._device).float()
         self._qnet.sample_noise()
+        # print("self.supports shape = ", self._supports.shape)
+        # a = self._qnet(observation).unsqueeze(dim=0).unsqueeze(dim=0)
+        # print("a shape = ", a.shape)
+        # a = self._qnet(observation).unsqueeze(dim=0).unsqueeze(dim=0) * self._supports
         a = self._qnet(observation) * self._supports
         a = a.sum(dim=2).max(1)[1].view(1,1)
         action = a.item()
@@ -268,7 +272,7 @@ class RainbowDQNAgent(Agent):
             pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
             # Compute 1-step Q targets
-            if self.double:
+            if self._double:
                 next_action = self._qnet(batch["next_observations"])
             else:
                 next_action = self._target_qnet(batch["next_observations"])

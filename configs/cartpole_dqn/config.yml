@@ -21,10 +21,10 @@ environment:
 # the list is used.
 agents: 
   - 
-    name: 'NoisyDQNAgent'
+    name: 'RainbowDQNAgent'
     kwargs:
       qnet:
-        name: 'NoisyMLP'
+        name: 'RainbowMLP'
         kwargs: 
           hidden_units: 256
           num_hidden_layers: 2
@@ -58,13 +58,13 @@ agents:
       batch_size: 128
       device: 'cpu'
       log_frequency: 100
-#      double: True
-#      dueling: True
-#      distributional: True
-#      Noisy: True
-#      v_min: -10
-#      v_max: +10
-#      atoms: 51
+      double: True
+      dueling: True
+      distributional: True
+      noisy: True
+      v_min: -10
+      v_max: +10
+      atoms: 51
 
 # List of logger configs used.
 loggers:
