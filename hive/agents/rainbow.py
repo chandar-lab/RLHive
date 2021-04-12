@@ -86,7 +86,6 @@ class RainbowDQNAgent(Agent):
         if isinstance(qnet, dict):
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
-            # qnet["kwargs"]["dueling"] = self.dueling
 
         self._qnet = get_qnet(qnet)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
@@ -146,7 +145,6 @@ class RainbowDQNAgent(Agent):
         batch_next_obs = batch["next_observations"]
         batch_reward = batch["rewards"]
         batch_not_done = 1 - batch["done"]
-        print("inside projection ")
 
         with torch.no_grad():
             max_next_dist = torch.zeros((self._batch_size, 1, self._atoms), device=self._device,
@@ -193,44 +191,11 @@ class RainbowDQNAgent(Agent):
 
     @torch.no_grad()
     def act(self, observation):
-        """Returns the action for the agent. If in training mode, follows an epsilon
-        greedy policy. Otherwise, returns the action with the highest q value."""
-
-        # Determine and log the value of epsilon
-        # if self._training:
-        #     if not self._learn_schedule.update():
-        #         epsilon = 1.0
-        #     else:
-        #         epsilon = self._epsilon_schedule.update()
-        #     if self._logger.update_step(self._timescale):
-        #         self._logger.log_scalar("epsilon", epsilon, self._timescale)
-        # else:
-        #     epsilon = 0
-
-        # Sample action. With epsilon probability choose random action,
-        # otherwise select the action with the highest q-value.
         observation = torch.tensor(observation).to(self._device).float()
         self._qnet.sample_noise()
-        # print("self.supports shape = ", self._supports.shape)
-        # a = self._qnet(observation).unsqueeze(dim=0).unsqueeze(dim=0)
-        # print("a shape = ", a.shape)
-        # a = self._qnet(observation).unsqueeze(dim=0).unsqueeze(dim=0) * self._supports
         a = self._qnet(observation) * self._supports
         a = a.sum(dim=2).max(1)[1].view(1,1)
         action = a.item()
-        # qvals = self._qnet(observation).cpu()
-        # if self._rng.random() < epsilon:
-        #     action = self._rng.integers(self._act_dim)
-        # else:
-        #     action = torch.argmax(qvals).numpy()
-
-        # if self._logger.should_log(self._timescale) and self._state["episode_start"]:
-        #     self._logger.log_scalar(
-        #         "train_qval" if self._training else "test_qval",
-        #         torch.max(qvals),
-        #         self._timescale,
-        #     )
-        #     self._state["episode_start"] = False
         return action
 
     def update(self, update_info):
@@ -280,9 +245,6 @@ class RainbowDQNAgent(Agent):
             _, next_action = torch.max(next_action, dim=1)
             next_qvals = self._target_qnet(batch["next_observations"])
             next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
-
-            # next_qvals = self._target_qnet(batch["next_observations"])
-            # next_qvals, _ = torch.max(next_qvals, dim=1)
 
             q_targets = batch["rewards"] + self._discount_rate * next_qvals * (
                 1 - batch["done"]

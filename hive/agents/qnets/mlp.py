@@ -150,8 +150,6 @@ class NoisyMLP(nn.Module):
 
 
 class RainbowMLP(nn.Module):
-    """Dueling MLP function approximator for Q-Learning."""
-
     def __init__(self, in_dim, out_dim, hidden_units=256, num_hidden_layers=1, sigma_init=0.5, atoms=51):
         super().__init__()
         self.out_dim = out_dim
@@ -183,14 +181,7 @@ class RainbowMLP(nn.Module):
         val = self.relu(self.fc1_val(x))
         val = self.fc2_val(val).view(-1, 1, self.atoms)
 
-        # if len(adv.shape) == 1:
-        #     x = val + adv - adv.mean(0)
-        # else:
-        #     x = val + adv - adv.mean(1).unsqueeze(1).expand(x.shape[0], self.out_dim)
-        #
-        # return x
         final = val + adv - adv.mean(dim=1).view(-1, 1, self.atoms)
-        print("final shape = ", final.shape)
         return F.softmax(final, dim=2)
 
     def sample_noise(self):
