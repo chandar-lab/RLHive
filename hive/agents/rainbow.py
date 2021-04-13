@@ -84,9 +84,13 @@ class RainbowDQNAgent(Agent):
             log_frequency (int): How often to log the agent's metrics.
         """
         # super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=f"dqn_agent_{id}")
+        print("env_spec = ", env_spec)
+        print("obs_dim[0] = ", env_spec.obs_dim[0][0])
+        print("act_dim = ", env_spec.act_dim)
+        self._act_dim = env_spec.act_dim[0]
         if isinstance(qnet, dict):
-            qnet["kwargs"]["in_dim"] = env_spec.obs_dim
-            qnet["kwargs"]["out_dim"] = env_spec.act_dim
+            qnet["kwargs"]["in_dim"] = env_spec.obs_dim[0][0]
+            qnet["kwargs"]["out_dim"] = env_spec.act_dim[0]
 
         qnet["kwargs"]["noisy"] = noisy
         qnet["kwargs"]["dueling"] = dueling
@@ -122,7 +126,8 @@ class RainbowDQNAgent(Agent):
         self._logger = get_logger(logger)
         if self._logger is None:
             self._logger = NullLogger()
-        self._timescale = self.id
+        self._id = id
+        self._timescale = self._id
         self._logger.register_timescale(
             self._timescale, PeriodicSchedule(False, True, log_frequency)
         )
@@ -207,11 +212,34 @@ class RainbowDQNAgent(Agent):
     @torch.no_grad()
     def act(self, observation):
         observation = torch.tensor(observation).to(self._device).float()
-        self._qnet.sample_noise()
-        a = self._qnet(observation) * self._supports
-        a = a.sum(dim=2).max(1)[1].view(1,1)
-        action = a.item()
+
+        if not self._distributional:
+            if self._training:
+                if not self._learn_schedule.update():
+                    epsilon = 1.0
+                else:
+                    epsilon = self._epsilon_schedule.update()
+                if self._logger.update_step(self._timescale):
+                    self._logger.log_scalar("epsilon", epsilon, self._timescale)
+            else:
+                epsilon = 0
+
+        if self._noisy:
+            self._qnet.sample_noise()
+
+        a = self._qnet(observation).cpu()
+
+        if self._noisy:
+            action = torch.argmax(a).numpy()
+
+        else:
+            if self._rng.random() < epsilon:
+                action = self._rng.integers(self._act_dim)
+            else:
+                action = torch.argmax(a).numpy()
+
         return action
+
 
     def update(self, update_info):
         """

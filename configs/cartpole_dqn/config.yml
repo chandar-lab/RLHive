@@ -72,8 +72,8 @@ agents:
       dueling: True
       noisy: True
       distributional: False
-      vmin: -10
-      vmax: 10
+      v_min: -10
+      v_max: 10
       atoms: 51
 
 # List of logger configs used.

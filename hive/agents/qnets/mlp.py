@@ -71,11 +71,11 @@ class SimpleMLP(nn.Module):
             if self._noisy:
 
                 self.fc1 = NoisyLinear(self._in_dim, hidden_units, self._sigma_init)
-                self.fc1_adv = NoisyLinear(hidden_units, hidden_units, self.sigma_init)
-                self.fc2_adv = NoisyLinear(hidden_units, self._out_dim, self.sigma_init)
+                self.fc1_adv = NoisyLinear(hidden_units, hidden_units, self._sigma_init)
+                self.fc2_adv = NoisyLinear(hidden_units, self._out_dim, self._sigma_init)
 
-                self.fc1_val = NoisyLinear(hidden_units, hidden_units, sigma_init)
-                self.fc2_val = NoisyLinear(hidden_units, 1, sigma_init)
+                self.fc1_val = NoisyLinear(hidden_units, hidden_units, self._sigma_init)
+                self.fc2_val = NoisyLinear(hidden_units, 1, self._sigma_init)
 
             else:
 
@@ -88,8 +88,8 @@ class SimpleMLP(nn.Module):
         else:
 
             if self._noisy:
-                self.fc1 = NoisyLinear(self._in_dim, hidden_units, sigma_init)
-                self.fc2 = NoisyLinear(hidden_units, self._out_dim, sigma_init)
+                self.fc1 = NoisyLinear(self._in_dim, hidden_units, self._sigma_init)
+                self.fc2 = NoisyLinear(hidden_units, self._out_dim, self._sigma_init)
 
         self.relu = nn.ReLU()
 
@@ -108,7 +108,7 @@ class SimpleMLP(nn.Module):
             if len(adv.shape) == 1:
                 x = val + adv - adv.mean(0)
             else:
-                x = val + adv - adv.mean(1).unsqueeze(1).expand(x.shape[0], self.out_dim)
+                x = val + adv - adv.mean(1).unsqueeze(1).expand(x.shape[0], self._out_dim)
 
         else:
             if self._noisy:
