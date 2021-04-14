@@ -24,7 +24,8 @@ class DQNAgent(Agent):
     def __init__(
         self,
         qnet,
-        env_spec,
+        obs_dim,
+        act_dim,
         optimizer_fn=None,
         id=0,
         replay_buffer=None,
@@ -45,8 +46,8 @@ class DQNAgent(Agent):
         Args:
             qnet: A network that outputs the q-values of the different actions
                 for an input observation.
-            env_spec: The specification of the environment the agent will be
-                running in.
+            obs_dim: The dimension of the observations.
+            act_dim: The number of actions available to the agent.
             optimizer_fn: A function that takes in a list of parameters to optimize
                 and returns the optimizer.
             id: ID used to create the timescale in the logger for the agent.
@@ -74,11 +75,13 @@ class DQNAgent(Agent):
             logger: Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
         """
+        super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=f"dqn_agent_{id}")
         if isinstance(qnet, dict):
-            qnet["kwargs"]["env_spec"] = env_spec
+            qnet["kwargs"]["in_dim"] = self._obs_dim
+            qnet["kwargs"]["out_dim"] = self._act_dim
+
         self._qnet = get_qnet(qnet)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
-        self._env_spec = env_spec
         optimizer_fn = get_optimizer_fn(optimizer_fn)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
@@ -97,7 +100,7 @@ class DQNAgent(Agent):
         self._logger = get_logger(logger)
         if self._logger is None:
             self._logger = NullLogger()
-        self._timescale = f"dqn_agent_{id}"
+        self._timescale = self.id
         self._logger.register_timescale(
             self._timescale, PeriodicSchedule(False, True, log_frequency)
         )
@@ -148,7 +151,7 @@ class DQNAgent(Agent):
         observation = torch.tensor(observation).to(self._device).float()
         qvals = self._qnet(observation).cpu()
         if self._rng.random() < epsilon:
-            action = self._rng.integers(self._env_spec.act_dim)
+            action = self._rng.integers(self._act_dim)
         else:
             action = torch.argmax(qvals).numpy()
 

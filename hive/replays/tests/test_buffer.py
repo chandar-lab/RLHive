@@ -14,7 +14,7 @@ def initial_buffer():
 
     observation, _ = environment.reset()
     for i in range(400):
-        action = rng.integers(environment._env_spec.act_dim)
+        action = rng.integers(environment._env_spec.act_dim[0])
         next_observation, reward, done, turn, info = environment.step(action)
         buffer.add((observation, action, reward, next_observation, done))
         observation = next_observation
@@ -31,7 +31,7 @@ def test_add_to_buffer(initial_buffer):
     buffer, environment, seed = initial_buffer
     rng = np.random.default_rng(seed)
     observation, _ = environment.reset()
-    action = rng.integers(environment._env_spec.act_dim)
+    action = rng.integers(environment._env_spec.act_dim[0])
     next_observation, reward, done, turn, info = environment.step(action)
     buffer.add((observation, action, reward, next_observation, done))
     assert buffer.size() == 401

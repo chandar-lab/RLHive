@@ -4,8 +4,15 @@ import abc
 class Agent(abc.ABC):
     """Base class for agents. Every implemented agent should be a subclass of this class."""
 
-    def __init__(self):
+    def __init__(self, obs_dim, act_dim, id=0):
+        self._obs_dim = obs_dim
+        self._act_dim = act_dim
         self._training = True
+        self._id = str(id)
+
+    @property
+    def id(self):
+        return self._id
 
     @abc.abstractmethod
     def act(self, observation):
