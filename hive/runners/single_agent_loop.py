@@ -4,6 +4,7 @@ from hive.runners.multi_agent_loop import set_up_experiment, load_config
 
 
 def set_up_single_agent_experiment(config):
+    """Returns a runner object for a single agent experiment."""
     config["environment"]["kwargs"]["num_players"] = 1
     return set_up_experiment(config)
 

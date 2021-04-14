@@ -5,6 +5,12 @@ class Agent(abc.ABC):
     """Base class for agents. Every implemented agent should be a subclass of this class."""
 
     def __init__(self, obs_dim, act_dim, id=0):
+        """Constructor for Agent class.
+        Args:
+            obs_dim: dimension of observations that agent will see.
+            act_dim: Number of actions that the agent needs to chose from.
+            id: Identifier for the agent.
+        """
         self._obs_dim = obs_dim
         self._act_dim = act_dim
         self._training = True
