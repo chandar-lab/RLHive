@@ -14,7 +14,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         self,
         capacity=10000,
         observation_shape=(),
-        observation_dtype=np.uint8,
+        observation_dtype=np.float32,
         action_shape=(),
         action_dtype=np.int8,
         reward_shape=(),
@@ -65,7 +65,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def size(self):
         """Returns the number of transitions stored in the buffer."""
-        return min(self._num_added - 1, self._capacity - 1)
+        return max(min(self._num_added - 1, self._capacity - 1), 0)
 
     def _create_storage(self, capacity, specs):
         """Creates the storage buffer for each type of item in the buffer.
@@ -144,7 +144,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             dname: directory where to save buffer. Should already have been created.
         """
         np.save(os.path.join(dname, "storage.npy"), self._storage)
-        info = {
+        state = {
             "episode_start": self._episode_start,
             "cursor": self._cursor,
             "num_added": self._num_added,
@@ -152,7 +152,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         }
 
         with open(os.path.join(dname, "replay.pkl"), "wb") as f:
-            pickle.dump(info, f)
+            pickle.dump(state, f)
 
     def load(self, dname):
         """Load the replay buffer.
@@ -160,13 +160,15 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         Args:
             dname: directory where to load buffer from.
         """
-        self._storage = np.load(os.path.join(dname, "storage.npy"))
+        self._storage = np.load(
+            os.path.join(dname, "storage.npy"), allow_pickle=True
+        ).item()
         with open(os.path.join(dname, "replay.pkl"), "rb") as f:
-            info = pickle.load(f)
-        info["episode_start"] = self._episode_start
-        info["cursor"] = self._cursor
-        info["num_added"] = self._num_added
-        info["rng"] = self._rng
+            state = pickle.load(f)
+        self._episode_start = state["episode_start"]
+        self._cursor = state["cursor"]
+        self._num_added = state["num_added"]
+        self._rng = state["rng"]
 
 
 def str_to_dtype(dtype):
