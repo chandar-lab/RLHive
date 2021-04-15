@@ -107,7 +107,12 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         if transition.keys() != self._specs.keys():
             raise ValueError("Keys passed do not match replay signature")
         for key in self._specs:
-            if not np.can_cast(transition[key], self._specs[key][0]):
+            obj_type = (
+                transition[key].dtype
+                if hasattr(transition[key], "dtype")
+                else type(transition[key])
+            )
+            if not np.can_cast(obj_type, self._specs[key][0], casting="same_kind"):
                 raise ValueError(
                     f"Key {key} has wrong dtype. Expected {self._specs[key][0]},"
                     f"received {type(transition[key])}."
