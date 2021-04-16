@@ -1,8 +1,18 @@
 # General training loop config
 run_name: &run_name 'cartpole-dqn'
-train_steps: 30000
-test_frequency: 10
-test_num_episodes: 1
+training_schedule:
+  name: 'SwitchSchedule'
+  kwargs:
+    off_value: True
+    on_value: False
+    steps: 30000
+testing_schedule:
+  name: 'DoublePeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    off_period: 10
+    on_period: 1
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
@@ -21,7 +31,7 @@ environment:
 # the list is used.
 agents: 
   - 
-    name: 'DQNAgent'
+    name: 'RainbowDQNAgent'
     kwargs:
       qnet:
         name: 'SimpleMLP'
@@ -58,6 +68,13 @@ agents:
       batch_size: 128
       device: 'cpu'
       log_frequency: 100
+      double: True
+      dueling: True
+      noisy: True
+      distributional: False
+      v_min: -10
+      v_max: 10
+      atoms: 51
 
 # List of logger configs used.
 loggers:
