@@ -94,7 +94,7 @@ class RainbowDQNAgent(Agent):
         if distributional:
             qnet["name"] = 'DistributionalMLP'
         else:
-            qnet["name"] = 'SimpleMLP'
+            qnet["name"] = 'ComplexMLP'
 
         self._qnet = get_qnet(qnet)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
