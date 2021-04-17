@@ -1,7 +1,7 @@
 import os
 import abc
 import numpy as np
-import _pickle as pickle
+import pickle
 
 from hive.utils.utils import create_folder
 
@@ -10,12 +10,13 @@ class BaseReplayBuffer(abc.ABC):
     """Base class for replay buffers. Every implemented buffer should be a subclass of this class."""
 
     @abc.abstractmethod
-    def add(self, data):
+    def add(self, **data):
         """
         Adds data to the buffer
 
         Args:
-            data (tuple): (state, action, reward, next_state)
+            data: data to add to the replay buffer. Subclasses can define this class
+                signature based on use case.
         """
 
     @abc.abstractmethod
@@ -24,31 +25,31 @@ class BaseReplayBuffer(abc.ABC):
         sample a minibatch
 
         Args:
-            batch_size (int): .
+            batch_size (int): the number of transitions to sample.
         """
 
     @abc.abstractmethod
     def size(self):
         """
-        returns replay buffer size
+        Returns the number of transitions stored in the buffer.
         """
 
     @abc.abstractmethod
-    def save(self, fname):
+    def save(self, dname):
         """
         Saves buffer checkpointing information to file for future loading.
 
         Args:
-            fname (str): directory and file name where agent should save all relevant info.
+            dname (str): directory where agent should save all relevant info.
         """
 
     @abc.abstractmethod
-    def load(self, fname):
+    def load(self, dname):
         """
         Loads buffer from file.
 
         Args:
-            fname (str): directory and file name where buffer checkpoint info is stored.
+            dname (str): directory name where buffer checkpoint info is stored.
 
         Returns:
             True if successfully loaded the buffer. False otherwise.
@@ -122,44 +123,44 @@ class CircularReplayBuffer(BaseReplayBuffer):
 
     def size(self):
         """
-        returns replay buffer size
+        returns the number of transitions stored in the replay buffer
         """
         return self._n
 
-    def save(self, fname):
+    def save(self, dname):
         """
         Saves buffer checkpointing information to file for future loading.
 
         Args:
-            fname (str): directory and file name where agent should save all relevant info.
+            dname (str): directory name where agent should save all relevant info.
         """
-        create_folder(fname)
+        create_folder(dname)
 
         sdict = {}
         sdict["size"] = self._size
         sdict["write_index"] = self._write_index
         sdict["n"] = self._n
 
-        full_name = os.path.join(fname, "meta.ckpt")
+        full_name = os.path.join(dname, "meta.ckpt")
         with open(full_name, "wb") as f:
             pickle.dump(sdict, f)
 
         for key in self._data:
-            full_name = os.path.join(fname, "{}.npy".format(key))
+            full_name = os.path.join(dname, "{}.npy".format(key))
             with open(full_name, "wb") as f:
                 np.save(f, self._data[key])
 
-    def load(self, fname):
+    def load(self, dname):
         """
         Loads buffer from file.
 
         Args:
-            fname (str): directory and file name where buffer checkpoint info is stored.
+            dname (str): directory name where buffer checkpoint info is stored.
 
         Returns:
             True if successfully loaded the buffer. False otherwise.
         """
-        full_name = os.path.join(fname, "meta.ckpt")
+        full_name = os.path.join(dname, "meta.ckpt")
         with open(full_name, "rb") as f:
             sdict = pickle.load(f)
 
@@ -168,6 +169,6 @@ class CircularReplayBuffer(BaseReplayBuffer):
         self._n = sdict["n"]
 
         for key in self._data:
-            full_name = os.path.join(fname, "{}.npy".format(key))
+            full_name = os.path.join(dname, "{}.npy".format(key))
             with open(full_name, "rb") as f:
                 self._data[key] = np.load(f, allow_pickle=True)
