@@ -181,11 +181,11 @@ class DistributionalMLP(nn.Module):
             if self._noisy:
 
                 self.fc1 = NoisyLinear(self._in_dim, hidden_units, self._sigma_init)
-                self.fc1_adv = NoisyLinear(hidden_units, hidden_units, self.sigma_init)
-                self.fc2_adv = NoisyLinear(hidden_units, self._out_dim * self._atoms, self.sigma_init)
+                self.fc1_adv = NoisyLinear(hidden_units, hidden_units, self._sigma_init)
+                self.fc2_adv = NoisyLinear(hidden_units, self._out_dim * self._atoms, self._sigma_init)
 
-                self.fc1_val = NoisyLinear(hidden_units, hidden_units, sigma_init)
-                self.fc2_val = NoisyLinear(hidden_units, 1 * self._atoms, sigma_init)
+                self.fc1_val = NoisyLinear(hidden_units, hidden_units, self._sigma_init)
+                self.fc2_val = NoisyLinear(hidden_units, 1 * self._atoms, self._sigma_init)
 
             else:
 
@@ -198,8 +198,8 @@ class DistributionalMLP(nn.Module):
         else:
 
             if self._noisy:
-                self.fc1 = NoisyLinear(self._in_dim, hidden_units, sigma_init)
-                self.fc2 = NoisyLinear(hidden_units, self._out_dim * self._atoms, sigma_init)
+                self.fc1 = NoisyLinear(self._in_dim, hidden_units, self._sigma_init)
+                self.fc2 = NoisyLinear(hidden_units, self._out_dim * self._atoms, self._sigma_init)
 
         self.relu = nn.ReLU()
 
@@ -215,7 +215,7 @@ class DistributionalMLP(nn.Module):
             val = self.relu(self.fc1_val(x))
             val = self.fc2_val(val).view(-1, 1, self._atoms)
 
-            x = val + adv - adv.mean(dim=1).view(-1, 1, self.atoms)
+            x = val + adv - adv.mean(dim=1).view(-1, 1, self._atoms)
             # return F.softmax(final, dim=2)
 
             # if len(adv.shape) == 1:

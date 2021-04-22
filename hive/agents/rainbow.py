@@ -161,19 +161,25 @@ class RainbowDQNAgent(Agent):
         batch_next_obs = batch["next_observations"]
         batch_reward = batch["rewards"]
         batch_not_done = 1 - batch["done"]
+        # print("batch[done] = ", batch["done"])
+
 
         with torch.no_grad():
             max_next_dist = torch.zeros((self._batch_size, 1, self._atoms), device=self._device,
                                         dtype=torch.float) + 1./self._atoms
 
-            # TO-DO: if not empty_next_state_values:
+            # max_next_dist = torch.where(not batch["done"],
+            #
+            #                             )
+            # if not batch["done"]:
             max_next_action = self.get_max_next_state_action(batch_next_obs)
-            self._target_qnet.sample_noise()
+            if self._noisy:
+                self._target_qnet.sample_noise()
             max_next_dist[batch_not_done] = self._target_qnet(batch_next_obs).gather(1, max_next_action)
             max_next_dist = max_next_dist.squeeze()
 
-            Tz = batch_reward.view(-1, 1) + (self._discount_rate ** self._nsteps) * self._supports.view(1, -1) * batch_not_done.to(
-                torch.float).view(-1, 1)
+            Tz = batch_reward.view(-1, 1) + (self._discount_rate ** self._nsteps) * self._supports.view(1, -1) * \
+                 batch_not_done.to(torch.float).view(-1, 1)
             Tz = Tz.clamp(self._v_min, self._v_max)
             b = (Tz - self._v_min) / self._delta
             l = b.floor().to(torch.int64)
@@ -208,6 +214,8 @@ class RainbowDQNAgent(Agent):
     @torch.no_grad()
     def act(self, observation):
         observation = torch.tensor(observation).to(self._device).float()
+        if self._noisy:
+            self._qnet.sample_noise()
 
         if not self._distributional:
             if self._training:
@@ -220,19 +228,22 @@ class RainbowDQNAgent(Agent):
             else:
                 epsilon = 0
 
-        if self._noisy:
-            self._qnet.sample_noise()
-
         a = self._qnet(observation).cpu()
 
-        if self._noisy:
-            action = torch.argmax(a).numpy()
+        if self._distributional:
+            a = a * self._supports
+            action = a.sum(dim=2).max(1)[1].view(1,1)
+            action = action.item()
 
         else:
-            if self._rng.random() < epsilon:
-                action = self._rng.integers(self._act_dim)
-            else:
+            if self._noisy:
                 action = torch.argmax(a).numpy()
+
+            else:
+                if self._rng.random() < epsilon:
+                    action = self._rng.integers(self._act_dim)
+                else:
+                    action = torch.argmax(a).numpy()
 
         return action
 
@@ -294,9 +305,20 @@ class RainbowDQNAgent(Agent):
                 loss = self._loss_fn(pred_qvals, q_targets)
 
             else:
-                print("distributional agent WIP")
+                # print("distributional agent WIP")
+                # print("actions shape = ", actions.shape)
+                actions = actions.unsqueeze(dim=-1)
+                # print("actions shape = ", actions.shape)
+                actions = actions.expand(self._batch_size, -1, self._atoms)
+                rewards = batch["rewards"].view(-1, 1, 1)
+                if self._noisy:
+                    self._qnet.sample_noise()
+                current_dist = self._qnet(batch["observations"]).gather(1, actions).squeeze()
+                target_prob = self.projection_distribution(batch)
 
-
+                loss = self._loss_fn(current_dist, target_prob)
+                # loss = -(target_prob * current_dist.log()).sum(-1)
+                # loss = loss.mean()
 
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar(

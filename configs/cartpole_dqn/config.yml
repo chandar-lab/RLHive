@@ -70,8 +70,8 @@ agents:
       log_frequency: 100
       double: True
       dueling: True
-      noisy: True
-      distributional: False
+      noisy: False
+      distributional: True
       v_min: -10
       v_max: 10
       atoms: 51
