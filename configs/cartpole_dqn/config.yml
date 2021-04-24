@@ -70,10 +70,10 @@ agents:
       log_frequency: 100
       double: True
       dueling: True
-      noisy: False
+      noisy: True
       distributional: True
-      v_min: -10
-      v_max: 10
+      v_min: 0.0
+      v_max: 200.0
       atoms: 51
 
 # List of logger configs used.

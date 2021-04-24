@@ -84,17 +84,31 @@ class RainbowDQNAgent(Agent):
         """
         self._obs_dim = obs_dim[0]
         self._act_dim = act_dim
+
+        self._dueling = dueling
+        self._double = double
+
+        self._atoms = atoms
+        self._v_min = v_min
+        self._v_max = v_max
+        self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(device)
+        self._delta = float(self._v_max - self._v_min) / (self._atoms - 1)
+        self._nsteps = 1
+
         if isinstance(qnet, dict):
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
 
         qnet["kwargs"]["noisy"] = noisy
         qnet["kwargs"]["dueling"] = dueling
+        qnet["kwargs"]["supports"] = self._supports
 
         if distributional:
             qnet["name"] = 'DistributionalMLP'
         else:
             qnet["name"] = 'ComplexMLP'
+
+
 
         self._qnet = get_qnet(qnet)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
@@ -141,16 +155,6 @@ class RainbowDQNAgent(Agent):
         self._state = {"episode_start": True}
         self._training = False
 
-        self._dueling = dueling
-        self._double = double
-
-        self._atoms = atoms
-        self._v_min = v_min
-        self._v_max = v_max
-        self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).view(1, 1, self._atoms).to(self._device)
-        self._delta = (self._v_max - self._v_min) / (self._atoms - 1)
-        self._nsteps = 1
-
     def get_max_next_state_action(self, next_states):
         next_dist = self._qnet(next_states) * self._supports
         return next_dist.sum(dim=2).max(1)[1].view(next_states.size(0), 1, 1).expand(-1, -1, self._atoms)
@@ -159,44 +163,38 @@ class RainbowDQNAgent(Agent):
         batch_obs = batch["observations"]
         batch_action = batch["actions"].long()
         batch_next_obs = batch["next_observations"]
-        batch_reward = batch["rewards"]
-        batch_not_done = 1 - batch["done"]
-        # print("batch[done] = ", batch["done"])
-
+        batch_reward = batch["rewards"].reshape(-1, 1).to(self._device)
+        batch_not_done = 1 - batch["done"].reshape(-1, 1).to(self._device)
 
         with torch.no_grad():
-            max_next_dist = torch.zeros((self._batch_size, 1, self._atoms), device=self._device,
-                                        dtype=torch.float) + 1./self._atoms
+            next_action = self._target_qnet(batch_next_obs).argmax(1)
+            next_dist = self._target_qnet.dist(batch_next_obs)
+            next_dist = next_dist[range(self._batch_size), next_action]
 
-            # max_next_dist = torch.where(not batch["done"],
-            #
-            #                             )
-            # if not batch["done"]:
-            max_next_action = self.get_max_next_state_action(batch_next_obs)
-            if self._noisy:
-                self._target_qnet.sample_noise()
-            max_next_dist[batch_not_done] = self._target_qnet(batch_next_obs).gather(1, max_next_action)
-            max_next_dist = max_next_dist.squeeze()
+            t_z = batch_reward + batch_not_done * self._discount_rate * self._supports
+            t_z = t_z.clamp(min=self._v_min, max=self._v_max)
+            b = (t_z - self._v_min) / self._delta
+            l = b.floor().long()
+            u = b.ceil().long()
 
-            Tz = batch_reward.view(-1, 1) + (self._discount_rate ** self._nsteps) * self._supports.view(1, -1) * \
-                 batch_not_done.to(torch.float).view(-1, 1)
-            Tz = Tz.clamp(self._v_min, self._v_max)
-            b = (Tz - self._v_min) / self._delta
-            l = b.floor().to(torch.int64)
-            u = b.ceil().to(torch.int64)
-            l[(u > 0) * (l == u)] -= 1
-            u[(l < (self._atoms - 1)) * (l == u)] += 1
+            offset = (
+                torch.linspace(
+                    0, (self._batch_size - 1) * self._atoms, self._batch_size
+                ).long()
+                    .unsqueeze(1)
+                    .expand(self._batch_size, self._atoms)
+                    .to(self._device)
+            )
 
-            offset = torch.linspace(0, (self._batch_size - 1) * self._atoms, self._batch_size).unsqueeze(dim=1).expand(
-                self._batch_size, self._atoms).to(batch_action)
-            m = batch_obs.new_zeros(self._batch_size, self._atoms)
-            m.view(-1).index_add_(0, (l + offset).view(-1),
-                                  (max_next_dist * (u.float() - b)).view(-1))
-            m.view(-1).index_add_(0, (u + offset).view(-1),
-                                  (max_next_dist * (b - l.float())).view(-1))
+            proj_dist = torch.zeros(next_dist.size(), device=self._device)
+            proj_dist.view(-1).index_add_(
+                0, (l + offset).view(-1), (next_dist * (u.float() - b)).view(-1)
+            )
+            proj_dist.view(-1).index_add_(
+                0, (u + offset).view(-1), (next_dist * (b - l.float())).view(-1)
+            )
 
-        return m
-
+        return proj_dist
 
 
     def train(self):
@@ -217,33 +215,23 @@ class RainbowDQNAgent(Agent):
         if self._noisy:
             self._qnet.sample_noise()
 
-        if not self._distributional:
-            if self._training:
-                if not self._learn_schedule.update():
-                    epsilon = 1.0
-                else:
-                    epsilon = self._epsilon_schedule.update()
-                if self._logger.update_step(self._timescale):
-                    self._logger.log_scalar("epsilon", epsilon, self._timescale)
+        # if not self._distributional:
+        if self._training:
+            if not self._learn_schedule.update():
+                epsilon = 1.0
             else:
-                epsilon = 0
+                epsilon = self._epsilon_schedule.update()
+            if self._logger.update_step(self._timescale):
+                self._logger.log_scalar("epsilon", epsilon, self._timescale)
+        else:
+            epsilon = 0
 
         a = self._qnet(observation).cpu()
 
-        if self._distributional:
-            a = a * self._supports
-            action = a.sum(dim=2).max(1)[1].view(1,1)
-            action = action.item()
-
+        if not self._noisy and self._rng.random() < epsilon:
+            action = self._rng.integers(self._act_dim)
         else:
-            if self._noisy:
-                action = torch.argmax(a).numpy()
-
-            else:
-                if self._rng.random() < epsilon:
-                    action = self._rng.integers(self._act_dim)
-                else:
-                    action = torch.argmax(a).numpy()
+            action = torch.argmax(a).numpy()
 
         return action
 
@@ -305,20 +293,15 @@ class RainbowDQNAgent(Agent):
                 loss = self._loss_fn(pred_qvals, q_targets)
 
             else:
-                # print("distributional agent WIP")
-                # print("actions shape = ", actions.shape)
-                actions = actions.unsqueeze(dim=-1)
-                # print("actions shape = ", actions.shape)
-                actions = actions.expand(self._batch_size, -1, self._atoms)
-                rewards = batch["rewards"].view(-1, 1, 1)
                 if self._noisy:
                     self._qnet.sample_noise()
-                current_dist = self._qnet(batch["observations"]).gather(1, actions).squeeze()
+                    self._target_qnet.sample_noise()
+                current_dist = self._qnet.dist(batch["observations"])
+                log_p = torch.log(current_dist[range(self._batch_size), actions])
                 target_prob = self.projection_distribution(batch)
 
-                loss = self._loss_fn(current_dist, target_prob)
-                # loss = -(target_prob * current_dist.log()).sum(-1)
-                # loss = loss.mean()
+                loss = -(target_prob * log_p).sum(1)
+                loss = loss.mean()
 
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar(

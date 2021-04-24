@@ -64,7 +64,7 @@ class NoisyLinear(nn.Module):
 class ComplexMLP(nn.Module):
     """Simple MLP function approximator for Q-Learning."""
 
-    def __init__(self, in_dim, out_dim, hidden_units=256, num_hidden_layers=1, noisy=True, dueling=True, sigma_init=0.5):
+    def __init__(self, in_dim, out_dim, supports, hidden_units=256, num_hidden_layers=1, noisy=True, dueling=True, sigma_init=0.5):
         super().__init__()
 
         self._noisy = noisy
@@ -154,7 +154,7 @@ class ComplexMLP(nn.Module):
 class DistributionalMLP(nn.Module):
     """Simple MLP function approximator for Q-Learning."""
 
-    def __init__(self, in_dim, out_dim, hidden_units=256, num_hidden_layers=1,
+    def __init__(self, in_dim, out_dim, supports, hidden_units=256, num_hidden_layers=1,
                  noisy=True, dueling=True, sigma_init=0.5, atoms=51):
         super().__init__()
 
@@ -164,6 +164,7 @@ class DistributionalMLP(nn.Module):
         self._in_dim = in_dim
         self._out_dim = out_dim
         self._atoms = atoms
+        self._supports = supports
 
         self.input_layer = nn.Sequential(
             nn.Linear(self._in_dim, hidden_units), nn.ReLU()
@@ -216,25 +217,12 @@ class DistributionalMLP(nn.Module):
             val = self.fc2_val(val).view(-1, 1, self._atoms)
 
             x = val + adv - adv.mean(dim=1).view(-1, 1, self._atoms)
-            # return F.softmax(final, dim=2)
-
-            # if len(adv.shape) == 1:
-            #     x = val + adv - adv.mean(0)
-            # else:
-            #     x = val + adv - adv.mean(1).unsqueeze(1).expand(x.shape[0], self.out_dim)
 
         else:
-            if self._noisy:
-                x = F.relu(self.fc1(x))
-                x = self.fc2(x)
-            else:
-                x = self.input_layer(x)
-                x = self.hidden_layers(x)
-                x = self.output_layer(x)
+            x = self.dist(x)
 
-            x = x.view(-1, 1, self._atoms)
-
-        return F.softmax(x, dim=2)
+        x = torch.sum(x * self._supports, dim=2)
+        return x
 
     def sample_noise(self):
         if self._dueling:
@@ -247,3 +235,31 @@ class DistributionalMLP(nn.Module):
             self.fc1.sample_noise()
             self.fc2.sample_noise()
 
+    def dist(self, x):
+
+        if self._noisy:
+            x = F.relu(self.fc1(x))
+        else:
+            x = self.input_layer(x)
+
+        if self._dueling:
+            adv = self.relu(self.fc1_adv(x))
+            adv = self.fc2_adv(adv).view(-1, self._out_dim, self._atoms)
+
+            val = self.relu(self.fc1_val(x))
+            val = self.fc2_val(val).view(-1, 1, self._atoms)
+
+            x = val + adv - adv.mean(dim=1).view(-1, 1, self._atoms)
+
+        else:
+            if self._noisy:
+                x = self.fc2(x)
+            else:
+                x = self.hidden_layers(x)
+                x = self.output_layer(x)
+
+        x = x.view(-1, self._out_dim, self._atoms)
+        x = F.softmax(x, dim=-1)
+        x = x.clamp(min=1e-3)
+
+        return x
