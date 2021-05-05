@@ -26,7 +26,6 @@ agents:
       id: 0
       seed: 42
       device: 'cpu'
-      log_frequency: 100
 
 # List of logger configs used.
 loggers:

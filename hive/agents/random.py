@@ -15,6 +15,8 @@ class RandomAgent(Agent):
         act_dim,
         id=0,
         seed=42,
+        device="cpu",
+        logger=None
     ):
         """
         Args:
