@@ -23,6 +23,9 @@ class RandomAgent(Agent):
             obs_dim: The dimension of the observations.
             act_dim: The number of actions available to the agent.
             id: ID used to create the timescale in the logger for the agent.
+            seed: Seed for numpy random number generator.
+            device: Device on which all computations should be run.
+            logger: Logger used to log agent's metrics.
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=f"random_agent_{id}")
         self._rng = np.random.default_rng(seed=seed)
