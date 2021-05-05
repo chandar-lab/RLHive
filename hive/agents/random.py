@@ -15,9 +15,6 @@ class RandomAgent(Agent):
         act_dim,
         id=0,
         seed=42,
-        device="cpu",
-        logger=None,
-        log_frequency=100,
     ):
         """
         Args:
@@ -41,10 +38,14 @@ class RandomAgent(Agent):
         pass
 
     def save(self, dname):
-
-        pass
+        torch.save(
+            {
+                "rng": self._rng,
+            },
+            os.path.join(dname, "agent.pt"),
+        )
 
     def load(self, dname):
-
-        pass
+        checkpoint = torch.load(os.path.join(dname, "agent.pt"))
+        self._rng = checkpoint["rng"]
 
