@@ -6,18 +6,9 @@ from hive.agents.agent import Agent
 
 
 class RandomAgent(Agent):
-    """A random agent
-    """
+    """A random agent"""
 
-    def __init__(
-        self,
-        obs_dim,
-        act_dim,
-        id=0,
-        seed=42,
-        device="cpu",
-        logger=None
-    ):
+    def __init__(self, obs_dim, act_dim, id=0, seed=42, device="cpu", logger=None):
         """
         Args:
             obs_dim: The dimension of the observations.
@@ -53,4 +44,3 @@ class RandomAgent(Agent):
     def load(self, dname):
         checkpoint = torch.load(os.path.join(dname, "agent.pt"))
         self._rng = checkpoint["rng"]
-
