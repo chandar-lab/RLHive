@@ -1,9 +1,10 @@
 from marlgrid.base import MultiGridEnv, MultiGrid
+from hive.envs.ma_envs.base import MultiGridEnvHive
 from marlgrid.objects import *
 import numpy as np
 
 
-class CheckersMultiGrid(MultiGridEnv):
+class CheckersMultiGrid(MultiGridEnvHive):
     mission = "get to the green square"
     metadata = {}
 
@@ -22,11 +23,10 @@ class CheckersMultiGrid(MultiGridEnv):
 
         self.num_remained_goals = 3 * (width - 2)
         self.agent_spawn_kwargs = {}
-        self.place_agents(**self.agent_spawn_kwargs)
+        self.place_agents(top=(0,4), size=(width, height-4), **self.agent_spawn_kwargs)
         self.ghost_mode = False
 
-
-def step(self, actions):
+    def step(self, actions):
         # Spawn agents if it's time.
         for agent in self.agents:
             if not agent.active and not agent.done and self.step_count >= agent.spawn_delay:
@@ -112,6 +112,7 @@ def step(self, actions):
                             step_rewards[agent_no] += rwd
                             agent.reward(rwd)
                             self.num_remained_goals -= 1
+                            self.grid.set(*fwd_pos, agent)
 
                         if isinstance(fwd_cell, Lava):
                             agent.done = True

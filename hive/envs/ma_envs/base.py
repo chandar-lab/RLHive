@@ -1,19 +1,101 @@
+import gym
 from marlgrid.base import MultiGridEnv, MultiGrid
-from hive.envs.ma_envs.base import MultiGridEnvHive
 from marlgrid.objects import *
 import numpy as np
 
 
-class PursuitMultiGrid(MultiGridEnvHive):
-    mission = "get to the green square"
-    metadata = {}
+class MultiGridEnvHive(MultiGridEnv):
+    def __init__(
+        self,
+        agents,
+        grid_size=None,
+        width=None,
+        height=None,
+        max_steps=100,
+        reward_decay=True,
+        seed=1337,
+        respawn=False,
+        ghost_mode=True,
+        agent_spawn_kwargs={},
+    ):
 
-    def _gen_grid(self, width, height):
-        self.grid = MultiGrid((width, height))
-        self.grid.wall_rect(0, 0, width, height)
+        super().__init__(
+            agents,
+            grid_size,
+            width,
+            height,
+            max_steps,
+            reward_decay,
+            seed,
+            respawn,
+            ghost_mode,
+            agent_spawn_kwargs,
+        )
+        if grid_size is not None:
+            assert width == None and height == None
+            width, height = grid_size, grid_size
 
-        self.place_agents()
-        self.ghost_mode = False
+        self.respawn = respawn
+
+        self.window = None
+
+        self.width = width
+        self.height = height
+        self.max_steps = max_steps
+        self.reward_decay = reward_decay
+        self.seed(seed=seed)
+        self.agent_spawn_kwargs = agent_spawn_kwargs
+        self.ghost_mode = ghost_mode
+
+        self.agents = []
+        for agent in agents:
+            self.add_agent(agent)
+
+        self.reset()
+
+    def reset(self, **kwargs):
+        for agent in self.agents:
+            agent.agents = []
+            agent.reset(new_episode=True)
+
+        self._gen_grid(self.width, self.height)
+
+        for agent in self.agents:
+            if agent.spawn_delay == 0:
+                # self.place_obj(agent, **self.agent_spawn_kwargs)
+                agent.activate()
+
+        self.step_count = 0
+        obs = self.gen_obs()
+        return obs
+
+    def gen_agent_obs(self, agent):
+        """
+        Generate the agent's view (partially observable, low-resolution encoding)
+        """
+        grid, vis_mask = self.gen_obs_grid(agent)
+
+        grid_image = grid.render(
+            tile_size=agent.view_tile_size, visible_mask=vis_mask, top_agent=agent
+        )
+        if agent.observation_style == "image":
+            return grid_image
+        else:
+            ret = {"pov": grid_image}
+            if agent.observe_rewards:
+                ret["reward"] = getattr(agent, "step_reward", 0)
+            if agent.observe_position:
+                agent_pos = agent.pos if agent.pos is not None else (0, 0)
+                ret["position"] = np.array(agent_pos) / np.array(
+                    [self.width, self.height], dtype=np.float
+                )
+            if agent.observe_orientation:
+                agent_dir = agent.dir if agent.dir is not None else 0
+                ret["orientation"] = agent_dir
+            return ret
+
+    def gen_obs(self):
+        return [self.gen_agent_obs(agent) for agent in self.agents]
 
     def step(self, actions):
         # Spawn agents if it's time.
@@ -41,7 +123,7 @@ class PursuitMultiGrid(MultiGridEnvHive):
 
         iter_agents = list(enumerate(zip(self.agents, actions)))
         iter_order = np.arange(len(iter_agents))
-        # self.np_random.shuffle(iter_order)
+        self.np_random.shuffle(iter_order)
         for shuffled_ix in iter_order:
             agent_no, (agent, action) = iter_agents[shuffled_ix]
             agent.step_reward = 0
@@ -53,47 +135,8 @@ class PursuitMultiGrid(MultiGridEnvHive):
                 fwd_pos = agent.front_pos[:]
                 fwd_cell = self.grid.get(*fwd_pos)
                 agent_moved = False
-                bot_pos = agent.pos + np.array([0, -1])
-                bot_cell = self.grid.get(*bot_pos)
-                abov_pos = agent.pos + np.array([0, +1])
-                abov_cell = self.grid.get(*abov_pos)
-                left_pos = agent.pos + np.array([-1, 0])
-                left_cell = self.grid.get(*left_pos)
-                right_pos = agent.pos + np.array([+1, 0])
-                right_cell = self.grid.get(*right_pos)
 
-                num_rand_agents = 1
-                w = 0
-                a = 0
-                if agent_no == len(self.agents) - num_rand_agents:
-                    if isinstance(bot_cell, GridAgent):
-                        a += 1
-                    if isinstance(bot_cell, Wall):
-                        w += 1
-                    if isinstance(abov_cell, GridAgent):
-                        a += 1
-                    if isinstance(abov_cell, Wall):
-                        w += 1
-                    if isinstance(left_cell, GridAgent):
-                        a += 1
-                    if isinstance(left_cell, Wall):
-                        w += 1
-                    if isinstance(right_cell, GridAgent):
-                        a += 1
-                    if isinstance(right_cell, Wall):
-                        w += 1
-
-                    if a >= 2:
-                        step_rewards[: len(self.agents) - num_rand_agents] += np.array(
-                            [5] * (len(self.agents) - num_rand_agents)
-                        )
-                        # if w == 2:
-                        #     step_rewards[:len(self.agents) - num_rand_agents] += \
-                        #         np.array([10] * (len(self.agents) - num_rand_agents))
-                        for agent in self.agents:
-                            agent.done = True
-
-                            # Rotate left
+                # Rotate left
                 if action == agent.actions.left:
                     agent.dir = (agent.dir - 1) % 4
 
@@ -124,13 +167,6 @@ class PursuitMultiGrid(MultiGridEnvHive):
                         else:
                             assert cur_cell.can_overlap()
                             cur_cell.agents.remove(agent)
-
-                        # # reward for surrounding the evader
-                        # min_num_surr_agents = len(self.agents) - 1
-                        # if agent_no == len(self.agents) - 1 and len(agent.agents) > 0:
-                        #     step_rewards[:len(self.agents) - 1] += np.array([10 ** len(agent.agents)] * (len(self.agents) - 1))
-                        #     if len(agent.agents) == min_num_surr_agents:
-                        #         done = True
 
                         # Add agent's agents to old cell
                         for left_behind in agent.agents:
@@ -225,3 +261,17 @@ class PursuitMultiGrid(MultiGridEnvHive):
         obs = [self.gen_agent_obs(agent) for agent in self.agents]
 
         return obs, step_rewards, done, {}
+
+    def place_agent(self, agent, top=(0, 0), size=None, rand_dir=True, max_tries=100):
+        agent.pos = self.place_obj(agent, top=top, size=size, max_tries=max_tries)
+        # if rand_dir:
+        #     agent.dir = self._rand_int(0, 4)
+        return agent
+
+    def place_agents(self, top=(0, 0), size=None, rand_dir=True, max_tries=100):
+        for agent in self.agents:
+            self.place_agent(
+                agent, top=top, size=size, rand_dir=rand_dir, max_tries=max_tries
+            )
+            if hasattr(self, "mission"):
+                agent.mission = self.mission
