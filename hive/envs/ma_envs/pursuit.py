@@ -3,45 +3,44 @@ from marlgrid.objects import *
 import numpy as np
 
 
-class CheckersMultiGrid(MultiGridEnv):
+class PursuitMultiGrid(MultiGridEnv):
     mission = "get to the green square"
     metadata = {}
 
     def _gen_grid(self, width, height):
         self.grid = MultiGrid((width, height))
         self.grid.wall_rect(0, 0, width, height)
-        apple = Goal(color="green", reward=100)
-        orange = Goal(color="red", reward=-100)
-        for i in range(int(np.floor(width/2))):
-            for j in range(3):
-                if (j%2) + 1 + 2*i < width - 1:
-                    self.put_obj(orange, (j%2) + 1 + 2*i, j + 1)
 
-                if ((j+1)%2) + 1 + 2*i < width - 1:
-                    self.put_obj(apple, ((j+1)%2) + 1 + 2*i, j + 1)
-
-        self.num_remained_goals = 3 * (width - 2)
-        self.agent_spawn_kwargs = {}
-        self.place_agents(**self.agent_spawn_kwargs)
+        self.place_agents()
         self.ghost_mode = False
 
-
-def step(self, actions):
+    def step(self, actions):
         # Spawn agents if it's time.
         for agent in self.agents:
-            if not agent.active and not agent.done and self.step_count >= agent.spawn_delay:
+            if (
+                not agent.active
+                and not agent.done
+                and self.step_count >= agent.spawn_delay
+            ):
                 self.place_obj(agent, **self.agent_spawn_kwargs)
                 agent.activate()
 
         assert len(actions) == len(self.agents)
 
-        step_rewards = np.zeros((len(self.agents, )), dtype=np.float)
+        step_rewards = np.zeros(
+            (
+                len(
+                    self.agents,
+                )
+            ),
+            dtype=np.float,
+        )
 
         self.step_count += 1
 
         iter_agents = list(enumerate(zip(self.agents, actions)))
         iter_order = np.arange(len(iter_agents))
-        self.np_random.shuffle(iter_order)
+        # self.np_random.shuffle(iter_order)
         for shuffled_ix in iter_order:
             agent_no, (agent, action) = iter_agents[shuffled_ix]
             agent.step_reward = 0
@@ -53,8 +52,47 @@ def step(self, actions):
                 fwd_pos = agent.front_pos[:]
                 fwd_cell = self.grid.get(*fwd_pos)
                 agent_moved = False
+                bot_pos = agent.pos + np.array([0, -1])
+                bot_cell = self.grid.get(*bot_pos)
+                abov_pos = agent.pos + np.array([0, +1])
+                abov_cell = self.grid.get(*abov_pos)
+                left_pos = agent.pos + np.array([-1, 0])
+                left_cell = self.grid.get(*left_pos)
+                right_pos = agent.pos + np.array([+1, 0])
+                right_cell = self.grid.get(*right_pos)
 
-                # Rotate left
+                num_rand_agents = 1
+                w = 0
+                a = 0
+                if agent_no == len(self.agents) - num_rand_agents:
+                    if isinstance(bot_cell, GridAgent):
+                        a += 1
+                    if isinstance(bot_cell, Wall):
+                        w += 1
+                    if isinstance(abov_cell, GridAgent):
+                        a += 1
+                    if isinstance(abov_cell, Wall):
+                        w += 1
+                    if isinstance(left_cell, GridAgent):
+                        a += 1
+                    if isinstance(left_cell, Wall):
+                        w += 1
+                    if isinstance(right_cell, GridAgent):
+                        a += 1
+                    if isinstance(right_cell, Wall):
+                        w += 1
+
+                    if a >= 2:
+                        step_rewards[: len(self.agents) - num_rand_agents] += np.array(
+                            [5] * (len(self.agents) - num_rand_agents)
+                        )
+                        # if w == 2:
+                        #     step_rewards[:len(self.agents) - num_rand_agents] += \
+                        #         np.array([10] * (len(self.agents) - num_rand_agents))
+                        for agent in self.agents:
+                            agent.done = True
+
+                            # Rotate left
                 if action == agent.actions.left:
                     agent.dir = (agent.dir - 1) % 4
 
@@ -86,6 +124,13 @@ def step(self, actions):
                             assert cur_cell.can_overlap()
                             cur_cell.agents.remove(agent)
 
+                        # # reward for surrounding the evader
+                        # min_num_surr_agents = len(self.agents) - 1
+                        # if agent_no == len(self.agents) - 1 and len(agent.agents) > 0:
+                        #     step_rewards[:len(self.agents) - 1] += np.array([10 ** len(agent.agents)] * (len(self.agents) - 1))
+                        #     if len(agent.agents) == min_num_surr_agents:
+                        #         done = True
+
                         # Add agent's agents to old cell
                         for left_behind in agent.agents:
                             cur_obj = self.grid.get(*cur_pos)
@@ -101,19 +146,14 @@ def step(self, actions):
                         # test_integrity(f"After moving {agent.color} fellow")
 
                         # Rewards can be got iff. fwd_cell has a "get_reward" method
-                        if hasattr(fwd_cell, 'get_reward'):
+                        if hasattr(fwd_cell, "get_reward"):
                             rwd = fwd_cell.get_reward(agent)
-
-                            # Modify the reward for less sensitive agent
-                            if agent_no == 0:
-                                rwd /= 10
                             if bool(self.reward_decay):
-                                rwd *= (1.0 - 0.9 * (self.step_count / self.max_steps))
+                                rwd *= 1.0 - 0.9 * (self.step_count / self.max_steps)
                             step_rewards[agent_no] += rwd
                             agent.reward(rwd)
-                            self.num_remained_goals -= 1
 
-                        if isinstance(fwd_cell, Lava):
+                        if isinstance(fwd_cell, (Lava, Goal)):
                             agent.done = True
 
                 # TODO: verify pickup/drop/toggle logic in an environment that
@@ -177,8 +217,9 @@ def step(self, actions):
                     agent.deactivate()
 
         # The episode overall is done if all the agents are done, or if it exceeds the step limit.
-        done = (self.step_count >= self.max_steps) or all([agent.done for agent in self.agents]) or \
-            self.num_remained_goals == 0
+        done = (self.step_count >= self.max_steps) or all(
+            [agent.done for agent in self.agents]
+        )
 
         obs = [self.gen_agent_obs(agent) for agent in self.agents]
 
