@@ -72,7 +72,7 @@ class CheckersMultiGrid(MultiGridEnvHive):
                     if can_move:
                         agent_moved = True
                         # Add agent to new cell
-                        if fwd_cell is None:
+                        if fwd_cell is None or isinstance(fwd_cell, Goal):
                             self.grid.set(*fwd_pos, agent)
                             agent.pos = fwd_pos
                         else:
@@ -112,7 +112,6 @@ class CheckersMultiGrid(MultiGridEnvHive):
                             step_rewards[agent_no] += rwd
                             agent.reward(rwd)
                             self.num_remained_goals -= 1
-                            self.grid.set(*fwd_pos, agent)
 
                         if isinstance(fwd_cell, Lava):
                             agent.done = True
