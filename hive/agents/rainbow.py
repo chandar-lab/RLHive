@@ -27,9 +27,9 @@ class RainbowDQNAgent(DQNAgent):
         qnet,
         obs_dim,
         act_dim,
-        v_min,
-        v_max,
-        atoms,
+        v_min=0,
+        v_max=200,
+        atoms=51,
         optimizer_fn=None,
         id=0,
         replay_buffer=None,
@@ -56,6 +56,9 @@ class RainbowDQNAgent(DQNAgent):
                 for an input observation.
             obs_dim: The dimension of the observations.
             act_dim: The number of actions available to the agent.
+            v_min: minimum possible value of the value function
+            v_max: maximum possible value of the value function
+            atoms: number of atoms in the distributional DQN context
             optimizer_fn: A function that takes in a list of parameters to optimize
                 and returns the optimizer.
             id: ID used to create the timescale in the logger for the agent.
@@ -82,6 +85,10 @@ class RainbowDQNAgent(DQNAgent):
             device: Device on which all computations should be run.
             logger: Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
+            double: whether or not to use the double feature (from double DQN)
+            dueling: whether or not to use the dueling feature (from dueling DQN)
+            distributional: whether or not to use the distributional feature (from distributional DQN)
+            noisy: whether or not to use the noisy feature (from noisy DQN)
         """
         self._obs_dim = obs_dim
         self._act_dim = act_dim

@@ -23,6 +23,7 @@ class SimpleMLP(nn.Module):
         return self.output_layer(x)
 
 class NoisyLinear(nn.Module):
+    """NoisyLinear Layer """
     def __init__(self, in_dim, out_dim, std_init=0.4):
         super(NoisyLinear, self).__init__()
         self.in_features = in_dim
@@ -62,7 +63,7 @@ class NoisyLinear(nn.Module):
 
 
 class ComplexMLP(nn.Module):
-    """Simple MLP function approximator for Q-Learning."""
+    """ MLP function approximator for Q-Learning."""
 
     def __init__(self, in_dim, out_dim, supports, hidden_units=256, num_hidden_layers=1, noisy=True, dueling=True, sigma_init=0.5):
         super().__init__()
@@ -85,6 +86,9 @@ class ComplexMLP(nn.Module):
         self.output_layer = nn.Linear(hidden_units, self._out_dim)
 
         if self._dueling:
+            """In dueling, we have two heads - one for estimating advantage function and one for
+            estimating value function. If `noisy` is also true, then each of these layers will
+            be NoisyLinear()"""
 
             if self._noisy:
 
@@ -152,7 +156,7 @@ class ComplexMLP(nn.Module):
 
 
 class DistributionalMLP(nn.Module):
-    """Simple MLP function approximator for Q-Learning."""
+    """Distributional MLP function approximator for Q-Learning."""
 
     def __init__(self, in_dim, out_dim, supports, hidden_units=256, num_hidden_layers=1,
                  noisy=True, dueling=True, sigma_init=0.5, atoms=51):
