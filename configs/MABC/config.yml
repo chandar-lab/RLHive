@@ -3,6 +3,7 @@ run_name: &run_name 'MABC-dqn'
 train_steps: 50000
 test_frequency: 25
 test_num_episodes: 10
+self_play: True
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:

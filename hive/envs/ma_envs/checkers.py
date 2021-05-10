@@ -11,8 +11,8 @@ class CheckersMultiGrid(MultiGridEnvHive):
     def _gen_grid(self, width, height):
         self.grid = MultiGrid((width, height))
         self.grid.wall_rect(0, 0, width, height)
-        apple = Goal(color="green", reward=100)
-        orange = Goal(color="red", reward=-100)
+        apple = Goal(color="green", reward=10)
+        orange = Goal(color="red", reward=-10)
         for i in range(int(np.floor(width/2))):
             for j in range(3):
                 if (j%2) + 1 + 2*i < width - 1:
