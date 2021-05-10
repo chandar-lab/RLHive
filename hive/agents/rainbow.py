@@ -13,10 +13,11 @@ from hive.utils.schedule import (
     get_schedule,
 )
 from hive.agents.agent import Agent
+from hive.agents.dqn import DQNAgent
 from hive.agents.qnets import get_qnet
 
 
-class RainbowDQNAgent(Agent):
+class RainbowDQNAgent(DQNAgent):
     """An agent implementing the DQN algorithm. Uses an epsilon greedy
     exploration policy
     """
@@ -197,18 +198,6 @@ class RainbowDQNAgent(Agent):
         return proj_dist
 
 
-    def train(self):
-        """Changes the agent to training mode."""
-        super().train()
-        self._qnet.train()
-        self._target_qnet.train()
-
-    def eval(self):
-        """Changes the agent to evaluation mode."""
-        super().eval()
-        self._qnet.eval()
-        self._target_qnet.eval()
-
     @torch.no_grad()
     def act(self, observation):
         observation = torch.tensor(observation).to(self._device).float()
@@ -323,44 +312,3 @@ class RainbowDQNAgent(Agent):
         # Update target network
         if self._training and self._target_net_update_schedule.update():
             self._update_target()
-
-    def _update_target(self):
-        if self._target_net_soft_update:
-            target_params = self._target_qnet.state_dict()
-            current_params = self._qnet.state_dict()
-            for key in list(target_params.keys()):
-                target_params[key] = (
-                    (1 - self._target_net_update_fraction) * target_params[key]
-                    + self._target_net_update_fraction * current_params[key]
-                )
-            self._target_qnet.load_state_dict(target_params)
-        else:
-            self._target_qnet.load_state_dict(self._qnet.state_dict())
-
-    def save(self, dname):
-        torch.save(
-            {
-                "qnet": self._qnet.state_dict(),
-                "target_qnet": self._target_qnet.state_dict(),
-                "optimizer": self._optimizer.state_dict(),
-                "learn_schedule": self._learn_schedule,
-                "epsilon_schedule": self._epsilon_schedule,
-                "target_net_update_schedule": self._target_net_update_schedule,
-                "rng": self._rng,
-            },
-            os.path.join(dname, "agent.pt"),
-        )
-        replay_dir = os.path.join(dname, "replay")
-        create_folder(replay_dir)
-        self._replay_buffer.save(replay_dir)
-
-    def load(self, dname):
-        checkpoint = torch.load(os.path.join(dname, "agent.pt"))
-        self._qnet.load_state_dict(checkpoint["qnet"])
-        self._target_qnet.load_state_dict(checkpoint["target_qnet"])
-        self._optimizer.load_state_dict(checkpoint["optimizer"])
-        self._learn_schedule = checkpoint["learn_schedule"]
-        self._epsilon_schedule = checkpoint["epsilon_schedule"]
-        self._target_net_update_schedule = checkpoint["target_net_update_schedule"]
-        self._rng = checkpoint["rng"]
-        self._replay_buffer.load(os.path.join(dname, "replay"))
