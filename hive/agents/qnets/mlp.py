@@ -70,7 +70,7 @@ class ComplexMLP(nn.Module):
         self._noisy = noisy
         self._dueling = dueling
         self._sigma_init = sigma_init
-        self._in_dim = in_dim
+        self._in_dim = in_dim[0]
         self._out_dim = out_dim
 
         self.input_layer = nn.Sequential(
@@ -161,7 +161,7 @@ class DistributionalMLP(nn.Module):
         self._noisy = noisy
         self._dueling = dueling
         self._sigma_init = sigma_init
-        self._in_dim = in_dim
+        self._in_dim = in_dim[0]
         self._out_dim = out_dim
         self._atoms = atoms
         self._supports = supports

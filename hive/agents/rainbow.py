@@ -83,7 +83,7 @@ class RainbowDQNAgent(DQNAgent):
             logger: Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
         """
-        self._obs_dim = obs_dim[0]
+        self._obs_dim = obs_dim
         self._act_dim = act_dim
 
         self._dueling = dueling
