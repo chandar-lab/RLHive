@@ -241,6 +241,7 @@ def set_up_experiment(config):
     for idx, agent_config in enumerate(config["agents"]):
         agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
         agent_config["kwargs"]["act_dim"] = env_spec.act_dim[idx]
+        agent_config["kwargs"]["num_disc_per_obs_dim"] = env_spec.num_disc_per_obs_dim
         agent_config["kwargs"]["logger"] = logger
         agents.append(agent_lib.get_agent(agent_config))
 

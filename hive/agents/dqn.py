@@ -41,6 +41,7 @@ class DQNAgent(Agent):
         device="cpu",
         logger=None,
         log_frequency=100,
+        num_disc_per_obs_dim=None,
     ):
         """
         Args:
@@ -74,11 +75,18 @@ class DQNAgent(Agent):
             device: Device on which all computations should be run.
             logger: Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
+            num_disc_per_obs_dim: Number of discrete observations per dimension
+                of the observation space. Each dimension of the obs space can
+                be represented as a one hot encoding with this parameter as
+                the max value for the encoding. If None (default) then this
+                means that observations should be treated as continuous inputs
         """
-        super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=f"dqn_agent_{id}")
+        super().__init__(obs_dim=obs_dim, act_dim=act_dim, num_disc_per_obs_dim=num_disc_per_obs_dim, id=f"dqn_agent_{id}")
         if isinstance(qnet, dict):
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
+            if num_disc_per_obs_dim is not None:
+                qnet["kwargs"]["num_disc_per_obs_dim"] = self._num_disc_per_obs_dim
 
         self._qnet = get_qnet(qnet)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
