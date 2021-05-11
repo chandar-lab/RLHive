@@ -13,9 +13,9 @@ class AtariEnv(GymEnv):
     def __init__(
             self,
             env_name,
-            sticky_actions=True,
             frame_skip=4,
             screen_size=84,
+            sticky_actions=True,
     ):
         """
         Args:
