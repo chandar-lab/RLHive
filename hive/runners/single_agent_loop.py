@@ -5,10 +5,91 @@ import torch
 import yaml
 
 from hive import agents as agent_lib
-from hive import envs, replays
+from hive import envs
 from hive.utils import experiment, logging, schedule, utils
-from hive.runners.utils import load_config, Metrics, TransitionInfo
-from hive.runners.base import SingleAgentRunner
+from hive.runners.utils import load_config
+from hive.runners.base import Runner
+
+
+class SingleAgentRunner(Runner):
+    """Runner class used to implement a sinle-agent training loop."""
+
+    def __init__(
+        self,
+        environment,
+        agents,
+        logger,
+        experiment_manager,
+        train_steps,
+        train_episodes,
+        test_frequency,
+        test_num_episodes,
+    ):
+        super().__init__(
+            environment,
+            agents,
+            logger,
+            experiment_manager,
+            train_steps,
+            train_episodes,
+            test_frequency,
+            test_num_episodes,
+        )
+
+    def train_mode(self, training):
+        """If training is true, sets all agents to training mode. If training is false,
+        sets all agents to eval mode.
+        """
+        for agent in self._agents:
+            agent.train() if training else agent.eval()
+
+    def run_one_step(self, observation, turn, episode_metrics):
+        """Run one step of the training loop.
+
+        If it is the agent's first turn during the episode, do not run an update step.
+        Otherwise, run an update step based on the previous action and accumulated
+        reward since then.
+
+        Args:
+            observation: Current observation that the agent should create an action for.
+            turn: Agent whose turn it is.
+            episode_metrics: Metrics object keeping track of metrics for current episode.
+        """
+        agent = self._agents[turn]
+        action = agent.act(observation)
+        next_observation, reward, done, _, other_info = self._environment.step(
+            action
+        )
+
+        info = {
+            "observation": observation,
+            "reward": reward,
+            "action": action,
+            "next_observation": next_observation,
+            "done": done,
+            "info": other_info,
+        }
+        agent.update(info)
+        episode_metrics[agent.id]["reward"] += info["reward"]
+        episode_metrics[agent.id]["episode_length"] += 1
+        episode_metrics["full_episode_length"] += 1
+
+        return done, next_observation, _
+
+    def run_episode(self):
+        """Run a single episode of the environment."""
+        episode_metrics = self.create_episode_metrics()
+        done = False
+        observation, _ = self._environment.reset()
+
+        # Run the loop until either training ends or the episode ends
+        while self._train_step_schedule.get_value() and not done:
+            done, observation, _ = self.run_one_step(
+                observation, 0, episode_metrics
+            )
+            self._train_step_schedule.update()
+
+        return episode_metrics
 
 
 def set_up_experiment(config):
