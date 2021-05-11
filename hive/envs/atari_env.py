@@ -17,6 +17,13 @@ class AtariEnv(GymEnv):
             frame_skip=4,
             screen_size=84,
     ):
+        """
+        Args:
+            env_name (str): Name of the environment
+            sticky_actions (boolean): Whether to use sticky_actions as per Machado et al.
+            frame_skip (int): Number of times the agent takes the same action in the environment
+            screen_size (int): Size of the resized frames from the environment
+        """
         env_version = 'v0' if sticky_actions else 'v4'
         full_env_name = '{}NoFrameskip-{}'.format(env_name, env_version)
         super().__init__(full_env_name)
@@ -34,8 +41,8 @@ class AtariEnv(GymEnv):
         # Used for storing and pooling over two consecutive observations
         obs_dims = self.env_spec.obs_dim
         self.screen_buffer = [
-            np.empty((1, obs_dims[0][0], obs_dims[0][1]), dtype=np.uint8),
-            np.empty((1, obs_dims[0][0], obs_dims[0][1]), dtype=np.uint8)
+            np.empty((obs_dims[0][0], obs_dims[0][1]), dtype=np.uint8),
+            np.empty((obs_dims[0][0], obs_dims[0][1]), dtype=np.uint8)
         ]
 
         # Changing the observation space to the screen size
@@ -48,8 +55,8 @@ class AtariEnv(GymEnv):
 
     def reset(self):
         self._env.reset()
-        self._get_observation_screen(self.screen_buffer[0])
-        self.screen_buffer[1].fill(0)
+        self._get_observation_screen(self.screen_buffer[1])
+        self.screen_buffer[0].fill(0)
         return self._pool_and_resize(), self._turn
 
     def step(self, action=None):
@@ -94,18 +101,16 @@ class AtariEnv(GymEnv):
     def _pool_and_resize(self):
         """Transforms two frames into a Nature DQN observation.
 
-        For efficiency, the transformation is done in-place in self.screen_buffer.
-
         Returns:
           transformed_screen (numpy array): pooled, resized screen.
         """
         # Pool if there are enough screens to do so.
         if self.frame_skip > 1:
             np.maximum(self.screen_buffer[0], self.screen_buffer[1],
-                       out=self.screen_buffer[0])
+                       out=self.screen_buffer[1])
 
-        transformed_image = cv2.resize(self.screen_buffer[0],
+        transformed_image = cv2.resize(self.screen_buffer[1],
                                        (self.screen_size, self.screen_size),
                                        interpolation=cv2.INTER_AREA)
         int_image = np.asarray(transformed_image, dtype=np.uint8)
-        return np.expand_dims(int_image, axis=2)
+        return np.expand_dims(int_image, axis=0)
