@@ -47,7 +47,7 @@ class RainbowDQNAgent(DQNAgent):
         log_frequency=100,
         double=True,
         distributional=True,
-        noisy=True,
+        epsilon_on=True,
     ):
         """
         Args:
@@ -92,34 +92,23 @@ class RainbowDQNAgent(DQNAgent):
         self._act_dim = act_dim
 
         self._double = double
-
-        self._atoms = atoms
-        self._v_min = v_min
-        self._v_max = v_max
-        self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(device)
-        self._delta = float(self._v_max - self._v_min) / (self._atoms - 1)
-        self._nsteps = 1
+        self._distributional = distributional
 
         if isinstance(qnet, dict):
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
 
-        qnet["kwargs"]["noisy"] = noisy
-        qnet["kwargs"]["supports"] = self._supports
-
-        if distributional:
-            qnet["name"] = 'DistributionalMLP'
-        else:
-            qnet["name"] = 'ComplexMLP'
-
-
+        if self._distributional:
+            self._atoms = atoms
+            self._v_min = v_min
+            self._v_max = v_max
+            self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(device)
+            qnet["kwargs"]["supports"] = self._supports
+            self._delta = float(self._v_max - self._v_min) / (self._atoms - 1)
+            self._nsteps = 1
 
         self._qnet = get_qnet(qnet)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
-
-        self._noisy = noisy
-        self._double = double
-        self._distributional = distributional
 
         optimizer_fn = get_optimizer_fn(optimizer_fn)
         if optimizer_fn is None:
@@ -157,6 +146,7 @@ class RainbowDQNAgent(DQNAgent):
 
         self._state = {"episode_start": True}
         self._training = False
+        self._epsilon_on = epsilon_on
 
     def get_max_next_state_action(self, next_states):
         next_dist = self._qnet(next_states) * self._supports
@@ -203,8 +193,6 @@ class RainbowDQNAgent(DQNAgent):
     @torch.no_grad()
     def act(self, observation):
         observation = torch.tensor(observation).to(self._device).float()
-        if self._noisy:
-            self._qnet.sample_noise()
 
         # if not self._distributional:
         if self._training:
@@ -217,11 +205,10 @@ class RainbowDQNAgent(DQNAgent):
         else:
             epsilon = 0
 
-        a = self._qnet(observation).cpu()
-
-        if not self._noisy and self._rng.random() < epsilon:
+        if self._epsilon_on and self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
         else:
+            a = self._qnet(observation).cpu()
             action = torch.argmax(a).numpy()
 
         return action

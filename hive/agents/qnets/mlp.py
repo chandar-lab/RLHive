@@ -116,6 +116,8 @@ class ComplexMLP(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
+        if self._noisy:
+            self.sample_noise()
         if self._dueling:
             if self._noisy:
                 x = F.relu(self.fc1(x))
@@ -209,6 +211,8 @@ class DistributionalMLP(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
+        if self._noisy:
+            self.sample_noise()
         if self._dueling:
             if self._noisy:
                 x = F.relu(self.fc1(x))
