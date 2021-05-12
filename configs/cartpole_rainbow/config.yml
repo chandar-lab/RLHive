@@ -34,8 +34,10 @@ agents:
     name: 'RainbowDQNAgent'
     kwargs:
       qnet:
-        name: 'SimpleMLP'
-        kwargs: 
+        name: 'ComplexMLP'
+        kwargs:
+          noisy: 'True'
+          dueling: 'True'
           hidden_units: 256
           num_hidden_layers: 2
       optimizer_fn:
@@ -69,9 +71,8 @@ agents:
       device: 'cpu'
       log_frequency: 100
       double: True
-      dueling: True
-      noisy: True
-      distributional: True
+      distributional: False
+      epsilon_on: False
       v_min: 0.0
       v_max: 200.0
       atoms: 51

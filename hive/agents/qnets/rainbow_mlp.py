@@ -46,7 +46,7 @@ class NoisyLinear(nn.Module):
 class ComplexMLP(nn.Module):
     """ MLP function approximator for Q-Learning."""
 
-    def __init__(self, in_dim, out_dim, supports, hidden_units=256, num_hidden_layers=1, noisy=True, dueling=True, sigma_init=0.5):
+    def __init__(self, in_dim, out_dim, hidden_units=256, num_hidden_layers=1, noisy=True, dueling=True, sigma_init=0.5):
         super().__init__()
 
         self._noisy = noisy
@@ -97,8 +97,6 @@ class ComplexMLP(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
-        if self._noisy:
-            self.sample_noise()
         if self._dueling:
             if self._noisy:
                 x = F.relu(self.fc1(x))
@@ -192,8 +190,6 @@ class DistributionalMLP(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
-        if self._noisy:
-            self.sample_noise()
         if self._dueling:
             if self._noisy:
                 x = F.relu(self.fc1(x))
