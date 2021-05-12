@@ -46,7 +46,6 @@ class RainbowDQNAgent(DQNAgent):
         logger=None,
         log_frequency=100,
         double=True,
-        dueling=True,
         distributional=True,
         noisy=True,
     ):
@@ -86,14 +85,12 @@ class RainbowDQNAgent(DQNAgent):
             logger: Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
             double: whether or not to use the double feature (from double DQN)
-            dueling: whether or not to use the dueling feature (from dueling DQN)
             distributional: whether or not to use the distributional feature (from distributional DQN)
             noisy: whether or not to use the noisy feature (from noisy DQN)
         """
         self._obs_dim = obs_dim
         self._act_dim = act_dim
 
-        self._dueling = dueling
         self._double = double
 
         self._atoms = atoms
@@ -108,7 +105,6 @@ class RainbowDQNAgent(DQNAgent):
             qnet["kwargs"]["out_dim"] = self._act_dim
 
         qnet["kwargs"]["noisy"] = noisy
-        qnet["kwargs"]["dueling"] = dueling
         qnet["kwargs"]["supports"] = self._supports
 
         if distributional:
@@ -123,7 +119,6 @@ class RainbowDQNAgent(DQNAgent):
 
         self._noisy = noisy
         self._double = double
-        self._dueling = dueling
         self._distributional = distributional
 
         optimizer_fn = get_optimizer_fn(optimizer_fn)
