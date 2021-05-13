@@ -46,7 +46,7 @@ class RainbowDQNAgent(DQNAgent):
         logger=None,
         log_frequency=100,
         double=True,
-        distributional=True,
+        distributional=False,
         epsilon_on=True,
     ):
         """
