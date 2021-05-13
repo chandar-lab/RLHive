@@ -75,7 +75,7 @@ class DQNAgent(Agent):
             logger: Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
         """
-        super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=f"dqn_agent_{id}")
+        super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
         if isinstance(qnet, dict):
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim

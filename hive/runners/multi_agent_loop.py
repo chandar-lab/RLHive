@@ -12,7 +12,7 @@ from hive.runners.utils import load_config, Metrics, TransitionInfo
 
 class Runner:
     """Runner class used to implement a multiagent training loop.
-    
+
     Different types of training loops can be created by overriding the relevant
     functions.
     """
@@ -36,13 +36,13 @@ class Runner:
             experiment_manager: ExperimentManager object that saves the state of the
                 training.
             train_steps: How many steps to train for. If this is -1, there is no limit
-                for the number of training steps. If both this and train_episodes are 
+                for the number of training steps. If both this and train_episodes are
                 -1, training loop will not terminate.
-            train_episodes: How many episodes to train for. If this is -1, there is no 
+            train_episodes: How many episodes to train for. If this is -1, there is no
                 limit for the number of training episodes. If both this and train_steps
                 are -1, training loop will not terminate.
             test_frequency: After how many training episodes to run testing episodes.
-                If this is -1, testing is not run. 
+                If this is -1, testing is not run.
             test_num_episodes: How many testing episodes to run during each testing
                 period.
         """
@@ -96,12 +96,12 @@ class Runner:
         )
 
     def run_one_step(self, observation, turn, episode_metrics):
-        """Run one step of the training loop. 
-        
+        """Run one step of the training loop.
+
         If it is the agent's first turn during the episode, do not run an update step.
         Otherwise, run an update step based on the previous action and accumulated
         reward since then.
-        
+
         Args:
             observation: Current observation that the agent should create an action for.
             turn: Agent whose turn it is.
@@ -134,13 +134,13 @@ class Runner:
 
     def run_end_step(self, episode_metrics):
         """Run the final step of an episode.
-        
+
         After an episode ends, iterate through agents and update then with the final
         step in the episode.
-        
+
         Args:
             episode_metrics: Metrics object keeping track of metrics for current episode.
-        
+
         """
         for agent in self._agents:
             info = self._transition_info.get_info(agent, done=True)
@@ -242,7 +242,12 @@ def set_up_experiment(config):
         agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
         agent_config["kwargs"]["act_dim"] = env_spec.act_dim[idx]
         agent_config["kwargs"]["logger"] = logger
-        agents.append(agent_lib.get_agent(agent_config))
+
+        if not config["self_play"] or idx == 0:
+            agents.append(agent_lib.get_agent(agent_config))
+        else:
+            agents.append(copy.copy(agents[0]))
+            agents[-1]._id = idx
 
     # Set up experiment manager
     saving_schedule = schedule.get_schedule(config["saving_schedule"])
@@ -250,7 +255,9 @@ def set_up_experiment(config):
         config["run_name"], config["save_dir"], saving_schedule
     )
     experiment_manager.register_experiment(
-        config=original_config, logger=logger, agents=agents,
+        config=original_config,
+        logger=logger,
+        agents=agents,
     )
 
     # Set up runner
