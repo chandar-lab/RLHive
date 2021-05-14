@@ -2,6 +2,8 @@ import os
 import numpy as np
 import pickle
 
+from numpy.core.defchararray import array
+
 from hive.replays.replay_buffer import BaseReplayBuffer
 
 
@@ -102,7 +104,9 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         be added to the beginning of the episode.
         """
         for _ in range(pad_length):
-            transition = {np.zeros_like(self._storage[key][0]) for key in self._storage}
+            transition = {
+                key: np.zeros_like(self._storage[key][0]) for key in self._storage
+            }
             self._add_transition(**transition)
 
     def add(self, observation, action, reward, done, **kwargs):
@@ -149,8 +153,10 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             indices: starts of ranges to access from
             num_to_access: how many consecutive elements to access
         """
-        full_indices = np.indices((indices.shape[0], self._stack_size))
-        full_indices = (full_indices + indices) % (self.size() + self._stack_size)
+        full_indices = np.indices((indices.shape[0], num_to_access))[1]
+        full_indices = (full_indices + np.expand_dims(indices, axis=1)) % (
+            self.size() + self._stack_size
+        )
         return array[full_indices]
 
     def _get_from_storage(self, key, indices, num_to_access=1):
@@ -160,25 +166,49 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             key: The name of the component to retrieve.
             indices: This can be a single int or a 1D numpyp array. The indices are
                 adjusted to fall within the current bounds of the buffer."""
-        if num_to_access == 1:
+        if not isinstance(indices, np.ndarray):
+            indices = np.array([indices])
+        if num_to_access == 0:
+            return np.array([])
+        elif num_to_access == 1:
             return self._storage[key][indices % (self.size() + self._stack_size)]
         else:
             return self._get_from_array(
                 self._storage[key], indices, num_to_access=num_to_access
             )
 
+    def _sample_indices(self, batch_size):
+        indices = []
+        while len(indices) < batch_size:
+            start_index = self._rng.integers(self.size()) + self._cursor
+            if self._get_from_storage("done", start_index, self._stack_size - 1).any():
+                continue
+            indices.append(start_index + self._stack_size - 1)
+        return np.array(indices)
+
     def sample(self, batch_size):
         """Sample transitions from the buffer. For a given transition, if it's 
         done is True, the next_observation value should not be taken to have any
         meaning.
         """
-        if batch_size > self._num_added - self._stack_size:
+        if self._num_added <= self._stack_size:
             raise ValueError("Not enough transitions added to the buffer to sample")
-        if batch_size > self._capacity - self._stack_size:
-            raise ValueError("Batch size larger than buffer capacity")
-        inds = self._rng.choice(self.size(), batch_size, replace=False) + self._cursor
-        batch = {key: self._get_from_storage(key, inds) for key in self._specs}
-        batch["next_observation"] = self._get_from_storage("observation", inds + 1)
+        indices = self._sample_indices(batch_size)
+        batch = {}
+        for key in self._specs:
+            if key == "observation":
+                batch[key] = self._get_from_storage(
+                    "observation",
+                    indices - self._stack_size + 1,
+                    num_to_access=self._stack_size,
+                )
+            else:
+                batch[key] = self._get_from_storage(key, indices)
+        batch["next_observation"] = self._get_from_storage(
+            "observation",
+            indices - self._stack_size + 2,
+            num_to_access=self._stack_size,
+        )
         return batch
 
     def save(self, dname):
