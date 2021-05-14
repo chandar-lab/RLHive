@@ -9,7 +9,7 @@ from hive.replays.replay_buffer import BaseReplayBuffer
 
 class EfficientCircularBuffer(BaseReplayBuffer):
     """An efficient version of a circular replay buffer that only stores each observation
-        once.
+    once.
     """
 
     def __init__(
@@ -26,7 +26,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         seed=42,
     ):
         """Constructor for EfficientCircularBuffer.
-        
+
         Args:
             capacity: total number of observations that can be stored in the buffer.
                 Note, this is not the same as the number of transitions that can be
@@ -49,7 +49,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             reward_dtype: Type of rewards that will be stored in the buffer. Format is
                 described in the description of observation_dtype.
             extra_storage_types: A dictionary describing extra items to store in the
-                buffer. The mapping should be from the name of the item to a 
+                buffer. The mapping should be from the name of the item to a
                 (type, shape) tuple.
             seed: Random seed of numpy random generator used when sampling transitions.
         """
@@ -78,7 +78,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def _create_storage(self, capacity, specs):
         """Creates the storage buffer for each type of item in the buffer.
-        
+
         Args:
             capacity: The capacity of the buffer.
             specs: A dictionary mapping item name to a tuple (type, shape) describing
@@ -110,8 +110,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             self._add_transition(**transition)
 
     def add(self, observation, action, reward, done, **kwargs):
-        """Adds a transition to the buffer. 
-        
+        """Adds a transition to the buffer.
+
         The required components of a transition are given as positional arguments. The
         user can pass additional components to store in the buffer as kwargs as long as
         they were defined in the specification in the constructor.
@@ -161,7 +161,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def _get_from_storage(self, key, indices, num_to_access=1):
         """Gets values from storage.
-        
+
         Args:
             key: The name of the component to retrieve.
             indices: This can be a single int or a 1D numpyp array. The indices are
@@ -187,7 +187,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         return np.array(indices)
 
     def sample(self, batch_size):
-        """Sample transitions from the buffer. For a given transition, if it's 
+        """Sample transitions from the buffer. For a given transition, if it's
         done is True, the next_observation value should not be taken to have any
         meaning.
         """
@@ -213,7 +213,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def save(self, dname):
         """Save the replay buffer.
-        
+
         Args:
             dname: directory where to save buffer. Should already have been created.
         """
@@ -230,7 +230,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def load(self, dname):
         """Load the replay buffer.
-        
+
         Args:
             dname: directory where to load buffer from.
         """

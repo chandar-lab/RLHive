@@ -10,14 +10,14 @@ class Schedule(abc.ABC):
 
     @abc.abstractmethod
     def update():
-        """Update the value of the variable we are tracking and return the updated value. 
+        """Update the value of the variable we are tracking and return the updated value.
         The first call to update will return the initial value of the schedule."""
         pass
 
 
 class LinearSchedule(Schedule):
     """Defines a linear schedule between two values over some number of steps.
-    
+
     If updated more than the defined number of steps, the schedule stays at the
     end value.
     """
@@ -25,7 +25,7 @@ class LinearSchedule(Schedule):
     def __init__(self, init_value, end_value, steps):
         """
         Args:
-            init_value (Union[int, float]): starting value for schedule. 
+            init_value (Union[int, float]): starting value for schedule.
             end_value (Union[int, float]): end value for schedule.
             steps (int): Number of steps for schedule. Should be positive.
         """
@@ -99,7 +99,7 @@ class SwitchSchedule(Schedule):
 
 class DoublePeriodicSchedule(Schedule):
     """Returns off value for off period, then switches to returning on value for on
-        period. Alternates between the two.
+    period. Alternates between the two.
     """
 
     def __init__(self, off_value, on_value, off_period, on_period):
@@ -129,7 +129,7 @@ class DoublePeriodicSchedule(Schedule):
 
 class PeriodicSchedule(DoublePeriodicSchedule):
     """Returns one value on the first step of each period of a predefined number of
-        steps. Returns another value otherwise.
+    steps. Returns another value otherwise.
     """
 
     def __init__(self, off_value, on_value, period):
