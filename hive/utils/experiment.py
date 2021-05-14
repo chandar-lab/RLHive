@@ -36,7 +36,11 @@ class Experiment(object):
         self.experiment_state["saving_schedule"] = self._schedule
 
     def register_experiment(
-        self, config=None, logger=None, agents=None, environment=None,
+        self,
+        config=None,
+        logger=None,
+        agents=None,
+        environment=None,
     ):
         """Registers all the components of an experiment.
 
@@ -102,7 +106,7 @@ class Experiment(object):
         file.close()
 
     def is_resumable(self, tag="current"):
-        """ Returns true if the experiment is resumable.
+        """Returns true if the experiment is resumable.
 
         Args:
             tag: str, tag for the saved experiment.

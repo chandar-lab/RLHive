@@ -141,4 +141,3 @@ def test_save_load(full_buffer, tmpdir):
     assert buffer._cursor == full_buffer._cursor
     assert buffer._num_added == full_buffer._num_added
     assert buffer._rng.bit_generator.state == full_buffer._rng.bit_generator.state
-
