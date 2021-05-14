@@ -4,6 +4,7 @@ train_steps: 30000
 test_frequency: 10
 test_num_episodes: 1
 self_play: False
+stack_size: &stack_size 2
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
@@ -38,6 +39,7 @@ agents:
         kwargs:
           seed: 42
           capacity: 10000
+          stack_size: *stack_size
       discount_rate: .99
       target_net_update_schedule:
         name: 'PeriodicSchedule'

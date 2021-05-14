@@ -148,7 +148,9 @@ class DQNAgent(Agent):
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
-        observation = torch.tensor(observation).to(self._device).float()
+        observation = (
+            torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
+        )
         qvals = self._qnet(observation).cpu()
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)

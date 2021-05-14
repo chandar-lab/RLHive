@@ -27,6 +27,7 @@ class Runner:
         train_episodes,
         test_frequency,
         test_num_episodes,
+        stack_size,
     ):
         """Initializes the Runner object.
         Args:
@@ -45,6 +46,7 @@ class Runner:
                 If this is -1, testing is not run.
             test_num_episodes: How many testing episodes to run during each testing
                 period.
+            stack_size: The number of frames in an observation sent to an agent.
         """
         self._environment = environment
         self._agents = agents
@@ -78,12 +80,14 @@ class Runner:
             }
         )
 
-        self._transition_info = TransitionInfo(self._agents)
+        self._transition_info = TransitionInfo(self._agents, stack_size)
+        self._training = True
 
     def train_mode(self, training):
         """If training is true, sets all agents to training mode. If training is false,
         sets all agents to eval mode.
         """
+        self._training = training
         for agent in self._agents:
             agent.train() if training else agent.eval()
 
@@ -116,7 +120,11 @@ class Runner:
             episode_metrics["full_episode_length"] += 1
         else:
             self._transition_info.start_agent(agent)
-        action = agent.act(observation)
+
+        stacked_observation = self._transition_info.get_stacked_state(
+            agent, observation
+        )
+        action = agent.act(stacked_observation)
         next_observation, reward, done, turn, other_info = self._environment.step(
             action
         )
@@ -151,11 +159,14 @@ class Runner:
         observation, turn = self._environment.reset()
 
         # Run the loop until either training ends or the episode ends
-        while self._train_step_schedule.get_value() and not done:
+        while (
+            not self._training or self._train_step_schedule.get_value()
+        ) and not done:
             done, observation, turn = self.run_one_step(
                 observation, turn, episode_metrics
             )
-            self._train_step_schedule.update()
+            if self._training:
+                self._train_step_schedule.update()
 
         # If the episode ended, run the final update.
         if done:
@@ -233,7 +244,12 @@ def set_up_experiment(config):
     # Set up agents
     agents = []
     for idx, agent_config in enumerate(config["agents"]):
-        agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
+        if config.get("stack_size", 1) > 1:
+            agent_config["kwargs"]["obs_dim"] = (
+                config["stack_size"],
+            ) + env_spec.obs_dim[idx]
+        else:
+            agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
         agent_config["kwargs"]["act_dim"] = env_spec.act_dim[idx]
         agent_config["kwargs"]["logger"] = logger
         if "replay_buffer" in agent_config["kwargs"]:
@@ -265,6 +281,7 @@ def set_up_experiment(config):
         config.get("train_episodes", -1),
         config.get("test_frequency", -1),
         config.get("test_num_episodes", 1),
+        config.get("stack_size", 1),
     )
     if config.get("resume", False):
         runner.resume()

@@ -1,5 +1,6 @@
 import yaml
 import numpy as np
+from collections import deque
 
 
 def load_config(args):
@@ -87,7 +88,7 @@ class TransitionInfo:
     started their episodes.
     """
 
-    def __init__(self, agents):
+    def __init__(self, agents, stack_size):
         """Constructor for TransitionInfo object.
         
         Args:
@@ -95,12 +96,16 @@ class TransitionInfo:
         """
         self._agent_ids = [agent.id for agent in agents]
         self._num_agents = len(agents)
+        self._stack_size = stack_size
         self.reset()
 
     def reset(self):
         """Reset the object by clearing all info."""
         self._transitions = {agent_id: {"reward": 0.0} for agent_id in self._agent_ids}
         self._started = {agent_id: False for agent_id in self._agent_ids}
+        self._previous_observations = {
+            agent_id: deque(maxlen=self._stack_size - 1) for agent_id in self._agent_ids
+        }
 
     def is_started(self, agent):
         """Check if agent has started its episode."""
@@ -113,6 +118,8 @@ class TransitionInfo:
     def record_info(self, agent, info):
         """Update some information for the agent."""
         self._transitions[agent.id].update(info)
+        if "observation" in info:
+            self._previous_observations[agent.id].append(info["observation"])
 
     def update_reward(self, agent, reward):
         """Add a reward to the agent."""
@@ -144,3 +151,15 @@ class TransitionInfo:
         info["done"] = done
         self._transitions[agent.id] = {"reward": 0.0}
         return info
+
+    def get_stacked_state(self, agent, observation):
+        if self._stack_size == 1:
+            return observation
+        while len(self._previous_observations[agent.id]) < self._stack_size - 1:
+            self._previous_observations[agent.id].append(np.zeros_like(observation))
+
+        stacked_observation = np.stack(
+            list(self._previous_observations[agent.id]) + [observation], axis=0,
+        )
+        return stacked_observation
+
