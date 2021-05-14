@@ -80,4 +80,3 @@ def test_loading_buffer(tmpdir, batch_size, initial_buffer):
     assert batch["rewards"].shape == (batch_size,)
     assert batch["next_observations"].shape == (batch_size, 4)
     assert batch["done"].shape == (batch_size,)
-

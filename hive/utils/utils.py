@@ -139,4 +139,3 @@ get_optimizer_fn = create_class_constructor(
         "SparseAdam": (lambda **kwargs: partial(optim.SparseAdam, **kwargs)),
     },
 )
-

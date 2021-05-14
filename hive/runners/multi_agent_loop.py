@@ -255,9 +255,7 @@ def set_up_experiment(config):
         config["run_name"], config["save_dir"], saving_schedule
     )
     experiment_manager.register_experiment(
-        config=original_config,
-        logger=logger,
-        agents=agents,
+        config=original_config, logger=logger, agents=agents,
     )
 
     # Set up runner
