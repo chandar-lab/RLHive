@@ -3,6 +3,7 @@ run_name: &run_name 'cartpole-dqn'
 train_steps: 30000
 test_frequency: 10
 test_num_episodes: 1
+self_play: False
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
@@ -33,10 +34,10 @@ agents:
         kwargs: {}
       id: 0
       replay_buffer:
-        name: 'CircularReplayBuffer'
+        name: 'EfficientCircularBuffer'
         kwargs:
           seed: 42
-          size: 10000
+          capacity: 10000
       discount_rate: .99
       target_net_update_schedule:
         name: 'PeriodicSchedule'

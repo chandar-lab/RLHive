@@ -171,7 +171,7 @@ class DQNAgent(Agent):
         Args:
             update_info: dictionary containing all the necessary information to
             update the agent. Should contain a full transition, with keys for
-            "observation", "action", "reward", "next_observation", and "done".
+            "observation", "action", "reward", and "done".
         """
         if update_info["done"]:
             self._state["episode_start"] = True
@@ -179,34 +179,31 @@ class DQNAgent(Agent):
         # Add the most recent transition to the replay buffer.
         if self._training:
             self._replay_buffer.add(
-                (
-                    update_info["observation"],
-                    update_info["action"],
-                    update_info["reward"],
-                    update_info["next_observation"],
-                    update_info["done"],
-                )
+                observation=update_info["observation"],
+                action=update_info["action"],
+                reward=update_info["reward"],
+                done=update_info["done"],
             )
 
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
-        try:
+        if self._replay_buffer.size() > 0:
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             for key in batch:
                 batch[key] = torch.tensor(batch[key]).to(self._device)
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(batch["observations"])
-            actions = batch["actions"].long()
+            pred_qvals = self._qnet(batch["observation"])
+            actions = batch["action"].long()
             pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
             # Compute 1-step Q targets
-            next_qvals = self._target_qnet(batch["next_observations"])
+            next_qvals = self._target_qnet(batch["next_observation"])
             next_qvals, _ = torch.max(next_qvals, dim=1)
 
-            q_targets = batch["rewards"] + self._discount_rate * next_qvals * (
+            q_targets = batch["reward"] + self._discount_rate * next_qvals * (
                 1 - batch["done"]
             )
 
@@ -224,9 +221,6 @@ class DQNAgent(Agent):
                         self._qnet.parameters(), self._grad_clip
                     )
                 self._optimizer.step()
-
-        except IndexError:
-            pass
 
         # Update target network
         if self._training and self._target_net_update_schedule.update():

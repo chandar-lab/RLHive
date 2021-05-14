@@ -65,17 +65,16 @@ class CircularReplayBuffer(BaseReplayBuffer):
             seed (int): Seed for a pseudo-random number generator.
     """
 
-    def __init__(self, size=1e5, compress=False, seed=42):
-
+    def __init__(self, size=1e5, compress=False, seed=42, **kwargs):
         self._numpy_rng = np.random.default_rng(seed)
         self._size = int(size)
         self._compress = compress
 
         self._dtype = {
-            "observations": "int8" if self._compress else "float32",
-            "actions": "int8",
-            "rewards": "int8" if self._compress else "float32",
-            "next_observations": "int8" if self._compress else "float32",
+            "observation": "int8" if self._compress else "float32",
+            "action": "int8",
+            "reward": "int8" if self._compress else "float32",
+            "next_observation": "int8" if self._compress else "float32",
             "done": "int8" if self._compress else "float32",
         }
 
@@ -85,34 +84,44 @@ class CircularReplayBuffer(BaseReplayBuffer):
 
         self._write_index = -1
         self._n = 0
+        self._previous_transition = None
 
-    def add(self, data):
+    def add(self, observation, action, reward, done, **kwargs):
         """
-        Adds data to the buffer
+        Adds transition to the buffer
 
         Args:
-            data (tuple): (observation, action, reward, next_observation, done)
+            observation: The current observation
+            action: The action taken on the current observation
+            reward: The reward from taking action at current observation
+            done: If current observation was the last observation in the episode
         """
-        self._write_index = (self._write_index + 1) % self._size
-        self._n = int(min(self._size, self._n + 1))
-        for idx, key in enumerate(self._data):
-            self._data[key][self._write_index] = np.asarray(
-                data[idx], dtype=self._dtype[key]
-            )
+        if self._previous_transition is not None:
+            self._previous_transition["next_observation"] = observation
+            self._write_index = (self._write_index + 1) % self._size
+            self._n = int(min(self._size, self._n + 1))
+            for key in self._data:
+                self._data[key][self._write_index] = np.asarray(
+                    self._previous_transition[key], dtype=self._dtype[key]
+                )
+        self._previous_transition = {
+            "observation": observation,
+            "action": action,
+            "reward": reward,
+            "done": done,
+        }
 
     def sample(self, batch_size=32):
         """
         sample a minibatch
 
         Args:
-            batch_size (int): .
+            batch_size (int): The number of examples to sample.
         """
-        if self._n < batch_size:
-            raise IndexError(
-                "Buffer does not have batch_size=%d transitions yet." % batch_size
-            )
+        if self.size() == 0:
+            raise ValueError("Buffer does not have any transitions yet." % batch_size)
 
-        indices = self._numpy_rng.choice(self._n, size=batch_size, replace=False)
+        indices = self._numpy_rng.integers(self._n, size=batch_size)
         rval = {}
         for key in self._data:
             rval[key] = np.asarray(
