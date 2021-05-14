@@ -81,11 +81,11 @@ class BaseEnv(ABC):
 
 
 class ParallelEnv(BaseEnv):
-    """Base class for environments that take make all agents step in parallel. 
+    """Base class for environments that take make all agents step in parallel.
 
     ParallelEnv takes an environment that expects an array of actions at each step
     to execute in parallel, and allows you to instead pass it a single action at each
-    step. 
+    step.
 
     This class makes use of Python's multiple inheritance pattern. Specifically,
     when writing your parallel environment, it should extend both this class and
@@ -99,7 +99,7 @@ class ParallelEnv(BaseEnv):
         ...
 
     The order in which you list the classes is important. ParallelEnv **must** come
-    before A in the order. 
+    before A in the order.
     """
 
     def __init__(self, env_name, num_players):

@@ -26,7 +26,7 @@ def initial_buffer():
 
 def test_add_to_buffer(initial_buffer):
     """
-        test adding one transition to the buffer
+    test adding one transition to the buffer
     """
     buffer, environment, seed = initial_buffer
     rng = np.random.default_rng(seed)
@@ -55,7 +55,7 @@ def test_sample_from_buffer(batch_size, initial_buffer):
 
 def test_saving_buffer(tmpdir, initial_buffer):
     """
-        test sampling a batch from the buffer
+    test sampling a batch from the buffer
     """
     buffer, environment, _ = initial_buffer
     buffer.save(tmpdir.mkdir("saved_test_buffer"))
@@ -65,7 +65,7 @@ def test_saving_buffer(tmpdir, initial_buffer):
 @pytest.mark.parametrize("batch_size", [32])
 def test_loading_buffer(tmpdir, batch_size, initial_buffer):
     """
-        test sampling a batch from the buffer
+    test sampling a batch from the buffer
     """
     buffer, environment, seed = initial_buffer
     buffer.save(tmpdir / "saved_test_buffer")
@@ -80,4 +80,3 @@ def test_loading_buffer(tmpdir, batch_size, initial_buffer):
     assert batch["rewards"].shape == (batch_size,)
     assert batch["next_observations"].shape == (batch_size, 4)
     assert batch["done"].shape == (batch_size,)
-
