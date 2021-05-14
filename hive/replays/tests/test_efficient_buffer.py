@@ -165,6 +165,7 @@ def test_save_load(full_buffer, tmpdir):
     assert buffer._num_added == full_buffer._num_added
     assert buffer._rng.bit_generator.state == full_buffer._rng.bit_generator.state
 
+
 def test_stacked_buffer_add(stacked_buffer):
     assert stacked_buffer.size() == 0
 

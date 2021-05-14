@@ -100,7 +100,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         self._cursor = (self._cursor + 1) % self._capacity
 
     def _pad_buffer(self, pad_length):
-        """Adds padding to the buffer. Used when stack_size > 1, and padding needs to 
+        """Adds padding to the buffer. Used when stack_size > 1, and padding needs to
         be added to the beginning of the episode.
         """
         for _ in range(pad_length):
@@ -147,7 +147,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def _get_from_array(self, array, indices, num_to_access=1):
         """Retrieves consecutive elements in the array, wrapping around if necessary.
-        
+
         Args:
             array: array to access from
             indices: starts of ranges to access from
