@@ -2,8 +2,6 @@ import os
 import numpy as np
 import pickle
 
-from numpy.core.defchararray import array
-
 from hive.replays.replay_buffer import BaseReplayBuffer
 
 
