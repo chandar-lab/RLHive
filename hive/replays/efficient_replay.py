@@ -163,7 +163,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         """
         full_indices = np.indices((indices.shape[0], num_to_access))[1]
         full_indices = (full_indices + np.expand_dims(indices, axis=1)) % (
-            self.size() + self._stack_size
+            self.size() + self._stack_size + self._n_step - 1
         )
         return array[full_indices]
 
@@ -173,13 +173,17 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         Args:
             key: The name of the component to retrieve.
             indices: This can be a single int or a 1D numpyp array. The indices are
-                adjusted to fall within the current bounds of the buffer."""
+                adjusted to fall within the current bounds of the buffer.
+            num_to_access: how many consecutive elements to access
+        """
         if not isinstance(indices, np.ndarray):
             indices = np.array([indices])
         if num_to_access == 0:
             return np.array([])
         elif num_to_access == 1:
-            return self._storage[key][indices % (self.size() + self._stack_size)]
+            return self._storage[key][
+                indices % (self.size() + self._stack_size + self._n_step - 1)
+            ]
         else:
             return self._get_from_array(
                 self._storage[key], indices, num_to_access=num_to_access
@@ -199,7 +203,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         done is True, the next_observation value should not be taken to have any
         meaning.
         """
-        if self._num_added <= self._stack_size + self._n_step:
+        if self._num_added < self._stack_size + self._n_step:
             raise ValueError("Not enough transitions added to the buffer to sample")
         indices = self._sample_indices(batch_size)
         batch = {}
@@ -210,8 +214,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             trajectory_lengths = np.ones(batch_size)
         else:
             is_terminal = terminals.any(axis=1)
-            trajectory_lengths = np.argmax(
-                terminals.astype(np.bool), axis=1
+            trajectory_lengths = (
+                np.argmax(terminals.astype(np.bool), axis=1) + 1
             ) * is_terminal + self._n_step * (1 - is_terminal)
         trajectory_lengths = trajectory_lengths.astype(np.int64)
 
