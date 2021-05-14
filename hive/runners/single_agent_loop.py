@@ -36,13 +36,6 @@ class SingleAgentRunner(Runner):
             test_num_episodes,
         )
 
-    def train_mode(self, training):
-        """If training is true, sets all agents to training mode. If training is false,
-        sets all agents to eval mode.
-        """
-        for agent in self._agents:
-            agent.train() if training else agent.eval()
-
     def run_one_step(self, observation, turn, episode_metrics):
         """Run one step of the training loop.
 

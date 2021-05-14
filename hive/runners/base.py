@@ -79,7 +79,8 @@ class Runner(ABC):
         """If training is true, sets all agents to training mode. If training is false,
         sets all agents to eval mode.
         """
-        raise NotImplementedError
+        for agent in self._agents:
+            agent.train() if training else agent.eval()
 
     def create_episode_metrics(self):
         """Create the metrics used during the loop."""
