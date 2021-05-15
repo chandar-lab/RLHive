@@ -243,20 +243,25 @@ def set_up_experiment(config):
 
     # Set up agents
     agents = []
-    for idx, agent_config in enumerate(config["agents"]):
-        if config.get("stack_size", 1) > 1:
-            agent_config["kwargs"]["obs_dim"] = (
-                config["stack_size"],
-            ) + env_spec.obs_dim[idx]
-        else:
-            agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
-        agent_config["kwargs"]["act_dim"] = env_spec.act_dim[idx]
-        agent_config["kwargs"]["logger"] = logger
-        if "replay_buffer" in agent_config["kwargs"]:
-            replay_args = agent_config["kwargs"]["replay_buffer"]["kwargs"]
-            replay_args["observation_shape"] = env_spec.obs_dim[idx]
+    num_agents = config["num_agents"] if config["self_play"] else len(config["agents"])
+    for idx in range(num_agents):
+
 
         if not config["self_play"] or idx == 0:
+            agent_config = config["agents"][idx]
+            if config.get("stack_size", 1) > 1:
+                agent_config["kwargs"]["obs_dim"] = (
+                    config["stack_size"],
+                ) + env_spec.obs_dim[idx]
+            else:
+                agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
+            agent_config["kwargs"]["act_dim"] = env_spec.act_dim[idx]
+            agent_config["kwargs"]["logger"] = logger
+
+            if "replay_buffer" in agent_config["kwargs"]:
+                replay_args = agent_config["kwargs"]["replay_buffer"]["kwargs"]
+                replay_args["observation_shape"] = env_spec.obs_dim[idx]
+            
             agents.append(agent_lib.get_agent(agent_config))
         else:
             agents.append(copy.copy(agents[0]))
