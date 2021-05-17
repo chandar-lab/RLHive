@@ -5,7 +5,7 @@ from hive.agents.qnets.utils import conv2d_output_shape
 
 class NatureDQNModel(nn.Module):
     """
-        The convolutional network used to train the DQN agent.
+    The convolutional network used to train the DQN agent.
     """
 
     def __init__(self, in_dim, out_dim):
@@ -30,10 +30,11 @@ class NatureDQNModel(nn.Module):
                 out_channels=out_c,
                 kernel_size=ks,
                 stride=s,
-                padding=p
+                padding=p,
             )
-            for (in_c, out_c, ks, s, p) in
-            zip(channels[:-1], channels[1:], kernel_sizes, strides, paddings)
+            for (in_c, out_c, ks, s, p) in zip(
+                channels[:-1], channels[1:], kernel_sizes, strides, paddings
+            )
         ]
         conv_seq = list()
         for conv_layer in conv_layers:
@@ -57,7 +58,7 @@ class NatureDQNModel(nn.Module):
         batch_size = x.size(0)
 
         x = x.type(torch.float)
-        x = x.mul_(1. / 255)
+        x = x.mul_(1.0 / 255)
         conv_out = self.conv(x)
         q = self.head(conv_out.view(batch_size, -1))
         return q
@@ -69,8 +70,9 @@ class NatureDQNModel(nn.Module):
         """
         for child in self.conv.children():
             try:
-                h, w = conv2d_output_shape(h, w, child.kernel_size,
-                                           child.stride, child.padding)
+                h, w = conv2d_output_shape(
+                    h, w, child.kernel_size, child.stride, child.padding
+                )
             except AttributeError:
                 pass
             try:
