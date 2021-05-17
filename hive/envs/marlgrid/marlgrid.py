@@ -6,12 +6,10 @@ from hive.envs.wrappers import FlattenWrapper
 
 class MarlGridEnv(ParallelEnv, GymEnv):
     """MarlGrid environment from https://github.com/kandouss/marlgrid/.
-
     The environment can either be initialized with the name of a preregistered
     environment from
     https://github.com/kandouss/marlgrid/blob/master/marlgrid/envs/__init__.py,
     or can be created using a config. See the original repo for details.
-
     The flatten parameter flattens the observations for all agents.
     """
 
