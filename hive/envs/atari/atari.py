@@ -7,15 +7,15 @@ from hive.envs.env_spec import EnvSpec
 
 class AtariEnv(GymEnv):
     """
-        Class for loading Atari environments.
+    Class for loading Atari environments.
     """
 
     def __init__(
-            self,
-            env_name,
-            frame_skip=4,
-            screen_size=84,
-            sticky_actions=True,
+        self,
+        env_name,
+        frame_skip=4,
+        screen_size=84,
+        sticky_actions=True,
     ):
         """
         Args:
@@ -24,16 +24,20 @@ class AtariEnv(GymEnv):
             frame_skip (int): Number of times the agent takes the same action in the environment
             screen_size (int): Size of the resized frames from the environment
         """
-        env_version = 'v0' if sticky_actions else 'v4'
-        full_env_name = '{}NoFrameskip-{}'.format(env_name, env_version)
+        env_version = "v0" if sticky_actions else "v4"
+        full_env_name = "{}NoFrameskip-{}".format(env_name, env_version)
         super().__init__(full_env_name)
 
         if frame_skip <= 0:
-            raise ValueError('Frame skip should be strictly positive, got {}'.
-                             format(frame_skip))
+            raise ValueError(
+                "Frame skip should be strictly positive, got {}".format(frame_skip)
+            )
         if screen_size <= 0:
-            raise ValueError('Target screen size should be strictly positive, got {}'.
-                             format(screen_size))
+            raise ValueError(
+                "Target screen size should be strictly positive, got {}".format(
+                    screen_size
+                )
+            )
 
         self.frame_skip = frame_skip
         self.screen_size = screen_size
@@ -42,7 +46,7 @@ class AtariEnv(GymEnv):
         obs_dims = self.env_spec.obs_dim
         self.screen_buffer = [
             np.empty((obs_dims[0][0], obs_dims[0][1]), dtype=np.uint8),
-            np.empty((obs_dims[0][0], obs_dims[0][1]), dtype=np.uint8)
+            np.empty((obs_dims[0][0], obs_dims[0][1]), dtype=np.uint8),
         ]
 
         # Changing the observation space to the screen size
@@ -50,7 +54,7 @@ class AtariEnv(GymEnv):
             self.env_spec.env_name,
             [(1, self.screen_size, self.screen_size)],
             self.env_spec.act_dim,
-            self.env_spec.env_info
+            self.env_spec.env_info,
         )
 
     def reset(self):
@@ -68,7 +72,7 @@ class AtariEnv(GymEnv):
         """
         assert action is not None
 
-        accumulated_reward = 0.
+        accumulated_reward = 0.0
         done = False
         info = {}
 
@@ -106,11 +110,14 @@ class AtariEnv(GymEnv):
         """
         # Pool if there are enough screens to do so.
         if self.frame_skip > 1:
-            np.maximum(self.screen_buffer[0], self.screen_buffer[1],
-                       out=self.screen_buffer[1])
+            np.maximum(
+                self.screen_buffer[0], self.screen_buffer[1], out=self.screen_buffer[1]
+            )
 
-        transformed_image = cv2.resize(self.screen_buffer[1],
-                                       (self.screen_size, self.screen_size),
-                                       interpolation=cv2.INTER_AREA)
+        transformed_image = cv2.resize(
+            self.screen_buffer[1],
+            (self.screen_size, self.screen_size),
+            interpolation=cv2.INTER_AREA,
+        )
         int_image = np.asarray(transformed_image, dtype=np.uint8)
         return np.expand_dims(int_image, axis=0)
