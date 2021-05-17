@@ -5,7 +5,7 @@ import pytest
 import torch
 
 from hive.agents import RainbowDQNAgent
-from hive.agents.qnets.rainbow_mlp import ComplexMLP
+from hive.agents.qnets import ComplexMLP, DistributionalMLP
 from hive.envs import EnvSpec
 from hive.replays import CircularReplayBuffer
 from hive.utils import schedule
@@ -16,9 +16,33 @@ from torch.optim import Adam
 def env_spec():
     return EnvSpec("test_env", (2,), 2)
 
+# ddnd = double, dueling, noisy, distributional. x = False.
+@pytest.fixture
+def ddnd_agent_with_mock_optimizer(env_spec):
+    supports = torch.linspace(0, 200, 51).to("cpu")
+    agent = RainbowDQNAgent(
+        qnet=DistributionalMLP(
+            env_spec.obs_dim, env_spec.act_dim, supports, hidden_units=5, num_hidden_layers=1, noisy=True, dueling=True
+        ),
+        obs_dim=env_spec.obs_dim,
+        act_dim=env_spec.act_dim,
+        optimizer_fn=Mock(),
+        replay_buffer=CircularReplayBuffer(size=10),
+        target_net_update_fraction=0.25,
+        target_net_soft_update=True,
+        target_net_update_schedule=schedule.PeriodicSchedule(False, True, 5),
+        epsilon_schedule=schedule.LinearSchedule(1.0, 0.1, 20),
+        learn_schedule=schedule.SwitchSchedule(False, True, 2),
+        device="cpu",
+        batch_size=2,
+        epsilon_on=False,
+        distributional=True,
+        double=True
+    )
+    return agent
 
 @pytest.fixture
-def agent_with_mock_optimizer(env_spec):
+def dxxx_agent_with_mock_optimizer(env_spec):
     # supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
         qnet=ComplexMLP(
@@ -35,21 +59,21 @@ def agent_with_mock_optimizer(env_spec):
         learn_schedule=schedule.SwitchSchedule(False, True, 2),
         device="cpu",
         batch_size=2,
+        double=True,
         distributional=False,
     )
     return agent
 
-
 @pytest.fixture
-def agent_with_optimizer(env_spec):
+def xdxx_agent_with_mock_optimizer(env_spec):
     # supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
         qnet=ComplexMLP(
-            env_spec.obs_dim, env_spec.act_dim, hidden_units=5, num_hidden_layers=1
+            env_spec.obs_dim, env_spec.act_dim, hidden_units=5, num_hidden_layers=1, dueling=True
         ),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
-        optimizer_fn=Adam,
+        optimizer_fn=Mock(),
         replay_buffer=CircularReplayBuffer(size=10),
         target_net_update_fraction=0.25,
         target_net_soft_update=True,
@@ -59,6 +83,51 @@ def agent_with_optimizer(env_spec):
         device="cpu",
         batch_size=2,
         distributional=False,
+    )
+    return agent
+
+@pytest.fixture
+def xxnx_agent_with_mock_optimizer(env_spec):
+    # supports = torch.linspace(0, 200, 51).to("cpu")
+    agent = RainbowDQNAgent(
+        qnet=ComplexMLP(
+            env_spec.obs_dim, env_spec.act_dim, hidden_units=5, num_hidden_layers=1, noisy=True
+        ),
+        obs_dim=env_spec.obs_dim,
+        act_dim=env_spec.act_dim,
+        optimizer_fn=Mock(),
+        replay_buffer=CircularReplayBuffer(size=10),
+        target_net_update_fraction=0.25,
+        target_net_soft_update=True,
+        target_net_update_schedule=schedule.PeriodicSchedule(False, True, 5),
+        epsilon_schedule=schedule.LinearSchedule(1.0, 0.1, 20),
+        learn_schedule=schedule.SwitchSchedule(False, True, 2),
+        device="cpu",
+        batch_size=2,
+        epsilon_on=False,
+        distributional=False,
+    )
+    return agent
+
+@pytest.fixture
+def xxxd_agent_with_mock_optimizer(env_spec):
+    supports = torch.linspace(0, 200, 51).to("cpu")
+    agent = RainbowDQNAgent(
+        qnet=DistributionalMLP(
+            env_spec.obs_dim, env_spec.act_dim, supports, hidden_units=5, num_hidden_layers=1
+        ),
+        obs_dim=env_spec.obs_dim,
+        act_dim=env_spec.act_dim,
+        optimizer_fn=Mock(),
+        replay_buffer=CircularReplayBuffer(size=10),
+        target_net_update_fraction=0.25,
+        target_net_soft_update=True,
+        target_net_update_schedule=schedule.PeriodicSchedule(False, True, 5),
+        epsilon_schedule=schedule.LinearSchedule(1.0, 0.1, 20),
+        learn_schedule=schedule.SwitchSchedule(False, True, 2),
+        device="cpu",
+        batch_size=2,
+        distributional=True,
     )
     return agent
 
@@ -113,6 +182,8 @@ def test_train_step(agent_with_mock_optimizer):
     assert agent_with_mock_optimizer._replay_buffer.size() == 8
     assert agent_with_mock_optimizer._epsilon_schedule._value == pytest.approx(0.775)
 
+def test_all_train_steps(agent_with_mock_optimizer):
+    test_train_step()
 
 def test_eval_step(agent_with_mock_optimizer):
     agent_with_mock_optimizer.eval()

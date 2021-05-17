@@ -46,7 +46,7 @@ class NoisyLinear(nn.Module):
 class ComplexMLP(nn.Module):
     """ MLP function approximator for Q-Learning."""
 
-    def __init__(self, in_dim, out_dim, hidden_units=256, num_hidden_layers=1, noisy=True, dueling=True, sigma_init=0.5):
+    def __init__(self, in_dim, out_dim, hidden_units=256, num_hidden_layers=1, noisy=False, dueling=False, sigma_init=0.5):
         super().__init__()
 
         self._noisy = noisy
