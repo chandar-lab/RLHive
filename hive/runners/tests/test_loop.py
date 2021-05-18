@@ -8,7 +8,7 @@ from hive.runners.utils import load_config
 from hive.runners import multi_agent_loop, single_agent_loop
 
 args = Namespace(
-    config="test_config.yml", agent_config=None, env_config=None, logger_config=None
+    config="hive/runners/tests/test_config.yml", agent_config=None, env_config=None, logger_config=None
 )
 
 

@@ -4,6 +4,7 @@ train_steps: 450
 test_frequency: 10
 test_num_episodes: 1
 self_play: True
+num_agents: 2
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
@@ -38,7 +39,7 @@ agents:
         name: 'CircularReplayBuffer'
         kwargs:
           seed: 42
-          size: 10000
+          capacity: 10000
       discount_rate: .99
       target_net_update_schedule:
         name: 'PeriodicSchedule'
@@ -76,7 +77,7 @@ agents:
         name: 'CircularReplayBuffer'
         kwargs:
           seed: 42
-          size: 10000
+          capacity: 10000
       discount_rate: .99
       target_net_update_schedule:
         name: 'PeriodicSchedule'
