@@ -24,7 +24,7 @@ jobs:
         key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
     - name: Install dependencies
       run: |
-        find . -name "requirements.txt" -type f -exec pip install --upgrade --upgrade-strategy eager -r -r '{}' ';'
+        find . -name "requirements.txt" -type f -exec pip install --upgrade --upgrade-strategy eager -r '{}' ';'
     - name: Test with pytest
       env:
         GITHUB_CI: True
