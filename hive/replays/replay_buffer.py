@@ -140,15 +140,11 @@ class CircularReplayBuffer(BaseReplayBuffer):
         sdict["capacity"] = self._capacity
         sdict["write_index"] = self._write_index
         sdict["n"] = self._n
+        sdict["data"] = self._data
 
         full_name = os.path.join(dname, "meta.ckpt")
         with open(full_name, "wb") as f:
             pickle.dump(sdict, f)
-
-        for key in self._data:
-            full_name = os.path.join(dname, "{}.npy".format(key))
-            with open(full_name, "wb") as f:
-                np.save(f, self._data[key])
 
     def load(self, dname):
         """
@@ -167,8 +163,4 @@ class CircularReplayBuffer(BaseReplayBuffer):
         self._capacity = sdict["capacity"]
         self._write_index = sdict["write_index"]
         self._n = sdict["n"]
-
-        for key in self._data:
-            full_name = os.path.join(dname, "{}.npy".format(key))
-            with open(full_name, "rb") as f:
-                self._data[key] = np.load(f, allow_pickle=True)
+        self._data = sdict["data"]
