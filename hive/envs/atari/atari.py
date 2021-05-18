@@ -1,6 +1,5 @@
 import numpy as np
 import cv2
-import gym
 
 from hive.envs.gym_env import GymEnv
 from hive.envs.env_spec import EnvSpec
