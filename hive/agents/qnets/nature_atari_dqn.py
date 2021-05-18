@@ -3,7 +3,7 @@ from torch import nn
 from hive.agents.qnets.utils import conv2d_output_shape
 
 
-class NatureDQNModel(nn.Module):
+class NatureAtariDQNModel(nn.Module):
     """
     The convolutional network used to train the DQN agent.
     """
