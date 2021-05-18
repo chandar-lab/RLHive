@@ -1,5 +1,5 @@
 class EnvSpec:
-    """Object used to store information about environment configuration. 
+    """Object used to store information about environment configuration.
     Every environment should create an EnvSpec object.
     """
 
@@ -11,7 +11,7 @@ class EnvSpec:
                 be a simple integer, or a complex object depending on the types
                 of observations expected.
             act_dim: Dimensionality of action space.
-            env_info: Any other info relevant to this environment. This can 
+            env_info: Any other info relevant to this environment. This can
                 include items such as random seeds or parameters used to create
                 the environment
         """
