@@ -159,7 +159,7 @@ class TransitionInfo:
             self._previous_observations[agent.id].append(np.zeros_like(observation))
 
         stacked_observation = np.stack(
-            list(self._previous_observations[agent.id]) + [observation], axis=0,
+            list(self._previous_observations[agent.id]) + [observation],
+            axis=0,
         )
         return stacked_observation
-

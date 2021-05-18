@@ -129,7 +129,12 @@ class Runner:
             action
         )
         self._transition_info.record_info(
-            agent, {"observation": observation, "action": action, "info": other_info,},
+            agent,
+            {
+                "observation": observation,
+                "action": action,
+                "info": other_info,
+            },
         )
         self._transition_info.update_all_rewards(reward)
         return done, next_observation, turn
@@ -246,7 +251,6 @@ def set_up_experiment(config):
     num_agents = config["num_agents"] if config["self_play"] else len(config["agents"])
     for idx in range(num_agents):
 
-
         if not config["self_play"] or idx == 0:
             agent_config = config["agents"][idx]
             if config.get("stack_size", 1) > 1:
@@ -261,7 +265,7 @@ def set_up_experiment(config):
             if "replay_buffer" in agent_config["kwargs"]:
                 replay_args = agent_config["kwargs"]["replay_buffer"]["kwargs"]
                 replay_args["observation_shape"] = env_spec.obs_dim[idx]
-            
+
             agents.append(agent_lib.get_agent(agent_config))
         else:
             agents.append(copy.copy(agents[0]))
@@ -273,7 +277,9 @@ def set_up_experiment(config):
         config["run_name"], config["save_dir"], saving_schedule
     )
     experiment_manager.register_experiment(
-        config=original_config, logger=logger, agents=agents,
+        config=original_config,
+        logger=logger,
+        agents=agents,
     )
 
     # Set up runner
