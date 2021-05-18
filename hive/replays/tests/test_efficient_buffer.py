@@ -156,7 +156,13 @@ def test_sample(full_buffer):
 
 @pytest.mark.xfail(raises=ValueError)
 @pytest.mark.parametrize(
-    "stack_size,n_step,num_added", [(1, 1, 1), (2, 1, 1), (2, 1, 2), (2, 2, 3),]
+    "stack_size,n_step,num_added",
+    [
+        (1, 1, 1),
+        (2, 1, 1),
+        (2, 1, 2),
+        (2, 2, 3),
+    ],
 )
 def test_sample_few_transitions(stack_size, n_step, num_added):
     buffer = EfficientCircularBuffer(
