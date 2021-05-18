@@ -27,14 +27,14 @@ class Metrics:
 
     def __init__(self, agents, agent_metrics, episode_metrics):
         """Initialise Metrics object.
-        
+
         Args:
-            agents: List of agents for which object will track metrics. 
+            agents: List of agents for which object will track metrics.
             agent_metrics: List of metrics to track for each agent. Should be a list of
-                tuples (metric_name, metric_init) where metric_init is either the 
-                initial value of the metric or a callable with no arguments that 
+                tuples (metric_name, metric_init) where metric_init is either the
+                initial value of the metric or a callable with no arguments that
                 creates the initial metric.
-            episode_metrics: List of non agent specific metrics to keep track of. 
+            episode_metrics: List of non agent specific metrics to keep track of.
                 Should be a list of tuples (metric_name, metric_init) where metric_init
                 is either the initial value of the metric or a callable with no
                 arguments that creates the initial metric.
@@ -60,7 +60,7 @@ class Metrics:
             )
 
     def get_flat_dict(self):
-        """Get a flat dictionary version of the metrics. Each agent metric will be 
+        """Get a flat dictionary version of the metrics. Each agent metric will be
         prefixed by the agent id.
         """
         metrics = {}
@@ -79,17 +79,17 @@ class Metrics:
 
 
 class TransitionInfo:
-    """Used to keep track of the most recent transition for each agent. 
-    
+    """Used to keep track of the most recent transition for each agent.
+
     Any info that the agent needs to remember for updating can be stored here. Should
     be completely reset between episodes. After any info is extracted, it is
-    automatically removed from the object. Also keeps track of which agents have 
+    automatically removed from the object. Also keeps track of which agents have
     started their episodes.
     """
 
     def __init__(self, agents):
         """Constructor for TransitionInfo object.
-        
+
         Args:
             agents: list of agents that will be kept track of.
         """
@@ -122,7 +122,7 @@ class TransitionInfo:
         """Update the rewards for all agents. If rewards is list, it updates the rewards
         according to the order of agents provided in the initializer. If rewards is a
         dict, the keys should be the agent ids for the agents and the values should be
-        the rewards for those agents. If rewards is a float or int, every agent is 
+        the rewards for those agents. If rewards is a float or int, every agent is
         updated with that reward.
         """
         if isinstance(rewards, list) or isinstance(rewards, np.ndarray):
