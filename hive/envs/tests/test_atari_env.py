@@ -42,5 +42,7 @@ def test_step_func(env_name, frame_skip, screen_size):
 
     init_observation, _ = hive_env.reset()
     for i in range(50):
-        hive_observation, _, _, _, _ = hive_env.step(np.random.randint(hive_env.env_spec.act_dim[0]))
+        hive_observation, _, _, _, _ = hive_env.step(
+            np.random.randint(hive_env.env_spec.act_dim[0])
+        )
     assert (init_observation == hive_observation).all() == False
