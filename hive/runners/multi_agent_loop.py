@@ -166,12 +166,13 @@ def set_up_experiment(config):
 
     # Set up agents
     agents = []
-    for idx, agent_config in enumerate(config["agents"]):
-        agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
-        agent_config["kwargs"]["act_dim"] = env_spec.act_dim[idx]
-        agent_config["kwargs"]["logger"] = logger
-
+    num_agents = config["num_agents"] if config["self_play"] else len(config["agents"])
+    for idx in range(num_agents):
         if not config["self_play"] or idx == 0:
+            agent_config = config["agents"][idx]
+            agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
+            agent_config["kwargs"]["act_dim"] = env_spec.act_dim[idx]
+            agent_config["kwargs"]["logger"] = logger
             agents.append(agent_lib.get_agent(agent_config))
         else:
             agents.append(copy.copy(agents[0]))

@@ -12,10 +12,10 @@ class Logger(abc.ABC):
     def __init__(self, timescales):
         """Constructor for base Logger class. Every Logger must call this constructor
         in its own constructor
-        
+
         Args:
             timescales (str|List): The different timescales at which logger needs to log.
-                If only logging at one timescale, it is acceptable to only pass a string. 
+                If only logging at one timescale, it is acceptable to only pass a string.
         """
         if isinstance(timescales, str):
             self._timescales = [timescales]
@@ -26,7 +26,7 @@ class Logger(abc.ABC):
 
     def register_timescale(self, timescale):
         """Register a new timescale with the logger.
-        
+
         Args:
             timescale (str): timescale to register.
         """
@@ -72,10 +72,10 @@ class Logger(abc.ABC):
 
 class ScheduledLogger(Logger):
     """Abstract class that manages a schedule for logging.
-    
+
     The update_step method should be called for each step in the loop to update
     the logger's schedule. The should_log method can be used to check whether
-    the logger should log anything. 
+    the logger should log anything.
 
     This schedule is not strictly enforced! It is still possible to log something
     even if should_log returns false. These functions are just for the purpose
@@ -86,13 +86,13 @@ class ScheduledLogger(Logger):
     def __init__(self, timescales, logger_schedules=None):
         """Constructor for abstract class ScheduledLogger. Should be called by
         each subclass in the constructor.
-        
+
         Any timescales not assigned schedule from logger_schedules will be assigned
         a ConstantSchedule(True).
         Args:
             timescales (str|List): The different timescales at which logger needs to log.
                 If only logging at one timescale, it is acceptable to only pass a string.
-            logger_schedules (Schedule|list|dict): Schedules used to keep track of when 
+            logger_schedules (Schedule|list|dict): Schedules used to keep track of when
                 to log. If a single schedule, it is copied for each timescale. If a list
                 of schedules, the schedules are matched up in order with the list of
                 timescales provided. If a dictionary, the keys should be the timescale
@@ -133,7 +133,7 @@ class ScheduledLogger(Logger):
 
         Args:
             timescale (str): timescale to register.
-            schedule: Schedule to use for this timescale. 
+            schedule: Schedule to use for this timescale.
         """
         super().register_timescale(timescale)
         if schedule is None:
@@ -167,8 +167,8 @@ class ScheduledLogger(Logger):
 
 
 class NullLogger(ScheduledLogger):
-    """A null logger that does not log anything. 
-    
+    """A null logger that does not log anything.
+
     Used if you don't want to log anything, but still want to use parts of the
     framework that ask for a logger.
     """
@@ -193,7 +193,7 @@ class WandbLogger(ScheduledLogger):
     """A Wandb logger.
 
     This logger can be used to log to wandb. It assumes that wandb is configured
-    locally on your system. Multiple timescales/loggers can be implemented by 
+    locally on your system. Multiple timescales/loggers can be implemented by
     instantiating multiple loggers with different logger_names. These should still
     have the same project and run names.
     """
@@ -208,15 +208,15 @@ class WandbLogger(ScheduledLogger):
         **kwargs,
     ):
         """Constructor for the WandbLogger.
-        
+
         Args:
-            project_name (str): Name of the project. Wandb's dash groups all runs with 
-                the same project name together. 
+            project_name (str): Name of the project. Wandb's dash groups all runs with
+                the same project name together.
             run_name (str): Name of the run. Used to identify the run on the wandb dash.
             logger_schedule (Schedule): Schedule used to define when logging should occur.
             logger_name (str): Used to differentiate between different loggers/timescales
                 in the same run.
-            offline (bool): Whether to log offline. 
+            offline (bool): Whether to log offline.
         """
         super().__init__(timescales, logger_schedules)
         wandb.init(project=project_name, name=run_name)
@@ -281,12 +281,12 @@ class ChompLogger(ScheduledLogger):
 
 class CompositeLogger(Logger):
     """This Logger aggregates multiple loggers together.
-    
+
     This logger is for convenience and allows for logging using multiple loggers without
     having to keep track of several loggers. When timescales are updated, this logger
     updates the timescale for each one of its component loggers. When logging, logs to
     each of its component loggers as long as the logger is not a ScheduledLogger that
-    should not be logging for the timescale. 
+    should not be logging for the timescale.
     """
 
     def __init__(self, logger_list):

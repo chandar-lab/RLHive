@@ -10,7 +10,7 @@ def initial_buffer():
     environment = envs.GymEnv("CartPole-v1")
     seed = 100
     rng = np.random.default_rng(seed)
-    buffer = replays.CircularReplayBuffer(size=500, compress=True, seed=seed)
+    buffer = replays.CircularReplayBuffer(capacity=500, compress=True, seed=seed)
 
     observation, _ = environment.reset()
     for i in range(400):
@@ -26,7 +26,7 @@ def initial_buffer():
 
 def test_add_to_buffer(initial_buffer):
     """
-        test adding one transition to the buffer
+    test adding one transition to the buffer
     """
     buffer, environment, seed = initial_buffer
     rng = np.random.default_rng(seed)
@@ -55,7 +55,7 @@ def test_sample_from_buffer(batch_size, initial_buffer):
 
 def test_saving_buffer(tmpdir, initial_buffer):
     """
-        test sampling a batch from the buffer
+    test sampling a batch from the buffer
     """
     buffer, environment, _ = initial_buffer
     buffer.save(tmpdir.mkdir("saved_test_buffer"))
@@ -65,13 +65,13 @@ def test_saving_buffer(tmpdir, initial_buffer):
 @pytest.mark.parametrize("batch_size", [32])
 def test_loading_buffer(tmpdir, batch_size, initial_buffer):
     """
-        test sampling a batch from the buffer
+    test sampling a batch from the buffer
     """
     buffer, environment, seed = initial_buffer
     buffer.save(tmpdir / "saved_test_buffer")
     assert os.path.exists(tmpdir / "saved_test_buffer") is True
 
-    buffer_loaded = replays.CircularReplayBuffer(size=500, compress=True, seed=seed)
+    buffer_loaded = replays.CircularReplayBuffer(capacity=500, compress=True, seed=seed)
     buffer_loaded.load(tmpdir / "saved_test_buffer")
     assert buffer.size() == 400
     batch = buffer_loaded.sample(batch_size)
@@ -80,4 +80,3 @@ def test_loading_buffer(tmpdir, batch_size, initial_buffer):
     assert batch["rewards"].shape == (batch_size,)
     assert batch["next_observations"].shape == (batch_size, 4)
     assert batch["done"].shape == (batch_size,)
-

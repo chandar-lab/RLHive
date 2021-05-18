@@ -55,9 +55,9 @@ class DQNAgent(Agent):
                 to and sample from during learning.
             discount_rate (float): A number between 0 and 1 specifying how much
                 future rewards are discounted by the agent.
-            grad_clip (float): Gradients will be clipped to between 
+            grad_clip (float): Gradients will be clipped to between
                 [-grad_clip, gradclip]
-            target_net_soft_update (bool): Whether the target net parameters are 
+            target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
             target_net_update_fraction (float): The weight given to the target
@@ -238,9 +238,12 @@ class DQNAgent(Agent):
             current_params = self._qnet.state_dict()
             for key in list(target_params.keys()):
                 target_params[key] = (
-                    (1 - self._target_net_update_fraction) * target_params[key]
-                    + self._target_net_update_fraction * current_params[key]
-                )
+                    1 - self._target_net_update_fraction
+                ) * target_params[
+                    key
+                ] + self._target_net_update_fraction * current_params[
+                    key
+                ]
             self._target_qnet.load_state_dict(target_params)
         else:
             self._target_qnet.load_state_dict(self._qnet.state_dict())
