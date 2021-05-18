@@ -90,7 +90,9 @@ def test_resume(initial_runner):
         ]
     )
     resumed_single_agent_runner._test_schedule = (
-        resumed_single_agent_runner._experiment_manager.experiment_state["test_schedule"]
+        resumed_single_agent_runner._experiment_manager.experiment_state[
+            "test_schedule"
+        ]
     )
     episode_metrics = resumed_single_agent_runner.run_episode()
 
