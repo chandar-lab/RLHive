@@ -8,7 +8,7 @@ from hive.runners.utils import load_config
 from hive.runners import multi_agent_loop, single_agent_loop
 
 args = Namespace(
-    config="./test_config.yml", agent_config=None, env_config=None, logger_config=None
+    config="test_config.yml", agent_config=None, env_config=None, logger_config=None
 )
 
 
@@ -68,15 +68,6 @@ def test_run_episode(initial_runner, max_steps_per_episode):
     multi_agent_runner._experiment_manager.save()
 
 
-def test_run_training(initial_runner):
-    """
-    test running training
-    """
-    multi_agent_runner, config = initial_runner
-    multi_agent_runner.run_training()
-    assert multi_agent_runner._train_step_schedule._steps == config["train_steps"]
-
-
 @pytest.mark.parametrize("max_steps_per_episode", [100])
 def test_resume(initial_runner, max_steps_per_episode):
     """
@@ -104,3 +95,12 @@ def test_resume(initial_runner, max_steps_per_episode):
         resumed_multi_agent_runner._train_step_schedule._steps
         == 2 * len(resumed_multi_agent_runner._agents) * max_steps_per_episode
     )
+
+
+def test_run_training(initial_runner):
+    """
+    test running training
+    """
+    multi_agent_runner, config = initial_runner
+    multi_agent_runner.run_training()
+    assert multi_agent_runner._train_step_schedule._steps == config["train_steps"]
