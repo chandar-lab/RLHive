@@ -60,15 +60,15 @@ class CircularReplayBuffer(BaseReplayBuffer):
     """A simple circular replay buffers.
 
     Args:
-            size (int): repaly buffer capacity
+            capacity (int): repaly buffer capacity
             compress (bool): if False, convert data to float32 otherwise keep it as int8.
             seed (int): Seed for a pseudo-random number generator.
     """
 
-    def __init__(self, size=1e5, compress=False, seed=42):
+    def __init__(self, capacity=1e5, compress=False, seed=42):
 
         self._numpy_rng = np.random.default_rng(seed)
-        self._size = int(size)
+        self._capacity = int(capacity)
         self._compress = compress
 
         self._dtype = {
@@ -81,7 +81,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
 
         self._data = {}
         for data_key in self._dtype:
-            self._data[data_key] = [None] * int(size)
+            self._data[data_key] = [None] * int(capacity)
 
         self._write_index = -1
         self._n = 0
@@ -93,8 +93,8 @@ class CircularReplayBuffer(BaseReplayBuffer):
         Args:
             data (tuple): (observation, action, reward, next_observation, done)
         """
-        self._write_index = (self._write_index + 1) % self._size
-        self._n = int(min(self._size, self._n + 1))
+        self._write_index = (self._write_index + 1) % self._capacity
+        self._n = int(min(self._capacity, self._n + 1))
         for idx, key in enumerate(self._data):
             self._data[key][self._write_index] = np.asarray(
                 data[idx], dtype=self._dtype[key]
@@ -137,7 +137,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         create_folder(dname)
 
         sdict = {}
-        sdict["size"] = self._size
+        sdict["capacity"] = self._capacity
         sdict["write_index"] = self._write_index
         sdict["n"] = self._n
 
@@ -164,7 +164,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         with open(full_name, "rb") as f:
             sdict = pickle.load(f)
 
-        self._size = sdict["size"]
+        self._capacity = sdict["capacity"]
         self._write_index = sdict["write_index"]
         self._n = sdict["n"]
 
