@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import gym
 
 from hive.envs.gym_env import GymEnv
 from hive.envs.env_spec import EnvSpec
@@ -26,7 +27,6 @@ class AtariEnv(GymEnv):
         """
         env_version = "v0" if sticky_actions else "v4"
         full_env_name = "{}NoFrameskip-{}".format(env_name, env_version)
-        super().__init__(full_env_name)
 
         if frame_skip <= 0:
             raise ValueError(
@@ -42,19 +42,21 @@ class AtariEnv(GymEnv):
         self.frame_skip = frame_skip
         self.screen_size = screen_size
 
+        super().__init__(full_env_name)
+
+    def create_env_spec(self, env_name, **kwargs):
+        obs_spaces = self._env.observation_space.shape
         # Used for storing and pooling over two consecutive observations
-        obs_dims = self.env_spec.obs_dim
         self.screen_buffer = [
-            np.empty((obs_dims[0][0], obs_dims[0][1]), dtype=np.uint8),
-            np.empty((obs_dims[0][0], obs_dims[0][1]), dtype=np.uint8),
+            np.empty((obs_spaces[0], obs_spaces[1]), dtype=np.uint8),
+            np.empty((obs_spaces[0], obs_spaces[1]), dtype=np.uint8),
         ]
 
-        # Changing the observation space to the screen size
-        self.env_spec = EnvSpec(
-            self.env_spec.env_name,
-            [(1, self.screen_size, self.screen_size)],
-            self.env_spec.act_dim,
-            self.env_spec.env_info,
+        act_spaces = [self._env.action_space]
+        return EnvSpec(
+            env_name=env_name,
+            obs_dim=[(1, self.screen_size, self.screen_size)],
+            act_dim=[space.n for space in act_spaces],
         )
 
     def reset(self):
