@@ -34,24 +34,7 @@ class MultiAgentRunner(Runner):
             train_episodes,
             test_frequency,
             test_num_episodes,
-        """Initializes the Runner object.
-        Args:
-            environment: Environment used in the training loop.
-            agents: List of agents that interact with the environment
-            logger: Logger object used to log metrics.
-            experiment_manager: ExperimentManager object that saves the state of the
-                training.
-            train_steps: How many steps to train for. If this is -1, there is no limit
-                for the number of training steps. If both this and train_episodes are
-                -1, training loop will not terminate.
-            train_episodes: How many episodes to train for. If this is -1, there is no
-                limit for the number of training episodes. If both this and train_steps
-                are -1, training loop will not terminate.
-            test_frequency: After how many training episodes to run testing episodes.
-                If this is -1, testing is not run.
-            test_num_episodes: How many testing episodes to run during each testing
-                period.
-        """
+        )
         self._environment = environment
         self._agents = agents
         self._logger = logger

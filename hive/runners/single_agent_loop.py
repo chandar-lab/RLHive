@@ -50,9 +50,7 @@ class SingleAgentRunner(Runner):
         """
         agent = self._agents[turn]
         action = agent.act(observation)
-        next_observation, reward, done, _, other_info = self._environment.step(
-            action
-        )
+        next_observation, reward, done, _, other_info = self._environment.step(action)
 
         info = {
             "observation": observation,
@@ -77,9 +75,7 @@ class SingleAgentRunner(Runner):
 
         # Run the loop until either training ends or the episode ends
         while self._train_step_schedule.get_value() and not done:
-            done, observation, _ = self.run_one_step(
-                observation, 0, episode_metrics
-            )
+            done, observation, _ = self.run_one_step(observation, 0, episode_metrics)
             self._train_step_schedule.update()
 
         return episode_metrics
@@ -118,7 +114,9 @@ def set_up_experiment(config):
         config["run_name"], config["save_dir"], saving_schedule
     )
     experiment_manager.register_experiment(
-        config=original_config, logger=logger, agents=agent,
+        config=original_config,
+        logger=logger,
+        agents=agent,
     )
 
     # Set up runner
