@@ -5,17 +5,14 @@ import torch
 import yaml
 
 from hive import agents as agent_lib
-from hive import envs, replays
+from hive import envs
 from hive.utils import experiment, logging, schedule, utils
-from hive.runners.utils import load_config, Metrics, TransitionInfo
+from hive.runners.utils import load_config, TransitionInfo
+from hive.runners.base import Runner
 
 
-class Runner:
-    """Runner class used to implement a multiagent training loop.
-
-    Different types of training loops can be created by overriding the relevant
-    functions.
-    """
+class MultiAgentRunner(Runner):
+    """Runner class used to implement a multiagent training loop."""
 
     def __init__(
         self,
@@ -28,24 +25,16 @@ class Runner:
         test_frequency,
         test_num_episodes,
     ):
-        """Initializes the Runner object.
-        Args:
-            environment: Environment used in the training loop.
-            agents: List of agents that interact with the environment
-            logger: Logger object used to log metrics.
-            experiment_manager: ExperimentManager object that saves the state of the
-                training.
-            train_steps: How many steps to train for. If this is -1, there is no limit
-                for the number of training steps. If both this and train_episodes are
-                -1, training loop will not terminate.
-            train_episodes: How many episodes to train for. If this is -1, there is no
-                limit for the number of training episodes. If both this and train_steps
-                are -1, training loop will not terminate.
-            test_frequency: After how many training episodes to run testing episodes.
-                If this is -1, testing is not run.
-            test_num_episodes: How many testing episodes to run during each testing
-                period.
-        """
+        super().__init__(
+            environment,
+            agents,
+            logger,
+            experiment_manager,
+            train_steps,
+            train_episodes,
+            test_frequency,
+            test_num_episodes,
+        )
         self._environment = environment
         self._agents = agents
         self._logger = logger
@@ -79,21 +68,6 @@ class Runner:
         )
 
         self._transition_info = TransitionInfo(self._agents)
-
-    def train_mode(self, training):
-        """If training is true, sets all agents to training mode. If training is false,
-        sets all agents to eval mode.
-        """
-        for agent in self._agents:
-            agent.train() if training else agent.eval()
-
-    def create_episode_metrics(self):
-        """Create the metrics used during the loop."""
-        return Metrics(
-            self._agents,
-            [("reward", 0), ("episode_length", 0)],
-            [("full_episode_length", 0)],
-        )
 
     def run_one_step(self, observation, turn, episode_metrics):
         """Run one step of the training loop.
@@ -168,52 +142,6 @@ class Runner:
             self.run_end_step(episode_metrics)
         return episode_metrics
 
-    def run_training(self):
-        """Run the training loop."""
-
-        while (
-            self._train_episode_schedule.update()
-            and self._train_step_schedule.get_value()
-        ):
-            # Run training episode
-            self.train_mode(True)
-            episode_metrics = self.run_episode()
-            if self._logger.update_step("train_episodes"):
-                self._logger.log_metrics(
-                    episode_metrics.get_flat_dict(), "train_episodes"
-                )
-
-            # Run test episodes
-            while self._test_schedule.update():
-                self.train_mode(False)
-                episode_metrics = self.run_episode()
-                if self._logger.update_step("test_episodes"):
-                    self._logger.log_metrics(
-                        episode_metrics.get_flat_dict(), "test_episodes"
-                    )
-
-            # Save experiment state
-            if self._experiment_manager.update_step():
-                self._experiment_manager.save()
-
-        # Run a final test episode and save the experiment.
-        self.train_mode(False)
-        episode_metrics = self.run_episode()
-        self._logger.update_step("test_episodes")
-        self._logger.log_metrics(episode_metrics.get_flat_dict(), "test_episodes")
-        self._experiment_manager.save()
-
-    def resume(self):
-        """Resume a saved experiment."""
-        self._experiment_manager.resume()
-        self._train_step_schedule = self._experiment_manager.experiment_state[
-            "train_step_schedule"
-        ]
-        self._train_episode_schedule = self._experiment_manager.experiment_state[
-            "train_episode_schedule"
-        ]
-        self._test_schedule = self._experiment_manager.experiment_state["test_schedule"]
-
 
 def set_up_experiment(config):
     """Returns a runner object based on the config."""
@@ -262,7 +190,7 @@ def set_up_experiment(config):
     )
 
     # Set up runner
-    runner = Runner(
+    runner = MultiAgentRunner(
         environment,
         agents,
         logger,
