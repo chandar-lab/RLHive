@@ -196,7 +196,11 @@ def set_up_experiment(config):
     num_agents = config["num_agents"] if config["self_play"] else len(config["agents"])
     for idx in range(num_agents):
 
-        if not config["self_play"] or idx == 0:
+        if (
+            not config["self_play"]
+            or idx == 0
+            or config["agents"][idx]["name"] == "RandomAgent"
+        ):
             agent_config = config["agents"][idx]
             if config.get("stack_size", 1) > 1:
                 agent_config["kwargs"]["obs_dim"] = (
