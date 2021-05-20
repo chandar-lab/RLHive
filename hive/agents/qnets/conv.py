@@ -1,28 +1,45 @@
 import torch
 from torch import nn
+
 from hive.agents.qnets.utils import conv2d_output_shape
 
 
-class NatureAtariDQNModel(nn.Module):
+class SimpleConvModel(nn.Module):
     """
-    The convolutional network used to train the DQN agent.
+    Simple convolutional network approximator for Q-Learning.
     """
 
-    def __init__(self, in_dim, out_dim):
+    def __init__(
+            self,
+            in_dim,
+            out_dim,
+            channels,
+            kernel_sizes,
+            strides,
+            paddings,
+            mlp_layers
+    ):
         """
         Args:
             in_dim (tuple): The tuple of observations dimension (channels, width, height)
             out_dim (int): The action dimension
+            channels (list): The size of output channel for each convolutional layer
+            kernel_sizes (list): The kernel size for each convolutional layer
+            strides (list): The stride used for each convolutional layer
+            paddings (list): The size of the padding used for each convolutional layer
+            mlp_layers (list): The size of neurons for each mlp layer after the convolutional layers
         """
-        super.__init__()
+
+        assert len(channels) == len(kernel_sizes)
+        assert len(channels) == len(strides)
+        assert len(channels) == paddings
+
+        super().__init__()
 
         c, h, w = in_dim
 
         # Default Convolutional Layers
-        channels = [c, 32, 64, 64]
-        kernel_sizes = [8, 4, 3]
-        strides = [4, 2, 1]
-        paddings = [0, 1, 1]
+        channels = [c] + channels
 
         conv_layers = [
             torch.nn.Conv2d(
@@ -43,7 +60,7 @@ class NatureAtariDQNModel(nn.Module):
 
         # Default MLP Layers
         conv_out_size = self.conv.conv_out_size(h, w)
-        head_units = [conv_out_size, 512, out_dim]
+        head_units = [conv_out_size] + mlp_layers + [out_dim]
         head_layers = [
             torch.nn.Linear(i, o) for i, o in zip(head_units[:-1], head_units[1:])
         ]
