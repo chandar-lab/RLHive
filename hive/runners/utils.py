@@ -1,5 +1,6 @@
 import yaml
 import numpy as np
+from collections import deque
 
 
 def load_config(args):
@@ -27,14 +28,14 @@ class Metrics:
 
     def __init__(self, agents, agent_metrics, episode_metrics):
         """Initialise Metrics object.
-        
+
         Args:
-            agents: List of agents for which object will track metrics. 
+            agents: List of agents for which object will track metrics.
             agent_metrics: List of metrics to track for each agent. Should be a list of
-                tuples (metric_name, metric_init) where metric_init is either the 
-                initial value of the metric or a callable with no arguments that 
+                tuples (metric_name, metric_init) where metric_init is either the
+                initial value of the metric or a callable with no arguments that
                 creates the initial metric.
-            episode_metrics: List of non agent specific metrics to keep track of. 
+            episode_metrics: List of non agent specific metrics to keep track of.
                 Should be a list of tuples (metric_name, metric_init) where metric_init
                 is either the initial value of the metric or a callable with no
                 arguments that creates the initial metric.
@@ -60,7 +61,7 @@ class Metrics:
             )
 
     def get_flat_dict(self):
-        """Get a flat dictionary version of the metrics. Each agent metric will be 
+        """Get a flat dictionary version of the metrics. Each agent metric will be
         prefixed by the agent id.
         """
         metrics = {}
@@ -79,28 +80,32 @@ class Metrics:
 
 
 class TransitionInfo:
-    """Used to keep track of the most recent transition for each agent. 
-    
+    """Used to keep track of the most recent transition for each agent.
+
     Any info that the agent needs to remember for updating can be stored here. Should
     be completely reset between episodes. After any info is extracted, it is
-    automatically removed from the object. Also keeps track of which agents have 
+    automatically removed from the object. Also keeps track of which agents have
     started their episodes.
     """
 
-    def __init__(self, agents):
+    def __init__(self, agents, stack_size):
         """Constructor for TransitionInfo object.
-        
+
         Args:
             agents: list of agents that will be kept track of.
         """
         self._agent_ids = [agent.id for agent in agents]
         self._num_agents = len(agents)
+        self._stack_size = stack_size
         self.reset()
 
     def reset(self):
         """Reset the object by clearing all info."""
         self._transitions = {agent_id: {"reward": 0.0} for agent_id in self._agent_ids}
         self._started = {agent_id: False for agent_id in self._agent_ids}
+        self._previous_observations = {
+            agent_id: deque(maxlen=self._stack_size - 1) for agent_id in self._agent_ids
+        }
 
     def is_started(self, agent):
         """Check if agent has started its episode."""
@@ -113,6 +118,8 @@ class TransitionInfo:
     def record_info(self, agent, info):
         """Update some information for the agent."""
         self._transitions[agent.id].update(info)
+        if "observation" in info:
+            self._previous_observations[agent.id].append(info["observation"])
 
     def update_reward(self, agent, reward):
         """Add a reward to the agent."""
@@ -122,7 +129,7 @@ class TransitionInfo:
         """Update the rewards for all agents. If rewards is list, it updates the rewards
         according to the order of agents provided in the initializer. If rewards is a
         dict, the keys should be the agent ids for the agents and the values should be
-        the rewards for those agents. If rewards is a float or int, every agent is 
+        the rewards for those agents. If rewards is a float or int, every agent is
         updated with that reward.
         """
         if isinstance(rewards, list) or isinstance(rewards, np.ndarray):
@@ -144,3 +151,15 @@ class TransitionInfo:
         info["done"] = done
         self._transitions[agent.id] = {"reward": 0.0}
         return info
+
+    def get_stacked_state(self, agent, observation):
+        if self._stack_size == 1:
+            return observation
+        while len(self._previous_observations[agent.id]) < self._stack_size - 1:
+            self._previous_observations[agent.id].append(np.zeros_like(observation))
+
+        stacked_observation = np.stack(
+            list(self._previous_observations[agent.id]) + [observation],
+            axis=0,
+        )
+        return stacked_observation

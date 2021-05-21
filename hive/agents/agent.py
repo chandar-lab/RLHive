@@ -34,8 +34,8 @@ class Agent(abc.ABC):
     @abc.abstractmethod
     def update(self, update_info):
         """
-        Updates the agent. 
-        
+        Updates the agent.
+
         Args:
             update_info: dictionary containing information agent needs to update itself.
         """
@@ -53,7 +53,7 @@ class Agent(abc.ABC):
     def save(self, dname):
         """
         Saves agent checkpointing information to file for future loading.
-        
+
         Args:
             dname: directory where agent should save all relevant info.
         """
@@ -63,7 +63,7 @@ class Agent(abc.ABC):
     def load(self, dname):
         """
         Loads agent information from file.
-        
+
         Args:
             dname: directory where agent checkpoint info is stored.
 
