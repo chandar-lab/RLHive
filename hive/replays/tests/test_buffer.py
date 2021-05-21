@@ -16,7 +16,7 @@ def initial_buffer():
     for i in range(400):
         action = rng.integers(environment._env_spec.act_dim[0])
         next_observation, reward, done, turn, info = environment.step(action)
-        buffer.add((observation, action, reward, next_observation, done))
+        buffer.add(observation=observation, action=action, reward=reward, done=done)
         observation = next_observation
         if done:
             observation, _ = environment.reset()
@@ -33,8 +33,8 @@ def test_add_to_buffer(initial_buffer):
     observation, _ = environment.reset()
     action = rng.integers(environment._env_spec.act_dim[0])
     next_observation, reward, done, turn, info = environment.step(action)
-    buffer.add((observation, action, reward, next_observation, done))
-    assert buffer.size() == 401
+    buffer.add(observation=observation, action=action, reward=reward, done=done)
+    assert buffer.size() == 400
 
 
 @pytest.mark.parametrize("batch_size", [32])
@@ -44,13 +44,13 @@ def test_sample_from_buffer(batch_size, initial_buffer):
     """
     buffer, environment, _ = initial_buffer
     batch = buffer.sample(batch_size=batch_size)
-    assert batch["observations"].shape == (batch_size, 4)
-    assert batch["actions"].shape == (batch_size,)
-    assert batch["rewards"].shape == (batch_size,)
-    assert batch["next_observations"].shape == (batch_size, 4)
+    assert batch["observation"].shape == (batch_size, 4)
+    assert batch["action"].shape == (batch_size,)
+    assert batch["reward"].shape == (batch_size,)
+    assert batch["next_observation"].shape == (batch_size, 4)
     assert batch["done"].shape == (batch_size,)
     batch = buffer.sample(batch_size=buffer.size())
-    assert batch["observations"].shape == (buffer.size(), 4)
+    assert batch["observation"].shape == (buffer.size(), 4)
 
 
 def test_saving_buffer(tmpdir, initial_buffer):
@@ -73,10 +73,10 @@ def test_loading_buffer(tmpdir, batch_size, initial_buffer):
 
     buffer_loaded = replays.CircularReplayBuffer(capacity=500, compress=True, seed=seed)
     buffer_loaded.load(tmpdir / "saved_test_buffer")
-    assert buffer.size() == 400
+    assert buffer.size() == 399
     batch = buffer_loaded.sample(batch_size)
-    assert batch["observations"].shape == (batch_size, 4)
-    assert batch["actions"].shape == (batch_size,)
-    assert batch["rewards"].shape == (batch_size,)
-    assert batch["next_observations"].shape == (batch_size, 4)
+    assert batch["observation"].shape == (batch_size, 4)
+    assert batch["action"].shape == (batch_size,)
+    assert batch["reward"].shape == (batch_size,)
+    assert batch["next_observation"].shape == (batch_size, 4)
     assert batch["done"].shape == (batch_size,)

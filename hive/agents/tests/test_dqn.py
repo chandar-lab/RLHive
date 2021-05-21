@@ -89,43 +89,37 @@ def test_create_agent_with_configs(env_spec):
 
 def test_train_step(agent_with_mock_optimizer):
     agent_with_mock_optimizer.train()
-    observation = np.ones(2)
     for idx in range(8):
+        observation = np.ones(2) * (idx + 1)
         action = agent_with_mock_optimizer.act(observation)
         assert action < 2
-        next_observation = np.ones(2) * (idx + 1)
         agent_with_mock_optimizer.update(
             {
                 "action": action,
                 "observation": observation,
-                "next_observation": next_observation,
                 "reward": 1,
                 "done": False,
             }
         )
-        observation = next_observation
     assert agent_with_mock_optimizer._optimizer.step.call_count == 7
-    assert agent_with_mock_optimizer._replay_buffer.size() == 8
+    assert agent_with_mock_optimizer._replay_buffer.size() == 7
     assert agent_with_mock_optimizer._epsilon_schedule._value == pytest.approx(0.775)
 
 
 def test_eval_step(agent_with_mock_optimizer):
     agent_with_mock_optimizer.eval()
-    observation = np.ones(2)
     for idx in range(8):
+        observation = np.ones(2) * (idx + 1)
         action = agent_with_mock_optimizer.act(observation)
         assert action < 2
-        next_observation = np.ones(2) * (idx + 1)
         agent_with_mock_optimizer.update(
             {
                 "action": action,
                 "observation": observation,
-                "next_observation": next_observation,
                 "reward": 1,
                 "done": False,
             }
         )
-        observation = next_observation
     assert agent_with_mock_optimizer._optimizer.step.call_count == 0
     assert agent_with_mock_optimizer._replay_buffer.size() == 0
     assert agent_with_mock_optimizer._epsilon_schedule._value == pytest.approx(1.045)
@@ -143,24 +137,21 @@ def test_target_net_soft_update(agent_with_mock_optimizer):
 
     # Run the network until its time to update the target network
     agent_with_mock_optimizer.train()
-    observation = np.ones(2)
     for idx in range(5):
         # Assert that the target network hasn't changed
         check_target_network_value(agent_with_mock_optimizer._target_qnet, 0.0)
 
+        observation = np.ones(2) * (idx + 1)
         action = agent_with_mock_optimizer.act(observation)
         assert action < 2
-        next_observation = np.ones(2) * (idx + 1)
         agent_with_mock_optimizer.update(
             {
                 "action": action,
                 "observation": observation,
-                "next_observation": next_observation,
                 "reward": 1,
                 "done": False,
             }
         )
-        observation = next_observation
 
     # Assert that the target network was updated successfully
     check_target_network_value(agent_with_mock_optimizer._target_qnet, 0.25)
@@ -183,19 +174,17 @@ def test_target_net_hard_update(agent_with_mock_optimizer):
     for idx in range(5):
         # Assert that the target network hasn't changed
         check_target_network_value(agent_with_mock_optimizer._target_qnet, 0.0)
+        observation = np.ones(2) * (idx + 1)
         action = agent_with_mock_optimizer.act(observation)
         assert action < 2
-        next_observation = np.ones(2) * (idx + 1)
         agent_with_mock_optimizer.update(
             {
                 "action": action,
                 "observation": observation,
-                "next_observation": next_observation,
                 "reward": 1,
                 "done": False,
             }
         )
-        observation = next_observation
 
     # Assert that the target network was updated successfully
     check_target_network_value(agent_with_mock_optimizer._target_qnet, 1.0)
@@ -207,21 +196,18 @@ def test_save_load(agent_with_optimizer, tmpdir):
     agent_1.train()
 
     # Run agent_1 so that it's internal state is different than agent_2
-    observation = np.ones(2)
     for idx in range(10):
+        observation = np.ones(2) * (idx + 1)
         action = agent_1.act(observation)
         assert action < 2
-        next_observation = np.ones(2) * (idx + 1)
         agent_1.update(
             {
                 "action": action,
                 "observation": observation,
-                "next_observation": next_observation,
                 "reward": 1,
                 "done": False,
             }
         )
-        observation = next_observation
 
     # Make sure agent_1 and agent_2 have different internal states
     assert not check_dicts_equal(agent_1._qnet.state_dict(), agent_2._qnet.state_dict())
