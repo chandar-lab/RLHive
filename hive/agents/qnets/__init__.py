@@ -9,6 +9,6 @@ get_qnet = create_class_constructor(
     {
         "SimpleMLP": SimpleMLP,
         "SimpleConvModel": SimpleConvModel,
-        "NatureDQNModel": NatureAtariDQNModel,
+        "NatureAtariDQNModel": NatureAtariDQNModel,
     },
 )
