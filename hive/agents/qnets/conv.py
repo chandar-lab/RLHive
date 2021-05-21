@@ -10,14 +10,7 @@ class SimpleConvModel(nn.Module):
     """
 
     def __init__(
-            self,
-            in_dim,
-            out_dim,
-            channels,
-            kernel_sizes,
-            strides,
-            paddings,
-            mlp_layers
+        self, in_dim, out_dim, channels, kernel_sizes, strides, paddings, mlp_layers
     ):
         """
         Args:

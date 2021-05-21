@@ -19,5 +19,5 @@ class NatureAtariDQNModel(SimpleConvModel):
             kernel_sizes=[8, 4, 3],
             strides=[4, 2, 1],
             paddings=[0, 1, 1],
-            mlp_layers=[512]
+            mlp_layers=[512],
         )
