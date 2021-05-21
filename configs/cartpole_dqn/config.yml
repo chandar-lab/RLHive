@@ -3,6 +3,8 @@ run_name: &run_name 'cartpole-dqn'
 train_steps: 30000
 test_frequency: 10
 test_num_episodes: 1
+self_play: False
+stack_size: &stack_size 2
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
