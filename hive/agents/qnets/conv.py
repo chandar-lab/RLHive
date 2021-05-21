@@ -25,7 +25,7 @@ class SimpleConvModel(nn.Module):
 
         assert len(channels) == len(kernel_sizes)
         assert len(channels) == len(strides)
-        assert len(channels) == paddings
+        assert len(channels) == len(paddings)
 
         super().__init__()
 
@@ -48,18 +48,18 @@ class SimpleConvModel(nn.Module):
         ]
         conv_seq = list()
         for conv_layer in conv_layers:
-            conv_seq.extend([conv_layer, torch.nn.ReLU])
+            conv_seq.extend([conv_layer, torch.nn.ReLU()])
         self.conv = torch.nn.Sequential(*conv_seq)
 
         # Default MLP Layers
-        conv_out_size = self.conv.conv_out_size(h, w)
+        conv_out_size = self.conv_out_size(h, w)
         head_units = [conv_out_size] + mlp_layers + [out_dim]
         head_layers = [
             torch.nn.Linear(i, o) for i, o in zip(head_units[:-1], head_units[1:])
         ]
         head_seq = list()
         for head_layer in head_layers:
-            head_seq.extend([head_layer, torch.nn.ReLU])
+            head_seq.extend([head_layer, torch.nn.ReLU()])
         self.head = torch.nn.Sequential(*head_seq)
 
     def forward(self, x):
