@@ -77,6 +77,8 @@ class DQNAgent(Agent):
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
         if isinstance(qnet, dict):
+            if "kwargs" not in qnet:
+                qnet["kwargs"] = dict()
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
 
