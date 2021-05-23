@@ -24,7 +24,27 @@ class MultiAgentRunner(Runner):
         train_episodes,
         test_frequency,
         test_num_episodes,
+        stack_size,
     ):
+        """Initializes the Runner object.
+        Args:
+            environment: Environment used in the training loop.
+            agents: List of agents that interact with the environment
+            logger: Logger object used to log metrics.
+            experiment_manager: ExperimentManager object that saves the state of the
+                training.
+            train_steps: How many steps to train for. If this is -1, there is no limit
+                for the number of training steps. If both this and train_episodes are
+                -1, training loop will not terminate.
+            train_episodes: How many episodes to train for. If this is -1, there is no
+                limit for the number of training episodes. If both this and train_steps
+                are -1, training loop will not terminate.
+            test_frequency: After how many training episodes to run testing episodes.
+                If this is -1, testing is not run.
+            test_num_episodes: How many testing episodes to run during each testing
+                period.
+            stack_size: The number of frames in an observation sent to an agent.
+        """
         super().__init__(
             environment,
             agents,
@@ -67,7 +87,8 @@ class MultiAgentRunner(Runner):
             }
         )
 
-        self._transition_info = TransitionInfo(self._agents)
+        self._transition_info = TransitionInfo(self._agents, stack_size)
+        self._training = True
 
     def run_one_step(self, observation, turn, episode_metrics):
         """Run one step of the training loop.
@@ -90,7 +111,11 @@ class MultiAgentRunner(Runner):
             episode_metrics["full_episode_length"] += 1
         else:
             self._transition_info.start_agent(agent)
-        action = agent.act(observation)
+
+        stacked_observation = self._transition_info.get_stacked_state(
+            agent, observation
+        )
+        action = agent.act(stacked_observation)
         next_observation, reward, done, turn, other_info = self._environment.step(
             action
         )
@@ -99,7 +124,6 @@ class MultiAgentRunner(Runner):
             {
                 "observation": observation,
                 "action": action,
-                "next_observation": next_observation,
                 "info": other_info,
             },
         )
@@ -131,11 +155,14 @@ class MultiAgentRunner(Runner):
         observation, turn = self._environment.reset()
 
         # Run the loop until either training ends or the episode ends
-        while self._train_step_schedule.get_value() and not done:
+        while (
+            not self._training or self._train_step_schedule.get_value()
+        ) and not done:
             done, observation, turn = self.run_one_step(
                 observation, turn, episode_metrics
             )
-            self._train_step_schedule.update()
+            if self._training:
+                self._train_step_schedule.update()
 
         # If the episode ended, run the final update.
         if done:
@@ -168,11 +195,22 @@ def set_up_experiment(config):
     agents = []
     num_agents = config["num_agents"] if config["self_play"] else len(config["agents"])
     for idx in range(num_agents):
+
         if not config["self_play"] or idx == 0:
             agent_config = config["agents"][idx]
-            agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
+            if config.get("stack_size", 1) > 1:
+                agent_config["kwargs"]["obs_dim"] = (
+                    config["stack_size"],
+                ) + env_spec.obs_dim[idx]
+            else:
+                agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
             agent_config["kwargs"]["act_dim"] = env_spec.act_dim[idx]
             agent_config["kwargs"]["logger"] = logger
+
+            if "replay_buffer" in agent_config["kwargs"]:
+                replay_args = agent_config["kwargs"]["replay_buffer"]["kwargs"]
+                replay_args["observation_shape"] = env_spec.obs_dim[idx]
+
             agents.append(agent_lib.get_agent(agent_config))
         else:
             agents.append(copy.copy(agents[0]))
@@ -199,6 +237,7 @@ def set_up_experiment(config):
         config.get("train_episodes", -1),
         config.get("test_frequency", -1),
         config.get("test_num_episodes", 1),
+        config.get("stack_size", 1),
     )
     if config.get("resume", False):
         runner.resume()
