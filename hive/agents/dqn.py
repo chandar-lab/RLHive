@@ -82,7 +82,7 @@ class DQNAgent(Agent):
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
 
-        self._qnet = get_qnet(qnet)
+        self._qnet = get_qnet(qnet).to(device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         optimizer_fn = get_optimizer_fn(optimizer_fn)
         if optimizer_fn is None:
