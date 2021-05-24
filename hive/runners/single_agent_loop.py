@@ -56,7 +56,6 @@ class SingleAgentRunner(Runner):
             "observation": observation,
             "reward": reward,
             "action": action,
-            "next_observation": next_observation,
             "done": done,
             "info": other_info,
         }
@@ -103,9 +102,17 @@ def set_up_experiment(config):
             logger = logging.CompositeLogger(logger_config)
 
     # Set up agent
-    config["agent"]["kwargs"]["obs_dim"] = env_spec.obs_dim[0]
+    if config.get("stack_size", 1) > 1:
+        config["agent"]["kwargs"]["obs_dim"] = (
+            config["stack_size"],
+        ) + env_spec.obs_dim[0]
+    else:
+        config["agent"]["kwargs"]["obs_dim"] = env_spec.obs_dim[0]
     config["agent"]["kwargs"]["act_dim"] = env_spec.act_dim[0]
     config["agent"]["kwargs"]["logger"] = logger
+    if "replay_buffer" in config["agent"]["kwargs"]:
+        replay_args = config["agent"]["kwargs"]["replay_buffer"]["kwargs"]
+        replay_args["observation_shape"] = env_spec.obs_dim[0]
     agent = agent_lib.get_agent(config["agent"])
 
     # Set up experiment manager
