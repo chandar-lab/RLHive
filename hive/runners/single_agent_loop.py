@@ -1,14 +1,11 @@
 import argparse
 import copy
-import numpy as np
-import torch
-import yaml
 
 from hive import agents as agent_lib
 from hive import envs
-from hive.utils import experiment, logging, schedule, utils
-from hive.runners.utils import load_config
 from hive.runners.base import Runner
+from hive.runners.utils import TransitionInfo, load_config
+from hive.utils import experiment, logging, schedule, utils
 
 
 class SingleAgentRunner(Runner):
@@ -24,6 +21,7 @@ class SingleAgentRunner(Runner):
         train_episodes,
         test_frequency,
         test_num_episodes,
+        stack_size,
     ):
         super().__init__(
             environment,
@@ -35,6 +33,7 @@ class SingleAgentRunner(Runner):
             test_frequency,
             test_num_episodes,
         )
+        self._transition_info = TransitionInfo(self._agents, stack_size)
 
     def run_one_step(self, observation, turn, episode_metrics):
         """Run one step of the training loop.
@@ -49,7 +48,10 @@ class SingleAgentRunner(Runner):
             episode_metrics: Metrics object keeping track of metrics for current episode.
         """
         agent = self._agents[turn]
-        action = agent.act(observation)
+        stacked_observation = self._transition_info.get_stacked_state(
+            agent, observation
+        )
+        action = agent.act(stacked_observation)
         next_observation, reward, done, _, other_info = self._environment.step(action)
 
         info = {
@@ -60,6 +62,7 @@ class SingleAgentRunner(Runner):
             "info": other_info,
         }
         agent.update(info)
+        self._transition_info.record_info(agent, info)
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1
         episode_metrics["full_episode_length"] += 1
@@ -71,6 +74,8 @@ class SingleAgentRunner(Runner):
         episode_metrics = self.create_episode_metrics()
         done = False
         observation, _ = self._environment.reset()
+        self._transition_info.reset()
+        self._transition_info.start_agent(self._agents[0])
 
         # Run the loop until either training ends or the episode ends
         while self._train_step_schedule.get_value() and not done:
@@ -136,6 +141,7 @@ def set_up_experiment(config):
         config.get("train_episodes", -1),
         config.get("test_frequency", -1),
         config.get("test_num_episodes", 1),
+        config.get("stack_size", 1),
     )
     if config.get("resume", False):
         runner.resume()
