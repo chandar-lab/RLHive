@@ -1,9 +1,12 @@
 # General training loop config
-run_name: &run_name 'MABC-dqn'
-train_steps: 50000
-test_frequency: 25
-test_num_episodes: 10
-self_play: True
+run_name: &run_name 'MABC-TDMA'
+train_steps: 1000000
+test_frequency: 10
+test_num_episodes: 1
+self_play: False
+staged_learning: True
+num_agents: 2
+stack_size: &stack_size 2
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
@@ -21,13 +24,13 @@ environment:
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
-agents: 
-  - 
+agents:
+  -
     name: 'DQNAgent'
     kwargs:
       qnet:
         name: 'DiscObsSimpleMLP'
-        kwargs: 
+        kwargs:
           hidden_units: 256
           num_hidden_layers: 2
       optimizer_fn:
@@ -35,10 +38,11 @@ agents:
         kwargs: {}
       id: 0
       replay_buffer:
-        name: 'CircularReplayBuffer'
+        name: 'EfficientCircularBuffer'
         kwargs:
           seed: 42
-          size: 10000
+          capacity: 10000
+          stack_size: *stack_size
       discount_rate: .9
       target_net_update_schedule:
         name: 'PeriodicSchedule'
@@ -60,12 +64,12 @@ agents:
       batch_size: 128
       device: 'cpu'
       log_frequency: 100
-  - 
+  -
     name: 'DQNAgent'
     kwargs:
       qnet:
         name: 'DiscObsSimpleMLP'
-        kwargs: 
+        kwargs:
           hidden_units: 256
           num_hidden_layers: 2
       optimizer_fn:
@@ -73,10 +77,11 @@ agents:
         kwargs: {}
       id: 1
       replay_buffer:
-        name: 'CircularReplayBuffer'
+        name: 'EfficientCircularBuffer'
         kwargs:
           seed: 43
-          size: 10000
+          capacity: 10000
+          stack_size: *stack_size
       discount_rate: .9
       target_net_update_schedule:
         name: 'PeriodicSchedule'

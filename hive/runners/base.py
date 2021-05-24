@@ -86,7 +86,7 @@ class Runner(ABC):
         """Create the metrics used during the loop."""
         return Metrics(
             self._agents,
-            [("reward", 0), ("episode_length", 0)],
+            [("reward", 0), ("disc_reward", 0), ("episode_length", 0)],
             [("full_episode_length", 0)],
         )
 

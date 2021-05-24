@@ -25,6 +25,7 @@ class MultiAgentRunner(Runner):
         test_frequency,
         test_num_episodes,
         stack_size,
+        staged_learning
     ):
         """Initializes the Runner object.
         Args:
@@ -89,6 +90,8 @@ class MultiAgentRunner(Runner):
 
         self._transition_info = TransitionInfo(self._agents, stack_size)
         self._training = True
+        self.staged_learning = staged_learning
+        self.num_episodes = 0
 
     def run_one_step(self, observation, turn, episode_metrics):
         """Run one step of the training loop.
@@ -107,6 +110,7 @@ class MultiAgentRunner(Runner):
             info = self._transition_info.get_info(agent)
             agent.update(info)
             episode_metrics[agent.id]["reward"] += info["reward"]
+            episode_metrics[agent.id]["disc_reward"] += agent._discount_rate ** (episode_metrics[agent.id]["episode_length"]) * info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
             episode_metrics["full_episode_length"] += 1
         else:
@@ -116,6 +120,12 @@ class MultiAgentRunner(Runner):
             agent, observation
         )
         action = agent.act(stacked_observation)
+
+        # # TDMA policy
+        # TDMA = [[1, 0], [0, 1]]
+        # actions = TDMA[episode_metrics[agent.id]["episode_length"]%2]
+        # action = actions[turn]
+
         next_observation, reward, done, turn, other_info = self._environment.step(
             action
         )
@@ -144,6 +154,7 @@ class MultiAgentRunner(Runner):
             info = self._transition_info.get_info(agent, done=True)
             agent.update(info)
             episode_metrics[agent.id]["reward"] += info["reward"]
+            episode_metrics[agent.id]["disc_reward"] += agent._discount_rate ** (episode_metrics[agent.id]["episode_length"]) * info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
             episode_metrics["full_episode_length"] += 1
 
@@ -154,6 +165,14 @@ class MultiAgentRunner(Runner):
         done = False
         observation, turn = self._environment.reset()
 
+        self.num_episodes += 1
+        if self.staged_learning:
+            if self.num_episodes%2 == 0:
+                self._agents[0]._training = True
+                self._agents[1]._training = False
+            else:
+                self._agents[0]._training = False
+                self._agents[1]._training = True
         # Run the loop until either training ends or the episode ends
         while (
             not self._training or self._train_step_schedule.get_value()
@@ -205,6 +224,7 @@ def set_up_experiment(config):
             else:
                 agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
             agent_config["kwargs"]["act_dim"] = env_spec.act_dim[idx]
+            agent_config["kwargs"]["num_disc_per_obs_dim"] = env_spec.num_disc_per_obs_dim
             agent_config["kwargs"]["logger"] = logger
 
             if "replay_buffer" in agent_config["kwargs"]:
@@ -238,6 +258,7 @@ def set_up_experiment(config):
         config.get("test_frequency", -1),
         config.get("test_num_episodes", 1),
         config.get("stack_size", 1),
+        config.get("staged_learning", False),
     )
     if config.get("resume", False):
         runner.resume()
