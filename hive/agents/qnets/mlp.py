@@ -4,6 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 import math
 
+
 class SimpleMLP(nn.Module):
     """Simple MLP function approximator for Q-Learning."""
 

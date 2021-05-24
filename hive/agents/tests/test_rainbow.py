@@ -16,13 +16,20 @@ from torch.optim import Adam
 def env_spec():
     return EnvSpec("test_env", (2,), 2)
 
+
 # ddnd = double, dueling, noisy, distributional. x = False.
 @pytest.fixture
 def ddnd_agent_with_mock_optimizer(env_spec):
     supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
         qnet=DistributionalMLP(
-            env_spec.obs_dim, env_spec.act_dim, supports, hidden_units=5, num_hidden_layers=1, noisy=True, dueling=True
+            env_spec.obs_dim,
+            env_spec.act_dim,
+            supports,
+            hidden_units=5,
+            num_hidden_layers=1,
+            noisy=True,
+            dueling=True,
         ),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
@@ -37,9 +44,10 @@ def ddnd_agent_with_mock_optimizer(env_spec):
         batch_size=2,
         epsilon_on=False,
         distributional=True,
-        double=True
+        double=True,
     )
     return agent
+
 
 @pytest.fixture
 def dxxx_agent_with_mock_optimizer(env_spec):
@@ -64,12 +72,17 @@ def dxxx_agent_with_mock_optimizer(env_spec):
     )
     return agent
 
+
 @pytest.fixture
 def xdxx_agent_with_mock_optimizer(env_spec):
     # supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
         qnet=ComplexMLP(
-            env_spec.obs_dim, env_spec.act_dim, hidden_units=5, num_hidden_layers=1, dueling=True
+            env_spec.obs_dim,
+            env_spec.act_dim,
+            hidden_units=5,
+            num_hidden_layers=1,
+            dueling=True,
         ),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
@@ -86,12 +99,17 @@ def xdxx_agent_with_mock_optimizer(env_spec):
     )
     return agent
 
+
 @pytest.fixture
 def xxnx_agent_with_mock_optimizer(env_spec):
     # supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
         qnet=ComplexMLP(
-            env_spec.obs_dim, env_spec.act_dim, hidden_units=5, num_hidden_layers=1, noisy=True
+            env_spec.obs_dim,
+            env_spec.act_dim,
+            hidden_units=5,
+            num_hidden_layers=1,
+            noisy=True,
         ),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
@@ -109,12 +127,17 @@ def xxnx_agent_with_mock_optimizer(env_spec):
     )
     return agent
 
+
 @pytest.fixture
 def xxxd_agent_with_mock_optimizer(env_spec):
     supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
         qnet=DistributionalMLP(
-            env_spec.obs_dim, env_spec.act_dim, supports, hidden_units=5, num_hidden_layers=1
+            env_spec.obs_dim,
+            env_spec.act_dim,
+            supports,
+            hidden_units=5,
+            num_hidden_layers=1,
         ),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
@@ -182,8 +205,10 @@ def test_train_step(agent_with_mock_optimizer):
     assert agent_with_mock_optimizer._replay_buffer.size() == 8
     assert agent_with_mock_optimizer._epsilon_schedule._value == pytest.approx(0.775)
 
+
 def test_all_train_steps(agent_with_mock_optimizer):
     test_train_step()
+
 
 def test_eval_step(agent_with_mock_optimizer):
     agent_with_mock_optimizer.eval()

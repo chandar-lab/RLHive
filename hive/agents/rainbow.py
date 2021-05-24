@@ -65,9 +65,9 @@ class RainbowDQNAgent(DQNAgent):
                 to and sample from during learning.
             discount_rate (float): A number between 0 and 1 specifying how much
                 future rewards are discounted by the agent.
-            grad_clip (float): Gradients will be clipped to between 
+            grad_clip (float): Gradients will be clipped to between
                 [-grad_clip, gradclip]
-            target_net_soft_update (bool): Whether the target net parameters are 
+            target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
             target_net_update_fraction (float): The weight given to the target
@@ -101,7 +101,9 @@ class RainbowDQNAgent(DQNAgent):
             self._atoms = atoms
             self._v_min = v_min
             self._v_max = v_max
-            self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(device)
+            self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(
+                device
+            )
             qnet["kwargs"]["supports"] = self._supports
             self._delta = float(self._v_max - self._v_min) / (self._atoms - 1)
             self._nsteps = 1
@@ -149,7 +151,12 @@ class RainbowDQNAgent(DQNAgent):
 
     def get_max_next_state_action(self, next_states):
         next_dist = self._qnet(next_states) * self._supports
-        return next_dist.sum(dim=2).max(1)[1].view(next_states.size(0), 1, 1).expand(-1, -1, self._atoms)
+        return (
+            next_dist.sum(dim=2)
+            .max(1)[1]
+            .view(next_states.size(0), 1, 1)
+            .expand(-1, -1, self._atoms)
+        )
 
     def projection_distribution(self, batch):
         batch_obs = batch["observations"]
@@ -172,10 +179,11 @@ class RainbowDQNAgent(DQNAgent):
             offset = (
                 torch.linspace(
                     0, (self._batch_size - 1) * self._atoms, self._batch_size
-                ).long()
-                    .unsqueeze(1)
-                    .expand(self._batch_size, self._atoms)
-                    .to(self._device)
+                )
+                .long()
+                .unsqueeze(1)
+                .expand(self._batch_size, self._atoms)
+                .to(self._device)
             )
 
             proj_dist = torch.zeros(next_dist.size(), device=self._device)
@@ -187,7 +195,6 @@ class RainbowDQNAgent(DQNAgent):
             )
 
         return proj_dist
-
 
     @torch.no_grad()
     def act(self, observation):
@@ -214,7 +221,6 @@ class RainbowDQNAgent(DQNAgent):
             action = torch.argmax(a).numpy()
 
         return action
-
 
     def update(self, update_info):
         """

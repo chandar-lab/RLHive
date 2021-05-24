@@ -3,8 +3,10 @@ from torch import nn
 import torch.nn.functional as F
 import math
 
+
 class NoisyLinear(nn.Module):
-    """NoisyLinear Layer """
+    """NoisyLinear Layer"""
+
     def __init__(self, in_dim, out_dim, std_init=0.4):
         super(NoisyLinear, self).__init__()
         self.in_features = in_dim
@@ -12,10 +14,10 @@ class NoisyLinear(nn.Module):
         self.std_init = std_init
         self.weight_mu = nn.Parameter(torch.empty(out_dim, in_dim))
         self.weight_sigma = nn.Parameter(torch.empty(out_dim, in_dim))
-        self.register_buffer('weight_epsilon', torch.empty(out_dim, in_dim))
+        self.register_buffer("weight_epsilon", torch.empty(out_dim, in_dim))
         self.bias_mu = nn.Parameter(torch.empty(out_dim))
         self.bias_sigma = nn.Parameter(torch.empty(out_dim))
-        self.register_buffer('bias_epsilon', torch.empty(out_dim))
+        self.register_buffer("bias_epsilon", torch.empty(out_dim))
         self.reset_parameters()
         self.sample_noise()
 
@@ -38,15 +40,28 @@ class NoisyLinear(nn.Module):
 
     def forward(self, inp):
         if self.training:
-            return F.linear(inp, self.weight_mu + self.weight_sigma * self.weight_epsilon, self.bias_mu + self.bias_sigma * self.bias_epsilon)
+            return F.linear(
+                inp,
+                self.weight_mu + self.weight_sigma * self.weight_epsilon,
+                self.bias_mu + self.bias_sigma * self.bias_epsilon,
+            )
         else:
             return F.linear(inp, self.weight_mu, self.bias_mu)
 
 
 class ComplexMLP(nn.Module):
-    """ MLP function approximator for Q-Learning."""
+    """MLP function approximator for Q-Learning."""
 
-    def __init__(self, in_dim, out_dim, hidden_units=256, num_hidden_layers=1, noisy=False, dueling=False, sigma_init=0.5):
+    def __init__(
+        self,
+        in_dim,
+        out_dim,
+        hidden_units=256,
+        num_hidden_layers=1,
+        noisy=False,
+        dueling=False,
+        sigma_init=0.5,
+    ):
         super().__init__()
 
         self._noisy = noisy
@@ -75,7 +90,9 @@ class ComplexMLP(nn.Module):
 
                 self.fc1 = NoisyLinear(self._in_dim, hidden_units, self._sigma_init)
                 self.fc1_adv = NoisyLinear(hidden_units, hidden_units, self._sigma_init)
-                self.fc2_adv = NoisyLinear(hidden_units, self._out_dim, self._sigma_init)
+                self.fc2_adv = NoisyLinear(
+                    hidden_units, self._out_dim, self._sigma_init
+                )
 
                 self.fc1_val = NoisyLinear(hidden_units, hidden_units, self._sigma_init)
                 self.fc2_val = NoisyLinear(hidden_units, 1, self._sigma_init)
@@ -111,7 +128,11 @@ class ComplexMLP(nn.Module):
             if len(adv.shape) == 1:
                 x = val + adv - adv.mean(0)
             else:
-                x = val + adv - adv.mean(1).unsqueeze(1).expand(x.shape[0], self._out_dim)
+                x = (
+                    val
+                    + adv
+                    - adv.mean(1).unsqueeze(1).expand(x.shape[0], self._out_dim)
+                )
 
         else:
             if self._noisy:
@@ -139,8 +160,18 @@ class ComplexMLP(nn.Module):
 class DistributionalMLP(nn.Module):
     """Distributional MLP function approximator for Q-Learning."""
 
-    def __init__(self, in_dim, out_dim, supports, hidden_units=256, num_hidden_layers=1,
-                 noisy=True, dueling=True, sigma_init=0.5, atoms=51):
+    def __init__(
+        self,
+        in_dim,
+        out_dim,
+        supports,
+        hidden_units=256,
+        num_hidden_layers=1,
+        noisy=True,
+        dueling=True,
+        sigma_init=0.5,
+        atoms=51,
+    ):
         super().__init__()
 
         self._noisy = noisy
@@ -168,10 +199,14 @@ class DistributionalMLP(nn.Module):
 
                 self.fc1 = NoisyLinear(self._in_dim, hidden_units, self._sigma_init)
                 self.fc1_adv = NoisyLinear(hidden_units, hidden_units, self._sigma_init)
-                self.fc2_adv = NoisyLinear(hidden_units, self._out_dim * self._atoms, self._sigma_init)
+                self.fc2_adv = NoisyLinear(
+                    hidden_units, self._out_dim * self._atoms, self._sigma_init
+                )
 
                 self.fc1_val = NoisyLinear(hidden_units, hidden_units, self._sigma_init)
-                self.fc2_val = NoisyLinear(hidden_units, 1 * self._atoms, self._sigma_init)
+                self.fc2_val = NoisyLinear(
+                    hidden_units, 1 * self._atoms, self._sigma_init
+                )
 
             else:
 
@@ -185,7 +220,9 @@ class DistributionalMLP(nn.Module):
 
             if self._noisy:
                 self.fc1 = NoisyLinear(self._in_dim, hidden_units, self._sigma_init)
-                self.fc2 = NoisyLinear(hidden_units, self._out_dim * self._atoms, self._sigma_init)
+                self.fc2 = NoisyLinear(
+                    hidden_units, self._out_dim * self._atoms, self._sigma_init
+                )
 
         self.relu = nn.ReLU()
 
