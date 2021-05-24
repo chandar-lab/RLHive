@@ -60,59 +60,69 @@ class CircularReplayBuffer(BaseReplayBuffer):
     """A simple circular replay buffers.
 
     Args:
-            size (int): repaly buffer capacity
+            capacity (int): repaly buffer capacity
             compress (bool): if False, convert data to float32 otherwise keep it as int8.
             seed (int): Seed for a pseudo-random number generator.
     """
 
-    def __init__(self, size=1e5, compress=False, seed=42):
+    def __init__(self, capacity=1e5, compress=False, seed=42):
 
         self._numpy_rng = np.random.default_rng(seed)
-        self._size = int(size)
+        self._capacity = int(capacity)
         self._compress = compress
 
         self._dtype = {
-            "observations": "int8" if self._compress else "float32",
-            "actions": "int8",
-            "rewards": "int8" if self._compress else "float32",
-            "next_observations": "int8" if self._compress else "float32",
+            "observation": "int8" if self._compress else "float32",
+            "action": "int8",
+            "reward": "int8" if self._compress else "float32",
+            "next_observation": "int8" if self._compress else "float32",
             "done": "int8" if self._compress else "float32",
         }
 
         self._data = {}
         for data_key in self._dtype:
-            self._data[data_key] = [None] * int(size)
+            self._data[data_key] = [None] * int(capacity)
 
         self._write_index = -1
         self._n = 0
+        self._previous_transition = None
 
-    def add(self, data):
+    def add(self, observation, action, reward, done, **kwargs):
         """
-        Adds data to the buffer
+        Adds transition to the buffer
 
         Args:
-            data (tuple): (observation, action, reward, next_observation, done)
+            observation: The current observation
+            action: The action taken on the current observation
+            reward: The reward from taking action at current observation
+            done: If current observation was the last observation in the episode
         """
-        self._write_index = (self._write_index + 1) % self._size
-        self._n = int(min(self._size, self._n + 1))
-        for idx, key in enumerate(self._data):
-            self._data[key][self._write_index] = np.asarray(
-                data[idx], dtype=self._dtype[key]
-            )
+        if self._previous_transition is not None:
+            self._previous_transition["next_observation"] = observation
+            self._write_index = (self._write_index + 1) % self._capacity
+            self._n = int(min(self._capacity, self._n + 1))
+            for key in self._data:
+                self._data[key][self._write_index] = np.asarray(
+                    self._previous_transition[key], dtype=self._dtype[key]
+                )
+        self._previous_transition = {
+            "observation": observation,
+            "action": action,
+            "reward": reward,
+            "done": done,
+        }
 
     def sample(self, batch_size=32):
         """
         sample a minibatch
 
         Args:
-            batch_size (int): .
+            batch_size (int): The number of examples to sample.
         """
-        if self._n < batch_size:
-            raise IndexError(
-                "Buffer does not have batch_size=%d transitions yet." % batch_size
-            )
+        if self.size() == 0:
+            raise ValueError("Buffer does not have any transitions yet." % batch_size)
 
-        indices = self._numpy_rng.choice(self._n, size=batch_size, replace=False)
+        indices = self._numpy_rng.integers(self._n, size=batch_size)
         rval = {}
         for key in self._data:
             rval[key] = np.asarray(
@@ -137,18 +147,14 @@ class CircularReplayBuffer(BaseReplayBuffer):
         create_folder(dname)
 
         sdict = {}
-        sdict["size"] = self._size
+        sdict["capacity"] = self._capacity
         sdict["write_index"] = self._write_index
         sdict["n"] = self._n
+        sdict["data"] = self._data
 
         full_name = os.path.join(dname, "meta.ckpt")
         with open(full_name, "wb") as f:
             pickle.dump(sdict, f)
-
-        for key in self._data:
-            full_name = os.path.join(dname, "{}.npy".format(key))
-            with open(full_name, "wb") as f:
-                np.save(f, self._data[key])
 
     def load(self, dname):
         """
@@ -164,11 +170,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         with open(full_name, "rb") as f:
             sdict = pickle.load(f)
 
-        self._size = sdict["size"]
+        self._capacity = sdict["capacity"]
         self._write_index = sdict["write_index"]
         self._n = sdict["n"]
-
-        for key in self._data:
-            full_name = os.path.join(dname, "{}.npy".format(key))
-            with open(full_name, "rb") as f:
-                self._data[key] = np.load(f, allow_pickle=True)
+        self._data = sdict["data"]

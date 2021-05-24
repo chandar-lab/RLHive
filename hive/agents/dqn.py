@@ -55,9 +55,9 @@ class DQNAgent(Agent):
                 to and sample from during learning.
             discount_rate (float): A number between 0 and 1 specifying how much
                 future rewards are discounted by the agent.
-            grad_clip (float): Gradients will be clipped to between 
+            grad_clip (float): Gradients will be clipped to between
                 [-grad_clip, gradclip]
-            target_net_soft_update (bool): Whether the target net parameters are 
+            target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
             target_net_update_fraction (float): The weight given to the target
@@ -80,7 +80,7 @@ class DQNAgent(Agent):
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
 
-        self._qnet = get_qnet(qnet)
+        self._qnet = get_qnet(qnet).to(device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         optimizer_fn = get_optimizer_fn(optimizer_fn)
         if optimizer_fn is None:
@@ -148,7 +148,9 @@ class DQNAgent(Agent):
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
-        observation = torch.tensor(observation).to(self._device).float()
+        observation = (
+            torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
+        )
         qvals = self._qnet(observation).cpu()
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
@@ -171,7 +173,7 @@ class DQNAgent(Agent):
         Args:
             update_info: dictionary containing all the necessary information to
             update the agent. Should contain a full transition, with keys for
-            "observation", "action", "reward", "next_observation", and "done".
+            "observation", "action", "reward", and "done".
         """
         if update_info["done"]:
             self._state["episode_start"] = True
@@ -179,34 +181,31 @@ class DQNAgent(Agent):
         # Add the most recent transition to the replay buffer.
         if self._training:
             self._replay_buffer.add(
-                (
-                    update_info["observation"],
-                    update_info["action"],
-                    update_info["reward"],
-                    update_info["next_observation"],
-                    update_info["done"],
-                )
+                observation=update_info["observation"],
+                action=update_info["action"],
+                reward=update_info["reward"],
+                done=update_info["done"],
             )
 
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
-        try:
+        if self._replay_buffer.size() > 0:
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             for key in batch:
                 batch[key] = torch.tensor(batch[key]).to(self._device)
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(batch["observations"])
-            actions = batch["actions"].long()
+            pred_qvals = self._qnet(batch["observation"])
+            actions = batch["action"].long()
             pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
             # Compute 1-step Q targets
-            next_qvals = self._target_qnet(batch["next_observations"])
+            next_qvals = self._target_qnet(batch["next_observation"])
             next_qvals, _ = torch.max(next_qvals, dim=1)
 
-            q_targets = batch["rewards"] + self._discount_rate * next_qvals * (
+            q_targets = batch["reward"] + self._discount_rate * next_qvals * (
                 1 - batch["done"]
             )
 
@@ -225,9 +224,6 @@ class DQNAgent(Agent):
                     )
                 self._optimizer.step()
 
-        except IndexError:
-            pass
-
         # Update target network
         if self._training and self._target_net_update_schedule.update():
             self._update_target()
@@ -238,9 +234,12 @@ class DQNAgent(Agent):
             current_params = self._qnet.state_dict()
             for key in list(target_params.keys()):
                 target_params[key] = (
-                    (1 - self._target_net_update_fraction) * target_params[key]
-                    + self._target_net_update_fraction * current_params[key]
-                )
+                    1 - self._target_net_update_fraction
+                ) * target_params[
+                    key
+                ] + self._target_net_update_fraction * current_params[
+                    key
+                ]
             self._target_qnet.load_state_dict(target_params)
         else:
             self._target_qnet.load_state_dict(self._qnet.state_dict())

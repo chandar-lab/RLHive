@@ -6,6 +6,9 @@ from hive.replays import EfficientCircularBuffer
 
 OBS_SHAPE = (4, 4)
 CAPACITY = 60
+STACK_SIZE = 2
+N_STEP_HORIZON = 3
+GAMMA = 0.99
 
 
 @pytest.fixture()
@@ -29,6 +32,47 @@ def full_buffer(buffer):
             foo=i % 5,
         )
     return buffer
+
+
+@pytest.fixture()
+def stacked_buffer():
+    return EfficientCircularBuffer(
+        capacity=CAPACITY,
+        stack_size=STACK_SIZE,
+        observation_shape=OBS_SHAPE,
+        observation_dtype=np.float32,
+    )
+
+
+@pytest.fixture()
+def full_stacked_buffer(stacked_buffer):
+    for i in range(CAPACITY + 20):
+        stacked_buffer.add(
+            observation=np.ones(OBS_SHAPE) * i,
+            action=i,
+            reward=i % 10,
+            done=((i + 1) % 15) == 0,
+        )
+    return stacked_buffer
+
+
+@pytest.fixture()
+def full_n_step_buffer():
+    n_step_buffer = EfficientCircularBuffer(
+        capacity=CAPACITY,
+        observation_shape=OBS_SHAPE,
+        observation_dtype=np.float32,
+        n_step=N_STEP_HORIZON,
+        gamma=GAMMA,
+    )
+    for i in range(CAPACITY + 20):
+        n_step_buffer.add(
+            observation=np.ones(OBS_SHAPE) * i,
+            action=i,
+            reward=i % 10,
+            done=((i + 1) % 15) == 0,
+        )
+    return n_step_buffer
 
 
 @pytest.mark.parametrize("observation_shape", [(), (2,), (3, 4)])
@@ -111,17 +155,26 @@ def test_sample(full_buffer):
 
 
 @pytest.mark.xfail(raises=ValueError)
-@pytest.mark.parametrize("batch_size", [10, 20])
-def test_sample_few_transitions(buffer, batch_size):
-    for i in range(10):
+@pytest.mark.parametrize(
+    "stack_size,n_step,num_added",
+    [
+        (1, 1, 1),
+        (2, 1, 1),
+        (2, 1, 2),
+        (2, 2, 3),
+    ],
+)
+def test_sample_few_transitions(stack_size, n_step, num_added):
+    buffer = EfficientCircularBuffer(
+        capacity=CAPACITY,
+        stack_size=stack_size,
+        n_step=n_step,
+        observation_shape=OBS_SHAPE,
+        observation_dtype=np.float32,
+    )
+    for i in range(num_added):
         buffer.add(np.ones(OBS_SHAPE) * i, action=i, reward=i % 10, done=(i + 1) % 15)
-    buffer.sample(batch_size)
-
-
-@pytest.mark.xfail(raises=ValueError)
-@pytest.mark.parametrize("batch_size", [CAPACITY, CAPACITY + 10])
-def test_sample_low_capacity(full_buffer, batch_size):
-    full_buffer.sample(batch_size)
+    buffer.sample(1)
 
 
 def test_save_load(full_buffer, tmpdir):
@@ -142,3 +195,66 @@ def test_save_load(full_buffer, tmpdir):
     assert buffer._num_added == full_buffer._num_added
     assert buffer._rng.bit_generator.state == full_buffer._rng.bit_generator.state
 
+
+def test_stacked_buffer_add(stacked_buffer):
+    assert stacked_buffer.size() == 0
+
+    for i in range(CAPACITY):
+        stacked_buffer.add(
+            observation=np.ones(OBS_SHAPE) * i,
+            action=i,
+            reward=i % 10,
+            done=((i + 1) % 15) == 0,
+        )
+        assert (
+            stacked_buffer.size()
+            == min(max(0, i + 2 + (i // 15)), CAPACITY) - STACK_SIZE
+        )
+
+    for i in range(20):
+        stacked_buffer.add(
+            observation=np.ones(OBS_SHAPE) * i,
+            action=i,
+            reward=i % 10,
+            done=((i + 1) % 15) == 0,
+        )
+        assert stacked_buffer.size() == CAPACITY - STACK_SIZE
+    assert stacked_buffer._num_added == CAPACITY + 20 + 1 + (CAPACITY + 20) // 15
+
+
+def test_stacked_buffer_sample(full_stacked_buffer):
+    assert full_stacked_buffer.size() == CAPACITY - STACK_SIZE
+    batch_size = 10
+    batch = full_stacked_buffer.sample(batch_size)
+    for i in range(batch_size):
+        timestep = batch["action"][i]
+        assert batch["observation"][i].shape == ((STACK_SIZE,) + OBS_SHAPE)
+        assert batch["reward"][i] == timestep % 10
+        assert batch["done"][i] == (((timestep + 1) % 15) == 0)
+        if not batch["done"][i]:
+            assert batch["observation"][i, -1] == pytest.approx(
+                batch["next_observation"][i, 0]
+            )
+            assert batch["observation"][i, -1] + 1 == pytest.approx(
+                batch["next_observation"][i, 1]
+            )
+
+
+def test_n_step_buffer(full_n_step_buffer):
+    batch_size = 10
+    batch = full_n_step_buffer.sample(batch_size)
+    for i in range(batch_size):
+        timestep = batch["action"][i]
+        assert batch["observation"][i].shape == OBS_SHAPE
+        expected_reward = 0
+        for delta_t in range(N_STEP_HORIZON):
+            expected_reward += ((timestep + delta_t) % 10) * (GAMMA ** delta_t)
+            if (timestep + delta_t + 1) % 15 == 0:
+                break
+        assert batch["reward"][i] == pytest.approx(expected_reward)
+        assert batch["done"][i] == (((timestep + N_STEP_HORIZON) % 15) < N_STEP_HORIZON)
+        assert batch["observation"][i] == pytest.approx(np.ones(OBS_SHAPE) * timestep)
+        if not batch["done"][i]:
+            assert batch["observation"][i] + N_STEP_HORIZON == pytest.approx(
+                batch["next_observation"][i]
+            )

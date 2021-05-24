@@ -7,12 +7,15 @@ from hive.replays.replay_buffer import BaseReplayBuffer
 
 class EfficientCircularBuffer(BaseReplayBuffer):
     """An efficient version of a circular replay buffer that only stores each observation
-        once.
+    once.
     """
 
     def __init__(
         self,
         capacity=10000,
+        stack_size=1,
+        n_step=1,
+        gamma=0.99,
         observation_shape=(),
         observation_dtype=np.float32,
         action_shape=(),
@@ -23,11 +26,16 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         seed=42,
     ):
         """Constructor for EfficientCircularBuffer.
-        
+
         Args:
-            capacity: total number of observations that can be stored in the buffer.
+            capacity: Total number of observations that can be stored in the buffer.
                 Note, this is not the same as the number of transitions that can be
                 stored in the buffer.
+            capacity: Total number of observations that are stacked in the states
+                sampled from the buffer.
+            stack_size: The number of frames to stack to create an observation.
+            n_step: Horizon used to compute n-step return reward
+            gamma: Discounting factor used to compute n-step return reward
             observation_shape: Shape of observations that will be stored in the buffer.
             observation_dtype: Type of observations that will be stored in the buffer.
                 This can either be the type itself or string representation of the
@@ -44,7 +52,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             reward_dtype: Type of rewards that will be stored in the buffer. Format is
                 described in the description of observation_dtype.
             extra_storage_types: A dictionary describing extra items to store in the
-                buffer. The mapping should be from the name of the item to a 
+                buffer. The mapping should be from the name of the item to a
                 (type, shape) tuple.
             seed: Random seed of numpy random generator used when sampling transitions.
         """
@@ -58,6 +66,10 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         if extra_storage_types is not None:
             self._specs.update(extra_storage_types)
         self._storage = self._create_storage(capacity, self._specs)
+        self._stack_size = stack_size
+        self._n_step = n_step
+        self._gamma = gamma
+        self._discount = np.array([self._gamma ** i for i in range(self._n_step)])
         self._episode_start = True
         self._cursor = 0
         self._num_added = 0
@@ -65,11 +77,14 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def size(self):
         """Returns the number of transitions stored in the buffer."""
-        return max(min(self._num_added - 1, self._capacity - 1), 0)
+        return max(
+            min(self._num_added, self._capacity) - self._stack_size - self._n_step + 1,
+            0,
+        )
 
     def _create_storage(self, capacity, specs):
         """Creates the storage buffer for each type of item in the buffer.
-        
+
         Args:
             capacity: The capacity of the buffer.
             specs: A dictionary mapping item name to a tuple (type, shape) describing
@@ -90,13 +105,27 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         self._num_added += 1
         self._cursor = (self._cursor + 1) % self._capacity
 
+    def _pad_buffer(self, pad_length):
+        """Adds padding to the buffer. Used when stack_size > 1, and padding needs to
+        be added to the beginning of the episode.
+        """
+        for _ in range(pad_length):
+            transition = {
+                key: np.zeros_like(self._storage[key][0]) for key in self._storage
+            }
+            self._add_transition(**transition)
+
     def add(self, observation, action, reward, done, **kwargs):
-        """Adds a transition to the buffer. 
-        
+        """Adds a transition to the buffer.
+
         The required components of a transition are given as positional arguments. The
         user can pass additional components to store in the buffer as kwargs as long as
         they were defined in the specification in the constructor.
         """
+
+        if self._episode_start:
+            self._pad_buffer(self._stack_size - 1)
+            self._episode_start = False
         transition = {
             "observation": observation,
             "action": action,
@@ -119,32 +148,106 @@ class EfficientCircularBuffer(BaseReplayBuffer):
                 )
         self._add_transition(**transition)
 
-    def _get_from_storage(self, key, indices):
+        if done:
+            self._episode_start = True
+
+    def _get_from_array(self, array, indices, num_to_access=1):
+        """Retrieves consecutive elements in the array, wrapping around if necessary.
+
+        Args:
+            array: array to access from
+            indices: starts of ranges to access from
+            num_to_access: how many consecutive elements to access
+        """
+        full_indices = np.indices((indices.shape[0], num_to_access))[1]
+        full_indices = (full_indices + np.expand_dims(indices, axis=1)) % (
+            self.size() + self._stack_size + self._n_step - 1
+        )
+        return array[full_indices]
+
+    def _get_from_storage(self, key, indices, num_to_access=1):
         """Gets values from storage.
-        
+
         Args:
             key: The name of the component to retrieve.
             indices: This can be a single int or a 1D numpyp array. The indices are
-                adjusted to fall within the current bounds of the buffer."""
-        return self._storage[key][indices % (self.size() + 1)]
+                adjusted to fall within the current bounds of the buffer.
+            num_to_access: how many consecutive elements to access
+        """
+        if not isinstance(indices, np.ndarray):
+            indices = np.array([indices])
+        if num_to_access == 0:
+            return np.array([])
+        elif num_to_access == 1:
+            return self._storage[key][
+                indices % (self.size() + self._stack_size + self._n_step - 1)
+            ]
+        else:
+            return self._get_from_array(
+                self._storage[key], indices, num_to_access=num_to_access
+            )
+
+    def _sample_indices(self, batch_size):
+        indices = []
+        while len(indices) < batch_size:
+            start_index = self._rng.integers(self.size()) + self._cursor
+            if self._get_from_storage("done", start_index, self._stack_size - 1).any():
+                continue
+            indices.append(start_index + self._stack_size - 1)
+        return np.array(indices)
 
     def sample(self, batch_size):
-        """Sample transitions from the buffer. For a given transition, if it's 
+        """Sample transitions from the buffer. For a given transition, if it's
         done is True, the next_observation value should not be taken to have any
         meaning.
         """
-        if batch_size >= self._num_added:
+        if self._num_added < self._stack_size + self._n_step:
             raise ValueError("Not enough transitions added to the buffer to sample")
-        if batch_size >= self._capacity:
-            raise ValueError("Batch size larger than buffer capacity")
-        inds = self._rng.choice(self.size(), batch_size, replace=False) + self._cursor
-        batch = {key: self._get_from_storage(key, inds) for key in self._specs}
-        batch["next_observation"] = self._get_from_storage("observation", inds + 1)
+        indices = self._sample_indices(batch_size)
+        batch = {}
+        terminals = self._get_from_storage("done", indices, self._n_step)
+
+        if self._n_step == 1:
+            is_terminal = terminals
+            trajectory_lengths = np.ones(batch_size)
+        else:
+            is_terminal = terminals.any(axis=1)
+            trajectory_lengths = (
+                np.argmax(terminals.astype(bool), axis=1) + 1
+            ) * is_terminal + self._n_step * (1 - is_terminal)
+        trajectory_lengths = trajectory_lengths.astype(np.int64)
+
+        for key in self._specs:
+            if key == "observation":
+                batch[key] = self._get_from_storage(
+                    "observation",
+                    indices - self._stack_size + 1,
+                    num_to_access=self._stack_size,
+                )
+            elif key == "done":
+                batch["done"] = is_terminal
+            elif key == "reward":
+                rewards = self._get_from_storage("reward", indices, self._n_step)
+                if self._n_step == 1:
+                    rewards = np.expand_dims(rewards, 1)
+                rewards = rewards * np.expand_dims(self._discount, axis=0)
+
+                # Mask out rewards past trajectory length
+                mask = np.expand_dims(trajectory_lengths, 1) > np.arange(self._n_step)
+                rewards = np.sum(rewards * mask, axis=1)
+                batch["reward"] = rewards
+            else:
+                batch[key] = self._get_from_storage(key, indices)
+        batch["next_observation"] = self._get_from_storage(
+            "observation",
+            indices + trajectory_lengths - self._stack_size + 1,
+            num_to_access=self._stack_size,
+        )
         return batch
 
     def save(self, dname):
         """Save the replay buffer.
-        
+
         Args:
             dname: directory where to save buffer. Should already have been created.
         """
@@ -161,7 +264,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def load(self, dname):
         """Load the replay buffer.
-        
+
         Args:
             dname: directory where to load buffer from.
         """

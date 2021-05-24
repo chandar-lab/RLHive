@@ -1,31 +1,23 @@
 # General training loop config
-run_name: &run_name 'mountaincar-dqn'
-training_schedule:
-  name: 'SwitchSchedule'
-  kwargs:
-    off_value: True
-    on_value: False
-    steps: 1000000
-testing_schedule:
-  name: 'DoublePeriodicSchedule'
-  kwargs:
-    off_value: False
-    on_value: True
-    off_period: 10
-    on_period: 1
+run_name: &run_name 'cartpole-dqn'
+train_steps: 450
+test_frequency: 10
+test_num_episodes: 1
+self_play: False
+num_agents: 2
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
     off_value: False
     on_value: True
-    period: 50000
+    period: 15000
 save_dir: 'experiment'
 
 # Environment config
 environment:
   name: 'GymEnv'
   kwargs:
-    env_name: 'MountainCar-v0'
+    env_name: 'CartPole-v0'
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
@@ -39,18 +31,14 @@ agent:
         num_hidden_layers: 2
     optimizer_fn:
       name: 'Adam'
-      kwargs:
-        lr : 0.001
+      kwargs: {}
     id: 0
     replay_buffer:
       name: 'CircularReplayBuffer'
       kwargs:
         seed: 42
-        size: 500000
+        capacity: 10000
     discount_rate: .99
-    grad_clip : True
-    target_net_soft_update : True
-    target_net_update_fraction : 0.25
     target_net_update_schedule:
       name: 'PeriodicSchedule'
       kwargs:
@@ -58,17 +46,15 @@ agent:
         on_value: True
         period: 100
     epsilon_schedule:
-      name: 'LinearSchedule'
+      name: 'ConstantSchedule'
       kwargs:
-        init_value: 1.0
-        end_value: .1
-        steps: 50000
+        value: .01
     learn_schedule:
       name: 'SwitchSchedule'
       kwargs:
         off_value: False
         on_value: True
-        steps: 5000
+        steps: 500
     seed: 42
     batch_size: 128
     device: 'cpu'
@@ -79,10 +65,4 @@ loggers:
   -
     name: ChompLogger
     kwargs: {}
-  -
-    name: WandbLogger
-    kwargs:
-      project_name: Hive-v1
-      run_name: *run_name
-      offline: False
 
