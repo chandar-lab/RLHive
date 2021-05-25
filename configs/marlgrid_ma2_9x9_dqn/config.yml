@@ -3,7 +3,9 @@ run_name: &run_name 'marlgrid-dqn'
 train_steps: 30000
 test_frequency: 10
 test_num_episodes: 1
-self_play: True
+self_play: False
+num_agents: 2
+stack_size: &stack_size 2
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
@@ -16,18 +18,18 @@ save_dir: 'experiment'
 environment:
   name: 'MarlGridEnv'
   kwargs:
-    env_name: 'MarlGrid-2AgentEmpty9x9-v0'
+    env_name: 'MarlGrid-2AgentCheckers8x8-v0'
     num_players: 2
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
-agents: 
-  - 
+agents:
+  -
     name: 'DQNAgent'
     kwargs:
       qnet:
         name: 'SimpleMLP'
-        kwargs: 
+        kwargs:
           hidden_units: 256
           num_hidden_layers: 2
       optimizer_fn:
@@ -35,10 +37,11 @@ agents:
         kwargs: {}
       id: 0
       replay_buffer:
-        name: 'CircularReplayBuffer'
+        name: 'EfficientCircularBuffer'
         kwargs:
           seed: 42
-          size: 10000
+          capacity: 10000
+          stack_size: *stack_size
       discount_rate: .99
       target_net_update_schedule:
         name: 'PeriodicSchedule'
@@ -60,12 +63,12 @@ agents:
       batch_size: 128
       device: 'cpu'
       log_frequency: 100
-  - 
+  -
     name: 'DQNAgent'
     kwargs:
       qnet:
         name: 'SimpleMLP'
-        kwargs: 
+        kwargs:
           hidden_units: 256
           num_hidden_layers: 2
       optimizer_fn:
@@ -73,10 +76,11 @@ agents:
         kwargs: {}
       id: 1
       replay_buffer:
-        name: 'CircularReplayBuffer'
+        name: 'EfficientCircularBuffer'
         kwargs:
           seed: 42
-          size: 10000
+          capacity: 10000
+          stack_size: *stack_size
       discount_rate: .99
       target_net_update_schedule:
         name: 'PeriodicSchedule'
@@ -94,7 +98,7 @@ agents:
           off_value: False
           on_value: True
           steps: 500
-      seed: 42
+      seed: 43
       batch_size: 128
       device: 'cpu'
       log_frequency: 100
