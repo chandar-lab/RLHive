@@ -69,7 +69,10 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         self._stack_size = stack_size
         self._n_step = n_step
         self._gamma = gamma
-        self._discount = np.array([self._gamma ** i for i in range(self._n_step)])
+        self._discount = np.asarray(
+            [self._gamma ** i for i in range(self._n_step)],
+            dtype=self._specs["reward"][0],
+        )
         self._episode_start = True
         self._cursor = 0
         self._num_added = 0
@@ -101,7 +104,9 @@ class EfficientCircularBuffer(BaseReplayBuffer):
     def _add_transition(self, **transition):
         """Internal method to add a transition to the buffer."""
         for key in transition:
-            self._storage[key][self._cursor] = transition[key]
+            self._storage[key][self._cursor] = np.asarray(
+                transition[key], dtype=self._specs[key][0]
+            )
         self._num_added += 1
         self._cursor = (self._cursor + 1) % self._capacity
 
