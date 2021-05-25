@@ -1,1 +1,2 @@
-from hive.envs.minatar.MinAtarEnv import AtariEnv
+from .environment import Environment
+from .gui import GUI
