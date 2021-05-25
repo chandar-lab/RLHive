@@ -5,7 +5,7 @@ test_frequency: 10
 test_num_episodes: 1
 self_play: False
 num_agents: 2
-stack_size: &stack_size 2
+stack_size: &stack_size 1
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
