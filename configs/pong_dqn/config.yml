@@ -1,31 +1,21 @@
 # General training loop config
-run_name: &run_name 'mountaincar-dqn'
-training_schedule:
-  name: 'SwitchSchedule'
-  kwargs:
-    off_value: True
-    on_value: False
-    steps: 1000000
-testing_schedule:
-  name: 'DoublePeriodicSchedule'
-  kwargs:
-    off_value: False
-    on_value: True
-    off_period: 10
-    on_period: 1
+run_name: &run_name 'pong-dqn'
+train_steps: 10000000
+test_frequency: 100
+test_num_episodes: 10
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
     off_value: False
     on_value: True
-    period: 50000
+    period: 15000
 save_dir: 'experiment'
 
 # Environment config
 environment:
-  name: 'GymEnv'
+  name: 'AtariEnv'
   kwargs:
-    env_name: 'MountainCar-v0'
+    env_name: 'Pong'
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
@@ -33,46 +23,40 @@ agent:
   name: 'DQNAgent'
   kwargs:
     qnet:
-      name: 'SimpleMLP'
-      kwargs:
-        hidden_units: 256
-        num_hidden_layers: 2
+      name: 'NatureAtariDQNModel'
     optimizer_fn:
       name: 'Adam'
-      kwargs:
-        lr : 0.001
+      kwargs: {}
     id: 0
     replay_buffer:
-      name: 'CircularReplayBuffer'
+      name: 'EfficientCircularBuffer'
       kwargs:
         seed: 42
-        size: 500000
+        capacity: 1000000
+        stack_size: 4
     discount_rate: .99
-    grad_clip : True
-    target_net_soft_update : True
-    target_net_update_fraction : 0.25
     target_net_update_schedule:
       name: 'PeriodicSchedule'
       kwargs:
         off_value: False
         on_value: True
-        period: 100
+        period: 10000
     epsilon_schedule:
       name: 'LinearSchedule'
       kwargs:
-        init_value: 1.0
-        end_value: .1
-        steps: 50000
+        init_value: 1
+        end_value: 0.05
+        steps: 1000000
     learn_schedule:
       name: 'SwitchSchedule'
       kwargs:
         off_value: False
         on_value: True
-        steps: 5000
+        steps: 500
     seed: 42
-    batch_size: 128
-    device: 'cpu'
-    log_frequency: 100
+    batch_size: 32
+    device: 'cuda'
+    log_frequency: 1000
 
 # List of logger configs used.
 loggers:
@@ -85,4 +69,3 @@ loggers:
       project_name: Hive-v1
       run_name: *run_name
       offline: False
-

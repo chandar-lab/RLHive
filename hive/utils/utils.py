@@ -87,11 +87,11 @@ class Chomp:
 
 def create_class_constructor(base_class, class_dict):
     """Creates a constructor function for subclasses of base_class.
-    
-    The constructor function returned takes in either None, a object that is an 
+
+    The constructor function returned takes in either None, a object that is an
     instance of base_class, or a dictionary config. If the argument is None or an
     instance of base_class, it is returned without modification. If it is a
-    dictionary, the config should have two keys: name and kwargs. The name 
+    dictionary, the config should have two keys: name and kwargs. The name
     parameter is used to lookup the correct class from class_dict and the object is
     created using kwargs as parameters.
 
@@ -139,4 +139,3 @@ get_optimizer_fn = create_class_constructor(
         "SparseAdam": (lambda **kwargs: partial(optim.SparseAdam, **kwargs)),
     },
 )
-
