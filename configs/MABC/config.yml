@@ -1,6 +1,6 @@
 # General training loop config
 run_name: &run_name 'MABC'
-train_steps: 1000000
+train_steps: 5000
 test_frequency: 10
 test_num_episodes: 10
 self_play: False

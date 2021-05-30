@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 userhome=~
 vm_dir=~/python-vms
-project_name=MABC
+project_name=DiscreteEnvs
+experiment_name=MABC
 virtualhome=${vm_dir}/${project_name}
 
 mkdir -p ${userhome}/scratch/${project_name}
@@ -11,7 +12,8 @@ TIME=00:80:00
 CPUS_PER_TASK=1
 CC_ACCOUNT=def-adityam
 
-output_dir=${virtualhome}/results
+output_dir=${virtualhome}/results/${experiment_name}
+mkdir -p ${output_dir}
 source_config=${virtualhome}/code/RLHive/configs/MABC/config.yml
 temp_config=${virtualhome}/code/RLHive/configs/MABC/temp_config.yml
 
@@ -39,7 +41,7 @@ do
 
 				echo "source $virtualhome/bin/activate" >> temprun.sh
 				echo "cd $virtualhome/code/RLHive" >> temprun.sh
-				echo "python -m mass_experiment_running.create_config --output-directory=${output_dir} --input-config=${source_config} --output-config=${temp_config} --env_name=${env_name} --algo=${algo} --exp_name=${project_name} --stack_size=${stack_size} --seed=${seed}" >> temprun.sh
+				echo "python -m mass_experiment_running.create_config --output-directory=${output_dir} --input-config=${source_config} --output-config=${temp_config} --env_name=${env_name} --algo=${algo} --exp_name=${experiment_name} --stack_size=${stack_size} --seed=${seed}" >> temprun.sh
 
 				echo "python -m hive.runners.multi_agent_loop -c ${temp_config}" >> temprun.sh
 

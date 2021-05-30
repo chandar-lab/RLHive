@@ -200,6 +200,8 @@ def set_up_experiment(config):
     env_spec = environment.env_spec
 
     # Set up loggers
+    hypers_to_track = {"env": config["environment"]["kwargs"]["env_name"], "algos": "selfplay" if config["self_play"] else "decentralized",
+    "stack_size": config["stack_size"], "seed": config["environment"]["kwargs"]["seed"]}
     logger_config = config.get("loggers", None)
     if logger_config is None or len(logger_config) == 0:
         logger = logging.NullLogger()
@@ -210,6 +212,11 @@ def set_up_experiment(config):
             logger = logging.get_logger(logger_config[0])
         else:
             logger = logging.CompositeLogger(logger_config)
+        # logging hyperparams for filtering experiments
+        for i, logger_i in enumerate(original_config["loggers"]):
+            if logger_i["name"] == "WandbLogger": #if at least 1 wandb logger is present
+                logger.record_hypers(hypers_to_track) #records for all wandb loggers
+                break
 
     # Set up agents
     agents = []

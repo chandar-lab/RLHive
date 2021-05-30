@@ -226,6 +226,9 @@ class WandbLogger(ScheduledLogger):
         else:
             wandb.init(project=project_name, name=run_name)
 
+    def record_hypers(self, hypers):
+        wandb.config.update(hypers)
+
     def log_scalar(self, name, value, timescale):
         metrics = {f"{timescale}_{name}": value}
         metrics.update(
@@ -341,6 +344,10 @@ class CompositeLogger(Logger):
             load_dir = os.path.join(dir_name, f"logger_{idx}")
             logger.load(load_dir)
 
+    def record_hypers(self, hypers):
+        for logger in self._logger_list:
+            if isinstance(logger, WandbLogger):
+                logger.record_hypers(hypers)
 
 get_logger = create_class_constructor(
     Logger,
