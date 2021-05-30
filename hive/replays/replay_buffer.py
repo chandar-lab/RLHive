@@ -65,7 +65,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
             seed (int): Seed for a pseudo-random number generator.
     """
 
-    def __init__(self, capacity=1e5, compress=False, seed=42):
+    def __init__(self, capacity=1e5, compress=False, seed=42, **kwargs):
 
         self._numpy_rng = np.random.default_rng(seed)
         self._capacity = int(capacity)

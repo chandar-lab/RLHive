@@ -197,5 +197,4 @@ class CheckersMultiGrid(MultiGridEnvHive):
         )
 
         obs = [self.gen_agent_obs(agent) for agent in self.agents]
-
         return obs, step_rewards, done, {}

@@ -1,5 +1,7 @@
 import torch
 from torch import nn
+import numpy as np
+from einops import rearrange
 
 from hive.agents.qnets.utils import conv2d_output_shape
 
@@ -28,8 +30,14 @@ class SimpleConvModel(nn.Module):
         assert len(channels) == len(paddings)
 
         super().__init__()
-
-        c, h, w = in_dim
+        # import pdb
+        # pdb.set_trace()
+        if len(in_dim) == 3:
+            st_s = 1
+            h, w, oc = in_dim
+        elif len(in_dim) == 4:
+            st_s, h, w, oc = in_dim
+        c = st_s * oc
 
         # Default Convolutional Layers
         channels = [c] + channels
@@ -65,6 +73,20 @@ class SimpleConvModel(nn.Module):
     def forward(self, x):
         if len(x.shape) == 3:
             x = x.unsqueeze(0)
+        # import pdb
+        # pdb.set_trace()
+        # if len(x.shape) == 5:
+        #     ## 1,4,40,40,3
+        #     x = x.detach().cpu().numpy()
+        #     ## 1,4,3,40,40
+        #     x = np.moveaxis(x, -1, 2)
+        #     ## 1,12,40,40
+        #     x = x.reshape((x.shape[0],)+(-1,)+x.shape[3:])
+        #     x = torch.from_numpy(x)
+        if len(x.shape) == 5:
+            x = x.permute(0, 1, 4, 2, 3)
+            x = rearrange(x, "d0 d1 d2 d3 d4 -> d0 (d1 d2) d3 d4")
+
         batch_size = x.size(0)
 
         x = x.type(torch.float)
