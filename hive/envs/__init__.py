@@ -20,7 +20,7 @@ except ImportError:
 try:
     from hive.envs.minatar import MinAtarEnv
 except ImportError:
-    MiniGridEnv = None
+    MinAtarEnv = None
 
 from hive.utils.utils import create_class_constructor
 
