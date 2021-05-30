@@ -196,6 +196,7 @@ def set_up_experiment(config):
 
     # Set up environment
     environment = envs.get_env(config["environment"])
+    environment.seed(config["environment"]["kwargs"].get("seed", None))
     env_spec = environment.env_spec
 
     # Set up loggers
@@ -214,7 +215,6 @@ def set_up_experiment(config):
     agents = []
     num_agents = config["num_agents"] if config["self_play"] else len(config["agents"])
     for idx in range(num_agents):
-
         if not config["self_play"] or idx == 0:
             agent_config = config["agents"][idx]
             if config.get("stack_size", 1) > 1:

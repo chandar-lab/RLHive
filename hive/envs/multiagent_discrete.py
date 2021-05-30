@@ -6,6 +6,9 @@ class MultiAgentDiscEnv(ParallelEnv, GymEnv):
     """
     MultiAgentDiscEnv is for environments which have discrete observations.
     """
+    def __init__(self, env_name, num_players, **kwargs):
+        super().__init__(env_name, num_players)
+
     def create_env(self, env_name, **kwargs):
         super().create_env(env_name, **kwargs)
 

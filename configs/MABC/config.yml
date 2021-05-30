@@ -1,10 +1,10 @@
 # General training loop config
-run_name: &run_name 'MABC-TDMA'
+run_name: &run_name 'MABC'
 train_steps: 1000000
 test_frequency: 10
-test_num_episodes: 1
+test_num_episodes: 10
 self_play: False
-staged_learning: True
+staged_learning: False
 num_agents: 2
 stack_size: &stack_size 2
 saving_schedule:
@@ -13,7 +13,7 @@ saving_schedule:
     off_value: False
     on_value: True
     period: 15000
-save_dir: 'experiment'
+save_dir: &save_dir 'experiment'
 
 # Environment config
 environment:
@@ -21,6 +21,7 @@ environment:
   kwargs:
     env_name: 'MABC-v0'
     num_players: 2
+    seed: 42
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
@@ -114,4 +115,5 @@ loggers:
     kwargs:
       project_name: Hive-v1
       run_name: *run_name
-      offline: False
+      save_dir: *save_dir
+      offline: True
