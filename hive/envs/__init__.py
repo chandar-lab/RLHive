@@ -17,6 +17,11 @@ try:
 except ImportError:
     MarlGridEnv = None
 
+try:
+    from hive.envs.minatar import MinAtarEnv
+except ImportError:
+    MiniGridEnv = None
+
 from hive.utils.utils import create_class_constructor
 
 get_env = create_class_constructor(
@@ -26,5 +31,6 @@ get_env = create_class_constructor(
         "MiniGridEnv": MiniGridEnv,
         "MarlGridEnv": MarlGridEnv,
         "AtariEnv": AtariEnv,
+        "MinAtarEnv": MinAtarEnv,
     },
 )
