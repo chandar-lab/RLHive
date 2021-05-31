@@ -224,4 +224,7 @@ class PursuitMultiGrid(MultiGridEnvHive):
 
         obs = [self.gen_agent_obs(agent) for agent in self.agents]
 
+        # Team reward
+        step_rewards = np.array([np.sum(step_rewards) for _ in self.agents])
+
         return obs, step_rewards, done, {}
