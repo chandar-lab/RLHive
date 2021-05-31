@@ -1,6 +1,7 @@
 import os
 import abc
 import copy
+import torch
 import wandb
 from hive.utils.schedule import ConstantSchedule, Schedule, get_schedule
 from hive.utils.utils import Chomp, create_folder, create_class_constructor
