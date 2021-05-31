@@ -1,6 +1,6 @@
 # General training loop config
 run_name: &run_name 'MABC'
-train_steps: 5000
+train_steps: 100000
 test_frequency: 10
 test_num_episodes: 10
 self_play: False
@@ -108,12 +108,12 @@ agents:
 # List of logger configs used.
 loggers:
   -
-    name: ChompLogger
-    kwargs: {}
-  -
     name: WandbLogger
     kwargs:
       project_name: Hive-v1
       run_name: *run_name
       save_dir: *save_dir
       offline: True
+  -
+    name: ChompLogger
+    kwargs: {}

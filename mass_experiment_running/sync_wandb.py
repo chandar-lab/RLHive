@@ -34,10 +34,18 @@ def sync_wandb(logs_path, since_sec):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) >= 2:
-        since_sec = int(sys.argv[1])
+    #sample usage:
+    #python sync_wandb.py folder_name_with_wandb_runs 1000
+    if len(sys.argv) >= 2: #specify foldername by argument
+        wandb_folder = sys.argv[1]
+    else:
+        wandb_folder = "wandb"
+
+    if len(sys.argv) >= 3:
+        since_sec = int(sys.argv[2])
     else:
         since_sec = 600
+    
     while True:
-        sync_wandb("wandb",since_sec)
+        sync_wandb(wandb_folder, since_sec)
         time.sleep(0.5 * since_sec)
