@@ -181,6 +181,10 @@ class DQNAgent(Agent):
             self._state["episode_start"] = True
 
         # Add the most recent transition to the replay buffer.
+        print("observation = ", update_info["observation"])
+        print("action = ", update_info["action"])
+        print("reward = ", update_info["reward"])
+        print("done = ", update_info["done"])
         if self._training:
             self._replay_buffer.add(
                 observation=update_info["observation"],
