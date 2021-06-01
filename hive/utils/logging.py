@@ -1,7 +1,6 @@
 import os
 import abc
 import copy
-import numpy as np
 import torch
 import wandb
 from hive.utils.schedule import ConstantSchedule, Schedule, get_schedule
@@ -270,12 +269,7 @@ class ChompLogger(ScheduledLogger):
             metric_name = f"{timescale}_{name}"
             if self._log_data[metric_name] is None:
                 self._log_data[metric_name] = [[], []]
-            if isinstance(metrics[name], np.float64) or isinstance(
-                metrics[name], np.float32
-            ):
-                self._log_data[metric_name][0].append(metrics[name].item())
-            else:
-                self._log_data[metric_name][0].append(metrics[name])
+            self._log_data[metric_name][0].append(metrics[name])
             self._log_data[metric_name][1].append(
                 [self._steps[timescale] for timescale in self._timescales]
             )
