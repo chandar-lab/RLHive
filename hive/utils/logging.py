@@ -269,7 +269,10 @@ class ChompLogger(ScheduledLogger):
             metric_name = f"{timescale}_{name}"
             if self._log_data[metric_name] is None:
                 self._log_data[metric_name] = [[], []]
-            self._log_data[metric_name][0].append(metrics[name])
+            if isinstance(metrics[name], torch.Tensor):
+                self._log_data[metric_name][0].append(metrics[name].item())
+            else:
+                self._log_data[metric_name][0].append(metrics[name])
             self._log_data[metric_name][1].append(
                 [self._steps[timescale] for timescale in self._timescales]
             )
