@@ -1,8 +1,8 @@
 import numpy as np
-import cv2
 
 from hive.envs.gym_env import GymEnv
 from hive.envs.env_spec import EnvSpec
+from importlib import import_module
 
 
 class MinAtarEnv(GymEnv):
@@ -13,18 +13,27 @@ class MinAtarEnv(GymEnv):
     def __init__(
         self,
         env_name,
-        sticky_actions=True,
+        sticky_action_prob=0.1,
+        difficulty_ramping=True,
+        random_seed=None
     ):
         """
         Args:
             env_name (str): Name of the environment
             sticky_actions (boolean): Whether to use sticky_actions as per Machado et al.
         """
-        super().__init__(env_name)
+        print("MinAtar env called")
+        env_module = import_module('minatar.environments.' + env_name)
+        self.env_name = env_name
+        self.env = env_module.Env(ramping=difficulty_ramping, seed=random_seed)
+        self.n_channels = self.env.state_shape()[2]
+        self.sticky_action_prob = sticky_action_prob
+        self.last_action = 0
+        self.visualized = False
+        self.closed = False
+        super().__init__(self.env_name)
 
     def create_env_spec(self, env_name, **kwargs):
-        obs_spaces = self._env.observation_space.shape
-        # Used for storing and pooling over two consecutive observations
         act_spaces = [self._env.action_space]
         return EnvSpec(
             env_name=env_name,
