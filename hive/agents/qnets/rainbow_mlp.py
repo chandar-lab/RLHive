@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import math
+import numpy as np
 
 
 class NoisyLinear(nn.Module):
@@ -67,7 +68,7 @@ class ComplexMLP(nn.Module):
         self._noisy = noisy
         self._dueling = dueling
         self._sigma_init = sigma_init
-        self._in_dim = in_dim[0]
+        self._in_dim = np.prod(in_dim)
         self._out_dim = out_dim
 
         self.input_layer = nn.Sequential(
@@ -114,6 +115,7 @@ class ComplexMLP(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
+        x = torch.flatten(x, start_dim=1)
         if self._dueling:
             if self._noisy:
                 x = F.relu(self.fc1(x))
@@ -227,6 +229,7 @@ class DistributionalMLP(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
+        x = torch.flatten(x, start_dim=1)
         if self._dueling:
             if self._noisy:
                 x = F.relu(self.fc1(x))

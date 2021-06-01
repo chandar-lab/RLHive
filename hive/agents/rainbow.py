@@ -159,10 +159,10 @@ class RainbowDQNAgent(DQNAgent):
         )
 
     def projection_distribution(self, batch):
-        batch_obs = batch["observations"]
-        batch_action = batch["actions"].long()
-        batch_next_obs = batch["next_observations"]
-        batch_reward = batch["rewards"].reshape(-1, 1).to(self._device)
+        batch_obs = batch["observation"]
+        batch_action = batch["action"].long()
+        batch_next_obs = batch["next_observation"]
+        batch_reward = batch["reward"].reshape(-1, 1).to(self._device)
         batch_not_done = 1 - batch["done"].reshape(-1, 1).to(self._device)
 
         with torch.no_grad():
@@ -214,11 +214,24 @@ class RainbowDQNAgent(DQNAgent):
         if not self._epsilon_on:
             self._qnet.sample_noise()
 
+        observation = (
+            torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
+        )
+        qvals = self._qnet(observation).cpu()
+
         if self._epsilon_on and self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
         else:
-            a = self._qnet(observation).cpu()
-            action = torch.argmax(a).numpy()
+            # a = self._qnet(observation).cpu()
+            action = torch.argmax(qvals).numpy()
+
+        if self._logger.should_log(self._timescale) and self._state["episode_start"]:
+            self._logger.log_scalar(
+                "train_qval" if self._training else "test_qval",
+                torch.max(qvals),
+                self._timescale,
+            )
+            self._state["episode_start"] = False
 
         return action
 
@@ -237,42 +250,39 @@ class RainbowDQNAgent(DQNAgent):
         # Add the most recent transition to the replay buffer.
         if self._training:
             self._replay_buffer.add(
-                (
                     update_info["observation"],
                     update_info["action"],
                     update_info["reward"],
-                    update_info["next_observation"],
                     update_info["done"],
-                )
             )
 
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
-        try:
+        if self._replay_buffer.size() > 0:
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             for key in batch:
                 batch[key] = torch.tensor(batch[key]).to(self._device)
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(batch["observations"])
-            actions = batch["actions"].long()
+            pred_qvals = self._qnet(batch["observation"])
+            actions = batch["action"].long()
 
             if not self._distributional:
                 pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
                 # Compute 1-step Q targets
                 if self._double:
-                    next_action = self._qnet(batch["next_observations"])
+                    next_action = self._qnet(batch["next_observation"])
                 else:
-                    next_action = self._target_qnet(batch["next_observations"])
+                    next_action = self._target_qnet(batch["next_observation"])
 
                 _, next_action = torch.max(next_action, dim=1)
-                next_qvals = self._target_qnet(batch["next_observations"])
+                next_qvals = self._target_qnet(batch["next_observation"])
                 next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
 
-                q_targets = batch["rewards"] + self._discount_rate * next_qvals * (
+                q_targets = batch["reward"] + self._discount_rate * next_qvals * (
                     1 - batch["done"]
                 )
 
@@ -282,7 +292,7 @@ class RainbowDQNAgent(DQNAgent):
                 if not self._epsilon_on:
                     self._qnet.sample_noise()
                     self._target_qnet.sample_noise()
-                current_dist = self._qnet.dist(batch["observations"])
+                current_dist = self._qnet.dist(batch["observation"])
                 log_p = torch.log(current_dist[range(self._batch_size), actions])
                 target_prob = self.projection_distribution(batch)
 
@@ -302,9 +312,6 @@ class RainbowDQNAgent(DQNAgent):
                         self._qnet.parameters(), self._grad_clip
                     )
                 self._optimizer.step()
-
-        except IndexError:
-            pass
 
         # Update target network
         if self._training and self._target_net_update_schedule.update():
