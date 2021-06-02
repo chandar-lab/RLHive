@@ -23,7 +23,7 @@ class MinAtarEnv(GymEnv):
             sticky_actions (boolean): Whether to use sticky_actions as per Machado et al.
         """
         print("MinAtar env called")
-        env_module = import_module('minatar.environments.' + env_name)
+        env_module = import_module('hive.envs.minatar.environments.' + env_name)
         self.env_name = env_name
         self.env = env_module.Env(ramping=difficulty_ramping, seed=random_seed)
         self.n_channels = self.env.state_shape()[2]
@@ -31,7 +31,7 @@ class MinAtarEnv(GymEnv):
         self.last_action = 0
         self.visualized = False
         self.closed = False
-        super().__init__(self.env_name)
+        # super().__init__(env_name=self.env_name)
 
     def create_env_spec(self, env_name, **kwargs):
         act_spaces = [self._env.action_space]

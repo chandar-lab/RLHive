@@ -15,7 +15,7 @@ save_dir: 'experiment'
 environment:
   name: 'MinAtarEnv'
   kwargs:
-    env_name: 'breakout'
+    env_name: 'breakout-v0'
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
