@@ -30,8 +30,6 @@ class SimpleConvModel(nn.Module):
         assert len(channels) == len(paddings)
 
         super().__init__()
-        # import pdb
-        # pdb.set_trace()
         if len(in_dim) == 3:
             st_s = 1
             h, w, oc = in_dim
@@ -73,16 +71,7 @@ class SimpleConvModel(nn.Module):
     def forward(self, x):
         if len(x.shape) == 3:
             x = x.unsqueeze(0)
-        # import pdb
-        # pdb.set_trace()
-        # if len(x.shape) == 5:
-        #     ## 1,4,40,40,3
-        #     x = x.detach().cpu().numpy()
-        #     ## 1,4,3,40,40
-        #     x = np.moveaxis(x, -1, 2)
-        #     ## 1,12,40,40
-        #     x = x.reshape((x.shape[0],)+(-1,)+x.shape[3:])
-        #     x = torch.from_numpy(x)
+
         if len(x.shape) == 5:
             x = x.permute(0, 1, 4, 2, 3)
             x = rearrange(x, "d0 d1 d2 d3 d4 -> d0 (d1 d2) d3 d4")
