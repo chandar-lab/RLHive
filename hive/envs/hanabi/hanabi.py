@@ -50,7 +50,6 @@ class HanabiLearningEnv(HanabiEnv):
     def step(self, action):
         observations, reward, done, info = self._env.step(action)
         observation, current_player = self.parse_observation(observations)
-        # info['legal_moves'] = legal_moves
 
         return (observation, reward, done, current_player, info)
 
