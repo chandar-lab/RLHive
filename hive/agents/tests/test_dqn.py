@@ -21,18 +21,18 @@ def env_spec():
 def env_spec():
     return EnvSpec("test_env", (2,), 2)
 
-@pytest.fixture(params=[
-    pytest.lazy_fixture('xxxx_agent_with_mock_optimizer'),
-    # pytest.lazy_fixture('ddnd_agent_with_mock_optimizer'),
-    pytest.lazy_fixture('dxxx_agent_with_mock_optimizer'),
-    pytest.lazy_fixture('xdxx_agent_with_mock_optimizer'),
-    pytest.lazy_fixture('xxnx_agent_with_mock_optimizer')
-    # pytest.lazy_fixture('xxxx_rainbow_agent_with_mock_optimizer')
-    # pytest.lazy_fixture('xxxd_agent_with_mock_optimizer')
-])
 
+@pytest.fixture(
+    params=[
+        pytest.lazy_fixture("xxxx_agent_with_mock_optimizer"),
+        pytest.lazy_fixture("dxxx_agent_with_mock_optimizer"),
+        pytest.lazy_fixture("xdxx_agent_with_mock_optimizer"),
+        pytest.lazy_fixture("xxnx_agent_with_mock_optimizer"),
+    ]
+)
 def agent_with_mock_optimizer(request):
     return request.param
+
 
 # ddnd = double, dueling, noisy, distributional. x = False.
 @pytest.fixture
@@ -192,6 +192,7 @@ def xxxx_agent_with_mock_optimizer(env_spec):
     )
     return agent
 
+
 @pytest.fixture
 def xxxx_rainbow_agent_with_mock_optimizer(env_spec):
     # supports = torch.linspace(0, 200, 51).to("cpu")
@@ -202,6 +203,7 @@ def xxxx_rainbow_agent_with_mock_optimizer(env_spec):
             hidden_units=5,
             num_hidden_layers=1,
             noisy=False,
+            dueling=False,
         ),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
@@ -216,6 +218,7 @@ def xxxx_rainbow_agent_with_mock_optimizer(env_spec):
         batch_size=2,
         epsilon_on=False,
         distributional=False,
+        double=False,
     )
     return agent
 

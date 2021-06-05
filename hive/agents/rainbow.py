@@ -253,10 +253,10 @@ class RainbowDQNAgent(DQNAgent):
         # Add the most recent transition to the replay buffer.
         if self._training:
             self._replay_buffer.add(
-                    update_info["observation"],
-                    update_info["action"],
-                    update_info["reward"],
-                    update_info["done"],
+                update_info["observation"],
+                update_info["action"],
+                update_info["reward"],
+                update_info["done"],
             )
 
         # Update the q network based on a sample batch from the replay buffer.
