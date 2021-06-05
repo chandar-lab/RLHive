@@ -1,18 +1,10 @@
 # General training loop config
 run_name: &run_name 'cartpole-dqn'
-training_schedule:
-  name: 'SwitchSchedule'
-  kwargs:
-    off_value: True
-    on_value: False
-    steps: 30000
-testing_schedule:
-  name: 'DoublePeriodicSchedule'
-  kwargs:
-    off_value: False
-    on_value: True
-    off_period: 10
-    on_period: 1
+train_steps: 30000
+test_frequency: 10
+test_num_episodes: 1
+self_play: False
+stack_size: &stack_size 1
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
@@ -29,12 +21,11 @@ environment:
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
-agents: 
-  - 
+agent:
     name: 'RainbowDQNAgent'
     kwargs:
       qnet:
-        name: 'ComplexMLP'
+        name: 'DistributionalMLP'
         kwargs:
           noisy: 'True'
           dueling: 'True'
@@ -45,10 +36,11 @@ agents:
         kwargs: {}
       id: 0
       replay_buffer:
-        name: 'CircularReplayBuffer'
+        name: 'EfficientCircularBuffer'
         kwargs:
           seed: 42
-          size: 10000
+          capacity: 10000
+          stack_size: *stack_size
       discount_rate: .99
       target_net_update_schedule:
         name: 'PeriodicSchedule'
@@ -71,7 +63,7 @@ agents:
       device: 'cpu'
       log_frequency: 100
       double: True
-      distributional: False
+      distributional: True
       epsilon_on: False
       v_min: 0.0
       v_max: 200.0

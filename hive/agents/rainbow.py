@@ -87,6 +87,7 @@ class RainbowDQNAgent(DQNAgent):
             double: whether or not to use the double feature (from double DQN)
             distributional: whether or not to use the distributional feature (from distributional DQN)
         """
+        # super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
         self._obs_dim = obs_dim
         self._act_dim = act_dim
 
@@ -94,6 +95,8 @@ class RainbowDQNAgent(DQNAgent):
         self._distributional = distributional
 
         if isinstance(qnet, dict):
+            if "kwargs" not in qnet:
+                qnet["kwargs"] = dict()
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
 
@@ -108,7 +111,7 @@ class RainbowDQNAgent(DQNAgent):
             self._delta = float(self._v_max - self._v_min) / (self._atoms - 1)
             self._nsteps = 1
 
-        self._qnet = get_qnet(qnet)
+        self._qnet = get_qnet(qnet).to(device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
         optimizer_fn = get_optimizer_fn(optimizer_fn)
