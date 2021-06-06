@@ -82,6 +82,7 @@ class DQNAgent(Agent):
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
 
+        print("device = ", device)
         self._qnet = get_qnet(qnet).to(device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         optimizer_fn = get_optimizer_fn(optimizer_fn)
@@ -150,6 +151,7 @@ class DQNAgent(Agent):
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
+        print("observation = ", observation)
         observation = (
             torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
         )

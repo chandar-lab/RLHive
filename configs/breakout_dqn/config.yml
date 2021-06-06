@@ -55,7 +55,7 @@ agent:
         steps: 500
     seed: 42
     batch_size: 32
-    device: 'cuda'
+    device: 'cpu'
     log_frequency: 1000
 
 # List of logger configs used.

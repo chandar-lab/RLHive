@@ -95,8 +95,12 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         """
         storage = {}
         for key in specs:
+            print("key = ", key)
+            print("specs[key] = ", specs[key])
             dtype, shape = specs[key]
             dtype = str_to_dtype(dtype)
+            if isinstance(shape, list):
+                shape = tuple(shape)
             shape = (capacity,) + shape
             storage[key] = np.zeros(shape, dtype=dtype)
         return storage

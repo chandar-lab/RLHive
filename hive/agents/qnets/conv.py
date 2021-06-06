@@ -29,6 +29,7 @@ class SimpleConvModel(nn.Module):
 
         super().__init__()
 
+        print("in_dim = ", in_dim)
         c, h, w = in_dim
 
         # Default Convolutional Layers

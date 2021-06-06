@@ -89,6 +89,7 @@ class AtariEnv(GymEnv):
 
         observation = self._pool_and_resize()
 
+        print("done = ", done)
         return observation, accumulated_reward, done, self._turn, info
 
     def _get_observation_screen(self, output):
