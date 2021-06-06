@@ -83,12 +83,14 @@ class DQNAgent(Agent):
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, num_disc_per_obs_dim=num_disc_per_obs_dim, id=id)
         if isinstance(qnet, dict):
+            if "kwargs" not in qnet:
+                qnet["kwargs"] = dict()
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
             if num_disc_per_obs_dim is not None:
                 qnet["kwargs"]["num_disc_per_obs_dim"] = self._num_disc_per_obs_dim
 
-        self._qnet = get_qnet(qnet)
+        self._qnet = get_qnet(qnet).to(device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         optimizer_fn = get_optimizer_fn(optimizer_fn)
         if optimizer_fn is None:

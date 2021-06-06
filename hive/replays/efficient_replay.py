@@ -14,6 +14,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         self,
         capacity=10000,
         stack_size=1,
+        n_step=1,
+        gamma=0.99,
         observation_shape=(),
         observation_dtype=np.float32,
         action_shape=(),
@@ -26,11 +28,14 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         """Constructor for EfficientCircularBuffer.
 
         Args:
-            capacity: total number of observations that can be stored in the buffer.
+            capacity: Total number of observations that can be stored in the buffer.
                 Note, this is not the same as the number of transitions that can be
                 stored in the buffer.
-            capacity: total number of observations that are stacked in the states
+            capacity: Total number of observations that are stacked in the states
                 sampled from the buffer.
+            stack_size: The number of frames to stack to create an observation.
+            n_step: Horizon used to compute n-step return reward
+            gamma: Discounting factor used to compute n-step return reward
             observation_shape: Shape of observations that will be stored in the buffer.
             observation_dtype: Type of observations that will be stored in the buffer.
                 This can either be the type itself or string representation of the
@@ -62,6 +67,12 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             self._specs.update(extra_storage_types)
         self._storage = self._create_storage(capacity, self._specs)
         self._stack_size = stack_size
+        self._n_step = n_step
+        self._gamma = gamma
+        self._discount = np.asarray(
+            [self._gamma ** i for i in range(self._n_step)],
+            dtype=self._specs["reward"][0],
+        )
         self._episode_start = True
         self._cursor = 0
         self._num_added = 0
@@ -70,7 +81,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
     def size(self):
         """Returns the number of transitions stored in the buffer."""
         return max(
-            min(self._num_added - self._stack_size, self._capacity - self._stack_size),
+            min(self._num_added, self._capacity) - self._stack_size - self._n_step + 1,
             0,
         )
 
@@ -93,7 +104,9 @@ class EfficientCircularBuffer(BaseReplayBuffer):
     def _add_transition(self, **transition):
         """Internal method to add a transition to the buffer."""
         for key in transition:
-            self._storage[key][self._cursor] = transition[key]
+            self._storage[key][self._cursor] = np.asarray(
+                transition[key], dtype=self._specs[key][0]
+            )
         self._num_added += 1
         self._cursor = (self._cursor + 1) % self._capacity
 
@@ -153,7 +166,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         """
         full_indices = np.indices((indices.shape[0], num_to_access))[1]
         full_indices = (full_indices + np.expand_dims(indices, axis=1)) % (
-            self.size() + self._stack_size
+            self.size() + self._stack_size + self._n_step - 1
         )
         return array[full_indices]
 
@@ -163,13 +176,17 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         Args:
             key: The name of the component to retrieve.
             indices: This can be a single int or a 1D numpyp array. The indices are
-                adjusted to fall within the current bounds of the buffer."""
+                adjusted to fall within the current bounds of the buffer.
+            num_to_access: how many consecutive elements to access
+        """
         if not isinstance(indices, np.ndarray):
             indices = np.array([indices])
         if num_to_access == 0:
             return np.array([])
         elif num_to_access == 1:
-            return self._storage[key][indices % (self.size() + self._stack_size)]
+            return self._storage[key][
+                indices % (self.size() + self._stack_size + self._n_step - 1)
+            ]
         else:
             return self._get_from_array(
                 self._storage[key], indices, num_to_access=num_to_access
@@ -189,10 +206,22 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         done is True, the next_observation value should not be taken to have any
         meaning.
         """
-        if self._num_added <= self._stack_size:
+        if self._num_added < self._stack_size + self._n_step:
             raise ValueError("Not enough transitions added to the buffer to sample")
         indices = self._sample_indices(batch_size)
         batch = {}
+        terminals = self._get_from_storage("done", indices, self._n_step)
+
+        if self._n_step == 1:
+            is_terminal = terminals
+            trajectory_lengths = np.ones(batch_size)
+        else:
+            is_terminal = terminals.any(axis=1)
+            trajectory_lengths = (
+                np.argmax(terminals.astype(bool), axis=1) + 1
+            ) * is_terminal + self._n_step * (1 - is_terminal)
+        trajectory_lengths = trajectory_lengths.astype(np.int64)
+
         for key in self._specs:
             if key == "observation":
                 batch[key] = self._get_from_storage(
@@ -200,11 +229,23 @@ class EfficientCircularBuffer(BaseReplayBuffer):
                     indices - self._stack_size + 1,
                     num_to_access=self._stack_size,
                 )
+            elif key == "done":
+                batch["done"] = is_terminal
+            elif key == "reward":
+                rewards = self._get_from_storage("reward", indices, self._n_step)
+                if self._n_step == 1:
+                    rewards = np.expand_dims(rewards, 1)
+                rewards = rewards * np.expand_dims(self._discount, axis=0)
+
+                # Mask out rewards past trajectory length
+                mask = np.expand_dims(trajectory_lengths, 1) > np.arange(self._n_step)
+                rewards = np.sum(rewards * mask, axis=1)
+                batch["reward"] = rewards
             else:
                 batch[key] = self._get_from_storage(key, indices)
         batch["next_observation"] = self._get_from_storage(
             "observation",
-            indices - self._stack_size + 2,
+            indices + trajectory_lengths - self._stack_size + 1,
             num_to_access=self._stack_size,
         )
         return batch

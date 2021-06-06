@@ -1,10 +1,8 @@
 # General training loop config
-run_name: &run_name 'cartpole-dqn'
-train_steps: 30000
-test_frequency: 10
-test_num_episodes: 1
-self_play: False
-stack_size: &stack_size 1
+run_name: &run_name 'pong-dqn'
+train_steps: 10000000
+test_frequency: 100
+test_num_episodes: 10
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
@@ -15,9 +13,9 @@ save_dir: 'experiment'
 
 # Environment config
 environment:
-  name: 'GymEnv'
+  name: 'AtariEnv'
   kwargs:
-    env_name: 'CartPole-v0'
+    env_name: 'Pong'
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
@@ -25,10 +23,7 @@ agent:
   name: 'DQNAgent'
   kwargs:
     qnet:
-      name: 'SimpleMLP'
-      kwargs:
-        hidden_units: 256
-        num_hidden_layers: 2
+      name: 'NatureAtariDQNModel'
     optimizer_fn:
       name: 'Adam'
       kwargs: {}
@@ -37,19 +32,21 @@ agent:
       name: 'EfficientCircularBuffer'
       kwargs:
         seed: 42
-        capacity: 10000
-        stack_size: *stack_size
+        capacity: 1000000
+        stack_size: 4
     discount_rate: .99
     target_net_update_schedule:
       name: 'PeriodicSchedule'
       kwargs:
         off_value: False
         on_value: True
-        period: 100
+        period: 10000
     epsilon_schedule:
-      name: 'ConstantSchedule'
+      name: 'LinearSchedule'
       kwargs:
-        value: .01
+        init_value: 1
+        end_value: 0.05
+        steps: 1000000
     learn_schedule:
       name: 'SwitchSchedule'
       kwargs:
@@ -57,9 +54,9 @@ agent:
         on_value: True
         steps: 500
     seed: 42
-    batch_size: 128
-    device: 'cpu'
-    log_frequency: 100
+    batch_size: 32
+    device: 'cuda'
+    log_frequency: 1000
 
 # List of logger configs used.
 loggers:

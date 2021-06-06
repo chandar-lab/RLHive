@@ -15,7 +15,7 @@ class MarlGridEnv(ParallelEnv, GymEnv):
     The flatten parameter flattens the observations for all agents.
     """
 
-    def create_env(self, env_name, randomize_seed=True, flatten=True, **kwargs):
+    def create_env(self, env_name, randomize_seed=True, flatten=False, **kwargs):
         if env_name is None:
             self._env = envs.env_from_config(kwargs, randomize_seed=randomize_seed)
         else:

@@ -3,6 +3,9 @@ run_name: &run_name 'marlgrid-dqn'
 train_steps: 30000
 test_frequency: 10
 test_num_episodes: 1
+self_play: True
+num_agents: 3
+stack_size: &stack_size 2
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
@@ -34,10 +37,11 @@ agents:
         kwargs: {}
       id: 0
       replay_buffer:
-        name: 'CircularReplayBuffer'
+        name: 'EfficientCircularBuffer'
         kwargs:
           seed: 42
-          size: 10000
+          capacity: 10000
+          stack_size: *stack_size
       discount_rate: .99
       target_net_update_schedule:
         name: 'PeriodicSchedule'
@@ -72,10 +76,11 @@ agents:
         kwargs: {}
       id: 1
       replay_buffer:
-        name: 'CircularReplayBuffer'
+        name: 'EfficientCircularBuffer'
         kwargs:
-          seed: 43
-          size: 10000
+          seed: 42
+          capacity: 10000
+          stack_size: *stack_size
       discount_rate: .99
       target_net_update_schedule:
         name: 'PeriodicSchedule'
@@ -100,7 +105,7 @@ agents:
   -
     name: 'RandomAgent'
     kwargs:
-      id: 0
+      id: 2
       seed: 44
       device: 'cpu'
 
