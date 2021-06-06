@@ -106,6 +106,11 @@ def set_up_experiment(config):
     config["agent"]["kwargs"]["obs_dim"] = env_spec.obs_dim[0]
     config["agent"]["kwargs"]["act_dim"] = env_spec.act_dim[0]
     config["agent"]["kwargs"]["logger"] = logger
+
+    if "replay_buffer" in config["agent"]["kwargs"]:
+        replay_args = config["agent"]["kwargs"]["replay_buffer"]["kwargs"]
+        replay_args["observation_shape"] = env_spec.obs_dim[0]
+
     agent = agent_lib.get_agent(config["agent"])
 
     # Set up experiment manager
