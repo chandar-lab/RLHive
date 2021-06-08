@@ -43,15 +43,11 @@ class MinAtarEnv(GymEnv):
 
     def create_env_spec(self, env_name, **kwargs):
         act_spaces = [6]
-        print("obs_dim = ", self._env.state_shape())
         obs_dim = tuple(self._env.state_shape())
         new_positions = [2, 0, 1]
-        print("obs dim[2] = ", obs_dim[0])
         obs_dim = tuple(obs_dim[i] for i in new_positions)
-        print("obs_dim = ", obs_dim)
         return EnvSpec(
             env_name=env_name,
-            # obs_dim=[(1, 10, 10)],
             obs_dim=[obs_dim],
             act_dim=[6],
         )
@@ -72,6 +68,7 @@ class MinAtarEnv(GymEnv):
         reward = float(reward)
         info = {}
         observation = torch.tensor(self._env.state()).permute(2, 0, 1).float()
+        observation = observation.cpu().detach().numpy()
         self._turn = 0
         print("inside step")
         print("observation = ", observation)
@@ -79,4 +76,4 @@ class MinAtarEnv(GymEnv):
         print("done = ", done)
         print("info = ", info)
 
-        return observation.cpu().detach().numpy(), reward, done, self._turn, info
+        return observation, reward, done, self._turn, info

@@ -186,7 +186,12 @@ class DQNAgent(Agent):
         print("observation = ", update_info["observation"])
         print("action = ", update_info["action"])
         print("reward = ", update_info["reward"])
+        if update_info["done"]:
+            update_info["done"] = 1.0
+        else:
+            update_info["done"] = 0.0
         print("done = ", update_info["done"])
+
         if self._training:
             self._replay_buffer.add(
                 observation=update_info["observation"],
