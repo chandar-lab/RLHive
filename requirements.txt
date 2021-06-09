@@ -4,3 +4,4 @@ pytest==6.2.2
 PyYAML==5.3.1
 torch==1.8.0
 wandb==0.10.30
+pytest-lazy-fixture
