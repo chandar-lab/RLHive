@@ -1,5 +1,6 @@
 # General training loop config
-run_name: &run_name 'cartpole-dqn'
+# double, dueling, noisy, distributional in that order. 'x' in run_name if that particular feature is not being used.
+run_name: &run_name 'cartpole-rainbow-ddnd'
 train_steps: 30000
 test_frequency: 10
 test_num_episodes: 1

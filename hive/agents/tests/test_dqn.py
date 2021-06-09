@@ -21,7 +21,9 @@ def env_spec():
 def env_spec():
     return EnvSpec("test_env", (2,), 2)
 
-
+'''
+ddnd = double, dueling, noisy, distributional. x = False.
+'''
 @pytest.fixture(
     params=[
         pytest.lazy_fixture("xxxx_agent_with_mock_optimizer"),
@@ -34,7 +36,7 @@ def agent_with_mock_optimizer(request):
     return request.param
 
 
-# ddnd = double, dueling, noisy, distributional. x = False.
+
 @pytest.fixture
 def ddnd_agent_with_mock_optimizer(env_spec):
     supports = torch.linspace(0, 200, 51).to("cpu")

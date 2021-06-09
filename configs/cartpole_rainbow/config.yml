@@ -1,5 +1,6 @@
 # General training loop config
-run_name: &run_name 'cartpole-dqn'
+# note: `epsilon_on` should be set to `True` if you are not using noisy.
+run_name: &run_name 'cartpole-rainbow'
 train_steps: 30000
 test_frequency: 10
 test_num_episodes: 1
