@@ -282,7 +282,6 @@ class RainbowDQNAgent(DQNAgent):
                 loss = -(target_prob * log_p).sum(1)
                 loss = loss.mean()
 
-
             else:
                 pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
@@ -297,7 +296,7 @@ class RainbowDQNAgent(DQNAgent):
                 next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
 
                 q_targets = batch["reward"] + self._discount_rate * next_qvals * (
-                        1 - batch["done"]
+                    1 - batch["done"]
                 )
 
                 loss = self._loss_fn(pred_qvals, q_targets)

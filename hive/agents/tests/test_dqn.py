@@ -21,9 +21,12 @@ def env_spec():
 def env_spec():
     return EnvSpec("test_env", (2,), 2)
 
-'''
+
+"""
 ddnd = double, dueling, noisy, distributional. x = False.
-'''
+"""
+
+
 @pytest.fixture(
     params=[
         pytest.lazy_fixture("xxxx_agent_with_mock_optimizer"),
@@ -34,7 +37,6 @@ ddnd = double, dueling, noisy, distributional. x = False.
 )
 def agent_with_mock_optimizer(request):
     return request.param
-
 
 
 @pytest.fixture
