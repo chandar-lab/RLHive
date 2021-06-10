@@ -1,6 +1,7 @@
 from hive.agents.agent import Agent
 from hive.agents.dqn import DQNAgent
 from hive.agents.hanabi_dqn import HanabiDQNAgent
+from hive.agents.hanabi_rainbow import HanabiRainbowAgent
 from hive.agents.random import RandomAgent
 from hive.utils.utils import create_class_constructor
 
@@ -10,5 +11,6 @@ get_agent = create_class_constructor(
         "DQNAgent": DQNAgent,
         "RandomAgent": RandomAgent,
         "HanabiDQNAgent": HanabiDQNAgent,
+        "HanabiRainbowAgent": HanabiRainbowAgent,
     },
 )
