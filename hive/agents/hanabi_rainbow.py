@@ -138,8 +138,8 @@ class HanabiRainbowAgent(RainbowDQNAgent):
 
         vectorized_observation = (
             torch.tensor(np.expand_dims(observation["vectorized"], axis=0))
-                .to(self._device)
-                .float()
+            .to(self._device)
+            .float()
         )
         qvals = self._qnet(vectorized_observation).cpu()
 
