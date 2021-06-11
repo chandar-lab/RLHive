@@ -36,15 +36,17 @@ class NoisyLinear(nn.Module):
     def sample_noise(self):
         epsilon_in = self._scale_noise(self.in_features)
         epsilon_out = self._scale_noise(self.out_features)
-        self.weight_epsilon.copy_(epsilon_out.ger(epsilon_in))
-        self.bias_epsilon.copy_(epsilon_out)
+        weight_eps = epsilon_out.ger(epsilon_in)
+        bias_eps = epsilon_out
+        return weight_eps, bias_eps
 
     def forward(self, inp):
         if self.training:
+            weight_eps, bias_eps = self.sample_noise()
             return F.linear(
                 inp,
-                self.weight_mu + self.weight_sigma * self.weight_epsilon,
-                self.bias_mu + self.bias_sigma * self.bias_epsilon,
+                self.weight_mu + self.weight_sigma * weight_eps,
+                self.bias_mu + self.bias_sigma * bias_eps,
             )
         else:
             return F.linear(inp, self.weight_mu, self.bias_mu)
@@ -184,24 +186,6 @@ class ComplexMLP(nn.Module):
             x = self.output_layer(x)
 
         return x
-
-    def sample_noise(self):
-        self.input_layer[0].sample_noise()
-        for i in range(len(self.hidden_layers[0])):
-            if str(self.hidden_layers[0][i]) == "NoisyLinear()":
-                self.hidden_layers[0][i].sample_noise()
-
-        if self._dueling:
-            for i in range(len(self.output_layer_adv)):
-                if str(self.output_layer_adv[i]) == "NoisyLinear()":
-                    self.output_layer_adv[i].sample_noise()
-
-            for i in range(len(self.output_layer_val)):
-                if str(self.output_layer_val[i]) == "NoisyLinear()":
-                    self.output_layer_val[i].sample_noise()
-
-        else:
-            self.output_layer.sample_noise()
 
 
 class DistributionalMLP(ComplexMLP):
