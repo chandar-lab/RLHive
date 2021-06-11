@@ -198,10 +198,19 @@ def set_up_experiment(config):
     environment = envs.get_env(config["environment"])
     environment.seed(config["environment"]["kwargs"].get("seed", None))
     env_spec = environment.env_spec
+    num_agents = config["num_agents"] if config["self_play"] else len(config["agents"])
 
     # Set up loggers
-    hypers_to_track = {"env": config["environment"]["kwargs"]["env_name"], "algos": "selfplay" if config["self_play"] else "decentralized",
-    "stack_size": config["stack_size"], "seed": config["environment"]["kwargs"]["seed"]}
+    hypers_to_track = {
+    "env": config["environment"]["kwargs"]["env_name"],
+    "algos": "selfplay" if config["self_play"] else "decentralized",
+    "stack_size": config["stack_size"],
+    "seed": config["environment"]["kwargs"]["seed"]
+    }
+    for idx in range(num_agents):
+        if "lr" in config["agents"][idx]["kwargs"]["optimizer_fn"]["kwargs"].keys():
+            hypers_to_track["Agent" + str(idx) + "_LR"] = config["agents"][idx]["kwargs"]["optimizer_fn"]["kwargs"]["lr"]
+    
     logger_config = config.get("loggers", None)
     if logger_config is None or len(logger_config) == 0:
         logger = logging.NullLogger()
@@ -220,7 +229,6 @@ def set_up_experiment(config):
 
     # Set up agents
     agents = []
-    num_agents = config["num_agents"] if config["self_play"] else len(config["agents"])
     for idx in range(num_agents):
         if not config["self_play"] or idx == 0:
             agent_config = config["agents"][idx]

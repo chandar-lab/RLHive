@@ -1,6 +1,6 @@
 # General training loop config
 run_name: &run_name 'MABC'
-train_steps: 100000
+train_steps: 2000000
 test_frequency: 10
 test_num_episodes: 10
 self_play: False
@@ -114,6 +114,3 @@ loggers:
       run_name: *run_name
       save_dir: *save_dir
       offline: True
-  -
-    name: ChompLogger
-    kwargs: {}

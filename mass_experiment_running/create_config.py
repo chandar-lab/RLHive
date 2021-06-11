@@ -23,6 +23,9 @@ def make_changes(args, input_config):
 		input_config["agents"][i]["kwargs"]["replay_buffer"]["kwargs"]["stack_size"] = args.stack_size
 		input_config["agents"][i]["kwargs"]["replay_buffer"]["kwargs"]["seed"] = args.seed + i*AGENT_SEED_GAP
 		input_config["agents"][i]["kwargs"]["seed"] = args.seed + i*AGENT_SEED_GAP
+		#learning rates - "lr" is the argument for many torch.optim optimizers
+		#scale lr of agents in a decreasing geometric fashion
+		input_config["agents"][i]["kwargs"]["optimizer_fn"]["kwargs"]["lr"] = args.base_lr / args.lr_scale_factor**i
 	return input_config
 
 if __name__ == "__main__":
@@ -34,6 +37,8 @@ if __name__ == "__main__":
 	parser.add_argument("--exp_name", help="Experiment name")
 	parser.add_argument("--algo", help="Multi-agent algorithm used: `decentralized` or `selfplay`")
 	parser.add_argument("--stack_size", type=int, help="Number of frames to stack")
+	parser.add_argument("--base_lr", type=float, help="Base learning rate of the first agent")
+	parser.add_argument("--lr_scale_factor", type=float, help="Scale down lrs by this factor >= 1.0")
 	parser.add_argument("--seed", type=int, help="Random Seed to use in the experiment")
 
 	args = parser.parse_args()
