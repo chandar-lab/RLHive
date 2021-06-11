@@ -136,7 +136,7 @@ class ComplexMLP(nn.Module):
                     nn.ReLU(),
                     NoisyLinear(
                         self._hidden_units,
-                        self._out_dim * self._atoms,
+                        1 * self._atoms,
                         self._sigma_init,
                     ),
                 )
@@ -157,7 +157,7 @@ class ComplexMLP(nn.Module):
                     nn.ReLU(),
                     nn.Linear(
                         self._hidden_units,
-                        self._out_dim * self._atoms,
+                        1 * self._atoms,
                         self._sigma_init,
                     ),
                 )
@@ -248,7 +248,7 @@ class DistributionalMLP(ComplexMLP):
             adv = adv.view(-1, self._out_dim, self._atoms)
             val = self.output_layer_val(x)
             val = val.view(-1, 1, self._atoms)
-            x = val + adv - adv.mean(dim=1).view(-1, 1, self._atoms)
+            x = val + adv - adv.mean(dim=1, keepdim=True)
 
         else:
             x = self.output_layer(x)
