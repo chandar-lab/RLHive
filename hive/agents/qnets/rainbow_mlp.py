@@ -69,31 +69,44 @@ class ComplexMLP(nn.Module):
         self._dueling = dueling
         self._sigma_init = sigma_init
         self._in_dim = np.prod(in_dim)
+        self._hidden_units = hidden_units
+        self._num_hidden_layers = num_hidden_layers
         self._out_dim = out_dim
+        self._atoms = 1
+        self.init_networks()
 
+    def init_networks(self):
         if self._noisy:
             self.input_layer = nn.Sequential(
-                NoisyLinear(self._in_dim, hidden_units), nn.ReLU()
+                NoisyLinear(self._in_dim, self._hidden_units), nn.ReLU()
             )
             self.hidden_layers = nn.Sequential(
                 *[
-                    nn.Sequential(NoisyLinear(hidden_units, hidden_units), nn.ReLU())
-                    for _ in range(num_hidden_layers - 1)
+                    nn.Sequential(
+                        NoisyLinear(self._hidden_units, self._hidden_units), nn.ReLU()
+                    )
+                    for _ in range(self._num_hidden_layers - 1)
                 ]
             )
-            self.output_layer = NoisyLinear(hidden_units, self._out_dim)
+            self.output_layer = NoisyLinear(
+                self._hidden_units, self._out_dim * self._atoms
+            )
 
         else:
             self.input_layer = nn.Sequential(
-                nn.Linear(self._in_dim, hidden_units), nn.ReLU()
+                nn.Linear(self._in_dim, self._hidden_units), nn.ReLU()
             )
             self.hidden_layers = nn.Sequential(
                 *[
-                    nn.Sequential(nn.Linear(hidden_units, hidden_units), nn.ReLU())
-                    for _ in range(num_hidden_layers - 1)
+                    nn.Sequential(
+                        nn.Linear(self._hidden_units, self._hidden_units), nn.ReLU()
+                    )
+                    for _ in range(self._num_hidden_layers - 1)
                 ]
             )
-            self.output_layer = nn.Linear(hidden_units, self._out_dim)
+            self.output_layer = nn.Linear(
+                self._hidden_units, self._out_dim * self._atoms
+            )
 
         if self._dueling:
             """In dueling, we have two heads - one for estimating advantage function and one for
@@ -105,53 +118,63 @@ class ComplexMLP(nn.Module):
                 self.hidden_layers_adv = nn.Sequential(
                     *[
                         nn.Sequential(
-                            NoisyLinear(hidden_units, hidden_units, self._sigma_init),
+                            NoisyLinear(
+                                self._hidden_units, self._hidden_units, self._sigma_init
+                            ),
                             nn.ReLU(),
                         )
-                        for _ in range(num_hidden_layers - 1)
+                        for _ in range(self._num_hidden_layers - 1)
                     ]
                 )
                 self.output_layer_adv = NoisyLinear(
-                    hidden_units, self._out_dim, self._sigma_init
+                    self._hidden_units, self._out_dim * self._atoms, self._sigma_init
                 )
 
                 self.hidden_layers_val = nn.Sequential(
                     *[
                         nn.Sequential(
-                            NoisyLinear(hidden_units, hidden_units, self._sigma_init),
+                            NoisyLinear(
+                                self._hidden_units, self._hidden_units, self._sigma_init
+                            ),
                             nn.ReLU(),
                         )
-                        for _ in range(num_hidden_layers - 1)
+                        for _ in range(self._num_hidden_layers - 1)
                     ]
                 )
-                self.output_layer_val = NoisyLinear(hidden_units, 1, self._sigma_init)
+                self.output_layer_val = NoisyLinear(
+                    self._hidden_units, 1 * self._atoms, self._sigma_init
+                )
 
             else:
                 self.hidden_layers_adv = nn.Sequential(
                     *[
                         nn.Sequential(
-                            NoisyLinear(hidden_units, hidden_units, self._sigma_init),
+                            nn.Linear(
+                                self._hidden_units, self._hidden_units, self._sigma_init
+                            ),
                             nn.ReLU(),
                         )
-                        for _ in range(num_hidden_layers - 1)
+                        for _ in range(self._num_hidden_layers - 1)
                     ]
                 )
-                self.output_layer_adv = NoisyLinear(
-                    hidden_units, self._out_dim, self._sigma_init
+                self.output_layer_adv = nn.Linear(
+                    self._hidden_units, self._out_dim * self._atoms, self._sigma_init
                 )
 
                 self.hidden_layers_val = nn.Sequential(
                     *[
                         nn.Sequential(
-                            NoisyLinear(hidden_units, hidden_units, self._sigma_init),
+                            nn.Linear(
+                                self._hidden_units, self._hidden_units, self._sigma_init
+                            ),
                             nn.ReLU(),
                         )
-                        for _ in range(num_hidden_layers - 1)
+                        for _ in range(self._num_hidden_layers - 1)
                     ]
                 )
-                self.output_layer_val = NoisyLinear(hidden_units, 1, self._sigma_init)
-
-        self.relu = nn.ReLU()
+                self.output_layer_val = nn.Linear(
+                    self._hidden_units, 1 * self._atoms, self._sigma_init
+                )
 
     def forward(self, x):
         x = torch.flatten(x, start_dim=1)
