@@ -21,3 +21,9 @@ register_marl_env(
     view_size=5,
     env_kwargs={"max_steps": 500},
 )
+
+register(
+    id="MABC-v0",
+    entry_point="hive.envs.marlgrid.ma_envs.MABCEnv:MABC",
+    max_episode_steps=300,
+)
