@@ -82,18 +82,19 @@ class ComplexMLP(nn.Module):
     def init_networks(self):
         if self._noisy:
             self.input_layer = nn.Sequential(
-                NoisyLinear(self._in_dim, self._hidden_units), nn.ReLU()
+                NoisyLinear(self._in_dim, self._hidden_units, self._sigma_init),
+                nn.ReLU(),
             )
             self.hidden_layers = nn.Sequential(
                 *[
                     nn.Sequential(
-                        NoisyLinear(self._hidden_units, self._hidden_units), nn.ReLU()
+                        NoisyLinear(
+                            self._hidden_units, self._hidden_units, self._sigma_init
+                        ),
+                        nn.ReLU(),
                     )
                     for _ in range(self._num_hidden_layers - 1)
                 ]
-            )
-            self.output_layer = NoisyLinear(
-                self._hidden_units, self._out_dim * self._atoms
             )
 
         else:
@@ -107,9 +108,6 @@ class ComplexMLP(nn.Module):
                     )
                     for _ in range(self._num_hidden_layers - 1)
                 ]
-            )
-            self.output_layer = nn.Linear(
-                self._hidden_units, self._out_dim * self._atoms
             )
 
         if self._dueling:
@@ -162,6 +160,15 @@ class ComplexMLP(nn.Module):
                         1 * self._atoms,
                         self._sigma_init,
                     ),
+                )
+        else:
+            if self._noisy:
+                self.output_layer = NoisyLinear(
+                    self._hidden_units, self._out_dim * self._atoms, self._sigma_init
+                )
+            else:
+                self.output_layer = nn.Linear(
+                    self._hidden_units, self._out_dim * self._atoms
                 )
 
     def forward(self, x):

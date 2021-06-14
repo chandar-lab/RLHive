@@ -47,7 +47,7 @@ class RainbowDQNAgent(DQNAgent):
         log_frequency=100,
         double=True,
         distributional=False,
-        epsilon_on=True,
+        use_epsilon=True,
     ):
         """
         Args:
@@ -86,6 +86,7 @@ class RainbowDQNAgent(DQNAgent):
             log_frequency (int): How often to log the agent's metrics.
             double: whether or not to use the double feature (from double DQN)
             distributional: whether or not to use the distributional feature (from distributional DQN)
+            use_epsilon: whether or not to use epsilon. Usually in case of noisy networks use_epsilon=False
         """
         self._obs_dim = obs_dim
         self._act_dim = act_dim
@@ -149,7 +150,7 @@ class RainbowDQNAgent(DQNAgent):
 
         self._state = {"episode_start": True}
         self._training = False
-        self._epsilon_on = epsilon_on
+        self._use_epsilon = use_epsilon
 
     def get_max_next_state_action(self, next_states):
         next_dist = self._qnet(next_states) * self._supports
@@ -202,11 +203,10 @@ class RainbowDQNAgent(DQNAgent):
     def act(self, observation):
         observation = torch.tensor(observation).to(self._device).float()
 
-        # if not self._distributional:
         if self._training:
             if not self._learn_schedule.update():
                 epsilon = 1.0
-            elif not self._epsilon_on:
+            elif not self._use_epsilon:
                 epsilon = 0.0
             else:
                 epsilon = self._epsilon_schedule.update()

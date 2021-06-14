@@ -62,7 +62,7 @@ def ddnd_agent_with_mock_optimizer(env_spec):
         learn_schedule=schedule.SwitchSchedule(False, True, 2),
         device="cpu",
         batch_size=2,
-        epsilon_on=False,
+        use_epsilon=False,
         distributional=True,
         double=True,
     )
@@ -142,7 +142,7 @@ def xxnx_agent_with_mock_optimizer(env_spec):
         learn_schedule=schedule.SwitchSchedule(False, True, 2),
         device="cpu",
         batch_size=2,
-        epsilon_on=False,
+        use_epsilon=False,
         distributional=False,
     )
     return agent
@@ -219,7 +219,7 @@ def xxxx_rainbow_agent_with_mock_optimizer(env_spec):
         learn_schedule=schedule.SwitchSchedule(False, True, 2),
         device="cpu",
         batch_size=2,
-        epsilon_on=False,
+        use_epsilon=False,
         distributional=False,
         double=False,
     )

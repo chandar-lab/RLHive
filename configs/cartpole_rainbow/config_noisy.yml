@@ -65,7 +65,7 @@ agent:
       log_frequency: 100
       double: True
       distributional: False
-      epsilon_on: False
+      use_epsilon: False
       v_min: 0.0
       v_max: 200.0
       atoms: 51
