@@ -32,7 +32,6 @@ ddnd = double, dueling, noisy, distributional. x = False.
         pytest.lazy_fixture("xxxx_agent_with_mock_optimizer"),
         pytest.lazy_fixture("dxxx_agent_with_mock_optimizer"),
         pytest.lazy_fixture("xdxx_agent_with_mock_optimizer"),
-        pytest.lazy_fixture("xxnx_agent_with_mock_optimizer"),
     ]
 )
 def agent_with_mock_optimizer(request):

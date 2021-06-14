@@ -206,6 +206,8 @@ class RainbowDQNAgent(DQNAgent):
         if self._training:
             if not self._learn_schedule.update():
                 epsilon = 1.0
+            elif not self._epsilon_on:
+                epsilon = 0.0
             else:
                 epsilon = self._epsilon_schedule.update()
             if self._logger.update_step(self._timescale):
@@ -213,16 +215,12 @@ class RainbowDQNAgent(DQNAgent):
         else:
             epsilon = 0
 
-        if not self._epsilon_on:
-            self._qnet.sample_noise()
-
         observation = (
             torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
         )
-        # qvals = self._qnet(observation).cpu()
         qvals = self._qnet(observation)
 
-        if self._epsilon_on and self._rng.random() < epsilon:
+        if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
         else:
             action = torch.argmax(qvals).numpy()
@@ -272,9 +270,6 @@ class RainbowDQNAgent(DQNAgent):
             actions = batch["action"].long()
 
             if self._distributional:
-                if not self._epsilon_on:
-                    self._qnet.sample_noise()
-                    self._target_qnet.sample_noise()
                 current_dist = self._qnet.dist(batch["observation"])
                 log_p = torch.log(current_dist[range(self._batch_size), actions])
                 target_prob = self.projection_distribution(batch)
