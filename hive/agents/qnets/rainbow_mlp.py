@@ -64,6 +64,7 @@ class ComplexMLP(nn.Module):
         noisy=False,
         dueling=False,
         sigma_init=0.5,
+        atoms=1,
     ):
         super().__init__()
 
@@ -76,7 +77,7 @@ class ComplexMLP(nn.Module):
             num_hidden_layers = max(num_hidden_layers - 1, 2)
         self._num_hidden_layers = num_hidden_layers
         self._out_dim = out_dim
-        self._atoms = 1
+        self._atoms = atoms
         self.init_networks()
 
     def init_networks(self):
@@ -210,18 +211,17 @@ class DistributionalMLP(ComplexMLP):
         sigma_init=0.5,
         atoms=51,
     ):
-        super(ComplexMLP, self).__init__()
-
-        self._noisy = noisy
-        self._dueling = dueling
-        self._sigma_init = sigma_init
-        self._in_dim = in_dim[0]
-        self._out_dim = out_dim
-        self._atoms = atoms
         self._supports = supports
-        self._hidden_units = hidden_units
-        self._num_hidden_layers = num_hidden_layers
-        self.init_networks()
+        super().__init__(
+            in_dim,
+            out_dim,
+            hidden_units,
+            num_hidden_layers,
+            noisy,
+            dueling,
+            sigma_init,
+            atoms,
+        )
 
     def forward(self, x):
         x = torch.flatten(x, start_dim=1)
