@@ -86,7 +86,7 @@ class RainbowDQNAgent(DQNAgent):
             log_frequency (int): How often to log the agent's metrics.
             double: whether or not to use the double feature (from double DQN)
             distributional: whether or not to use the distributional feature (from distributional DQN)
-            use_eps_greedy: whether or not to use epsilon. Usually in case of noisy networks use_eps_greedy=False
+            use_eps_greedy: whether or not to use epsilon greedy. Usually in case of noisy networks use_eps_greedy=False
         """
         self._obs_dim = obs_dim
         self._act_dim = act_dim

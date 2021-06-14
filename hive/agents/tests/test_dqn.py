@@ -62,7 +62,7 @@ def ddnd_agent_with_mock_optimizer(env_spec):
         learn_schedule=schedule.SwitchSchedule(False, True, 2),
         device="cpu",
         batch_size=2,
-        use_epsilon=False,
+        use_eps_greedy=False,
         distributional=True,
         double=True,
     )
@@ -71,7 +71,6 @@ def ddnd_agent_with_mock_optimizer(env_spec):
 
 @pytest.fixture
 def dxxx_agent_with_mock_optimizer(env_spec):
-    # supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
         qnet=ComplexMLP(
             env_spec.obs_dim, env_spec.act_dim, hidden_units=5, num_hidden_layers=1
@@ -95,7 +94,6 @@ def dxxx_agent_with_mock_optimizer(env_spec):
 
 @pytest.fixture
 def xdxx_agent_with_mock_optimizer(env_spec):
-    # supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
         qnet=ComplexMLP(
             env_spec.obs_dim,
@@ -122,7 +120,6 @@ def xdxx_agent_with_mock_optimizer(env_spec):
 
 @pytest.fixture
 def xxnx_agent_with_mock_optimizer(env_spec):
-    # supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
         qnet=ComplexMLP(
             env_spec.obs_dim,
@@ -142,7 +139,7 @@ def xxnx_agent_with_mock_optimizer(env_spec):
         learn_schedule=schedule.SwitchSchedule(False, True, 2),
         device="cpu",
         batch_size=2,
-        use_epsilon=False,
+        use_eps_greedy=False,
         distributional=False,
     )
     return agent
@@ -198,7 +195,6 @@ def xxxx_agent_with_mock_optimizer(env_spec):
 
 @pytest.fixture
 def xxxx_rainbow_agent_with_mock_optimizer(env_spec):
-    # supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
         qnet=ComplexMLP(
             env_spec.obs_dim,
@@ -219,7 +215,7 @@ def xxxx_rainbow_agent_with_mock_optimizer(env_spec):
         learn_schedule=schedule.SwitchSchedule(False, True, 2),
         device="cpu",
         batch_size=2,
-        use_epsilon=False,
+        use_eps_greedy=False,
         distributional=False,
         double=False,
     )
@@ -458,4 +454,3 @@ def check_target_network_value(network, value):
     state_dict = network.state_dict()
     for key in state_dict:
         expected_value = torch.ones_like(state_dict[key]).numpy() * value
-        # assert state_dict[key].numpy() == pytest.approx(expected_value)

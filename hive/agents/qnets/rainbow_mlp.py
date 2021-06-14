@@ -211,7 +211,6 @@ class DistributionalMLP(ComplexMLP):
         sigma_init=0.5,
         atoms=51,
     ):
-        self._supports = supports
         super().__init__(
             in_dim,
             out_dim,
@@ -222,6 +221,7 @@ class DistributionalMLP(ComplexMLP):
             sigma_init,
             atoms,
         )
+        self._supports = supports
 
     def forward(self, x):
         x = torch.flatten(x, start_dim=1)
