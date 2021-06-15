@@ -36,15 +36,17 @@ class NoisyLinear(nn.Module):
     def sample_noise(self):
         epsilon_in = self._scale_noise(self.in_features)
         epsilon_out = self._scale_noise(self.out_features)
-        self.weight_epsilon.copy_(epsilon_out.ger(epsilon_in))
-        self.bias_epsilon.copy_(epsilon_out)
+        weight_eps = epsilon_out.ger(epsilon_in)
+        bias_eps = epsilon_out
+        return weight_eps, bias_eps
 
     def forward(self, inp):
         if self.training:
+            weight_eps, bias_eps = self.sample_noise()
             return F.linear(
                 inp,
-                self.weight_mu + self.weight_sigma * self.weight_epsilon,
-                self.bias_mu + self.bias_sigma * self.bias_epsilon,
+                self.weight_mu + self.weight_sigma * weight_eps,
+                self.bias_mu + self.bias_sigma * bias_eps,
             )
         else:
             return F.linear(inp, self.weight_mu, self.bias_mu)
@@ -62,6 +64,7 @@ class ComplexMLP(nn.Module):
         noisy=False,
         dueling=False,
         sigma_init=0.5,
+        atoms=1,
     ):
         super().__init__()
 
@@ -69,18 +72,44 @@ class ComplexMLP(nn.Module):
         self._dueling = dueling
         self._sigma_init = sigma_init
         self._in_dim = np.prod(in_dim)
+        self._hidden_units = hidden_units
+        if self._dueling:
+            num_hidden_layers = max(num_hidden_layers - 1, 2)
+        self._num_hidden_layers = num_hidden_layers
         self._out_dim = out_dim
+        self._atoms = atoms
+        self.init_networks()
 
-        self.input_layer = nn.Sequential(
-            nn.Linear(self._in_dim, hidden_units), nn.ReLU()
-        )
-        self.hidden_layers = nn.Sequential(
-            *[
-                nn.Sequential(nn.Linear(hidden_units, hidden_units), nn.ReLU())
-                for _ in range(num_hidden_layers - 1)
-            ]
-        )
-        self.output_layer = nn.Linear(hidden_units, self._out_dim)
+    def init_networks(self):
+        if self._noisy:
+            self.input_layer = nn.Sequential(
+                NoisyLinear(self._in_dim, self._hidden_units, self._sigma_init),
+                nn.ReLU(),
+            )
+            self.hidden_layers = nn.Sequential(
+                *[
+                    nn.Sequential(
+                        NoisyLinear(
+                            self._hidden_units, self._hidden_units, self._sigma_init
+                        ),
+                        nn.ReLU(),
+                    )
+                    for _ in range(self._num_hidden_layers - 1)
+                ]
+            )
+
+        else:
+            self.input_layer = nn.Sequential(
+                nn.Linear(self._in_dim, self._hidden_units), nn.ReLU()
+            )
+            self.hidden_layers = nn.Sequential(
+                *[
+                    nn.Sequential(
+                        nn.Linear(self._hidden_units, self._hidden_units), nn.ReLU()
+                    )
+                    for _ in range(self._num_hidden_layers - 1)
+                ]
+            )
 
         if self._dueling:
             """In dueling, we have two heads - one for estimating advantage function and one for
@@ -89,43 +118,68 @@ class ComplexMLP(nn.Module):
 
             if self._noisy:
 
-                self.fc1 = NoisyLinear(self._in_dim, hidden_units, self._sigma_init)
-                self.fc1_adv = NoisyLinear(hidden_units, hidden_units, self._sigma_init)
-                self.fc2_adv = NoisyLinear(
-                    hidden_units, self._out_dim, self._sigma_init
+                self.output_layer_adv = nn.Sequential(
+                    NoisyLinear(
+                        self._hidden_units, self._hidden_units, self._sigma_init
+                    ),
+                    nn.ReLU(),
+                    NoisyLinear(
+                        self._hidden_units,
+                        self._out_dim * self._atoms,
+                        self._sigma_init,
+                    ),
                 )
 
-                self.fc1_val = NoisyLinear(hidden_units, hidden_units, self._sigma_init)
-                self.fc2_val = NoisyLinear(hidden_units, 1, self._sigma_init)
+                self.output_layer_val = nn.Sequential(
+                    NoisyLinear(
+                        self._hidden_units, self._hidden_units, self._sigma_init
+                    ),
+                    nn.ReLU(),
+                    NoisyLinear(
+                        self._hidden_units,
+                        1 * self._atoms,
+                        self._sigma_init,
+                    ),
+                )
 
             else:
+                self.output_layer_adv = nn.Sequential(
+                    nn.Linear(self._hidden_units, self._hidden_units, self._sigma_init),
+                    nn.ReLU(),
+                    nn.Linear(
+                        self._hidden_units,
+                        self._out_dim * self._atoms,
+                        self._sigma_init,
+                    ),
+                )
 
-                self.fc1_adv = nn.Linear(hidden_units, hidden_units)
-                self.fc2_adv = nn.Linear(hidden_units, self._out_dim)
-
-                self.fc1_val = nn.Linear(hidden_units, hidden_units)
-                self.fc2_val = nn.Linear(hidden_units, 1)
-
+                self.output_layer_val = nn.Sequential(
+                    nn.Linear(self._hidden_units, self._hidden_units, self._sigma_init),
+                    nn.ReLU(),
+                    nn.Linear(
+                        self._hidden_units,
+                        1 * self._atoms,
+                        self._sigma_init,
+                    ),
+                )
         else:
-
             if self._noisy:
-                self.fc1 = NoisyLinear(self._in_dim, hidden_units, self._sigma_init)
-                self.fc2 = NoisyLinear(hidden_units, self._out_dim, self._sigma_init)
-
-        self.relu = nn.ReLU()
+                self.output_layer = NoisyLinear(
+                    self._hidden_units, self._out_dim * self._atoms, self._sigma_init
+                )
+            else:
+                self.output_layer = nn.Linear(
+                    self._hidden_units, self._out_dim * self._atoms
+                )
 
     def forward(self, x):
         x = torch.flatten(x, start_dim=1)
-        if self._dueling:
-            if self._noisy:
-                x = F.relu(self.fc1(x))
-            else:
-                x = self.input_layer(x)
-            adv = self.relu(self.fc1_adv(x))
-            adv = self.fc2_adv(adv)
+        x = self.input_layer(x)
+        x = self.hidden_layers(x)
 
-            val = self.relu(self.fc1_val(x))
-            val = self.fc2_val(val)
+        if self._dueling:
+            adv = self.output_layer_adv(x)
+            val = self.output_layer_val(x)
 
             if len(adv.shape) == 1:
                 x = val + adv - adv.mean(0)
@@ -137,29 +191,12 @@ class ComplexMLP(nn.Module):
                 )
 
         else:
-            if self._noisy:
-                x = F.relu(self.fc1(x))
-                x = self.fc2(x)
-            else:
-                x = self.input_layer(x)
-                x = self.hidden_layers(x)
-                x = self.output_layer(x)
+            x = self.output_layer(x)
 
         return x
 
-    def sample_noise(self):
-        if self._dueling:
-            self.fc1.sample_noise()
-            self.fc1_adv.sample_noise()
-            self.fc2_adv.sample_noise()
-            self.fc1_val.sample_noise()
-            self.fc2_val.sample_noise()
-        else:
-            self.fc1.sample_noise()
-            self.fc2.sample_noise()
 
-
-class DistributionalMLP(nn.Module):
+class DistributionalMLP(ComplexMLP):
     """Distributional MLP function approximator for Q-Learning."""
 
     def __init__(
@@ -174,114 +211,38 @@ class DistributionalMLP(nn.Module):
         sigma_init=0.5,
         atoms=51,
     ):
-        super().__init__()
-
-        self._noisy = noisy
-        self._dueling = dueling
-        self._sigma_init = sigma_init
-        self._in_dim = in_dim[0]
-        self._out_dim = out_dim
-        self._atoms = atoms
+        super().__init__(
+            in_dim,
+            out_dim,
+            hidden_units,
+            num_hidden_layers,
+            noisy,
+            dueling,
+            sigma_init,
+            atoms,
+        )
         self._supports = supports
-
-        self.input_layer = nn.Sequential(
-            nn.Linear(self._in_dim, hidden_units), nn.ReLU()
-        )
-        self.hidden_layers = nn.Sequential(
-            *[
-                nn.Sequential(nn.Linear(hidden_units, hidden_units), nn.ReLU())
-                for _ in range(num_hidden_layers - 1)
-            ]
-        )
-        self.output_layer = nn.Linear(hidden_units, self._out_dim * self._atoms)
-
-        if self._dueling:
-
-            if self._noisy:
-
-                self.fc1 = NoisyLinear(self._in_dim, hidden_units, self._sigma_init)
-                self.fc1_adv = NoisyLinear(hidden_units, hidden_units, self._sigma_init)
-                self.fc2_adv = NoisyLinear(
-                    hidden_units, self._out_dim * self._atoms, self._sigma_init
-                )
-
-                self.fc1_val = NoisyLinear(hidden_units, hidden_units, self._sigma_init)
-                self.fc2_val = NoisyLinear(
-                    hidden_units, 1 * self._atoms, self._sigma_init
-                )
-
-            else:
-
-                self.fc1_adv = nn.Linear(hidden_units, hidden_units)
-                self.fc2_adv = nn.Linear(hidden_units, self._out_dim * self._atoms)
-
-                self.fc1_val = nn.Linear(hidden_units, hidden_units)
-                self.fc2_val = nn.Linear(hidden_units, 1 * self._atoms)
-
-        else:
-
-            if self._noisy:
-                self.fc1 = NoisyLinear(self._in_dim, hidden_units, self._sigma_init)
-                self.fc2 = NoisyLinear(
-                    hidden_units, self._out_dim * self._atoms, self._sigma_init
-                )
-
-        self.relu = nn.ReLU()
 
     def forward(self, x):
         x = torch.flatten(x, start_dim=1)
-        if self._dueling:
-            if self._noisy:
-                x = F.relu(self.fc1(x))
-            else:
-                x = self.input_layer(x)
-            adv = self.relu(self.fc1_adv(x))
-            adv = self.fc2_adv(adv).view(-1, self._out_dim, self._atoms)
-
-            val = self.relu(self.fc1_val(x))
-            val = self.fc2_val(val).view(-1, 1, self._atoms)
-
-            x = val + adv - adv.mean(dim=1).view(-1, 1, self._atoms)
-
-        else:
-            x = self.dist(x)
-
+        x = self.dist(x)
         x = torch.sum(x * self._supports, dim=2)
         return x
 
-    def sample_noise(self):
-        if self._dueling:
-            self.fc1.sample_noise()
-            self.fc1_adv.sample_noise()
-            self.fc2_adv.sample_noise()
-            self.fc1_val.sample_noise()
-            self.fc2_val.sample_noise()
-        else:
-            self.fc1.sample_noise()
-            self.fc2.sample_noise()
-
     def dist(self, x):
 
-        if self._noisy:
-            x = F.relu(self.fc1(x))
-        else:
-            x = self.input_layer(x)
+        x = self.input_layer(x)
+        x = self.hidden_layers(x)
 
         if self._dueling:
-            adv = self.relu(self.fc1_adv(x))
-            adv = self.fc2_adv(adv).view(-1, self._out_dim, self._atoms)
-
-            val = self.relu(self.fc1_val(x))
-            val = self.fc2_val(val).view(-1, 1, self._atoms)
-
-            x = val + adv - adv.mean(dim=1).view(-1, 1, self._atoms)
+            adv = self.output_layer_adv(x)
+            adv = adv.view(-1, self._out_dim, self._atoms)
+            val = self.output_layer_val(x)
+            val = val.view(-1, 1, self._atoms)
+            x = val + adv - adv.mean(dim=1, keepdim=True)
 
         else:
-            if self._noisy:
-                x = self.fc2(x)
-            else:
-                x = self.hidden_layers(x)
-                x = self.output_layer(x)
+            x = self.output_layer(x)
 
         x = x.view(-1, self._out_dim, self._atoms)
         x = F.softmax(x, dim=-1)

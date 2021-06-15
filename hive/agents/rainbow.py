@@ -47,7 +47,7 @@ class RainbowDQNAgent(DQNAgent):
         log_frequency=100,
         double=True,
         distributional=False,
-        epsilon_on=True,
+        use_eps_greedy=True,
     ):
         """
         Args:
@@ -86,8 +86,8 @@ class RainbowDQNAgent(DQNAgent):
             log_frequency (int): How often to log the agent's metrics.
             double: whether or not to use the double feature (from double DQN)
             distributional: whether or not to use the distributional feature (from distributional DQN)
+            use_eps_greedy: whether or not to use epsilon greedy. Usually in case of noisy networks use_eps_greedy=False
         """
-        # super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
         self._obs_dim = obs_dim
         self._act_dim = act_dim
 
@@ -150,7 +150,7 @@ class RainbowDQNAgent(DQNAgent):
 
         self._state = {"episode_start": True}
         self._training = False
-        self._epsilon_on = epsilon_on
+        self._use_eps_greedy = use_eps_greedy
 
     def get_max_next_state_action(self, next_states):
         next_dist = self._qnet(next_states) * self._supports
@@ -203,10 +203,11 @@ class RainbowDQNAgent(DQNAgent):
     def act(self, observation):
         observation = torch.tensor(observation).to(self._device).float()
 
-        # if not self._distributional:
         if self._training:
             if not self._learn_schedule.update():
                 epsilon = 1.0
+            elif not self._use_eps_greedy:
+                epsilon = 0.0
             else:
                 epsilon = self._epsilon_schedule.update()
             if self._logger.update_step(self._timescale):
@@ -214,18 +215,14 @@ class RainbowDQNAgent(DQNAgent):
         else:
             epsilon = 0
 
-        if not self._epsilon_on:
-            self._qnet.sample_noise()
-
         observation = (
             torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
         )
-        qvals = self._qnet(observation).cpu()
+        qvals = self._qnet(observation)
 
-        if self._epsilon_on and self._rng.random() < epsilon:
+        if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
         else:
-            # a = self._qnet(observation).cpu()
             action = torch.argmax(qvals).numpy()
 
         if self._logger.should_log(self._timescale) and self._state["episode_start"]:
@@ -272,7 +269,15 @@ class RainbowDQNAgent(DQNAgent):
             pred_qvals = self._qnet(batch["observation"])
             actions = batch["action"].long()
 
-            if not self._distributional:
+            if self._distributional:
+                current_dist = self._qnet.dist(batch["observation"])
+                log_p = torch.log(current_dist[range(self._batch_size), actions])
+                target_prob = self.projection_distribution(batch)
+
+                loss = -(target_prob * log_p).sum(1)
+                loss = loss.mean()
+
+            else:
                 pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
                 # Compute 1-step Q targets
@@ -290,17 +295,6 @@ class RainbowDQNAgent(DQNAgent):
                 )
 
                 loss = self._loss_fn(pred_qvals, q_targets)
-
-            else:
-                if not self._epsilon_on:
-                    self._qnet.sample_noise()
-                    self._target_qnet.sample_noise()
-                current_dist = self._qnet.dist(batch["observation"])
-                log_p = torch.log(current_dist[range(self._batch_size), actions])
-                target_prob = self.projection_distribution(batch)
-
-                loss = -(target_prob * log_p).sum(1)
-                loss = loss.mean()
 
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar(
