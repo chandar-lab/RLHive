@@ -95,12 +95,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         """
         storage = {}
         for key in specs:
-            print("key = ", key)
-            print("specs[key] = ", specs[key])
             dtype, shape = specs[key]
             dtype = str_to_dtype(dtype)
-            if isinstance(shape, list):
-                shape = tuple(shape)
             shape = (capacity,) + shape
             storage[key] = np.zeros(shape, dtype=dtype)
         return storage
@@ -143,13 +139,11 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         if transition.keys() != self._specs.keys():
             raise ValueError("Keys passed do not match replay signature")
         for key in self._specs:
-            print("key = ", key)
             obj_type = (
                 transition[key].dtype
                 if hasattr(transition[key], "dtype")
                 else type(transition[key])
             )
-            print("obj_type = ", obj_type)
             if not np.can_cast(obj_type, self._specs[key][0], casting="same_kind"):
                 raise ValueError(
                     f"Key {key} has wrong dtype. Expected {self._specs[key][0]},"

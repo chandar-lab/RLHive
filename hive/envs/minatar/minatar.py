@@ -17,21 +17,15 @@ class MinAtarEnv(GymEnv):
         env_name,
         sticky_action_prob=0.1,
         difficulty_ramping=True,
-        random_seed=None
+        random_seed=None,
     ):
         """
         Args:
             env_name (str): Name of the environment
             sticky_actions (boolean): Whether to use sticky_actions as per Machado et al.
         """
-        print("MinAtar env called")
-        env_module = import_module('hive.envs.minatar.environments.' + env_name)
+        env_module = import_module("hive.envs.minatar.environments." + env_name)
         self.env_name = env_name
-        # gym.envs.register(
-        #     id=self.env_name,
-        #     entry_point='hive.envs.minatar.minatar:MinAtarEnv',
-        #     max_episode_steps=1000,
-        # )
         self._env = env_module.Env(ramping=difficulty_ramping, seed=random_seed)
         self.n_channels = self._env.state_shape()[2]
         self.sticky_action_prob = sticky_action_prob
@@ -39,7 +33,6 @@ class MinAtarEnv(GymEnv):
         self.visualized = False
         self.closed = False
         self.env_spec = self.create_env_spec(env_name)
-        # super().__init__(env_name=self.env_name)
 
     def create_env_spec(self, env_name, **kwargs):
         act_spaces = [6]
@@ -68,12 +61,6 @@ class MinAtarEnv(GymEnv):
         reward = float(reward)
         info = {}
         observation = torch.tensor(self._env.state()).permute(2, 0, 1).float()
-        observation = observation.cpu().detach().numpy()
         self._turn = 0
-        print("inside step")
-        print("observation = ", observation)
-        print("reward = ", reward)
-        print("done = ", done)
-        print("info = ", info)
 
         return observation, reward, done, self._turn, info

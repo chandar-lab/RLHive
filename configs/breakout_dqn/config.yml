@@ -33,7 +33,7 @@ agent:
       kwargs:
         seed: 42
         capacity: 1000000
-        stack_size: 4
+        stack_size: 1
     discount_rate: .99
     target_net_update_schedule:
       name: 'PeriodicSchedule'

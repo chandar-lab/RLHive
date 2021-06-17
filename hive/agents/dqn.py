@@ -82,7 +82,6 @@ class DQNAgent(Agent):
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
 
-        print("device = ", device)
         self._qnet = get_qnet(qnet).to(device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         optimizer_fn = get_optimizer_fn(optimizer_fn)
@@ -151,7 +150,6 @@ class DQNAgent(Agent):
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
-        print("observation = ", observation)
         observation = (
             torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
         )
@@ -183,21 +181,17 @@ class DQNAgent(Agent):
             self._state["episode_start"] = True
 
         # Add the most recent transition to the replay buffer.
-        print("observation = ", update_info["observation"])
-        print("action = ", update_info["action"])
-        print("reward = ", update_info["reward"])
         if update_info["done"]:
             update_info["done"] = 1.0
         else:
             update_info["done"] = 0.0
-        print("done = ", update_info["done"])
 
         if self._training:
             self._replay_buffer.add(
-                observation=update_info["observation"],
+                observation=update_info["observation"].detach().cpu().numpy(),
                 action=update_info["action"],
                 reward=update_info["reward"],
-                done=update_info["done"],
+                done=np.uint8(update_info["done"]),
             )
 
         # Update the q network based on a sample batch from the replay buffer.
@@ -210,6 +204,7 @@ class DQNAgent(Agent):
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
+
             pred_qvals = self._qnet(batch["observation"])
             actions = batch["action"].long()
             pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
