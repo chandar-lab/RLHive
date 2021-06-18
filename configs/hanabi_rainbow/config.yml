@@ -28,15 +28,17 @@ agents:
     name: 'HanabiRainbowAgent'
     kwargs:
       qnet:
-        name: 'DistributionalMLP'
+        name: 'DistributionalHanabiMLP'
         kwargs:
-          noisy: False
-          dueling: True
+          dueling: False
           hidden_units: 256
           num_hidden_layers: 2
+          atoms: 2
       optimizer_fn:
         name: 'Adam'
-        kwargs: {}
+        kwargs:
+          lr: 0.000025
+          eps: 0.00003125
       id: 0
       replay_buffer:
         name: 'EfficientCircularBuffer'
@@ -44,6 +46,10 @@ agents:
           seed: 42
           capacity: 10000
           stack_size: *stack_size
+          extra_storage_types:
+            legal_moves:
+              - 'np.int8'
+              - (20)
       discount_rate: .99
       target_net_update_schedule:
         name: 'PeriodicSchedule'
@@ -54,36 +60,38 @@ agents:
       epsilon_schedule:
         name: 'ConstantSchedule'
         kwargs:
-          value: .01
+          value: .0
       learn_schedule:
         name: 'SwitchSchedule'
         kwargs:
           off_value: False
           on_value: True
-          steps: 500
+          steps: 100
       seed: 42
       batch_size: 128
       device: 'cpu'
       log_frequency: 100
       double: False
       distributional: True
-      epsilon_on: True
+      use_eps_greedy: True
       v_min: 0.0
       v_max: 25.0
-      atoms: 51
+      atoms: 2
   - 
     name: 'HanabiRainbowAgent'
     kwargs:
       qnet:
-        name: 'DistributionalMLP'
+        name: 'DistributionalHanabiMLP'
         kwargs:
-          noisy: False
-          dueling: True
+          dueling: False
           hidden_units: 256
           num_hidden_layers: 2
+          atoms: 2
       optimizer_fn:
         name: 'Adam'
-        kwargs: {}
+        kwargs:
+          lr: 0.000025
+          eps: 0.00003125
       id: 1
       replay_buffer:
         name: 'EfficientCircularBuffer'
@@ -91,6 +99,10 @@ agents:
           seed: 42
           capacity: 10000
           stack_size: *stack_size
+          extra_storage_types:
+            legal_moves:
+              - np.int8
+              - (20)
       discount_rate: .99
       target_net_update_schedule:
         name: 'PeriodicSchedule'
@@ -101,23 +113,23 @@ agents:
       epsilon_schedule:
         name: 'ConstantSchedule'
         kwargs:
-          value: .01
+          value: .0
       learn_schedule:
         name: 'SwitchSchedule'
         kwargs:
           off_value: False
           on_value: True
-          steps: 500
+          steps: 100
       seed: 42
       batch_size: 128
       device: 'cpu'
       log_frequency: 100
       double: False
       distributional: True
-      epsilon_on: True
+      use_eps_greedy: True
       v_min: 0.0
       v_max: 25.0
-      atoms: 51
+      atoms: 2
 
 # List of logger configs used.
 loggers:

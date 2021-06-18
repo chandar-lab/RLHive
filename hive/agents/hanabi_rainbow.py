@@ -47,7 +47,7 @@ class HanabiRainbowAgent(RainbowDQNAgent):
         log_frequency=100,
         double=True,
         distributional=False,
-        epsilon_on=True,
+        use_eps_greedy=True,
     ):
         """
         Args:
@@ -77,19 +77,20 @@ class HanabiRainbowAgent(RainbowDQNAgent):
             log_frequency=log_frequency,
             double=double,
             distributional=distributional,
-            epsilon_on=epsilon_on,
+            use_eps_greedy=use_eps_greedy,
         )
 
     def projection_distribution(self, batch):
         batch_obs = batch["observation"]
         batch_action = batch["action"].long()
         batch_next_obs = batch["next_observation"]
+        batch_legal_moves = batch["legal_moves"]
         batch_reward = batch["reward"].reshape(-1, 1).to(self._device)
         batch_not_done = 1 - batch["done"].reshape(-1, 1).to(self._device)
 
         with torch.no_grad():
-            next_action = self._target_qnet(batch_next_obs).argmax(1)
-            next_dist = self._target_qnet.dist(batch_next_obs)
+            next_action = self._target_qnet(batch_next_obs, batch_legal_moves).argmax(1)
+            next_dist = self._target_qnet.dist(batch_next_obs, batch_legal_moves)
             next_dist = next_dist[range(self._batch_size), next_action]
 
             t_z = batch_reward + batch_not_done * self._discount_rate * self._supports
@@ -120,9 +121,6 @@ class HanabiRainbowAgent(RainbowDQNAgent):
 
     @torch.no_grad()
     def act(self, observation):
-        # observation = torch.tensor(observation).to(self._device).float()
-
-        # if not self._distributional:
         if self._training:
             if not self._learn_schedule.update():
                 epsilon = 1.0
@@ -133,7 +131,7 @@ class HanabiRainbowAgent(RainbowDQNAgent):
         else:
             epsilon = 0
 
-        if not self._epsilon_on:
+        if not self._use_eps_greedy:
             self._qnet.sample_noise()
 
         vectorized_observation = (
@@ -141,9 +139,12 @@ class HanabiRainbowAgent(RainbowDQNAgent):
             .to(self._device)
             .float()
         )
-        qvals = self._qnet(vectorized_observation).cpu()
+        encoded_legal_moves = action_encoding(
+            observation["legal_moves_as_int"], self._act_dim
+        )
+        qvals = self._qnet(vectorized_observation, encoded_legal_moves).cpu()
 
-        if self._epsilon_on and self._rng.random() < epsilon:
+        if self._use_eps_greedy and self._rng.random() < epsilon:
             action = np.random.choice(observation["legal_moves_as_int"]).item()
         else:
             ilegal_moves = [
@@ -183,6 +184,9 @@ class HanabiRainbowAgent(RainbowDQNAgent):
                 update_info["action"],
                 update_info["reward"],
                 update_info["done"],
+                legal_moves=action_encoding(
+                    update_info["observation"]["legal_moves_as_int"], self._act_dim
+                ),
             )
 
         # Update the q network based on a sample batch from the replay buffer.
@@ -195,7 +199,7 @@ class HanabiRainbowAgent(RainbowDQNAgent):
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(batch["observation"])
+            pred_qvals = self._qnet(batch["observation"], batch["legal_moves"])
             actions = batch["action"].long()
 
             if not self._distributional:
@@ -203,12 +207,18 @@ class HanabiRainbowAgent(RainbowDQNAgent):
 
                 # Compute 1-step Q targets
                 if self._double:
-                    next_action = self._qnet(batch["next_observation"])
+                    next_action = self._qnet(
+                        batch["next_observation"], batch["legal_moves"]
+                    )
                 else:
-                    next_action = self._target_qnet(batch["next_observation"])
+                    next_action = self._target_qnet(
+                        batch["next_observation"], batch["legal_moves"]
+                    )
 
                 _, next_action = torch.max(next_action, dim=1)
-                next_qvals = self._target_qnet(batch["next_observation"])
+                next_qvals = self._target_qnet(
+                    batch["next_observation"], batch["legal_moves"]
+                )
                 next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
 
                 q_targets = batch["reward"] + self._discount_rate * next_qvals * (
@@ -218,10 +228,12 @@ class HanabiRainbowAgent(RainbowDQNAgent):
                 loss = self._loss_fn(pred_qvals, q_targets)
 
             else:
-                if not self._epsilon_on:
+                if not self._use_eps_greedy:
                     self._qnet.sample_noise()
                     self._target_qnet.sample_noise()
-                current_dist = self._qnet.dist(batch["observation"])
+                current_dist = self._qnet.dist(
+                    batch["observation"], batch["legal_moves"]
+                )
                 log_p = torch.log(current_dist[range(self._batch_size), actions])
                 target_prob = self.projection_distribution(batch)
 
@@ -245,3 +257,9 @@ class HanabiRainbowAgent(RainbowDQNAgent):
         # Update target network
         if self._training and self._target_net_update_schedule.update():
             self._update_target()
+
+
+def action_encoding(legal_moves, act_dim):
+    encoded_legal_moves = np.zeros(act_dim, dtype=np.int8)
+    encoded_legal_moves[legal_moves] = 1
+    return encoded_legal_moves

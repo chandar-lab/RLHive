@@ -64,6 +64,10 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             "reward": (reward_dtype, reward_shape),
         }
         if extra_storage_types is not None:
+            for key in extra_storage_types.keys():
+                dtype = str_to_dtype(extra_storage_types[key][0])
+                shape = str_to_shape(extra_storage_types[key][1])
+                extra_storage_types[key] = (dtype, shape)
             self._specs.update(extra_storage_types)
         self._storage = self._create_storage(capacity, self._specs)
         self._stack_size = stack_size
@@ -295,3 +299,15 @@ def str_to_dtype(dtype):
             "bool": bool,
         }
         return type_dict[dtype]
+
+
+def str_to_shape(shape):
+    if isinstance(shape, tuple):
+        return shape
+    elif isinstance(shape, str):
+        if len(shape[1:-1]) == 0:
+            return ()
+        elif len(shape[1:-1]) == 1:
+            return (shape[1],)
+        else:
+            return tuple([int(dim) for dim in shape[1:-1].split(",")])
