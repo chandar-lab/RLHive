@@ -1,6 +1,7 @@
 from hive.envs.env_spec import EnvSpec
 from hive.envs.base import BaseEnv, ParallelEnv
 from hive.envs.gym_env import GymEnv
+from hive.envs.probe.probe import Probe1, Probe2, Probe3, Probe4, Probe5
 
 try:
     from hive.envs.minigrid import MiniGridEnv
@@ -26,5 +27,10 @@ get_env = create_class_constructor(
         "MiniGridEnv": MiniGridEnv,
         "MarlGridEnv": MarlGridEnv,
         "AtariEnv": AtariEnv,
+        "Probe1": Probe1,
+        "Probe2": Probe2,
+        "Probe3": Probe3,
+        "Probe4": Probe4,
+        "Probe5": Probe5,
     },
 )
