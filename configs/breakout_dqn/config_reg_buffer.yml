@@ -1,5 +1,5 @@
 # General training loop config
-run_name: &run_name 'breakout-dqn-gpu-cen'
+run_name: &run_name 'breakout-dqn-reg-gpu-cen'
 train_steps: 10000000
 test_frequency: 100
 test_num_episodes: 10
@@ -33,7 +33,7 @@ agent:
         centered: True
     id: 0
     replay_buffer:
-      name: 'EfficientCircularBuffer'
+      name: 'CircularReplayBuffer'
       kwargs:
         seed: 43
         capacity: 100000

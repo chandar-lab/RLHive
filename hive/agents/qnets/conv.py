@@ -59,8 +59,9 @@ class SimpleConvModel(nn.Module):
             torch.nn.Linear(i, o) for i, o in zip(head_units[:-1], head_units[1:])
         ]
         head_seq = list()
-        for head_layer in head_layers:
+        for head_layer in head_layers[:-1]:
             head_seq.extend([head_layer, torch.nn.ReLU()])
+        head_seq.extend([head_layers[-1]])
         self.head = torch.nn.Sequential(*head_seq)
 
     def forward(self, x):
