@@ -1,8 +1,6 @@
 import torch
 from torch import nn
 
-from hive.agents.qnets.utils import conv2d_output_shape
-
 
 class SimpleConvModel(nn.Module):
     """
@@ -10,17 +8,28 @@ class SimpleConvModel(nn.Module):
     """
 
     def __init__(
-        self, in_dim, out_dim, channels, kernel_sizes, strides, paddings, mlp_layers
+        self,
+        in_dim,
+        out_dim,
+        channels,
+        mlp_layers,
+        kernel_sizes=1,
+        strides=1,
+        paddings=0,
+        normalization_factor=255,
     ):
         """
         Args:
-            in_dim (tuple): The tuple of observations dimension (channels, width, height)
+            in_dim (tuple): The tuple of observations dimension (channels, width,
+                height)
             out_dim (int): The action dimension
             channels (list): The size of output channel for each convolutional layer
-            kernel_sizes (list): The kernel size for each convolutional layer
-            strides (list): The stride used for each convolutional layer
-            paddings (list): The size of the padding used for each convolutional layer
-            mlp_layers (list): The size of neurons for each mlp layer after the convolutional layers
+            mlp_layers (list): The size of neurons for each mlp layer after the
+                convolutional layers
+            kernel_sizes (list | int): The kernel size for each convolutional layer
+            strides (list | int): The stride used for each convolutional layer
+            paddings (list | int): The size of the padding used for each convolutional
+                layer
         """
 
         assert len(channels) == len(kernel_sizes)
@@ -28,12 +37,31 @@ class SimpleConvModel(nn.Module):
         assert len(channels) == len(paddings)
 
         super().__init__()
+        self._normalization_factor = normalization_factor
+
+        if isinstance(kernel_sizes, int):
+            kernel_sizes = [kernel_sizes] * len(channels)
+        if isinstance(strides, int):
+            strides = [strides] * len(channels)
+        if isinstance(paddings, int):
+            paddings = [paddings] * len(channels)
 
         c, h, w = in_dim
-
-        # Default Convolutional Layers
-        channels = [c] + channels
-
+        # Convolutional Layers
+        channels.insert(0, c)
+        conv_seq = []
+        for i in range(0, len(channels) - 1):
+            conv_seq.append(
+                torch.nn.Conv2d(
+                    in_channels=channels[i],
+                    out_channels=channels[i + 1],
+                    kernel_size=kernel_sizes[i],
+                    stride=strides[i],
+                    padding=paddings[i],
+                )
+            )
+            conv_seq.append(torch.nn.ReLU())
+        self.conv = torch.nn.Sequential(*conv_seq)
         conv_layers = [
             torch.nn.Conv2d(
                 in_channels=in_c,
@@ -51,29 +79,27 @@ class SimpleConvModel(nn.Module):
             conv_seq.extend([conv_layer, torch.nn.ReLU()])
         self.conv = torch.nn.Sequential(*conv_seq)
 
-        # Default MLP Layers
-        conv_out_size = self.conv_out_size(h, w)
-        head_units = [conv_out_size] + mlp_layers + [out_dim]
-        head_layers = [
-            torch.nn.Linear(i, o) for i, o in zip(head_units[:-1], head_units[1:])
-        ]
-        head_seq = list()
-        for head_layer in head_layers:
-            head_seq.extend([head_layer, torch.nn.ReLU()])
+        # MLP Layers
+        mlp_layers.append(out_dim)
+        head_seq = [torch.nn.Linear(self.conv_out_size(h, w), mlp_layers[0])]
+        for i in range(len(mlp_layers) - 1):
+            head_seq.append(torch.nn.ReLU())
+            head_seq.append(torch.nn.Linear(mlp_layers[i], mlp_layers[i + 1]))
         self.head = torch.nn.Sequential(*head_seq)
 
     def forward(self, x):
         if len(x.shape) == 3:
             x = x.unsqueeze(0)
-        batch_size = x.size(0)
-
+        elif len(x.shape) == 5:
+            x = x.reshape(x.size(0), -1, x.size(-2), x.size(-1))
         x = x.type(torch.float)
-        x = x.mul_(1.0 / 255)
-        conv_out = self.conv(x)
-        q = self.head(conv_out.view(batch_size, -1))
-        return q
+        x = x / self._normalization_factor
+        x = self.conv(x)
+        x = torch.flatten(x, 1)
+        x = self.head(x)
+        return x
 
-    def conv_out_size(self, h, w, c=None):
+    def conv_out_size(self, h, w):
         """
         Helper function ot return the output size for a given input shape,
         without actually performing a forward pass through the model.
@@ -90,3 +116,16 @@ class SimpleConvModel(nn.Module):
             except AttributeError:
                 pass
         return h * w * c
+
+
+def conv2d_output_shape(h, w, kernel_size=1, stride=1, padding=0, dilation=1):
+    """
+    Returns output H, W after convolution/pooling on input H, W.
+    """
+    kh, kw = kernel_size if isinstance(kernel_size, tuple) else (kernel_size,) * 2
+    sh, sw = stride if isinstance(stride, tuple) else (stride,) * 2
+    ph, pw = padding if isinstance(padding, tuple) else (padding,) * 2
+    d = dilation
+    h = (h + (2 * ph) - (d * (kh - 1)) - 1) // sh + 1
+    w = (w + (2 * pw) - (d * (kw - 1)) - 1) // sw + 1
+    return h, w
