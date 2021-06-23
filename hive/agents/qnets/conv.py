@@ -31,11 +31,6 @@ class SimpleConvModel(nn.Module):
             paddings (list | int): The size of the padding used for each convolutional
                 layer
         """
-
-        assert len(channels) == len(kernel_sizes)
-        assert len(channels) == len(strides)
-        assert len(channels) == len(paddings)
-
         super().__init__()
         self._normalization_factor = normalization_factor
 
@@ -45,6 +40,10 @@ class SimpleConvModel(nn.Module):
             strides = [strides] * len(channels)
         if isinstance(paddings, int):
             paddings = [paddings] * len(channels)
+
+        assert len(channels) == len(kernel_sizes)
+        assert len(channels) == len(strides)
+        assert len(channels) == len(paddings)
 
         c, h, w = in_dim
         # Convolutional Layers
