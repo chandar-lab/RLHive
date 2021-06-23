@@ -33,12 +33,10 @@ agent:
         lr: 0.001
     id: 0
     replay_buffer:
-      # name: 'EfficientCircularBuffer'
-      name: 'CircularReplayBuffer'
+      name: 'EfficientCircularBuffer'
       kwargs:
         seed: 42
         capacity: 20000
-        # stack_size: 1
     discount_rate: .9
     target_net_update_schedule:
       name: 'PeriodicSchedule'
