@@ -169,7 +169,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             self.size() + self._stack_size + self._n_step - 1
         )
         elements = array[full_indices]
-        elements = elements.reshape(indices.shape[0], -1, elements.shape[3:])
+        elements = elements.reshape(indices.shape[0], -1, *elements.shape[3:])
         return elements
 
     def _get_from_storage(self, key, indices, num_to_access=1):
