@@ -9,7 +9,7 @@ from gym_minigrid.wrappers import (
 )
 
 from hive.envs.gym_env import GymEnv
-from hive.envs.wrappers.gym_wrappers import FlattenWrapper
+from hive.envs.wrappers.gym_wrappers import FlattenWrapper, PermuteImageWrapper
 
 
 class MiniGridEnv(GymEnv):
@@ -20,8 +20,8 @@ class MiniGridEnv(GymEnv):
     def create_env(
         self,
         env_name,
-        rgb_obs=False,
-        flattened_obs=True,
+        rgb_obs=True,
+        flattened_obs=False,
         fully_observable=True,
         use_mission=False,
     ):
@@ -36,6 +36,8 @@ class MiniGridEnv(GymEnv):
              if using flattened observations, then the observation has the mission encoded in it.
         """
 
+        super().create_env(env_name)
+
         if fully_observable:
             self._env = FullyObsWrapper(self._env)
             if rgb_obs:
@@ -44,7 +46,7 @@ class MiniGridEnv(GymEnv):
             self._env = RGBImgPartialObsWrapper(self._env)
 
         if not use_mission:
-            self._env = ImgObsWrapper(self._env)
+            self._env = PermuteImageWrapper(ImgObsWrapper(self._env))
             if flattened_obs:
                 self._env = FlattenWrapper(self._env)
         elif flattened_obs:
