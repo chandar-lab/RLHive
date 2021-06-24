@@ -30,6 +30,8 @@ class SimpleConvModel(nn.Module):
             strides (list | int): The stride used for each convolutional layer
             paddings (list | int): The size of the padding used for each convolutional
                 layer
+            normalization_factor (float | int): What the input is divided by before
+                the forward pass of the network
         """
         super().__init__()
         self._normalization_factor = normalization_factor
