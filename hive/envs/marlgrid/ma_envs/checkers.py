@@ -5,26 +5,38 @@ import numpy as np
 
 
 class CheckersMultiGrid(MultiGridEnvHive):
-    mission = "get to the green square"
-    metadata = {}
+    """
+    Checkers environment based on sunehag et al. 2017
+
+    "... The map contains apples and lemons. The first player is very sensitive and scores 10 for
+    the team for an apple (green square) and −10 for a lemon (orange square). The second, less sensitive
+    player scores 1 for the team for an apple and −1 for a lemon. There is a wall of lemons between the
+    players and the apples. Apples and lemons disappear when collected.
+    The environment resets when all apples are eaten or maximum number of steps is reached.
+    """
 
     def _gen_grid(self, width, height):
+        num_rows = 3
         self.grid = MultiGrid((width, height))
         self.grid.wall_rect(0, 0, width, height)
         apple = Goal(color="green", reward=10)
         orange = Goal(color="red", reward=-10)
-        for i in range(int(np.floor(width / 2))):
-            for j in range(3):
-                if (j % 2) + 1 + 2 * i < width - 1:
-                    self.put_obj(orange, (j % 2) + 1 + 2 * i, j + 1)
+        self.num_remained_apples = 0
+        for j in range(num_rows):
+            oranges_loc = [2 * i + 1 + j % 2 for i in range(width // 2 - 1)]
+            apples_loc = [2 * i + 1 + (j + 1) % 2 for i in range(width // 2 - 1)]
+            for orange_loc in oranges_loc:
+                self.put_obj(orange, orange_loc, j + 1)
 
-                if ((j + 1) % 2) + 1 + 2 * i < width - 1:
-                    self.put_obj(apple, ((j + 1) % 2) + 1 + 2 * i, j + 1)
+            for apple_loc in apples_loc:
+                self.put_obj(apple, apple_loc, j + 1)
+                self.num_remained_apples += 1
 
-        self.num_remained_goals = 3 * (width - 2)
         self.agent_spawn_kwargs = {}
         self.place_agents(
-            top=(0, 4), size=(width, height - 4), **self.agent_spawn_kwargs
+            top=(0, num_rows + 1),
+            size=(width, height - num_rows - 1),
+            **self.agent_spawn_kwargs,
         )
         self.ghost_mode = False
 
@@ -124,13 +136,13 @@ class CheckersMultiGrid(MultiGridEnvHive):
                                 rwd *= 1.0 - 0.9 * (self.step_count / self.max_steps)
                             step_rewards[agent_no] += rwd
                             agent.reward(rwd)
-                            self.num_remained_goals -= 1
+                            if rwd > 0:
+                                self.num_remained_apples -= 1
 
                         if isinstance(fwd_cell, Lava):
                             agent.done = True
 
-                # TODO: verify pickup/drop/toggle logic in an environment that
-                #  supports the relevant interactions.
+                # TODO: Remove extra actions?
                 # Pick up an object
                 elif action == agent.actions.pickup:
                     if fwd_cell and fwd_cell.can_pickup():
@@ -193,7 +205,7 @@ class CheckersMultiGrid(MultiGridEnvHive):
         done = (
             (self.step_count >= self.max_steps)
             or all([agent.done for agent in self.agents])
-            or self.num_remained_goals == 0
+            or self.num_remained_apples == 0
         )
 
         obs = [self.gen_agent_obs(agent) for agent in self.agents]
