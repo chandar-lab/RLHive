@@ -1,7 +1,7 @@
 from marlgrid import envs
 import gym
 from hive.envs import ParallelEnv, GymEnv
-from hive.envs.wrappers import FlattenWrapper
+from hive.envs.wrappers.gym_wrappers import FlattenWrapper, PermuteImageWrapper
 
 
 class MarlGridEnv(ParallelEnv, GymEnv):
@@ -15,12 +15,13 @@ class MarlGridEnv(ParallelEnv, GymEnv):
     The flatten parameter flattens the observations for all agents.
     """
 
-    def create_env(self, env_name, randomize_seed=True, flatten=True, **kwargs):
+    def create_env(self, env_name, randomize_seed=True, flatten=False, **kwargs):
         if env_name is None:
             self._env = envs.env_from_config(kwargs, randomize_seed=randomize_seed)
         else:
             super().create_env(env_name, **kwargs)
 
+        self._env = PermuteImageWrapper(self._env)
         if flatten:
             self._env = FlattenWrapper(self._env)
 
