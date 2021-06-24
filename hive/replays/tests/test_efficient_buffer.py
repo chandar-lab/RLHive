@@ -228,15 +228,17 @@ def test_stacked_buffer_sample(full_stacked_buffer):
     batch = full_stacked_buffer.sample(batch_size)
     for i in range(batch_size):
         timestep = batch["action"][i]
-        assert batch["observation"][i].shape == ((STACK_SIZE,) + OBS_SHAPE)
+        assert batch["observation"][i].shape == (
+            (STACK_SIZE * OBS_SHAPE[0],) + OBS_SHAPE[1:]
+        )
         assert batch["reward"][i] == timestep % 10
         assert batch["done"][i] == (((timestep + 1) % 15) == 0)
         if not batch["done"][i]:
-            assert batch["observation"][i, -1] == pytest.approx(
-                batch["next_observation"][i, 0]
+            assert batch["observation"][i, -OBS_SHAPE[0] :] == pytest.approx(
+                batch["next_observation"][i, : OBS_SHAPE[0]]
             )
-            assert batch["observation"][i, -1] + 1 == pytest.approx(
-                batch["next_observation"][i, 1]
+            assert batch["observation"][i, -OBS_SHAPE[0] :] + 1 == pytest.approx(
+                batch["next_observation"][i, OBS_SHAPE[0] : 2 * OBS_SHAPE[0]]
             )
 
 

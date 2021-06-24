@@ -158,6 +158,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def _get_from_array(self, array, indices, num_to_access=1):
         """Retrieves consecutive elements in the array, wrapping around if necessary.
+        If more than 1 element is being accessed, the elements are concatenated along
+        the first dimension.
 
         Args:
             array: array to access from
@@ -168,7 +170,9 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         full_indices = (full_indices + np.expand_dims(indices, axis=1)) % (
             self.size() + self._stack_size + self._n_step - 1
         )
-        return array[full_indices]
+        elements = array[full_indices]
+        elements = elements.reshape(indices.shape[0], -1, *elements.shape[3:])
+        return elements
 
     def _get_from_storage(self, key, indices, num_to_access=1):
         """Gets values from storage.
