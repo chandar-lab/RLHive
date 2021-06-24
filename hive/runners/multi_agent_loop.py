@@ -7,7 +7,7 @@ import yaml
 from hive import agents as agent_lib
 from hive import envs
 from hive.utils import experiment, logging, schedule, utils
-from hive.runners.utils import load_config, TransitionInfo
+from hive.runners.utils import load_config, TransitionInfo, set_seed
 from hive.runners.base import Runner
 
 
@@ -174,6 +174,8 @@ def set_up_experiment(config):
     """Returns a runner object based on the config."""
 
     original_config = utils.Chomp(copy.deepcopy(config))
+    if "seed" in config:
+        set_seed(config["seed"])
 
     # Set up environment
     environment = envs.get_env(config["environment"])
