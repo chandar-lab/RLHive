@@ -109,8 +109,9 @@ def set_up_experiment(config):
     # Set up agent
     if config.get("stack_size", 1) > 1:
         config["agent"]["kwargs"]["obs_dim"] = (
-            config["stack_size"],
-        ) + env_spec.obs_dim[0]
+            config["stack_size"] * env_spec.obs_dim[0][0],
+            *env_spec.obs_dim[0][1:],
+        )
     else:
         config["agent"]["kwargs"]["obs_dim"] = env_spec.obs_dim[0]
     config["agent"]["kwargs"]["act_dim"] = env_spec.act_dim[0]
