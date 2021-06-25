@@ -1,10 +1,12 @@
-import os
 import abc
 import copy
+import os
+
 import torch
 import wandb
+from hive import Registrable, registry
 from hive.utils.schedule import ConstantSchedule, Schedule, get_schedule
-from hive.utils.utils import Chomp, Registrable, create_folder, registry
+from hive.utils.utils import Chomp, create_folder
 
 
 class Logger(abc.ABC, Registrable):
