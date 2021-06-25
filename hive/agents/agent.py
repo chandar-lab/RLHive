@@ -1,7 +1,8 @@
 import abc
+from hive import Registrable
 
 
-class Agent(abc.ABC):
+class Agent(abc.ABC, Registrable):
     """Base class for agents. Every implemented agent should be a subclass of this class."""
 
     def __init__(self, obs_dim, act_dim, id=0):
@@ -65,3 +66,7 @@ class Agent(abc.ABC):
             True if successfully loaded agent. False otherwise.
         """
         pass
+
+    @classmethod
+    def type_name(cls):
+        return "agent"

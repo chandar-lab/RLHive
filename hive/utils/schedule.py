@@ -1,8 +1,8 @@
 import abc
-from hive.utils.utils import create_class_constructor
+from hive import Registrable, registry
 
 
-class Schedule(abc.ABC):
+class Schedule(abc.ABC, Registrable):
     @abc.abstractmethod
     def get_value():
         """Returns the current value of the variable we are tracking"""
@@ -13,6 +13,10 @@ class Schedule(abc.ABC):
         """Update the value of the variable we are tracking and return the updated value.
         The first call to update will return the initial value of the schedule."""
         pass
+
+    @classmethod
+    def type_name(cls):
+        return "schedule"
 
 
 class LinearSchedule(Schedule):
@@ -142,7 +146,7 @@ class PeriodicSchedule(DoublePeriodicSchedule):
         super().__init__(off_value, on_value, period - 1, 1)
 
 
-get_schedule = create_class_constructor(
+registry.register_all(
     Schedule,
     {
         "LinearSchedule": LinearSchedule,
@@ -152,3 +156,5 @@ get_schedule = create_class_constructor(
         "DoublePeriodicSchedule": DoublePeriodicSchedule,
     },
 )
+
+get_schedule = getattr(registry, f"get_{Schedule.type_name()}")

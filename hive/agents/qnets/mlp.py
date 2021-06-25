@@ -1,11 +1,10 @@
+from hive.agents.qnets.base import FunctionApproximator
 import numpy as np
 import torch
 from torch import nn
-import torch.nn.functional as F
-import math
 
 
-class SimpleMLP(nn.Module):
+class SimpleMLP(nn.Module, FunctionApproximator):
     """Simple MLP function approximator for Q-Learning."""
 
     def __init__(self, in_dim, out_dim, hidden_units=256, num_hidden_layers=1):

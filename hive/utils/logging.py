@@ -4,10 +4,10 @@ import copy
 import torch
 import wandb
 from hive.utils.schedule import ConstantSchedule, Schedule, get_schedule
-from hive.utils.utils import Chomp, create_folder, create_class_constructor
+from hive.utils.utils import Chomp, Registrable, create_folder, registry
 
 
-class Logger(abc.ABC):
+class Logger(abc.ABC, Registrable):
     """Abstract class for logging in hive."""
 
     def __init__(self, timescales):
@@ -69,6 +69,10 @@ class Logger(abc.ABC):
             dir_name: name of the directory to load the log file from.
         """
         pass
+
+    @classmethod
+    def type_name(cls):
+        return "logger"
 
 
 class ScheduledLogger(Logger):
@@ -301,7 +305,7 @@ class CompositeLogger(Logger):
         self._logger_list = logger_list
         for idx, logger in enumerate(self._logger_list):
             if isinstance(logger, dict):
-                self._logger_list[idx] = get_logger(logger)
+                self._logger_list[idx] = get_logger(logger, f"logger.{idx}")
 
     def register_timescale(self, timescale, schedule=None):
         for logger in self._logger_list:
@@ -344,7 +348,7 @@ class CompositeLogger(Logger):
             logger.load(load_dir)
 
 
-get_logger = create_class_constructor(
+registry.register_all(
     Logger,
     {
         "NullLogger": NullLogger,
@@ -353,3 +357,5 @@ get_logger = create_class_constructor(
         "CompositeLogger": CompositeLogger,
     },
 )
+
+get_logger = getattr(registry, f"get_{Logger.type_name()}")

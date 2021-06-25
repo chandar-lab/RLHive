@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
+from hive import Registrable
 
 
-class BaseEnv(ABC):
+class BaseEnv(ABC, Registrable):
     """
     Base class for environments, the learning task e.g. an MDP.
     """
@@ -78,6 +79,10 @@ class BaseEnv(ABC):
     @env_spec.setter
     def env_spec(self, env_spec):
         self._env_spec = env_spec
+
+    @classmethod
+    def type_name(cls):
+        return "env"
 
 
 class ParallelEnv(BaseEnv):

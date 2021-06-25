@@ -1,19 +1,23 @@
+from hive.agents.qnets.base import FunctionApproximator
+from hive.replays.replay_buffer import BaseReplayBuffer
 import os
 import copy
 import numpy as np
 import torch
-
+from typing import Tuple, Callable
 from hive.replays import CircularReplayBuffer, get_replay
-from hive.utils.logging import NullLogger, get_logger
-from hive.utils.utils import create_folder, get_optimizer_fn
+from hive.utils.logging import Logger, NullLogger, get_logger
+from hive.utils.utils import OptimizerFn, create_folder, get_optimizer_fn
 from hive.utils.schedule import (
     PeriodicSchedule,
     LinearSchedule,
+    Schedule,
     SwitchSchedule,
     get_schedule,
 )
 from hive.agents.agent import Agent
 from hive.agents.qnets import get_qnet
+from hive.utils.utils import OptimizerFn
 
 
 class DQNAgent(Agent):
@@ -23,24 +27,24 @@ class DQNAgent(Agent):
 
     def __init__(
         self,
-        qnet,
-        obs_dim,
-        act_dim,
-        optimizer_fn=None,
-        id=0,
-        replay_buffer=None,
-        discount_rate=0.99,
-        grad_clip=None,
-        target_net_soft_update=False,
-        target_net_update_fraction=0.05,
-        target_net_update_schedule=None,
-        epsilon_schedule=None,
-        learn_schedule=None,
-        seed=42,
-        batch_size=32,
-        device="cpu",
-        logger=None,
-        log_frequency=100,
+        qnet: FunctionApproximator,
+        obs_dim: Tuple,
+        act_dim: int,
+        optimizer_fn: OptimizerFn = None,
+        id: str = 0,
+        replay_buffer: BaseReplayBuffer = None,
+        discount_rate: float = 0.99,
+        grad_clip: float = None,
+        target_net_soft_update: bool = False,
+        target_net_update_fraction: float = 0.05,
+        target_net_update_schedule: Schedule = None,
+        epsilon_schedule: Schedule = None,
+        learn_schedule: Schedule = None,
+        seed: int = 42,
+        batch_size: int = 32,
+        device: str = "cpu",
+        logger: Logger = None,
+        log_frequency: int = 100,
     ):
         """
         Args:
