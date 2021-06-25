@@ -1,12 +1,26 @@
-import json
-import inspect
 import argparse
+import inspect
+import yaml
+from functools import partial, update_wrapper
 
 
 class Registrable:
     @classmethod
     def type_name(cls):
         raise ValueError
+
+
+class CallableType(Registrable):
+    def __init__(self, fn):
+        self._fn = fn
+        update_wrapper(self, self._fn)
+
+    def __call__(self, *args, **kwargs):
+        return partial(self._fn, *args, **kwargs)
+
+    @classmethod
+    def type_name(cls):
+        return "callable"
 
 
 class Registry:
@@ -28,14 +42,16 @@ class Registry:
                 kwargs = object_or_config["kwargs"]
                 if name in self._registry[type.type_name()]:
                     object_class = self._registry[type.type_name()][name]
-                    parsed_args = get_parsed_arguments(object_class, prefix=prefix)
+                    parsed_args = get_callable_parsed_arguments(
+                        object_class, prefix=prefix
+                    )
                     kwargs.update(parsed_args)
-                    kwargs = construct_objects(constructor, object_or_config, prefix)
+                    kwargs = construct_objects(constructor, kwargs, prefix)
                     return object_class(**kwargs)
                 else:
                     raise ValueError(f"{name} class not found")
 
-            setattr(self, f"get_{type.type_name()}", getter)
+            setattr(self.__class__, f"get_{type.type_name()}", getter)
         self._registry[type.type_name()][name] = constructor
 
     def register_all(self, base_class, class_dict):
@@ -51,7 +67,7 @@ def construct_objects(object_constructor, config, prefix):
             continue
         expected_type = signature.parameters[argument].annotation
 
-        if issubclass(expected_type, Registrable):
+        if isinstance(expected_type, type) and issubclass(expected_type, Registrable):
             config[argument] = registry.__getattribute__(
                 f"get_{expected_type.type_name()}"
             )(config[argument], f"{prefix}{argument}")
@@ -59,13 +75,20 @@ def construct_objects(object_constructor, config, prefix):
     return config
 
 
-def get_parsed_arguments(callable, prefix=None):
-    prefix = "" if prefix is None else f"{prefix}."
+def get_callable_parsed_arguments(callable, prefix=None):
     signature = inspect.signature(callable)
+    arguments = {
+        argument: signature.parameters[argument]
+        for argument in signature.parameters
+        if argument != "self"
+    }
+    return get_parsed_args(arguments, prefix)
+
+
+def get_parsed_args(arguments, prefix=None):
+    prefix = "" if prefix is None else f"{prefix}."
     parser = argparse.ArgumentParser()
-    for argument in signature.parameters:
-        if argument == "self":
-            continue
+    for argument in arguments:
         parser.add_argument(f"--{prefix}{argument}")
     parsed_args, _ = parser.parse_known_args()
     parsed_args = vars(parsed_args)
@@ -78,11 +101,11 @@ def get_parsed_arguments(callable, prefix=None):
     }
 
     for argument in parsed_args:
-        expected_type = signature.parameters[argument].annotation
+        expected_type = arguments[argument]
         if expected_type in [int, bool, str, float]:
             parsed_args[argument] = expected_type(parsed_args[argument])
         else:
-            parsed_args[argument] = json.loads(parsed_args[argument])
+            parsed_args[argument] = yaml.safe_load(parsed_args[argument])
 
     return parsed_args
 

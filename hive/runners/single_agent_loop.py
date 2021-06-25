@@ -89,21 +89,19 @@ class SingleAgentRunner(Runner):
 def set_up_experiment(config):
     """Returns a runner object based on the config."""
 
-    def runner_args(
-        seed: int,
-        train_steps: int,
-        train_episodes: int,
-        test_frequency: int,
-        test_num_episodes: int,
-        stack_size: int,
-        resume: bool,
-        run_name: str,
-        save_dir: str,
-    ):
-        """Dummy function to specify runner arguments and types"""
-        pass
-
-    args = get_parsed_arguments(runner_args)
+    args = get_parsed_arguments(
+        {
+            "seed": int,
+            "train_steps": int,
+            "train_episodes": int,
+            "test_frequency": int,
+            "test_num_episodes": int,
+            "stack_size": int,
+            "resume": bool,
+            "run_name": str,
+            "save_dir": str,
+        }
+    )
     config.update(args)
     original_config = utils.Chomp(copy.deepcopy(config))
     if "seed" in config:
