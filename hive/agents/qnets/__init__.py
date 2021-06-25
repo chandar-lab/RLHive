@@ -1,12 +1,12 @@
-import torch
+from hive import registry
+from hive.agents.qnets.atari import NatureAtariDQNModel
+from hive.agents.qnets.base import FunctionApproximator
+from hive.agents.qnets.conv import SimpleConvModel
 from hive.agents.qnets.mlp import SimpleMLP
 from hive.agents.qnets.rainbow_mlp import ComplexMLP, DistributionalMLP
-from hive.agents.qnets.conv import SimpleConvModel
-from hive.agents.qnets.atari import NatureAtariDQNModel
-from hive.utils.utils import create_class_constructor
 
-get_qnet = create_class_constructor(
-    torch.nn.Module,
+registry.register_all(
+    FunctionApproximator,
     {
         "SimpleMLP": SimpleMLP,
         "ComplexMLP": ComplexMLP,
@@ -15,3 +15,5 @@ get_qnet = create_class_constructor(
         "NatureAtariDQNModel": NatureAtariDQNModel,
     },
 )
+
+get_qnet = getattr(registry, f"get_{FunctionApproximator.type_name()}")

@@ -1,8 +1,9 @@
+from hive.agents.qnets.base import FunctionApproximator
 import torch
 from torch import nn
 
 
-class SimpleConvModel(nn.Module):
+class SimpleConvModel(nn.Module, FunctionApproximator):
     """
     Simple convolutional network approximator for Q-Learning.
     """

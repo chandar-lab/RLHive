@@ -1,5 +1,6 @@
 import argparse
 import copy
+from hive.utils.registry import get_parsed_arguments
 
 from hive import agents as agent_lib
 from hive import envs
@@ -88,12 +89,27 @@ class SingleAgentRunner(Runner):
 def set_up_experiment(config):
     """Returns a runner object based on the config."""
 
+    def runner_args(
+        seed: int,
+        train_steps: int,
+        train_episodes: int,
+        test_frequency: int,
+        test_num_episodes: int,
+        stack_size: int,
+        resume: bool,
+        run_name: str,
+        save_dir: str,
+    ):
+        """Dummy function to specify runner arguments and types"""
+        pass
+
+    args = get_parsed_arguments(runner_args)
+    config.update(args)
     original_config = utils.Chomp(copy.deepcopy(config))
     if "seed" in config:
         set_seed(config["seed"])
 
-    # Set up environment
-    environment = envs.get_env(config["environment"])
+    environment = envs.get_env(config["environment"], "env")
     env_spec = environment.env_spec
 
     # Set up loggers
@@ -104,7 +120,7 @@ def set_up_experiment(config):
         for logger in logger_config:
             logger["kwargs"]["timescales"] = ["train_episodes", "test_episodes"]
         if len(logger_config) == 1:
-            logger = logging.get_logger(logger_config[0])
+            logger = logging.get_logger(logger_config[0], "logger")
         else:
             logger = logging.CompositeLogger(logger_config)
 
@@ -121,10 +137,12 @@ def set_up_experiment(config):
     if "replay_buffer" in config["agent"]["kwargs"]:
         replay_args = config["agent"]["kwargs"]["replay_buffer"]["kwargs"]
         replay_args["observation_shape"] = env_spec.obs_dim[0]
-    agent = agent_lib.get_agent(config["agent"])
+    agent = agent_lib.get_agent(config["agent"], "agent")
 
     # Set up experiment manager
-    saving_schedule = schedule.get_schedule(config["saving_schedule"])
+    saving_schedule = schedule.get_schedule(
+        config["saving_schedule"], "saving_schedule"
+    )
     experiment_manager = experiment.Experiment(
         config["run_name"], config["save_dir"], saving_schedule
     )
@@ -133,7 +151,6 @@ def set_up_experiment(config):
         logger=logger,
         agents=agent,
     )
-
     # Set up runner
     runner = SingleAgentRunner(
         environment,
@@ -158,7 +175,7 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--agent-config")
     parser.add_argument("-e", "--env-config")
     parser.add_argument("-l", "--logger-config")
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
     config = load_config(args)
     runner = set_up_experiment(config)
     runner.run_training()
