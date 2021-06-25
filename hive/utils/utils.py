@@ -3,9 +3,9 @@ import os
 import pickle
 from collections import OrderedDict
 from copy import deepcopy
-from functools import partial, update_wrapper
 
-from hive import Registrable, registry
+from hive import registry
+from hive.utils.registry import CallableType
 from torch import optim
 
 
@@ -84,19 +84,6 @@ class Chomp:
         new_container = Chomp()
         new_container.add_from_dict(src_dict=deepcopy(self.get()))
         return new_container
-
-
-class CallableType(Registrable):
-    def __init__(self, fn):
-        self._fn = fn
-        update_wrapper(self, self._fn)
-
-    def __call__(self, *args, **kwargs):
-        return partial(self._fn, *args, **kwargs)
-
-    @classmethod
-    def type_name(cls):
-        return "callable"
 
 
 class OptimizerFn(CallableType):

@@ -8,11 +8,11 @@ from hive.agents.qnets.rainbow_mlp import ComplexMLP, DistributionalMLP
 registry.register_all(
     FunctionApproximator,
     {
-        "SimpleMLP": SimpleMLP,
-        "ComplexMLP": ComplexMLP,
-        "DistributionalMLP": DistributionalMLP,
-        "SimpleConvModel": SimpleConvModel,
-        "NatureAtariDQNModel": NatureAtariDQNModel,
+        "SimpleMLP": FunctionApproximator(SimpleMLP),
+        "ComplexMLP": FunctionApproximator(ComplexMLP),
+        "DistributionalMLP": FunctionApproximator(DistributionalMLP),
+        "SimpleConvModel": FunctionApproximator(SimpleConvModel),
+        "NatureAtariDQNModel": FunctionApproximator(NatureAtariDQNModel),
     },
 )
 

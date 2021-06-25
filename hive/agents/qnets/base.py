@@ -1,11 +1,8 @@
 from abc import ABC
-from hive import Registrable
+from hive.utils.registry import CallableType
 
 
-class FunctionApproximator(ABC, Registrable):
-    def __call__(self, **kwargs):
-        raise NotImplementedError
-
+class FunctionApproximator(CallableType):
     @classmethod
     def type_name(cls):
         return "function"
