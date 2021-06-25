@@ -104,9 +104,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
     def _add_transition(self, **transition):
         """Internal method to add a transition to the buffer."""
         for key in transition:
-            self._storage[key][self._cursor] = np.asarray(
-                transition[key], dtype=self._specs[key][0]
-            )
+            self._storage[key][self._cursor] = transition[key]
         self._num_added += 1
         self._cursor = (self._cursor + 1) % self._capacity
 

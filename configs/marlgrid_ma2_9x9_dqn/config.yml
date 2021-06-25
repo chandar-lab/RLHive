@@ -18,7 +18,7 @@ save_dir: 'experiment'
 environment:
   name: 'MarlGridEnv'
   kwargs:
-    env_name: 'MarlGrid-2AgentCheckers8x8-v0'
+    env_name: 'MarlGrid-2AgentEmpty9x9-v0'
     num_players: 2
 
 # List of agents for the experiment. In single agent, only the first agent in
@@ -98,7 +98,7 @@ agents:
           off_value: False
           on_value: True
           steps: 500
-      seed: 43
+      seed: 42
       batch_size: 128
       device: 'cpu'
       log_frequency: 100

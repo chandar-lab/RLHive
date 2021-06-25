@@ -5,7 +5,14 @@ import numpy as np
 
 
 class PursuitMultiGrid(MultiGridEnvHive):
-    mission = "get to the green square"
+    """
+    Pursuit–Evasion environment based on Gupta et al. 2017
+
+    "The pursuit-evasion domain consists of two sets of agents: evaders and pursuers.
+    The evaders are trying to avoid pursuers, while the pursuers are
+    trying to catch the evaders. The pursuers receive a reward of 5.0 when they surround an evader or corner the agent"
+    """
+
     metadata = {}
 
     def _gen_grid(self, width, height):
@@ -26,19 +33,19 @@ class PursuitMultiGrid(MultiGridEnvHive):
                 self.place_obj(agent, **self.agent_spawn_kwargs)
                 agent.activate()
 
-        assert len(actions) == len(self.agents)
+        num_learning_agents = len(actions)
+        num_rand_agents = self.num_agents - len(actions)
 
         step_rewards = np.zeros(
             (
-                len(
-                    self.agents,
-                )
+                num_learning_agents
             ),
             dtype=np.float,
         )
 
         self.step_count += 1
-
+        for i in range(num_learning_agents, self.num_agents):
+            actions.append(self.action_space[i].sample())
         iter_agents = list(enumerate(zip(self.agents, actions)))
         iter_order = np.arange(len(iter_agents))
         # self.np_random.shuffle(iter_order)
@@ -62,7 +69,6 @@ class PursuitMultiGrid(MultiGridEnvHive):
                 right_pos = agent.pos + np.array([+1, 0])
                 right_cell = self.grid.get(*right_pos)
 
-                num_rand_agents = 1
                 w = 0
                 a = 0
                 if agent_no == len(self.agents) - num_rand_agents:
@@ -83,13 +89,14 @@ class PursuitMultiGrid(MultiGridEnvHive):
                     if isinstance(right_cell, Wall):
                         w += 1
 
-                    if a >= 2:
-                        step_rewards[: len(self.agents) - num_rand_agents] += np.array(
+                    if a == len(self.agents) - num_rand_agents:
+                        step_rewards[:] += np.array(
                             [5] * (len(self.agents) - num_rand_agents)
                         )
-                        # if w == 2:
-                        #     step_rewards[:len(self.agents) - num_rand_agents] += \
-                        #         np.array([10] * (len(self.agents) - num_rand_agents))
+                        if w == 2 and a == 2:
+                            step_rewards[
+                                :
+                            ] += np.array([5] * (len(self.agents) - num_rand_agents))
                         for agent in self.agents:
                             agent.done = True
 
@@ -125,13 +132,6 @@ class PursuitMultiGrid(MultiGridEnvHive):
                             assert cur_cell.can_overlap()
                             cur_cell.agents.remove(agent)
 
-                        # # reward for surrounding the evader
-                        # min_num_surr_agents = len(self.agents) - 1
-                        # if agent_no == len(self.agents) - 1 and len(agent.agents) > 0:
-                        #     step_rewards[:len(self.agents) - 1] += np.array([10 ** len(agent.agents)] * (len(self.agents) - 1))
-                        #     if len(agent.agents) == min_num_surr_agents:
-                        #         done = True
-
                         # Add agent's agents to old cell
                         for left_behind in agent.agents:
                             cur_obj = self.grid.get(*cur_pos)
@@ -144,7 +144,6 @@ class PursuitMultiGrid(MultiGridEnvHive):
 
                         # After moving, the agent shouldn't contain any other agents.
                         agent.agents = []
-                        # test_integrity(f"After moving {agent.color} fellow")
 
                         # Rewards can be got iff. fwd_cell has a "get_reward" method
                         if hasattr(fwd_cell, "get_reward"):
@@ -219,12 +218,9 @@ class PursuitMultiGrid(MultiGridEnvHive):
 
         # The episode overall is done if all the agents are done, or if it exceeds the step limit.
         done = (self.step_count >= self.max_steps) or all(
-            [agent.done for agent in self.agents]
+            [agent.done for agent in self.agents[:num_learning_agents]]
         )
 
-        obs = [self.gen_agent_obs(agent) for agent in self.agents]
-
-        # Team reward
-        step_rewards = np.array([np.sum(step_rewards) for _ in self.agents])
+        obs = [self.gen_agent_obs(agent) for agent in self.agents[:num_learning_agents]]
 
         return obs, step_rewards, done, {}
