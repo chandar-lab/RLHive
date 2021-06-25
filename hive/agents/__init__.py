@@ -1,10 +1,10 @@
+from hive import registry
 from hive.agents.agent import Agent
 from hive.agents.dqn import DQNAgent
-from hive.agents.random import RandomAgent
 from hive.agents.rainbow import RainbowDQNAgent
-from hive.utils.utils import create_class_constructor
+from hive.agents.random import RandomAgent
 
-get_agent = create_class_constructor(
+registry.register_all(
     Agent,
     {
         "DQNAgent": DQNAgent,
@@ -12,3 +12,5 @@ get_agent = create_class_constructor(
         "RainbowDQNAgent": RainbowDQNAgent,
     },
 )
+
+get_agent = getattr(registry, f"get_{Agent.type_name()}")

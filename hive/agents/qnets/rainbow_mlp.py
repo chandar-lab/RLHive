@@ -1,3 +1,4 @@
+from hive.agents.qnets.base import FunctionApproximator
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -5,7 +6,7 @@ import math
 import numpy as np
 
 
-class NoisyLinear(nn.Module):
+class NoisyLinear(nn.Module, FunctionApproximator):
     """NoisyLinear Layer"""
 
     def __init__(self, in_dim, out_dim, std_init=0.4):
