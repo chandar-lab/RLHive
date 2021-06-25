@@ -17,7 +17,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         n_step=1,
         gamma=0.99,
         observation_shape=(),
-        observation_dtype=np.float32,
+        observation_dtype=np.uint8,
         action_shape=(),
         action_dtype=np.int8,
         reward_shape=(),
