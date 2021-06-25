@@ -4,7 +4,7 @@ import copy
 from hive import agents as agent_lib
 from hive import envs
 from hive.runners.base import Runner
-from hive.runners.utils import TransitionInfo, load_config
+from hive.runners.utils import TransitionInfo, load_config, set_seed
 from hive.utils import experiment, logging, schedule, utils
 
 
@@ -89,6 +89,8 @@ def set_up_experiment(config):
     """Returns a runner object based on the config."""
 
     original_config = utils.Chomp(copy.deepcopy(config))
+    if "seed" in config:
+        set_seed(config["seed"])
 
     # Set up environment
     environment = envs.get_env(config["environment"])
@@ -109,8 +111,9 @@ def set_up_experiment(config):
     # Set up agent
     if config.get("stack_size", 1) > 1:
         config["agent"]["kwargs"]["obs_dim"] = (
-            config["stack_size"],
-        ) + env_spec.obs_dim[0]
+            config["stack_size"] * env_spec.obs_dim[0][0],
+            *env_spec.obs_dim[0][1:],
+        )
     else:
         config["agent"]["kwargs"]["obs_dim"] = env_spec.obs_dim[0]
     config["agent"]["kwargs"]["act_dim"] = env_spec.act_dim[0]
