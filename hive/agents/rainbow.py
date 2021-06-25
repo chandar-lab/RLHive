@@ -88,17 +88,28 @@ class RainbowDQNAgent(DQNAgent):
             distributional: whether or not to use the distributional feature (from distributional DQN)
             use_eps_greedy: whether or not to use epsilon greedy. Usually in case of noisy networks use_eps_greedy=False
         """
-        self._obs_dim = obs_dim
-        self._act_dim = act_dim
-
+        super().__init__(
+            qnet,
+            obs_dim,
+            act_dim,
+            optimizer_fn=optimizer_fn,
+            id=id,
+            replay_buffer=replay_buffer,
+            discount_rate=discount_rate,
+            grad_clip=grad_clip,
+            target_net_soft_update=target_net_soft_update,
+            target_net_update_fraction=target_net_update_fraction,
+            target_net_update_schedule=target_net_update_schedule,
+            epsilon_schedule=epsilon_schedule,
+            learn_schedule=learn_schedule,
+            seed=seed,
+            batch_size=batch_size,
+            device=device,
+            logger=logger,
+            log_frequency=log_frequency,
+        )
         self._double = double
         self._distributional = distributional
-
-        if isinstance(qnet, dict):
-            if "kwargs" not in qnet:
-                qnet["kwargs"] = dict()
-            qnet["kwargs"]["in_dim"] = self._obs_dim
-            qnet["kwargs"]["out_dim"] = self._act_dim
 
         if self._distributional:
             self._atoms = atoms
@@ -111,45 +122,6 @@ class RainbowDQNAgent(DQNAgent):
             self._delta = float(self._v_max - self._v_min) / (self._atoms - 1)
             self._nsteps = 1
 
-        self._qnet = get_qnet(qnet).to(device)
-        self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
-
-        optimizer_fn = get_optimizer_fn(optimizer_fn)
-        if optimizer_fn is None:
-            optimizer_fn = torch.optim.Adam
-        self._optimizer = optimizer_fn(self._qnet.parameters())
-        self._rng = np.random.default_rng(seed=seed)
-        self._replay_buffer = get_replay(replay_buffer)
-        if self._replay_buffer is None:
-            self._replay_buffer = CircularReplayBuffer(np.random.default_rng(seed=seed))
-        self._discount_rate = discount_rate
-        self._grad_clip = grad_clip
-        self._target_net_soft_update = target_net_soft_update
-        self._target_net_update_fraction = target_net_update_fraction
-        self._device = torch.device(device)
-        self._loss_fn = torch.nn.SmoothL1Loss()
-        self._batch_size = batch_size
-        self._logger = get_logger(logger)
-        if self._logger is None:
-            self._logger = NullLogger()
-        self._id = id
-        self._timescale = self._id
-        self._logger.register_timescale(
-            self._timescale, PeriodicSchedule(False, True, log_frequency)
-        )
-        self._target_net_update_schedule = get_schedule(target_net_update_schedule)
-        if self._target_net_update_schedule is None:
-            self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
-        self._epsilon_schedule = get_schedule(epsilon_schedule)
-        if self._epsilon_schedule is None:
-            self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
-
-        self._learn_schedule = get_schedule(learn_schedule)
-        if self._learn_schedule is None:
-            self._learn_schedule = SwitchSchedule(False, True, 5000)
-
-        self._state = {"episode_start": True}
-        self._training = False
         self._use_eps_greedy = use_eps_greedy
 
     def get_max_next_state_action(self, next_states):

@@ -80,16 +80,8 @@ class DQNAgent(Agent):
             log_frequency (int): How often to log the agent's metrics.
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
-        # if isinstance(qnet, dict):
-        #     if "kwargs" not in qnet:
-        #         qnet["kwargs"] = dict()
-        #     qnet["kwargs"]["in_dim"] = self._obs_dim
-        #     qnet["kwargs"]["out_dim"] = self._act_dim
-
-        # self._qnet = get_qnet(qnet).to(device)
-        self._qnet = qnet(self._obs_dim, self._act_dim)
+        self._qnet = qnet(self._obs_dim, self._act_dim).to(device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
-        # optimizer_fn = get_optimizer_fn(optimizer_fn)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
