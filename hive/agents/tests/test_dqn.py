@@ -1,10 +1,11 @@
 from copy import deepcopy
+from hive.agents.qnets.base import FunctionApproximator
 from unittest.mock import Mock
 import numpy as np
 import pytest
 import torch
 
-from hive.agents import DQNAgent, RainbowDQNAgent
+from hive.agents import DQNAgent, RainbowDQNAgent, get_agent
 from hive.agents.qnets import SimpleMLP, ComplexMLP, DistributionalMLP
 from hive.envs import EnvSpec
 from hive.replays import CircularReplayBuffer
@@ -42,10 +43,8 @@ def agent_with_mock_optimizer(request):
 def ddnd_agent_with_mock_optimizer(env_spec):
     supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
-        qnet=DistributionalMLP(
-            env_spec.obs_dim,
-            env_spec.act_dim,
-            supports,
+        qnet=FunctionApproximator(DistributionalMLP)(
+            supports=supports,
             hidden_units=5,
             num_hidden_layers=1,
             noisy=True,
@@ -72,9 +71,7 @@ def ddnd_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def dxxx_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
-        qnet=ComplexMLP(
-            env_spec.obs_dim, env_spec.act_dim, hidden_units=5, num_hidden_layers=1
-        ),
+        qnet=FunctionApproximator(ComplexMLP)(hidden_units=5, num_hidden_layers=1),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
@@ -95,9 +92,7 @@ def dxxx_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def xdxx_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
-        qnet=ComplexMLP(
-            env_spec.obs_dim,
-            env_spec.act_dim,
+        qnet=FunctionApproximator(ComplexMLP)(
             hidden_units=5,
             num_hidden_layers=1,
             dueling=True,
@@ -121,9 +116,7 @@ def xdxx_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def xxnx_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
-        qnet=ComplexMLP(
-            env_spec.obs_dim,
-            env_spec.act_dim,
+        qnet=FunctionApproximator(ComplexMLP)(
             hidden_units=5,
             num_hidden_layers=1,
             noisy=True,
@@ -149,10 +142,8 @@ def xxnx_agent_with_mock_optimizer(env_spec):
 def xxxd_agent_with_mock_optimizer(env_spec):
     supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
-        qnet=DistributionalMLP(
-            env_spec.obs_dim,
-            env_spec.act_dim,
-            supports,
+        qnet=FunctionApproximator(DistributionalMLP)(
+            supports=supports,
             hidden_units=5,
             num_hidden_layers=1,
         ),
@@ -175,9 +166,7 @@ def xxxd_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def xxxx_agent_with_mock_optimizer(env_spec):
     agent = DQNAgent(
-        qnet=SimpleMLP(
-            env_spec.obs_dim, env_spec.act_dim, hidden_units=5, num_hidden_layers=1
-        ),
+        qnet=FunctionApproximator(SimpleMLP)(hidden_units=5, num_hidden_layers=1),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
@@ -196,9 +185,7 @@ def xxxx_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def xxxx_rainbow_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
-        qnet=ComplexMLP(
-            env_spec.obs_dim,
-            env_spec.act_dim,
+        qnet=FunctionApproximator(ComplexMLP)(
             hidden_units=5,
             num_hidden_layers=1,
             noisy=False,
@@ -225,9 +212,7 @@ def xxxx_rainbow_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def agent_with_optimizer(env_spec):
     agent = DQNAgent(
-        qnet=SimpleMLP(
-            env_spec.obs_dim, env_spec.act_dim, hidden_units=5, num_hidden_layers=1
-        ),
+        qnet=FunctionApproximator(SimpleMLP)(hidden_units=5, num_hidden_layers=1),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Adam,
@@ -244,29 +229,36 @@ def agent_with_optimizer(env_spec):
 
 
 def test_create_agent_with_configs(env_spec):
-    agent = DQNAgent(
-        qnet={
-            "name": "SimpleMLP",
-            "kwargs": {"hidden_units": 5, "num_hidden_layers": 1},
+    agent_config = {
+        "name": "DQNAgent",
+        "kwargs": {
+            "qnet": {
+                "name": "SimpleMLP",
+                "kwargs": {"hidden_units": 5, "num_hidden_layers": 1},
+            },
+            "obs_dim": env_spec.obs_dim,
+            "act_dim": env_spec.act_dim,
+            "optimizer_fn": {"name": "Adam", "kwargs": {"lr": 0.01}},
+            "replay_buffer": {
+                "name": "CircularReplayBuffer",
+                "kwargs": {"capacity": 10},
+            },
+            "target_net_update_schedule": {
+                "name": "PeriodicSchedule",
+                "kwargs": {"off_value": False, "on_value": True, "period": 5},
+            },
+            "epsilon_schedule": {
+                "name": "LinearSchedule",
+                "kwargs": {"init_value": 1.0, "end_value": 0.1, "steps": 20},
+            },
+            "learn_schedule": {
+                "name": "SwitchSchedule",
+                "kwargs": {"off_value": False, "on_value": True, "steps": 2},
+            },
+            "device": "cpu",
         },
-        obs_dim=env_spec.obs_dim,
-        act_dim=env_spec.act_dim,
-        optimizer_fn={"name": "Adam", "kwargs": {"lr": 0.01}},
-        replay_buffer={"name": "CircularReplayBuffer", "kwargs": {"capacity": 10}},
-        target_net_update_schedule={
-            "name": "PeriodicSchedule",
-            "kwargs": {"off_value": False, "on_value": True, "period": 5},
-        },
-        epsilon_schedule={
-            "name": "LinearSchedule",
-            "kwargs": {"init_value": 1.0, "end_value": 0.1, "steps": 20},
-        },
-        learn_schedule={
-            "name": "SwitchSchedule",
-            "kwargs": {"off_value": False, "on_value": True, "steps": 2},
-        },
-        device="cpu",
-    )
+    }
+    agent = get_agent(agent_config)
     action = agent.act(np.zeros(2))
     assert action < 2
 

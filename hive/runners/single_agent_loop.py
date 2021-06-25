@@ -1,6 +1,6 @@
 import argparse
 import copy
-from hive.utils.registry import get_parsed_arguments
+from hive.utils.registry import get_parsed_args
 
 from hive import agents as agent_lib
 from hive import envs
@@ -89,7 +89,7 @@ class SingleAgentRunner(Runner):
 def set_up_experiment(config):
     """Returns a runner object based on the config."""
 
-    args = get_parsed_arguments(
+    args = get_parsed_args(
         {
             "seed": int,
             "train_steps": int,
