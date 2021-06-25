@@ -42,9 +42,7 @@ class Registry:
                 kwargs = object_or_config["kwargs"]
                 if name in self._registry[type.type_name()]:
                     object_class = self._registry[type.type_name()][name]
-                    parsed_args = get_callable_parsed_arguments(
-                        object_class, prefix=prefix
-                    )
+                    parsed_args = get_callable_parsed_args(object_class, prefix=prefix)
                     kwargs.update(parsed_args)
                     kwargs = construct_objects(constructor, kwargs, prefix)
                     return object_class(**kwargs)
@@ -75,7 +73,7 @@ def construct_objects(object_constructor, config, prefix):
     return config
 
 
-def get_callable_parsed_arguments(callable, prefix=None):
+def get_callable_parsed_args(callable, prefix=None):
     signature = inspect.signature(callable)
     arguments = {
         argument: signature.parameters[argument]
