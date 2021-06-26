@@ -35,7 +35,6 @@ class MinAtarEnv(GymEnv):
         self.env_spec = self.create_env_spec(env_name)
 
     def create_env_spec(self, env_name, **kwargs):
-        act_spaces = [6]
         obs_dim = tuple(self._env.state_shape())
         new_positions = [2, 0, 1]
         obs_dim = tuple(obs_dim[i] for i in new_positions)
@@ -47,7 +46,8 @@ class MinAtarEnv(GymEnv):
 
     def reset(self):
         self._env.reset()
-        return (torch.tensor(self._env.state()).permute(2, 0, 1)).float(), 0
+        # return (torch.tensor(self._env.state()).permute(2, 0, 1)).float(), 0
+        return (torch.tensor(self._env.state()).permute(2, 0, 1)).float().detach().cpu().numpy(), 0
 
     def step(self, action=None):
         """
@@ -61,6 +61,8 @@ class MinAtarEnv(GymEnv):
         reward = float(reward)
         info = {}
         observation = torch.tensor(self._env.state()).permute(2, 0, 1).float()
-        self._turn = 0
+        observation = observation.detach().cpu().numpy()
+        print("converting observation to numpy")
+        print("in minatar observation type = ", type(observation))
 
-        return observation, reward, done, self._turn, info
+        return observation, reward, done, None, info

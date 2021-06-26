@@ -186,9 +186,11 @@ class DQNAgent(Agent):
         else:
             update_info["done"] = 0.0
 
+        print("in dqn type = ", type(update_info["observation"]))
         if self._training:
             self._replay_buffer.add(
-                observation=update_info["observation"].detach().cpu().numpy(),
+                observation=update_info["observation"],
+                # observation=update_info["observation"].detach().cpu().numpy(),
                 action=update_info["action"],
                 reward=update_info["reward"],
                 done=np.uint8(update_info["done"]),
