@@ -82,7 +82,8 @@ class DQNAgent(Agent):
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
 
-        self._qnet = get_qnet(qnet).to(device)
+        self._device = torch.device(device if torch.cuda.is_available() else "cpu")
+        self._qnet = get_qnet(qnet).to(self._device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         optimizer_fn = get_optimizer_fn(optimizer_fn)
         if optimizer_fn is None:
@@ -96,7 +97,6 @@ class DQNAgent(Agent):
         self._grad_clip = grad_clip
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
-        self._device = torch.device(device)
         self._loss_fn = torch.nn.SmoothL1Loss()
         self._batch_size = batch_size
         self._logger = get_logger(logger)
