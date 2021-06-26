@@ -24,9 +24,9 @@ class MinAtarEnv(GymEnv):
             env_name (str): Name of the environment
             sticky_actions (boolean): Whether to use sticky_actions as per Machado et al.
         """
-        env_module = import_module("hive.envs.minatar.environments." + env_name)
+        env_module = import_module("minatar.environments." + env_name)
         self.env_name = env_name
-        self._env = env_module.Env(ramping=difficulty_ramping, seed=random_seed)
+        self._env = env_module.Env(ramping=difficulty_ramping)
         self.n_channels = self._env.state_shape()[2]
         self.sticky_action_prob = sticky_action_prob
         self.last_action = 0
