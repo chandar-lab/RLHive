@@ -46,7 +46,6 @@ class MinAtarEnv(GymEnv):
 
     def reset(self):
         self._env.reset()
-        # return (torch.tensor(self._env.state()).permute(2, 0, 1)).float(), 0
         return (torch.tensor(self._env.state()).permute(2, 0, 1)).float().detach().cpu().numpy(), 0
 
     def step(self, action=None):
@@ -60,9 +59,6 @@ class MinAtarEnv(GymEnv):
         reward, done = self._env.act(action)
         reward = float(reward)
         info = {}
-        observation = torch.tensor(self._env.state()).permute(2, 0, 1).float()
-        observation = observation.detach().cpu().numpy()
-        print("converting observation to numpy")
-        print("in minatar observation type = ", type(observation))
+        observation = torch.tensor(self._env.state()).permute(2, 0, 1).float().detach().cpu().numpy()
 
         return observation, reward, done, None, info
