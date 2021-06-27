@@ -1,10 +1,9 @@
 from marlgrid.base import MultiGridEnv, MultiGrid
-from hive.envs.marlgrid.ma_envs.base import MultiGridEnvHive
-from marlgrid.objects import *
+from marlgrid.objects import Goal, GridAgent
 import numpy as np
 
 
-class CheckersMultiGrid(MultiGridEnvHive):
+class CheckersMultiGrid(MultiGridEnv):
     """
     Checkers environment based on sunehag et al. 2017
 
@@ -16,13 +15,13 @@ class CheckersMultiGrid(MultiGridEnvHive):
     """
 
     def _gen_grid(self, width, height):
-        num_rows = 3
+        self.num_rows = 3
         self.grid = MultiGrid((width, height))
         self.grid.wall_rect(0, 0, width, height)
         apple = Goal(color="green", reward=10)
         orange = Goal(color="red", reward=-10)
         self.num_remained_apples = 0
-        for j in range(num_rows):
+        for j in range(self.num_rows):
             oranges_loc = [2 * i + 1 + j % 2 for i in range(width // 2 - 1)]
             apples_loc = [2 * i + 1 + (j + 1) % 2 for i in range(width // 2 - 1)]
             for orange_loc in oranges_loc:
@@ -33,12 +32,28 @@ class CheckersMultiGrid(MultiGridEnvHive):
                 self.num_remained_apples += 1
 
         self.agent_spawn_kwargs = {}
-        self.place_agents(
-            top=(0, num_rows + 1),
-            size=(width, height - num_rows - 1),
-            **self.agent_spawn_kwargs,
-        )
         self.ghost_mode = False
+
+    def reset(self, **kwargs):
+        for agent in self.agents:
+            agent.agents = []
+            agent.reset(new_episode=True)
+
+        self._gen_grid(self.width, self.height)
+
+        for agent in self.agents:
+            if agent.spawn_delay == 0:
+                self.place_obj(
+                    agent,
+                    top=(0, self.num_rows + 1),
+                    size=(self.width, self.height - self.num_rows - 1),
+                    **self.agent_spawn_kwargs,
+                )
+                agent.activate()
+
+        self.step_count = 0
+        obs = self.gen_obs()
+        return obs
 
     def step(self, actions):
         # Spawn agents if it's time.
@@ -139,19 +154,13 @@ class CheckersMultiGrid(MultiGridEnvHive):
                             if rwd > 0:
                                 self.num_remained_apples -= 1
 
-                        if isinstance(fwd_cell, Lava):
-                            agent.done = True
-
                 # TODO: Remove extra actions?
                 # Pick up an object
                 elif action == agent.actions.pickup:
-                    if fwd_cell and fwd_cell.can_pickup():
-                        if agent.carrying is None:
-                            agent.carrying = fwd_cell
-                            agent.carrying.cur_pos = np.array([-1, -1])
-                            self.grid.set(*fwd_pos, None)
-                    else:
-                        pass
+                    if fwd_cell and fwd_cell.can_pickup() and agent.carrying is None:
+                        agent.carrying = fwd_cell
+                        agent.carrying.cur_pos = np.array([-1, -1])
+                        self.grid.set(*fwd_pos, None)
 
                 # Drop an object
                 elif action == agent.actions.drop:
@@ -159,15 +168,11 @@ class CheckersMultiGrid(MultiGridEnvHive):
                         self.grid.set(*fwd_pos, agent.carrying)
                         agent.carrying.cur_pos = fwd_pos
                         agent.carrying = None
-                    else:
-                        pass
 
                 # Toggle/activate an object
                 elif action == agent.actions.toggle:
                     if fwd_cell:
                         wasted = bool(fwd_cell.toggle(agent, fwd_pos))
-                    else:
-                        pass
 
                 # Done action (not used by default)
                 elif action == agent.actions.done:
@@ -201,7 +206,7 @@ class CheckersMultiGrid(MultiGridEnvHive):
                 else:  # if the agent shouldn't be respawned, then deactivate it.
                     agent.deactivate()
 
-        # The episode overall is done if all the agents are done, or if it exceeds the step limit.
+        # The episode overall is done if all the agents are done, or if it exceeds the step limit or all the apples are collected.
         done = (
             (self.step_count >= self.max_steps)
             or all([agent.done for agent in self.agents])

@@ -1,10 +1,9 @@
 from marlgrid.base import MultiGridEnv, MultiGrid
-from hive.envs.marlgrid.ma_envs.base import MultiGridEnvHive
-from marlgrid.objects import *
+from marlgrid.objects import Goal, Lava, GridAgent, Wall
 import numpy as np
 
 
-class PursuitMultiGrid(MultiGridEnvHive):
+class PursuitMultiGrid(MultiGridEnv):
     """
     Pursuit–Evasion environment based on Gupta et al. 2017
 
@@ -18,8 +17,6 @@ class PursuitMultiGrid(MultiGridEnvHive):
     def _gen_grid(self, width, height):
         self.grid = MultiGrid((width, height))
         self.grid.wall_rect(0, 0, width, height)
-
-        self.place_agents()
         self.ghost_mode = False
 
     def step(self, actions):
@@ -37,9 +34,7 @@ class PursuitMultiGrid(MultiGridEnvHive):
         num_rand_agents = self.num_agents - len(actions)
 
         step_rewards = np.zeros(
-            (
-                num_learning_agents
-            ),
+            (num_learning_agents),
             dtype=np.float,
         )
 
@@ -71,32 +66,18 @@ class PursuitMultiGrid(MultiGridEnvHive):
 
                 w = 0
                 a = 0
+                surrounding_cells = [bot_cell, abov_cell, left_cell, right_cell]
                 if agent_no == len(self.agents) - num_rand_agents:
-                    if isinstance(bot_cell, GridAgent):
-                        a += 1
-                    if isinstance(bot_cell, Wall):
-                        w += 1
-                    if isinstance(abov_cell, GridAgent):
-                        a += 1
-                    if isinstance(abov_cell, Wall):
-                        w += 1
-                    if isinstance(left_cell, GridAgent):
-                        a += 1
-                    if isinstance(left_cell, Wall):
-                        w += 1
-                    if isinstance(right_cell, GridAgent):
-                        a += 1
-                    if isinstance(right_cell, Wall):
-                        w += 1
+                    for cell in surrounding_cells:
+                        if isinstance(cell, GridAgent):
+                            a += 1
+                        if isinstance(cell, Wall):
+                            w += 1
 
-                    if a == len(self.agents) - num_rand_agents:
+                    if a == len(self.agents) - num_rand_agents or (w == 2 and a == 2):
                         step_rewards[:] += np.array(
                             [5] * (len(self.agents) - num_rand_agents)
                         )
-                        if w == 2 and a == 2:
-                            step_rewards[
-                                :
-                            ] += np.array([5] * (len(self.agents) - num_rand_agents))
                         for agent in self.agents:
                             agent.done = True
 
