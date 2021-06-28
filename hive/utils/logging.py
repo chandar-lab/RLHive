@@ -1,6 +1,7 @@
 import abc
 import copy
 import os
+from typing import List
 
 import torch
 import wandb
@@ -302,12 +303,9 @@ class CompositeLogger(Logger):
     should not be logging for the timescale.
     """
 
-    def __init__(self, logger_list):
+    def __init__(self, logger_list: List[Logger]):
         super().__init__([])
         self._logger_list = logger_list
-        for idx, logger in enumerate(self._logger_list):
-            if isinstance(logger, dict):
-                self._logger_list[idx] = get_logger(logger, f"logger.{idx}")
 
     def register_timescale(self, timescale, schedule=None):
         for logger in self._logger_list:
