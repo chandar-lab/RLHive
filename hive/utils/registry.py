@@ -1,5 +1,7 @@
 import argparse
+from copy import deepcopy
 import inspect
+from typing import List, Mapping, Sequence, _GenericAlias
 import yaml
 from functools import partial, update_wrapper
 
@@ -35,17 +37,21 @@ class Registry:
 
             def getter(self, object_or_config, prefix=None):
                 if object_or_config is None:
-                    return None
+                    return None, {}
                 elif isinstance(object_or_config, type):
-                    return object_or_config
+                    return object_or_config, {}
                 name = object_or_config["name"]
-                kwargs = object_or_config["kwargs"]
+                kwargs = object_or_config.get("kwargs", {})
+                expanded_config = deepcopy(object_or_config)
                 if name in self._registry[type.type_name()]:
                     object_class = self._registry[type.type_name()][name]
                     parsed_args = get_callable_parsed_args(object_class, prefix=prefix)
                     kwargs.update(parsed_args)
-                    kwargs = construct_objects(constructor, kwargs, prefix)
-                    return object_class(**kwargs)
+                    kwargs, kwargs_config = construct_objects(
+                        object_class, kwargs, prefix
+                    )
+                    expanded_config["kwargs"] = kwargs_config
+                    return object_class(**kwargs), expanded_config
                 else:
                     raise ValueError(f"{name} class not found")
 
@@ -60,17 +66,51 @@ class Registry:
 def construct_objects(object_constructor, config, prefix):
     signature = inspect.signature(object_constructor)
     prefix = "" if prefix is None else f"{prefix}."
+    expanded_config = deepcopy(config)
     for argument in signature.parameters:
         if argument not in config:
             continue
         expected_type = signature.parameters[argument].annotation
 
         if isinstance(expected_type, type) and issubclass(expected_type, Registrable):
-            config[argument] = registry.__getattribute__(
+            config[argument], expanded_config[argument] = registry.__getattribute__(
                 f"get_{expected_type.type_name()}"
             )(config[argument], f"{prefix}{argument}")
+        if isinstance(expected_type, _GenericAlias):
+            origin = expected_type.__origin__
+            args = expected_type.__args__
+            if (
+                issubclass(origin, Sequence)
+                and len(args) == 1
+                and issubclass(args[0], Registrable)
+                and isinstance(config[argument], Sequence)
+            ):
+                objs = []
+                expanded_config[argument] = []
+                for idx, item in enumerate(config[argument]):
+                    obj, obj_config = registry.__getattribute__(
+                        f"get_{args[0].type_name()}"
+                    )(item, f"{prefix}{argument}.{idx}")
+                    objs.append(obj)
+                    expanded_config[argument].append(obj_config)
+                config[argument] = objs
+            elif (
+                issubclass(origin, Mapping)
+                and len(args) == 2
+                and issubclass(args[1], Registrable)
+                and isinstance(config[argument], Mapping)
+            ):
+                objs = {}
+                expanded_config[argument] = {}
+                for key, val in config[argument].items():
+                    obj, obj_config = registry.__getattribute__(
+                        f"get_{args[1].type_name()}"
+                    )(val, f"{prefix}{argument}.{key}")
+                    objs[key] = obj
+                    expanded_config[argument][key] = obj_config
+                config[argument] = objs
 
-    return config
+    return config, expanded_config
 
 
 def get_callable_parsed_args(callable, prefix=None):
