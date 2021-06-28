@@ -28,10 +28,13 @@ agents:
     name: 'DQNAgent'
     kwargs:
       qnet:
-        name: 'SimpleMLP'
-        kwargs: 
-          hidden_units: 256
-          num_hidden_layers: 2
+        name: 'SimpleConvModel'
+        kwargs:
+          channels: [ 32, 64, 64 ]
+          kernel_sizes: [ 8, 4, 3 ]
+          strides: [ 4, 2, 1 ]
+          paddings: [ 0, 1, 1 ]
+          mlp_layers: [ 512 ]
       optimizer_fn:
         name: 'Adam'
         kwargs: {}
@@ -67,10 +70,13 @@ agents:
     name: 'DQNAgent'
     kwargs:
       qnet:
-        name: 'SimpleMLP'
-        kwargs: 
-          hidden_units: 256
-          num_hidden_layers: 2
+        name: 'SimpleConvModel'
+        kwargs:
+          channels: [ 32, 64, 64 ]
+          kernel_sizes: [ 8, 4, 3 ]
+          strides: [ 4, 2, 1 ]
+          paddings: [ 0, 1, 1 ]
+          mlp_layers: [ 512 ]
       optimizer_fn:
         name: 'Adam'
         kwargs: {}
