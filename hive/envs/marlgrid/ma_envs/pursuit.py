@@ -9,7 +9,8 @@ class PursuitMultiGrid(MultiGridEnv):
 
     "The pursuit-evasion domain consists of two sets of agents: evaders and pursuers.
     The evaders are trying to avoid pursuers, while the pursuers are
-    trying to catch the evaders. The pursuers receive a reward of 5.0 when they surround an evader or corner the agent"
+    trying to catch the evaders. The pursuers receive a reward of 5.0 when
+    they surround an evader or corner the agent"
     """
 
     metadata = {}
@@ -18,6 +19,12 @@ class PursuitMultiGrid(MultiGridEnv):
         self.grid = MultiGrid((width, height))
         self.grid.wall_rect(0, 0, width, height)
         self.ghost_mode = False
+
+    def reset(self, **kwargs):
+        obs = super().reset()
+        for ag_idx, _ in enumerate(obs):
+            obs[ag_idx] = np.array(obs[ag_idx], dtype=np.uint8)
+        return obs
 
     def step(self, actions):
         # Spawn agents if it's time.
@@ -33,10 +40,7 @@ class PursuitMultiGrid(MultiGridEnv):
         num_learning_agents = len(actions)
         num_rand_agents = self.num_agents - len(actions)
 
-        step_rewards = np.zeros(
-            (num_learning_agents),
-            dtype=np.float,
-        )
+        step_rewards = np.zeros((num_learning_agents), dtype=np.float)
 
         self.step_count += 1
         for i in range(num_learning_agents, self.num_agents):
@@ -81,7 +85,7 @@ class PursuitMultiGrid(MultiGridEnv):
                         for agent in self.agents:
                             agent.done = True
 
-                            # Rotate left
+                # Rotate left
                 if action == agent.actions.left:
                     agent.dir = (agent.dir - 1) % 4
 
@@ -120,8 +124,10 @@ class PursuitMultiGrid(MultiGridEnv):
                                 self.grid.set(*cur_pos, left_behind)
                             elif cur_obj.can_overlap():
                                 cur_obj.agents.append(left_behind)
-                            else:  # How was "agent" there in teh first place?
-                                raise ValueError("?!?!?!")
+                            else:
+                                raise ValueError(
+                                    "How was agent there in teh first place?"
+                                )
 
                         # After moving, the agent shouldn't contain any other agents.
                         agent.agents = []
@@ -137,8 +143,6 @@ class PursuitMultiGrid(MultiGridEnv):
                         if isinstance(fwd_cell, (Lava, Goal)):
                             agent.done = True
 
-                # TODO: verify pickup/drop/toggle logic in an environment that
-                #  supports the relevant interactions.
                 # Pick up an object
                 elif action == agent.actions.pickup:
                     if fwd_cell and fwd_cell.can_pickup():
@@ -175,7 +179,7 @@ class PursuitMultiGrid(MultiGridEnv):
                 agent.on_step(fwd_cell if agent_moved else None)
 
         # If any of the agents individually are "done" (hit lava or in some cases a goal)
-        #   but the env requires respawning, then respawn those agents.
+        # but the env requires respawning, then respawn those agents.
         for agent in self.agents:
             if agent.done:
                 if self.respawn:
@@ -197,11 +201,15 @@ class PursuitMultiGrid(MultiGridEnv):
                 else:  # if the agent shouldn't be respawned, then deactivate it.
                     agent.deactivate()
 
-        # The episode overall is done if all the agents are done, or if it exceeds the step limit.
+        # The episode overall is done if all the agents are done,
+        # or if it exceeds the step limit.
         done = (self.step_count >= self.max_steps) or all(
             [agent.done for agent in self.agents[:num_learning_agents]]
         )
 
-        obs = [self.gen_agent_obs(agent) for agent in self.agents[:num_learning_agents]]
+        obs = [
+            np.asarray(self.gen_agent_obs(agent), dtype=np.uint8)
+            for agent in self.agents[:num_learning_agents]
+        ]
 
         return obs, step_rewards, done, {}

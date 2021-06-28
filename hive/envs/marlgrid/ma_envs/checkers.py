@@ -8,9 +8,10 @@ class CheckersMultiGrid(MultiGridEnv):
     Checkers environment based on sunehag et al. 2017
 
     "... The map contains apples and lemons. The first player is very sensitive and scores 10 for
-    the team for an apple (green square) and −10 for a lemon (orange square). The second, less sensitive
-    player scores 1 for the team for an apple and −1 for a lemon. There is a wall of lemons between the
-    players and the apples. Apples and lemons disappear when collected.
+    the team for an apple (green square) and −10 for a lemon (orange square).
+    The second, less sensitive player scores 1 for the team for an apple and −1 for a lemon.
+    There is a wall of lemons between the players and the apples.
+    Apples and lemons disappear when collected.
     The environment resets when all apples are eaten or maximum number of steps is reached.
     """
 
@@ -53,6 +54,8 @@ class CheckersMultiGrid(MultiGridEnv):
 
         self.step_count = 0
         obs = self.gen_obs()
+        for ag_idx, _ in enumerate(obs):
+            obs[ag_idx] = np.array(obs[ag_idx], dtype=np.uint8)
         return obs
 
     def step(self, actions):
@@ -68,14 +71,7 @@ class CheckersMultiGrid(MultiGridEnv):
 
         assert len(actions) == len(self.agents)
 
-        step_rewards = np.zeros(
-            (
-                len(
-                    self.agents,
-                )
-            ),
-            dtype=np.float,
-        )
+        step_rewards = np.zeros((len(self.agents)), dtype=np.float)
 
         self.step_count += 1
 
@@ -133,12 +129,13 @@ class CheckersMultiGrid(MultiGridEnv):
                                 self.grid.set(*cur_pos, left_behind)
                             elif cur_obj.can_overlap():
                                 cur_obj.agents.append(left_behind)
-                            else:  # How was "agent" there in teh first place?
-                                raise ValueError("?!?!?!")
+                            else:
+                                raise ValueError(
+                                    "How was agent there in the first place?"
+                                )
 
                         # After moving, the agent shouldn't contain any other agents.
                         agent.agents = []
-                        # test_integrity(f"After moving {agent.color} fellow")
 
                         # Rewards can be got iff. fwd_cell has a "get_reward" method
                         if hasattr(fwd_cell, "get_reward"):
@@ -154,7 +151,6 @@ class CheckersMultiGrid(MultiGridEnv):
                             if rwd > 0:
                                 self.num_remained_apples -= 1
 
-                # TODO: Remove extra actions?
                 # Pick up an object
                 elif action == agent.actions.pickup:
                     if fwd_cell and fwd_cell.can_pickup() and agent.carrying is None:
@@ -213,7 +209,10 @@ class CheckersMultiGrid(MultiGridEnv):
             or self.num_remained_apples == 0
         )
 
-        obs = [self.gen_agent_obs(agent) for agent in self.agents]
+        obs = [
+            np.asarray(self.gen_agent_obs(agent), dtype=np.uint8)
+            for agent in self.agents
+        ]
 
         # Team reward
         step_rewards = np.array([np.sum(step_rewards) for _ in self.agents])
