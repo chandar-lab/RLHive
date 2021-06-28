@@ -126,7 +126,7 @@ def set_up_experiment(config):
         logger_config["kwargs"] = logger_config.get("kwargs", {})
         logger_config["kwargs"]["timescales"] = ["train_episodes", "test_episodes"]
 
-    logger, full_config["loggers"] = logging.get_logger(logger_config, "logger")
+    logger, full_config["loggers"] = logging.get_logger(logger_config, "loggers")
 
     # Set up agent
     if config.get("stack_size", 1) > 1:

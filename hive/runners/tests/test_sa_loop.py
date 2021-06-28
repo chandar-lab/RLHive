@@ -1,22 +1,68 @@
+import hive
+from hive import runners
+from hive.utils.schedule import ConstantSchedule
+from hive.utils.logging import Logger, ScheduledLogger
 import pytest
-import os
-
-import numpy as np
 
 from argparse import Namespace
 from hive.runners.utils import load_config
 from hive.runners import single_agent_loop
+import sys
+from unittest.mock import patch
 
-args = Namespace(
-    config="hive/runners/tests/test_sa_config.yml",
-    agent_config=None,
-    env_config=None,
-    logger_config=None,
-)
+
+class FakeLogger1(ScheduledLogger):
+    def __init__(self, timescales, logger_schedules=None, arg1: int = 0):
+        super().__init__(timescales, logger_schedules)
+        self.arg1 = arg1
+
+    def log_scalar(self, name, value, timescale):
+        pass
+
+    def log_metrics(self, metrics, timescale):
+        pass
+
+    def save(self, dir_name):
+        pass
+
+    def load(self, dir_name):
+        pass
+
+
+class FakeLogger2(ScheduledLogger):
+    def __init__(self, timescales, logger_schedules=None, arg2: float = 0):
+        super().__init__(timescales, logger_schedules)
+        self.arg2 = arg2
+
+    def log_scalar(self, name, value, timescale):
+        pass
+
+    def log_metrics(self, metrics, timescale):
+        pass
+
+    def save(self, dir_name):
+        pass
+
+    def load(self, dir_name):
+        pass
+
+
+hive.registry.register("FakeLogger1", FakeLogger1, FakeLogger1)
+hive.registry.register("FakeLogger2", FakeLogger2, FakeLogger2)
 
 
 @pytest.fixture()
-def initial_runner():
+def args():
+    return Namespace(
+        config="hive/runners/tests/test_sa_config.yml",
+        agent_config=None,
+        env_config=None,
+        logger_config=None,
+    )
+
+
+@pytest.fixture()
+def initial_runner(args):
     config = load_config(args)
     runner = single_agent_loop.set_up_experiment(config)
 
@@ -104,3 +150,78 @@ def test_run_training(initial_runner):
     single_agent_runner, config = initial_runner
     single_agent_runner.run_training()
     assert single_agent_runner._train_step_schedule._steps == config["train_steps"]
+
+
+@pytest.mark.parametrize(
+    "arg_string,cl_args",
+    [
+        (
+            "single_agent_loop.py"
+            " --agent.qnet.hidden_units 30"
+            " --agent.discount_rate .8 "
+            " --seed 20"
+            " --loggers.logger_list.0.arg1 2"
+            " --loggers.logger_list.1.arg2 .2",
+            [30, 0.8, 20, 2, 0.2],
+        ),
+        (
+            "single_agent_loop.py"
+            " --loggers.logger_list.0.arg1 2"
+            " --loggers.logger_list.1.arg2 .2",
+            [None, None, None, 2, 0.2],
+        ),
+        (
+            "single_agent_loop.py"
+            " --agent.qnet.hidden_units 30"
+            " --agent.discount_rate .8 ",
+            [30, 0.8, None, None, None],
+        ),
+        (
+            "single_agent_loop.py --seed 20",
+            [None, None, 20, None, None],
+        ),
+    ],
+)
+@patch("hive.runners.single_agent_loop.set_seed")
+def test_cl_parsing(mock_seed, args, arg_string, cl_args):
+    defaults = [256, 0.99, None, 0, 0.5]
+    expected_args = [
+        cl_args[idx] if cl_args[idx] else defaults[idx] for idx in range(len(cl_args))
+    ]
+    sys.argv = arg_string.split()
+    config = load_config(args)
+    runner = single_agent_loop.set_up_experiment(config)
+    full_config = runner._experiment_manager._config
+    # Check hidden units
+    assert runner._agents[0]._qnet.input_layer[0].out_features == expected_args[0]
+    assert (
+        full_config["agent"]["kwargs"]["qnet"]["kwargs"]["hidden_units"]
+        == expected_args[0]
+    )
+    # Check discount factor
+    assert runner._agents[0]._discount_rate == expected_args[1]
+    assert full_config["agent"]["kwargs"]["discount_rate"] == expected_args[1]
+    # Check Logger 1 arg
+    assert runner._logger._logger_list[0].arg1 == expected_args[3]
+    if cl_args[3]:
+        assert (
+            full_config["loggers"]["kwargs"]["logger_list"][0]["kwargs"]["arg1"]
+            == expected_args[3]
+        )
+    else:
+        assert (
+            "arg1" not in full_config["loggers"]["kwargs"]["logger_list"][0]["kwargs"]
+        )
+    # Check Logger 2 arg
+    assert runner._logger._logger_list[1].arg2 == expected_args[4]
+    if cl_args[4]:
+        assert (
+            full_config["loggers"]["kwargs"]["logger_list"][1]["kwargs"]["arg2"]
+            == expected_args[4]
+        )
+
+    # Check seed
+    if cl_args[2]:
+        assert mock_seed.call_args.args == (cl_args[2],)
+    else:
+        assert not mock_seed.called

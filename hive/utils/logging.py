@@ -181,8 +181,8 @@ class NullLogger(ScheduledLogger):
     framework that ask for a logger.
     """
 
-    def __init__(self, **kwargs):
-        super().__init__("null", ConstantSchedule(False))
+    def __init__(self, timescales, logger_schedules=None):
+        super().__init__(timescales, logger_schedules)
 
     def log_scalar(self, name, value, timescale):
         pass

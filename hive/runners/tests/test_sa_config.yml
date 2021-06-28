@@ -63,6 +63,9 @@ agent:
 # List of logger configs used.
 loggers:
   -
-    name: ChompLogger
-    kwargs: {}
+    name: FakeLogger1
+  -
+    name: FakeLogger2
+    kwargs:
+      arg2: .5
 
