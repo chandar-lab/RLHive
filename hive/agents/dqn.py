@@ -98,7 +98,7 @@ class DQNAgent(Agent):
         self._batch_size = batch_size
         self._logger = logger
         if self._logger is None:
-            self._logger = NullLogger()
+            self._logger = NullLogger([])
         self._timescale = self.id
         self._logger.register_timescale(
             self._timescale, PeriodicSchedule(False, True, log_frequency)
