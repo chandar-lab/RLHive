@@ -258,7 +258,7 @@ def test_create_agent_with_configs(env_spec):
             "device": "cpu",
         },
     }
-    agent = get_agent(agent_config)
+    agent, _ = get_agent(agent_config)
     action = agent.act(np.zeros(2))
     assert action < 2
 
