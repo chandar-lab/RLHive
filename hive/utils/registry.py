@@ -7,13 +7,36 @@ from functools import partial, update_wrapper
 
 
 class Registrable:
+    """Class used to denote which types of objects can be registered in the Hive
+    Registry. These objects can also be configured directly from the command line, and
+    recursively built from the config, assuming type annotations are present.
+    """
+
     @classmethod
     def type_name(cls):
+        """This should represent a string that denotes the which type of class you are
+        creating. For example, "logger", "agent", or "env".
+        """
         raise ValueError
 
 
 class CallableType(Registrable):
+    """A wrapper that allows any callable to be registered in the Hive Registry.
+    Specifically, it maps the arguments and annotations of the wrapped function to the
+    resulting callable, allowing any argument names and type annotations of the
+    underlying function to be present for outer wrapper. When called with some
+    arguments, this object returns a partial function with those arguments assigned.
+
+    By default, the type_name is "callable", but if you want to create specific types
+    of callables, you can simply create a subclass and override the type_name method.
+    See `hive.utils.utils.OptimizerFn`.
+    """
+
     def __init__(self, fn):
+        """
+        Args:
+            fn: callable to be wrapped.
+        """
         self._fn = fn
         update_wrapper(self, self._fn)
 
@@ -26,10 +49,52 @@ class CallableType(Registrable):
 
 
 class Registry:
+    """This is the Registry class for Hive. It allows you to register different types
+    of (`Registrable`) classes and objects and generates constructors for those
+    classes in the form of `get_{type_name}`.
+
+    These constructors allow you to construct objects from dictionary configs. These
+    configs should have two fields: `name`, which corresponds to the name used when
+    registering a class in the registry, and `kwargs`, which corresponds to the keyword
+    arguments that will be passed to the constructor of the object. These constructors
+    can also build objects recursively, i.e. if a config contains the config for
+    another `Registrable` object, this will be automatically created before being
+    passed to the constructor of the original object. These constructors also allow you
+    to directly specify/override arguments for object constructors directly from the
+    command line. These parameters are specified in dot notation. They also are able
+    to handle lists and dictionaries of Registrable objects.
+
+    For example, let's consider the following scenario:
+    Your agent class has an argument `arg1` which is annotated to be `List[Class1]`,
+    `Class1` is `Registrable`, and the `Class1` constructor takes an argument `arg2`.
+    In the passed yml config, there are two different Class1 object configs listed.
+    the constructor will check to see if both `--agent.arg1.0.arg2` and
+    `--agent.arg1.1.arg2` have been passed.
+
+    The parameters passed in the command line will be parsed according to the type
+    annotation of the corresponding low level constructor. If it is not one of
+    `int`, `float`, `str`, or `bool`, it simply loads the string into python using a
+    yaml loader.
+
+    Each constructor returns the object, as well a dictionary config with all the
+    parameters used to create the object and any Registrable objects created in the
+    process of creating this object.
+    """
+
     def __init__(self) -> None:
         self._registry = {}
 
     def register(self, name, constructor, type):
+        """Register a Registrable class/object with Hive.
+
+        Args:
+            name: Name of the class/object being registered.
+            constructor: Callable that will be passed all kwargs from configs and be
+                analyzed to get type annotations.
+            type: Type of class/object being registered. Should be subclass of
+                Registrable.
+
+        """
         if not issubclass(type, Registrable):
             raise ValueError(f"{type} is not Registrable")
         if type.type_name() not in self._registry:
@@ -59,11 +124,32 @@ class Registry:
         self._registry[type.type_name()][name] = constructor
 
     def register_all(self, base_class, class_dict):
+        """Bulk register function.
+        Args:
+            base_class: Corresponds to the `type` of the register function
+            class_dict: A dictionary mapping from name to constructor.
+        """
         for cls in class_dict:
             self.register(cls, class_dict[cls], base_class)
 
 
-def construct_objects(object_constructor, config, prefix):
+def construct_objects(object_constructor, config, prefix=None):
+    """Helper function that constructs any objects specified in the config that
+    are registrable.
+
+    Returns the object, as well a dictionary config with all the parameters used to
+    create the object and any Registrable objects created in the process of creating
+    this object.
+
+    Args:
+        object_constructor: constructor of object that corresponds to config. The
+            signature of this function will be analyzed to see if there are any
+            `Registrable` objects that might be specified in the config.
+        config: The kwargs for the object being created. May contain configs for other
+            `Registrable` objects that need to be recursively created.
+        prefix: Prefix that is attached to the argument names when looking for command
+            line arguments.
+    """
     signature = inspect.signature(object_constructor)
     prefix = "" if prefix is None else f"{prefix}."
     expanded_config = deepcopy(config)
@@ -114,6 +200,14 @@ def construct_objects(object_constructor, config, prefix):
 
 
 def get_callable_parsed_args(callable, prefix=None):
+    """Helper function that extracts the command line arguments for a given function.
+
+    Args:
+        callable: function whose arguments will be inspected to extract arguments from
+            the command line.
+        prefix: Prefix that is attached to the argument names when looking for command
+            line arguments.
+    """
     signature = inspect.signature(callable)
     arguments = {
         argument: signature.parameters[argument]
@@ -124,6 +218,17 @@ def get_callable_parsed_args(callable, prefix=None):
 
 
 def get_parsed_args(arguments, prefix=None):
+    """Helper function that takes a dictionary mapping argument names to types, and
+    extracts command line arguments for those arguments.
+
+    If the type for a given argument is not one of `int`, `float`, `str`, or `bool`,
+    it simply loads the string into python using a yaml loader.
+
+    Args:
+        arguments: dictionary mapping argument names to types
+        prefix: prefix that is attached to each argument name before searching for
+            command line arguments.
+    """
     prefix = "" if prefix is None else f"{prefix}."
     parser = argparse.ArgumentParser()
     for argument in arguments:
