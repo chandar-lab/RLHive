@@ -47,7 +47,6 @@ class PursuitMultiGrid(MultiGridEnv):
             actions.append(self.action_space[i].sample())
         iter_agents = list(enumerate(zip(self.agents, actions)))
         iter_order = np.arange(len(iter_agents))
-        # self.np_random.shuffle(iter_order)
         for shuffled_ix in iter_order:
             agent_no, (agent, action) = iter_agents[shuffled_ix]
             agent.step_reward = 0

@@ -180,7 +180,7 @@ class CheckersMultiGrid(MultiGridEnv):
                 agent.on_step(fwd_cell if agent_moved else None)
 
         # If any of the agents individually are "done" (hit lava or in some cases a goal)
-        #   but the env requires respawning, then respawn those agents.
+        # but the env requires respawning, then respawn those agents.
         for agent in self.agents:
             if agent.done:
                 if self.respawn:
@@ -202,7 +202,8 @@ class CheckersMultiGrid(MultiGridEnv):
                 else:  # if the agent shouldn't be respawned, then deactivate it.
                     agent.deactivate()
 
-        # The episode overall is done if all the agents are done, or if it exceeds the step limit or all the apples are collected.
+        # The episode overall is done if all the agents are done,
+        # or if it exceeds the step limit or all the apples are collected.
         done = (
             (self.step_count >= self.max_steps)
             or all([agent.done for agent in self.agents])
