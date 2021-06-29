@@ -171,6 +171,7 @@ class DQNAgent(Agent):
     def update(self, update_info):
         """
         Updates the DQN agent.
+
         Args:
             update_info: dictionary containing all the necessary information to
             update the agent. Should contain a full transition, with keys for
