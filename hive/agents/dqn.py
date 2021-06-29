@@ -181,17 +181,17 @@ class DQNAgent(Agent):
             self._state["episode_start"] = True
 
         # Add the most recent transition to the replay buffer.
-        if update_info["done"]:
-            update_info["done"] = 1.0
-        else:
-            update_info["done"] = 0.0
+        # if update_info["done"]:
+        #     update_info["done"] = 1.0
+        # else:
+        #     update_info["done"] = 0.0
 
         if self._training:
             self._replay_buffer.add(
                 observation=update_info["observation"],
                 action=update_info["action"],
                 reward=update_info["reward"],
-                done=np.uint8(update_info["done"]),
+                done=update_info["done"],
             )
 
         # Update the q network based on a sample batch from the replay buffer.

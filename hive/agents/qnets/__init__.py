@@ -14,6 +14,5 @@ get_qnet = create_class_constructor(
         "DistributionalMLP": DistributionalMLP,
         "SimpleConvModel": SimpleConvModel,
         "NatureAtariDQNModel": NatureAtariDQNModel,
-        "MinAtarDQNModel": MinAtarDQNModel,
     },
 )

@@ -1,5 +1,5 @@
 # General training loop config
-run_name: &run_name 'breakout-dqn-gpu-cen'
+run_name: &run_name 'breakout-dqn'
 train_steps: 10000000
 test_frequency: 100
 test_num_episodes: 10
@@ -23,7 +23,14 @@ agent:
   name: 'DQNAgent'
   kwargs:
     qnet:
-      name: 'MinAtarDQNModel'
+      name: 'SimpleConvModel'
+      kwargs:
+        channels: [16]
+        mlp_layers: [128]
+        kernel_sizes: [3]
+        strides: [1]
+        paddings: [0]
+        normalization_factor: 1
     optimizer_fn:
       name: 'RMSprop'
       kwargs:
