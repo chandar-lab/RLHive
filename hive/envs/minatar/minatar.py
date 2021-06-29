@@ -7,7 +7,7 @@ from hive.envs.env_spec import EnvSpec
 from importlib import import_module
 
 
-class MinAtarEnv(GymEnv):
+class MinAtarEnv():
     """
     Class for loading Atari environments.
     """
@@ -27,6 +27,7 @@ class MinAtarEnv(GymEnv):
         env_module = import_module("minatar.environments." + env_name)
         self.env_name = env_name
         self._env = env_module.Env(ramping=difficulty_ramping)
+        # self._env = self.create_env(self.env_name)
         self.n_channels = self._env.state_shape()[2]
         self.sticky_action_prob = sticky_action_prob
         self.last_action = 0
