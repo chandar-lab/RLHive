@@ -2,12 +2,12 @@ import numpy as np
 import gym
 import torch
 
-from hive.envs.gym_env import GymEnv
+from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
 from importlib import import_module
 
 
-class MinAtarEnv:
+class MinAtarEnv(BaseEnv):
     """
     Class for loading Atari environments.
     """
@@ -32,9 +32,9 @@ class MinAtarEnv:
         self.last_action = 0
         self.visualized = False
         self.closed = False
-        self.env_spec = self.create_env_spec(env_name)
+        super().__init__(self.create_env_spec(env_name), num_players=1)
 
-    def create_env_spec(self, env_name, **kwargs):
+    def create_env_spec(self, env_name):
         obs_dim = tuple(self._env.state_shape())
         new_positions = [2, 0, 1]
         obs_dim = tuple(obs_dim[i] for i in new_positions)
@@ -46,9 +46,10 @@ class MinAtarEnv:
 
     def reset(self):
         self._env.reset()
-        return (
-            torch.tensor(self._env.state()).permute(2, 0, 1)
-        ).float().detach().cpu().numpy(), 0
+        return np.transpose(self._env.state(), [2, 1, 0]), 0
+
+    def seed(self, seed=None):
+        self._env.seed(seed=seed)
 
     def step(self, action=None):
         """
@@ -61,13 +62,6 @@ class MinAtarEnv:
         reward, done = self._env.act(action)
         reward = float(reward)
         info = {}
-        observation = (
-            torch.tensor(self._env.state())
-            .permute(2, 0, 1)
-            .float()
-            .detach()
-            .cpu()
-            .numpy()
-        )
+        observation = np.transpose(self._env.state(), [2, 1, 0])
 
         return observation, reward, done, None, info
