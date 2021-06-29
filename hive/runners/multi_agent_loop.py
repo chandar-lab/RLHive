@@ -277,7 +277,7 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--agent-config")
     parser.add_argument("-e", "--env-config")
     parser.add_argument("-l", "--logger-config")
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
     config = load_config(args)
     runner = set_up_experiment(config)
     runner.run_training()
