@@ -126,7 +126,7 @@ class RainbowDQNAgent(DQNAgent):
         self._grad_clip = grad_clip
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
-        self._device = torch.device(device if torch.cuda.is_available() else "cpu")
+        self._device = torch.device(device)
         self._loss_fn = torch.nn.SmoothL1Loss()
         self._batch_size = batch_size
         self._logger = get_logger(logger)
