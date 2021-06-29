@@ -82,8 +82,7 @@ class DQNAgent(Agent):
             qnet["kwargs"]["in_dim"] = self._obs_dim
             qnet["kwargs"]["out_dim"] = self._act_dim
 
-        self._device = torch.device(device)
-        self._qnet = get_qnet(qnet).to(self._device)
+        self._qnet = get_qnet(qnet).to(device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         optimizer_fn = get_optimizer_fn(optimizer_fn)
         if optimizer_fn is None:
@@ -97,6 +96,7 @@ class DQNAgent(Agent):
         self._grad_clip = grad_clip
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
+        self._device = torch.device(device)
         self._loss_fn = torch.nn.SmoothL1Loss()
         self._batch_size = batch_size
         self._logger = get_logger(logger)
@@ -171,7 +171,6 @@ class DQNAgent(Agent):
     def update(self, update_info):
         """
         Updates the DQN agent.
-
         Args:
             update_info: dictionary containing all the necessary information to
             update the agent. Should contain a full transition, with keys for
@@ -180,6 +179,7 @@ class DQNAgent(Agent):
         if update_info["done"]:
             self._state["episode_start"] = True
 
+        # Add the most recent transition to the replay buffer.
         if self._training:
             self._replay_buffer.add(
                 observation=update_info["observation"],
@@ -198,7 +198,6 @@ class DQNAgent(Agent):
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-
             pred_qvals = self._qnet(batch["observation"])
             actions = batch["action"].long()
             pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
