@@ -91,7 +91,7 @@ class DQNAgent(Agent):
         self._rng = np.random.default_rng(seed=seed)
         self._replay_buffer = get_replay(replay_buffer)
         if self._replay_buffer is None:
-            self._replay_buffer = CircularReplayBuffer(np.random.default_rng(seed=seed))
+            self._replay_buffer = CircularReplayBuffer(seed=seed)
         self._discount_rate = discount_rate
         self._grad_clip = grad_clip
         self._target_net_soft_update = target_net_soft_update

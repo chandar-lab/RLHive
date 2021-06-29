@@ -20,7 +20,12 @@ except ImportError:
 try:
     from hive.envs.hanabi import HanabiLearningEnv
 except ImportError:
-    MarlGridEnv = None
+    HanabiLearningEnv = None
+    
+try:
+    from hive.envs.minatar import MinAtarEnv
+except ImportError:
+    MinAtarEnv = None
 
 from hive.utils.utils import create_class_constructor
 
@@ -32,5 +37,6 @@ get_env = create_class_constructor(
         "MarlGridEnv": MarlGridEnv,
         "AtariEnv": AtariEnv,
         "HanabiLearningEnv": HanabiLearningEnv,
+        "MinAtarEnv": MinAtarEnv,
     },
 )
