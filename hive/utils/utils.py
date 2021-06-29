@@ -109,4 +109,4 @@ registry.register_all(
     },
 )
 
-get_optimizer_fn = registry.get_optimizer_fn
+get_optimizer_fn = getattr(registry, f"get_{OptimizerFn.type_name()}")
