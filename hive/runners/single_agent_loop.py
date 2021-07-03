@@ -152,7 +152,7 @@ def set_up_experiment(config):
     return runner
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", default="./config.yml")
     parser.add_argument("-a", "--agent-config")
@@ -162,3 +162,7 @@ if __name__ == "__main__":
     config = load_config(args)
     runner = set_up_experiment(config)
     runner.run_training()
+
+
+if __name__ == "__main__":
+    main()
