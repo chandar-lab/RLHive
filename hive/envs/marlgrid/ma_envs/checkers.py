@@ -1,32 +1,62 @@
 from marlgrid.base import MultiGridEnv, MultiGrid
-from hive.envs.marlgrid.ma_envs.base import MultiGridEnvHive
-from marlgrid.objects import *
+from marlgrid.objects import Goal, GridAgent
 import numpy as np
 
 
-class CheckersMultiGrid(MultiGridEnvHive):
-    mission = "get to the green square"
-    metadata = {}
+class CheckersMultiGrid(MultiGridEnv):
+    """
+    Checkers environment based on sunehag et al. 2017
+
+    "... The map contains apples and lemons. The first player is very sensitive and scores 10 for
+    the team for an apple (green square) and −10 for a lemon (orange square).
+    The second, less sensitive player scores 1 for the team for an apple and −1 for a lemon.
+    There is a wall of lemons between the players and the apples.
+    Apples and lemons disappear when collected.
+    The environment resets when all apples are eaten or maximum number of steps is reached.
+    """
 
     def _gen_grid(self, width, height):
+        self.num_rows = 3
         self.grid = MultiGrid((width, height))
         self.grid.wall_rect(0, 0, width, height)
         apple = Goal(color="green", reward=10)
         orange = Goal(color="red", reward=-10)
-        for i in range(int(np.floor(width / 2))):
-            for j in range(3):
-                if (j % 2) + 1 + 2 * i < width - 1:
-                    self.put_obj(orange, (j % 2) + 1 + 2 * i, j + 1)
+        self.num_remained_apples = 0
+        for j in range(self.num_rows):
+            oranges_loc = [2 * i + 1 + j % 2 for i in range(width // 2 - 1)]
+            apples_loc = [2 * i + 1 + (j + 1) % 2 for i in range(width // 2 - 1)]
+            for orange_loc in oranges_loc:
+                self.put_obj(orange, orange_loc, j + 1)
 
-                if ((j + 1) % 2) + 1 + 2 * i < width - 1:
-                    self.put_obj(apple, ((j + 1) % 2) + 1 + 2 * i, j + 1)
+            for apple_loc in apples_loc:
+                self.put_obj(apple, apple_loc, j + 1)
+                self.num_remained_apples += 1
 
-        self.num_remained_goals = 3 * (width - 2)
         self.agent_spawn_kwargs = {}
-        self.place_agents(
-            top=(0, 4), size=(width, height - 4), **self.agent_spawn_kwargs
-        )
         self.ghost_mode = False
+
+    def reset(self, **kwargs):
+        for agent in self.agents:
+            agent.agents = []
+            agent.reset(new_episode=True)
+
+        self._gen_grid(self.width, self.height)
+
+        for agent in self.agents:
+            if agent.spawn_delay == 0:
+                self.place_obj(
+                    agent,
+                    top=(0, self.num_rows + 1),
+                    size=(self.width, self.height - self.num_rows - 1),
+                    **self.agent_spawn_kwargs,
+                )
+                agent.activate()
+
+        self.step_count = 0
+        obs = self.gen_obs()
+        for ag_idx, _ in enumerate(obs):
+            obs[ag_idx] = np.array(obs[ag_idx], dtype=np.uint8)
+        return obs
 
     def step(self, actions):
         # Spawn agents if it's time.
@@ -41,14 +71,7 @@ class CheckersMultiGrid(MultiGridEnvHive):
 
         assert len(actions) == len(self.agents)
 
-        step_rewards = np.zeros(
-            (
-                len(
-                    self.agents,
-                )
-            ),
-            dtype=np.float,
-        )
+        step_rewards = np.zeros((len(self.agents)), dtype=np.float)
 
         self.step_count += 1
 
@@ -106,12 +129,13 @@ class CheckersMultiGrid(MultiGridEnvHive):
                                 self.grid.set(*cur_pos, left_behind)
                             elif cur_obj.can_overlap():
                                 cur_obj.agents.append(left_behind)
-                            else:  # How was "agent" there in teh first place?
-                                raise ValueError("?!?!?!")
+                            else:
+                                raise ValueError(
+                                    "How was agent there in the first place?"
+                                )
 
                         # After moving, the agent shouldn't contain any other agents.
                         agent.agents = []
-                        # test_integrity(f"After moving {agent.color} fellow")
 
                         # Rewards can be got iff. fwd_cell has a "get_reward" method
                         if hasattr(fwd_cell, "get_reward"):
@@ -124,22 +148,15 @@ class CheckersMultiGrid(MultiGridEnvHive):
                                 rwd *= 1.0 - 0.9 * (self.step_count / self.max_steps)
                             step_rewards[agent_no] += rwd
                             agent.reward(rwd)
-                            self.num_remained_goals -= 1
+                            if rwd > 0:
+                                self.num_remained_apples -= 1
 
-                        if isinstance(fwd_cell, Lava):
-                            agent.done = True
-
-                # TODO: verify pickup/drop/toggle logic in an environment that
-                #  supports the relevant interactions.
                 # Pick up an object
                 elif action == agent.actions.pickup:
-                    if fwd_cell and fwd_cell.can_pickup():
-                        if agent.carrying is None:
-                            agent.carrying = fwd_cell
-                            agent.carrying.cur_pos = np.array([-1, -1])
-                            self.grid.set(*fwd_pos, None)
-                    else:
-                        pass
+                    if fwd_cell and fwd_cell.can_pickup() and agent.carrying is None:
+                        agent.carrying = fwd_cell
+                        agent.carrying.cur_pos = np.array([-1, -1])
+                        self.grid.set(*fwd_pos, None)
 
                 # Drop an object
                 elif action == agent.actions.drop:
@@ -147,15 +164,11 @@ class CheckersMultiGrid(MultiGridEnvHive):
                         self.grid.set(*fwd_pos, agent.carrying)
                         agent.carrying.cur_pos = fwd_pos
                         agent.carrying = None
-                    else:
-                        pass
 
                 # Toggle/activate an object
                 elif action == agent.actions.toggle:
                     if fwd_cell:
                         wasted = bool(fwd_cell.toggle(agent, fwd_pos))
-                    else:
-                        pass
 
                 # Done action (not used by default)
                 elif action == agent.actions.done:
@@ -167,7 +180,7 @@ class CheckersMultiGrid(MultiGridEnvHive):
                 agent.on_step(fwd_cell if agent_moved else None)
 
         # If any of the agents individually are "done" (hit lava or in some cases a goal)
-        #   but the env requires respawning, then respawn those agents.
+        # but the env requires respawning, then respawn those agents.
         for agent in self.agents:
             if agent.done:
                 if self.respawn:
@@ -189,13 +202,20 @@ class CheckersMultiGrid(MultiGridEnvHive):
                 else:  # if the agent shouldn't be respawned, then deactivate it.
                     agent.deactivate()
 
-        # The episode overall is done if all the agents are done, or if it exceeds the step limit.
+        # The episode overall is done if all the agents are done,
+        # or if it exceeds the step limit or all the apples are collected.
         done = (
             (self.step_count >= self.max_steps)
             or all([agent.done for agent in self.agents])
-            or self.num_remained_goals == 0
+            or self.num_remained_apples == 0
         )
 
-        obs = [self.gen_agent_obs(agent) for agent in self.agents]
+        obs = [
+            np.asarray(self.gen_agent_obs(agent), dtype=np.uint8)
+            for agent in self.agents
+        ]
+
+        # Team reward
         step_rewards = np.array([np.sum(step_rewards) for _ in self.agents])
+
         return obs, step_rewards, done, {}

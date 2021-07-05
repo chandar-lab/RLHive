@@ -1,0 +1,1 @@
+MinAtar @ git+https://github.com/kenjyoung/MinAtar.git@8b39a18a60248ede15ce70142b557f3897c4e1eb

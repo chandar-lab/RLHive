@@ -17,7 +17,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         n_step=1,
         gamma=0.99,
         observation_shape=(),
-        observation_dtype=np.float32,
+        observation_dtype=np.uint8,
         action_shape=(),
         action_dtype=np.int8,
         reward_shape=(),
@@ -104,9 +104,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
     def _add_transition(self, **transition):
         """Internal method to add a transition to the buffer."""
         for key in transition:
-            self._storage[key][self._cursor] = np.asarray(
-                transition[key], dtype=self._specs[key][0]
-            )
+            self._storage[key][self._cursor] = transition[key]
         self._num_added += 1
         self._cursor = (self._cursor + 1) % self._capacity
 
@@ -158,6 +156,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def _get_from_array(self, array, indices, num_to_access=1):
         """Retrieves consecutive elements in the array, wrapping around if necessary.
+        If more than 1 element is being accessed, the elements are concatenated along
+        the first dimension.
 
         Args:
             array: array to access from
@@ -168,7 +168,9 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         full_indices = (full_indices + np.expand_dims(indices, axis=1)) % (
             self.size() + self._stack_size + self._n_step - 1
         )
-        return array[full_indices]
+        elements = array[full_indices]
+        elements = elements.reshape(indices.shape[0], -1, *elements.shape[3:])
+        return elements
 
     def _get_from_storage(self, key, indices, num_to_access=1):
         """Gets values from storage.

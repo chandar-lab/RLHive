@@ -1,14 +1,11 @@
 import argparse
 import copy
-import numpy as np
-import torch
-import yaml
 
 from hive import agents as agent_lib
 from hive import envs
-from hive.utils import experiment, logging, schedule, utils
-from hive.runners.utils import load_config
 from hive.runners.base import Runner
+from hive.runners.utils import TransitionInfo, load_config, set_seed
+from hive.utils import experiment, logging, schedule, utils
 
 
 class SingleAgentRunner(Runner):
@@ -24,6 +21,7 @@ class SingleAgentRunner(Runner):
         train_episodes,
         test_frequency,
         test_num_episodes,
+        stack_size,
     ):
         super().__init__(
             environment,
@@ -35,6 +33,7 @@ class SingleAgentRunner(Runner):
             test_frequency,
             test_num_episodes,
         )
+        self._transition_info = TransitionInfo(self._agents, stack_size)
 
     def run_one_step(self, observation, turn, episode_metrics):
         """Run one step of the training loop.
@@ -49,18 +48,21 @@ class SingleAgentRunner(Runner):
             episode_metrics: Metrics object keeping track of metrics for current episode.
         """
         agent = self._agents[turn]
-        action = agent.act(observation)
+        stacked_observation = self._transition_info.get_stacked_state(
+            agent, observation
+        )
+        action = agent.act(stacked_observation)
         next_observation, reward, done, _, other_info = self._environment.step(action)
 
         info = {
             "observation": observation,
             "reward": reward,
             "action": action,
-            "next_observation": next_observation,
             "done": done,
             "info": other_info,
         }
         agent.update(info)
+        self._transition_info.record_info(agent, info)
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1
         episode_metrics["full_episode_length"] += 1
@@ -72,6 +74,8 @@ class SingleAgentRunner(Runner):
         episode_metrics = self.create_episode_metrics()
         done = False
         observation, _ = self._environment.reset()
+        self._transition_info.reset()
+        self._transition_info.start_agent(self._agents[0])
 
         # Run the loop until either training ends or the episode ends
         while self._train_step_schedule.get_value() and not done:
@@ -85,6 +89,8 @@ def set_up_experiment(config):
     """Returns a runner object based on the config."""
 
     original_config = utils.Chomp(copy.deepcopy(config))
+    if "seed" in config:
+        set_seed(config["seed"])
 
     # Set up environment
     environment = envs.get_env(config["environment"])
@@ -103,14 +109,18 @@ def set_up_experiment(config):
             logger = logging.CompositeLogger(logger_config)
 
     # Set up agent
-    config["agent"]["kwargs"]["obs_dim"] = env_spec.obs_dim[0]
+    if config.get("stack_size", 1) > 1:
+        config["agent"]["kwargs"]["obs_dim"] = (
+            config["stack_size"] * env_spec.obs_dim[0][0],
+            *env_spec.obs_dim[0][1:],
+        )
+    else:
+        config["agent"]["kwargs"]["obs_dim"] = env_spec.obs_dim[0]
     config["agent"]["kwargs"]["act_dim"] = env_spec.act_dim[0]
     config["agent"]["kwargs"]["logger"] = logger
-
     if "replay_buffer" in config["agent"]["kwargs"]:
         replay_args = config["agent"]["kwargs"]["replay_buffer"]["kwargs"]
         replay_args["observation_shape"] = env_spec.obs_dim[0]
-
     agent = agent_lib.get_agent(config["agent"])
 
     # Set up experiment manager
@@ -134,6 +144,7 @@ def set_up_experiment(config):
         config.get("train_episodes", -1),
         config.get("test_frequency", -1),
         config.get("test_num_episodes", 1),
+        config.get("stack_size", 1),
     )
     if config.get("resume", False):
         runner.resume()
@@ -141,7 +152,7 @@ def set_up_experiment(config):
     return runner
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", default="./config.yml")
     parser.add_argument("-a", "--agent-config")
@@ -151,3 +162,7 @@ if __name__ == "__main__":
     config = load_config(args)
     runner = set_up_experiment(config)
     runner.run_training()
+
+
+if __name__ == "__main__":
+    main()

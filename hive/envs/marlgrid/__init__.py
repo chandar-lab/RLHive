@@ -1,2 +1,2 @@
 from hive.envs.marlgrid.marlgrid import MarlGridEnv
-from hive.envs.marlgrid.ma_envs import *
+from hive.envs.marlgrid import ma_envs

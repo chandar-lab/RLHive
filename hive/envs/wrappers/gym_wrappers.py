@@ -1,6 +1,7 @@
 from functools import reduce
 import operator
 import gym
+import numpy as np
 
 
 class FlattenWrapper(gym.core.ObservationWrapper):
@@ -38,3 +39,39 @@ class FlattenWrapper(gym.core.ObservationWrapper):
             return tuple(o.flatten() for o in obs)
         else:
             return obs.flatten()
+
+
+class PermuteImageWrapper(gym.core.ObservationWrapper):
+    """Changes the image format from HWC to CHW"""
+
+    def __init__(self, env):
+        super().__init__(env)
+
+        if isinstance(env.observation_space, gym.spaces.Tuple):
+            self.observation_space = gym.spaces.Tuple(
+                tuple(
+                    gym.spaces.Box(
+                        low=np.transpose(space.low, [2, 1, 0]),
+                        high=np.transpose(space.high, [2, 1, 0]),
+                        shape=(space.shape[-1],) + space.shape[:-1],
+                        dtype=space.dtype,
+                    )
+                    for space in env.observation_space
+                )
+            )
+            self._is_tuple = True
+        else:
+            self.observation_space = gym.spaces.Box(
+                low=np.transpose(env.observation_space.low, [2, 1, 0]),
+                high=np.transpose(env.observation_space.high, [2, 1, 0]),
+                shape=(env.observation_space.shape[-1],)
+                + env.observation_space.shape[:-1],
+                dtype=env.observation_space.dtype,
+            )
+            self._is_tuple = False
+
+    def observation(self, obs):
+        if self._is_tuple:
+            return tuple(np.transpose(o, [2, 1, 0]) for o in obs)
+        else:
+            return np.transpose(obs, [2, 1, 0])
