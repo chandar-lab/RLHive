@@ -1,13 +1,16 @@
-import os
 import abc
 import copy
+import os
+from typing import List
+
 import torch
 import wandb
+from hive import Registrable, registry
 from hive.utils.schedule import ConstantSchedule, Schedule, get_schedule
-from hive.utils.utils import Chomp, create_folder, create_class_constructor
+from hive.utils.utils import Chomp, create_folder
 
 
-class Logger(abc.ABC):
+class Logger(abc.ABC, Registrable):
     """Abstract class for logging in hive."""
 
     def __init__(self, timescales):
@@ -69,6 +72,10 @@ class Logger(abc.ABC):
             dir_name: name of the directory to load the log file from.
         """
         pass
+
+    @classmethod
+    def type_name(cls):
+        return "logger"
 
 
 class ScheduledLogger(Logger):
@@ -174,8 +181,8 @@ class NullLogger(ScheduledLogger):
     framework that ask for a logger.
     """
 
-    def __init__(self, **kwargs):
-        super().__init__("null", ConstantSchedule(False))
+    def __init__(self, timescales, logger_schedules=None):
+        super().__init__(timescales, logger_schedules)
 
     def log_scalar(self, name, value, timescale):
         pass
@@ -296,12 +303,9 @@ class CompositeLogger(Logger):
     should not be logging for the timescale.
     """
 
-    def __init__(self, logger_list):
+    def __init__(self, logger_list: List[Logger]):
         super().__init__([])
         self._logger_list = logger_list
-        for idx, logger in enumerate(self._logger_list):
-            if isinstance(logger, dict):
-                self._logger_list[idx] = get_logger(logger)
 
     def register_timescale(self, timescale, schedule=None):
         for logger in self._logger_list:
@@ -344,7 +348,7 @@ class CompositeLogger(Logger):
             logger.load(load_dir)
 
 
-get_logger = create_class_constructor(
+registry.register_all(
     Logger,
     {
         "NullLogger": NullLogger,
@@ -353,3 +357,5 @@ get_logger = create_class_constructor(
         "CompositeLogger": CompositeLogger,
     },
 )
+
+get_logger = getattr(registry, f"get_{Logger.type_name()}")
