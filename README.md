@@ -87,8 +87,17 @@ python -m hive.runners.single_agent_loop -c configs/cartpole_dqn/config.yml
 
 For multiagent experiments, such as independent DQNs with Marlgrid, navigate to the root directory and run:
 ```
-python -m hive.runners.multi_agent_loop -c configs/marlgrid_ma2_9x9_dqn/config.yml
+python -m hive.runners.multi_agent_loop -c configs/marlgrid_dqn/config_empty.yml
 ```
+This will run an experiment with two independent agents.
+
+
+Now suppose you want to change the replay buffer capacity of the second agent to 5000 from the command line as
+described in the previous section. Simply run:
+```
+python -m hive.runners.multi_agent_loop -c configs/marlgrid_dqn/config_empty.yml --agents.0.replay_buffer.capacity 5000
+```
+
 
 ## Contributing
 When contributing to RLHive, please follow these guidelines:
