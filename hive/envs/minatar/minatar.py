@@ -1,11 +1,7 @@
 import numpy as np
-import gym
-import torch
-
 from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
 from importlib import import_module
-
 
 class MinAtarEnv(BaseEnv):
     """
