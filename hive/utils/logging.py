@@ -234,6 +234,9 @@ class WandbLogger(ScheduledLogger):
         else:
             wandb.init(project=project_name, name=run_name)
 
+    def update_config(self, config):
+        wandb.config.update(config)
+
     def log_scalar(self, name, value, timescale):
         metrics = {f"{timescale}_{name}": value}
         metrics.update(
