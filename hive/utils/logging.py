@@ -227,7 +227,12 @@ class WandbLogger(ScheduledLogger):
             offline (bool): Whether to log offline.
         """
         super().__init__(timescales, logger_schedules)
-        wandb.init(project=project_name, name=run_name)
+        if offline:
+            os.environ["WANDB_MODE"] = "dryrun"
+        if "save_dir" in kwargs.keys():
+            wandb.init(project=project_name, name=run_name, dir=kwargs["save_dir"])
+        else:
+            wandb.init(project=project_name, name=run_name)
 
     def log_scalar(self, name, value, timescale):
         metrics = {f"{timescale}_{name}": value}
