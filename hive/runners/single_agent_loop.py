@@ -128,6 +128,9 @@ def set_up_experiment(config):
 
     logger, full_config["loggers"] = logging.get_logger(logger_config, "loggers")
 
+    for idx, logger_idx in enumerate(config["loggers"]):
+        if logger_idx["name"] == "WandbLogger":
+            logger._logger_list[idx].update_config(config)
     # Set up agent
     if config.get("stack_size", 1) > 1:
         config["agent"]["kwargs"]["obs_dim"] = (
