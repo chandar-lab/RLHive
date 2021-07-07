@@ -234,7 +234,7 @@ class WandbLogger(ScheduledLogger):
         else:
             wandb.init(project=project_name, name=run_name)
 
-    def update_config(self, config):
+    def log_config(self, config):
         wandb.config.update(config)
 
     def log_scalar(self, name, value, timescale):
@@ -266,6 +266,9 @@ class ChompLogger(ScheduledLogger):
     def __init__(self, timescales, logger_schedules=None):
         super().__init__(timescales, logger_schedules)
         self._log_data = Chomp()
+
+    def log_config(self, config):
+        self._log_data["config"] = config
 
     def log_scalar(self, name, value, timescale):
         metric_name = f"{timescale}_{name}"
