@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from hive.utils import schedule
 from hive.runners.utils import Metrics
 
+from statistics import mean
 
 class Runner(ABC):
     """Base Runner class used to implement a training loop.
@@ -155,7 +156,7 @@ class Runner(ABC):
                 for agent in self._agents:
                     mean_episode_metrics[agent.id]["reward"] = mean([ep_metrics[agent.id]["reward"] for ep_metrics in episode_metrics_list])
                     mean_episode_metrics[agent.id]["episode_length"] = mean([ep_metrics[agent.id]["episode_length"] for ep_metrics in episode_metrics_list])
-                    mean_episode_metrics[agent.id]["full_episode_length"] = mean([ep_metrics[agent.id]["full_episode_length"] for ep_metrics in episode_metrics_list])
+                mean_episode_metrics[agent.id]["full_episode_length"] = mean([ep_metrics["full_episode_length"] for ep_metrics in episode_metrics_list])
                 self._logger.update_step("test_episodes")
                 self._logger.log_metrics(mean_episode_metrics.get_flat_dict(), "test_episodes")
 
