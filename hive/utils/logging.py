@@ -37,6 +37,14 @@ class Logger(abc.ABC, Registrable):
         self._timescales.append(timescale)
 
     @abc.abstractmethod
+    def log_config(self, config):
+        """Log a config file.
+        Args:
+            config: dict, config parameters.
+        """
+        pass
+
+    @abc.abstractmethod
     def log_scalar(self, name, value, timescale):
         """Log a scalar variable.
         Args:
@@ -184,6 +192,9 @@ class NullLogger(ScheduledLogger):
     def __init__(self, timescales, logger_schedules=None):
         super().__init__(timescales, logger_schedules)
 
+    def log_config(self, config):
+        pass
+
     def log_scalar(self, name, value, timescale):
         pass
 
@@ -212,7 +223,7 @@ class WandbLogger(ScheduledLogger):
         run_name,
         timescales="wandb",
         logger_schedules=None,
-        offline=False,
+        mode="online",
         **kwargs,
     ):
         """Constructor for the WandbLogger.
@@ -227,12 +238,13 @@ class WandbLogger(ScheduledLogger):
             offline (bool): Whether to log offline.
         """
         super().__init__(timescales, logger_schedules)
-        if offline:
-            os.environ["WANDB_MODE"] = "dryrun"
+
         if "save_dir" in kwargs.keys():
-            wandb.init(project=project_name, name=run_name, dir=kwargs["save_dir"])
+            wandb.init(
+                project=project_name, name=run_name, dir=kwargs["save_dir"], mode=mode
+            )
         else:
-            wandb.init(project=project_name, name=run_name)
+            wandb.init(project=project_name, name=run_name, mode=mode)
 
     def log_config(self, config):
         wandb.config.update(config)
@@ -324,6 +336,10 @@ class CompositeLogger(Logger):
                 logger.register_timescale(timescale, schedule)
             else:
                 logger.register_timescale(timescale)
+
+    def log_config(self, config):
+        for logger in self._logger_list:
+            logger.log_config(config)
 
     def log_scalar(self, name, value, timescale):
         for logger in self._logger_list:

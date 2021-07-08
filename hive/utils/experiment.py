@@ -53,8 +53,7 @@ class Experiment(object):
 
         self._config = config
         self._logger = logger
-        for logger_idx in logger._logger_list:
-            logger_idx.log_config(config)
+        self._logger.log_config(config)
 
         if agents is not None and not isinstance(agents, list):
             agents = [agents]
