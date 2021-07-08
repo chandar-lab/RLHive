@@ -235,7 +235,10 @@ class WandbLogger(ScheduledLogger):
             logger_schedule (Schedule): Schedule used to define when logging should occur.
             logger_name (str): Used to differentiate between different loggers/timescales
                 in the same run.
-            offline (bool): Whether to log offline.
+            mode (str): The mode of logging. Can be "online", "offline" or "disabled".
+            In offline mode, writes all data to disk for later syncing to a server, while
+            in disabled mode, it makes all calls to wandb api's noop's, while maintaining
+            core functionality
         """
         super().__init__(timescales, logger_schedules)
 
