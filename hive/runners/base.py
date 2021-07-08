@@ -131,30 +131,44 @@ class Runner(ABC):
             # Run training episode
             self.train_mode(True)
             episode_metrics = self.run_episode()
-            if self._logger.update_step("train_episodes"):
-                self._logger.log_metrics(
-                    episode_metrics.get_flat_dict(), "train_episodes"
-                )
+            # self._logger.update_step("train_episodes")
+            # if self._logger.update_step("train_episodes"):
+            #     self._logger.log_metrics(
+            #         episode_metrics.get_flat_dict(), "train_episodes"
+            #     )
 
             # Run test episodes
+            episode_metrics_list = []
             while self._test_schedule.update():
                 self.train_mode(False)
                 episode_metrics = self.run_episode()
-                if self._logger.update_step("test_episodes"):
-                    self._logger.log_metrics(
-                        episode_metrics.get_flat_dict(), "test_episodes"
-                    )
+                episode_metrics_list.append(episode_metrics)
+                # self._logger.update_step("test_episodes")
+
+                # if self._logger.update_step("test_episodes"):
+                #     self._logger.log_metrics(
+                #         episode_metrics.get_flat_dict(), "test_episodes"
+                #     )
+
+            if len(episode_metrics_list) != 0:
+                mean_episode_metrics = self.create_episode_metrics()
+                for agent in self._agents:
+                    mean_episode_metrics[agent.id]["reward"] = mean([ep_metrics[agent.id]["reward"] for ep_metrics in episode_metrics_list])
+                    mean_episode_metrics[agent.id]["episode_length"] = mean([ep_metrics[agent.id]["episode_length"] for ep_metrics in episode_metrics_list])
+                    mean_episode_metrics[agent.id]["full_episode_length"] = mean([ep_metrics[agent.id]["full_episode_length"] for ep_metrics in episode_metrics_list])
+                self._logger.update_step("test_episodes")
+                self._logger.log_metrics(mean_episode_metrics.get_flat_dict(), "test_episodes")
 
             # Save experiment state
             if self._experiment_manager.update_step():
                 self._experiment_manager.save()
 
         # Run a final test episode and save the experiment.
-        self.train_mode(False)
-        episode_metrics = self.run_episode()
-        self._logger.update_step("test_episodes")
-        self._logger.log_metrics(episode_metrics.get_flat_dict(), "test_episodes")
-        self._experiment_manager.save()
+        # self.train_mode(False)
+        # episode_metrics = self.run_episode()
+        # self._logger.update_step("test_episodes")
+        # self._logger.log_metrics(episode_metrics.get_flat_dict(), "test_episodes")
+        # self._experiment_manager.save()
 
     def resume(self):
         """Resume a saved experiment."""
