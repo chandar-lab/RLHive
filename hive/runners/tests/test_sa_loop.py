@@ -16,6 +16,9 @@ class FakeLogger1(ScheduledLogger):
         super().__init__(timescales, logger_schedules)
         self.arg1 = arg1
 
+    def log_config(self, config):
+        pass
+
     def log_scalar(self, name, value, timescale):
         pass
 
@@ -33,6 +36,9 @@ class FakeLogger2(ScheduledLogger):
     def __init__(self, timescales, logger_schedules=None, arg2: float = 0):
         super().__init__(timescales, logger_schedules)
         self.arg2 = arg2
+
+    def log_config(self, config):
+        pass
 
     def log_scalar(self, name, value, timescale):
         pass
