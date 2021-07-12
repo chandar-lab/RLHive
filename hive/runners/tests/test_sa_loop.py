@@ -98,9 +98,7 @@ def test_run_step(initial_runner):
     observation, turn = single_agent_loop._environment.reset()
     assert turn == 0
     agent = single_agent_loop._agents[turn]
-    done, observation = single_agent_loop.run_one_step(
-        observation, episode_metrics
-    )
+    done, observation = single_agent_loop.run_one_step(observation, episode_metrics)
     single_agent_loop._train_step_schedule.update()
     assert episode_metrics[agent.id]["episode_length"] == 1
 
