@@ -1,5 +1,5 @@
 # General training loop config
-run_name: &run_name 'breakout-rainbow'
+run_name: &run_name 'breakout-rainbow-double-dueling-dist'
 train_steps: 10000000
 test_frequency: 100
 test_num_episodes: 10
@@ -26,12 +26,12 @@ agent:
       name: 'DistributionalConv'
       kwargs:
         channels: [16]
-        mlp_layers: [128]
+        mlp_layers: [128, 128]
         kernel_sizes: [3]
         strides: [1]
         paddings: [0]
         normalization_factor: 1
-        noisy: True
+        noisy: False
         dueling: True
     optimizer_fn:
       name: 'RMSprop'
@@ -72,9 +72,9 @@ agent:
     log_frequency: 1000
     double: True
     distributional: True
-    use_eps_greedy: False
+    use_eps_greedy: True
     v_min: 0.0
-    v_max: 200.0
+    v_max: 50.0
     atoms: 51
 
 # List of logger configs used.
