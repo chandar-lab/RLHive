@@ -179,7 +179,6 @@ class RainbowDQNAgent(DQNAgent):
 
     @torch.no_grad()
     def act(self, observation):
-        observation = torch.tensor(observation).to(self._device).float()
 
         if self._training:
             if not self._learn_schedule.update():
@@ -196,7 +195,7 @@ class RainbowDQNAgent(DQNAgent):
         observation = (
             torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
         )
-        qvals = self._qnet(observation)
+        qvals = self._qnet(observation).cpu()
 
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
