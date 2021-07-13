@@ -45,7 +45,7 @@ class ComplexConv(nn.Module):
         conv_seq = []
         for i in range(0, len(channels) - 1):
             conv_seq.append(
-                torch.nn.Conv2d(
+                nn.Conv2d(
                     in_channels=channels[i],
                     out_channels=channels[i + 1],
                     kernel_size=kernel_sizes[i],
@@ -53,8 +53,8 @@ class ComplexConv(nn.Module):
                     padding=paddings[i],
                 )
             )
-            conv_seq.append(torch.nn.ReLU())
-        self.conv = torch.nn.Sequential(*conv_seq)
+            conv_seq.append(nn.ReLU())
+        self.conv = nn.Sequential(*conv_seq)
 
         self._noisy = noisy
         self._dueling = dueling
@@ -71,37 +71,27 @@ class ComplexConv(nn.Module):
 
     def init_networks(self):
         if self._noisy:
-            self.hidden_layer_0 = nn.Sequential(
+            hidden_seq = [
                 NoisyLinear(self._feature_size, self._mlp_layers[0], self._sigma_init),
                 nn.ReLU(),
-            )
-            self.hidden_layers = nn.Sequential(
-                *[
-                    nn.Sequential(
-                        NoisyLinear(
-                            self._mlp_layers[i],
-                            self._mlp_layers[i + 1],
-                            self._sigma_init,
-                        ),
-                        nn.ReLU(),
+            ]
+            for i in range(self._num_mlp_layers - 1):
+                hidden_seq.append(
+                    NoisyLinear(
+                        self._mlp_layers[i], self._mlp_layers[i + 1], self._sigma_init
                     )
-                    for i in range(self._num_mlp_layers - 1)
-                ]
-            )
+                )
+                hidden_seq.append(nn.ReLU())
+            self.hidden = nn.Sequential(*hidden_seq)
 
         else:
-            self.hidden_layer_0 = nn.Sequential(
-                nn.Linear(self._feature_size, self._mlp_layers[0]), nn.ReLU()
-            )
-            self.hidden_layers = nn.Sequential(
-                *[
-                    nn.Sequential(
-                        nn.Linear(self._mlp_layers[i], self._mlp_layers[i + 1]),
-                        nn.ReLU(),
-                    )
-                    for i in range(self._num_mlp_layers - 1)
-                ]
-            )
+            hidden_seq = [nn.Linear(self._feature_size, self._mlp_layers[0]), nn.ReLU()]
+            for i in range(self._num_mlp_layers - 1):
+                hidden_seq.append(
+                    nn.Linear(self._mlp_layers[i], self._mlp_layers[i + 1])
+                )
+                hidden_seq.append(nn.ReLU())
+            self.hidden = nn.Sequential(*hidden_seq)
 
         if self._dueling:
             """In dueling, we have two heads - one for estimating advantage function and one for
@@ -171,8 +161,7 @@ class ComplexConv(nn.Module):
         x = x / self._normalization_factor
         x = self.conv(x)
         x = torch.flatten(x, 1)
-        x = self.hidden_layer_0(x)
-        x = self.hidden_layers(x)
+        x = self.hidden(x)
 
         if self._dueling:
             adv = self.output_layer_adv(x)
@@ -261,8 +250,7 @@ class DistributionalConv(ComplexConv):
         x = x / self._normalization_factor
         x = self.conv(x)
         x = torch.flatten(x, 1)
-        x = self.hidden_layer_0(x)
-        x = self.hidden_layers(x)
+        x = self.hidden(x)
 
         if self._dueling:
             adv = self.output_layer_adv(x)
