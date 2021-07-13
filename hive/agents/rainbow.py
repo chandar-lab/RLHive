@@ -1,14 +1,19 @@
+from hive.agents.qnets.base import FunctionApproximator
+from hive.replays.replay_buffer import BaseReplayBuffer
+
 import os
 import copy
 import numpy as np
 import torch
+from typing import Tuple, Callable
 
 from hive.replays import CircularReplayBuffer, get_replay
-from hive.utils.logging import NullLogger, get_logger
-from hive.utils.utils import create_folder, get_optimizer_fn
+from hive.utils.logging import Logger, NullLogger, get_logger
+from hive.utils.utils import OptimizerFn, create_folder, get_optimizer_fn
 from hive.utils.schedule import (
     PeriodicSchedule,
     LinearSchedule,
+    Schedule,
     SwitchSchedule,
     get_schedule,
 )
@@ -24,30 +29,30 @@ class RainbowDQNAgent(DQNAgent):
 
     def __init__(
         self,
-        qnet,
-        obs_dim,
-        act_dim,
-        v_min=0,
-        v_max=200,
-        atoms=51,
-        optimizer_fn=None,
-        id=0,
-        replay_buffer=None,
-        discount_rate=0.99,
-        grad_clip=None,
-        target_net_soft_update=False,
-        target_net_update_fraction=0.05,
-        target_net_update_schedule=None,
-        epsilon_schedule=None,
-        learn_schedule=None,
-        seed=42,
-        batch_size=32,
-        device="cpu",
-        logger=None,
-        log_frequency=100,
-        double=True,
-        distributional=False,
-        use_eps_greedy=True,
+        qnet: FunctionApproximator,
+        obs_dim: Tuple,
+        act_dim: int,
+        v_min: str = 0,
+        v_max: str = 200,
+        atoms: str = 51,
+        optimizer_fn: OptimizerFn = None,
+        id: str = 0,
+        replay_buffer: BaseReplayBuffer = None,
+        discount_rate: float = 0.99,
+        grad_clip: float = None,
+        target_net_soft_update: bool = False,
+        target_net_update_fraction: float = 0.05,
+        target_net_update_schedule: Schedule = None,
+        epsilon_schedule: Schedule = None,
+        learn_schedule: Schedule = None,
+        seed: int = 42,
+        batch_size: int = 32,
+        device: str = "cpu",
+        logger: Logger = None,
+        log_frequency: int = 100,
+        double: bool = True,
+        distributional: bool = False,
+        use_eps_greedy: bool = True,
     ):
         """
         Args:
@@ -88,6 +93,20 @@ class RainbowDQNAgent(DQNAgent):
             distributional: whether or not to use the distributional feature (from distributional DQN)
             use_eps_greedy: whether or not to use epsilon greedy. Usually in case of noisy networks use_eps_greedy=False
         """
+        self._double = double
+        self._distributional = distributional
+
+        if self._distributional:
+            self._atoms = atoms
+            self._v_min = v_min
+            self._v_max = v_max
+            self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(
+                device
+            )
+            qnet.keywords["supports"] = self._supports
+            self._delta = float(self._v_max - self._v_min) / (self._atoms - 1)
+            self._nsteps = 1
+
         super().__init__(
             qnet,
             obs_dim,
@@ -108,19 +127,6 @@ class RainbowDQNAgent(DQNAgent):
             logger=logger,
             log_frequency=log_frequency,
         )
-        self._double = double
-        self._distributional = distributional
-
-        if self._distributional:
-            self._atoms = atoms
-            self._v_min = v_min
-            self._v_max = v_max
-            self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(
-                device
-            )
-            qnet["kwargs"]["supports"] = self._supports
-            self._delta = float(self._v_max - self._v_min) / (self._atoms - 1)
-            self._nsteps = 1
 
         self._use_eps_greedy = use_eps_greedy
 
