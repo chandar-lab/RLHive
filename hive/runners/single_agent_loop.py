@@ -36,19 +36,14 @@ class SingleAgentRunner(Runner):
         )
         self._transition_info = TransitionInfo(self._agents, stack_size)
 
-    def run_one_step(self, observation, turn, episode_metrics):
+    def run_one_step(self, observation, episode_metrics):
         """Run one step of the training loop.
-
-        If it is the agent's first turn during the episode, do not run an update step.
-        Otherwise, run an update step based on the previous action and accumulated
-        reward since then.
 
         Args:
             observation: Current observation that the agent should create an action for.
-            turn: Agent whose turn it is.
             episode_metrics: Metrics object keeping track of metrics for current episode.
         """
-        agent = self._agents[turn]
+        agent = self._agents[0]
         stacked_observation = self._transition_info.get_stacked_state(
             agent, observation
         )
@@ -68,7 +63,7 @@ class SingleAgentRunner(Runner):
         episode_metrics[agent.id]["episode_length"] += 1
         episode_metrics["full_episode_length"] += 1
 
-        return done, next_observation, _
+        return done, next_observation
 
     def run_episode(self):
         """Run a single episode of the environment."""
@@ -80,7 +75,7 @@ class SingleAgentRunner(Runner):
 
         # Run the loop until either training ends or the episode ends
         while self._train_step_schedule.get_value() and not done:
-            done, observation, _ = self.run_one_step(observation, 0, episode_metrics)
+            done, observation = self.run_one_step(observation, episode_metrics)
             self._train_step_schedule.update()
 
         return episode_metrics
