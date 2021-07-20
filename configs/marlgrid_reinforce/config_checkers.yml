@@ -1,0 +1,73 @@
+# General training loop config
+run_name: &run_name 'checkers-reinforce'
+train_steps: 30000
+test_frequency: 10
+test_num_episodes: 10
+self_play: False
+num_agents: 2
+stack_size: &stack_size 3
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 15000
+save_dir: 'experiment'
+
+# Environment config
+environment:
+  name: 'MarlGridEnv'
+  kwargs:
+    env_name: 'MarlGrid-2AgentCheckers8x8-v0'
+    num_players: 2
+
+# List of agents for the experiment. In single agent, only the first agent in
+# the list is used.
+agents: 
+  - 
+    name: 'REINFORCEAgent'
+    kwargs:
+      qnet:
+        name: 'SimpleConvModel'
+        kwargs:
+          channels: [ 32, 64, 64 ]
+          kernel_sizes: [ 8, 4, 3 ]
+          strides: [ 4, 2, 1 ]
+          paddings: [ 0, 1, 1 ]
+          mlp_layers: [ 512 ]
+      optimizer_fn:
+        name: 'Adam'
+        kwargs: {}
+      id: 0
+      discount_rate: .99
+      seed: 42
+      device: 'cpu'
+      stack_size: *stack_size
+  - 
+    name: 'REINFORCEAgent'
+    kwargs:
+      qnet:
+        name: 'SimpleConvModel'
+        kwargs:
+          channels: [ 32, 64, 64 ]
+          kernel_sizes: [ 8, 4, 3 ]
+          strides: [ 4, 2, 1 ]
+          paddings: [ 0, 1, 1 ]
+          mlp_layers: [ 512 ]
+      optimizer_fn:
+        name: 'Adam'
+        kwargs: {}
+      id: 1
+      discount_rate: .99
+      seed: 43
+      device: 'cpu'
+      stack_size: *stack_size
+
+# List of logger configs used.
+loggers:
+  -
+    name: WandbLogger
+    kwargs:
+      project_name: Hive-v1
+      run_name: *run_name
+      offline: False

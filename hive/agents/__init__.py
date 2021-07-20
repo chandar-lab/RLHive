@@ -1,4 +1,5 @@
 from hive.agents.agent import Agent
+from hive.agents.reinforce import REINFORCEAgent
 from hive.agents.dqn import DQNAgent
 from hive.agents.random import RandomAgent
 from hive.agents.rainbow import RainbowDQNAgent
@@ -6,7 +7,8 @@ from hive.utils.utils import create_class_constructor
 
 get_agent = create_class_constructor(
     Agent,
-    {
+    {   
+        "REINFORCEAgent": REINFORCEAgent,
         "DQNAgent": DQNAgent,
         "RandomAgent": RandomAgent,
         "RainbowDQNAgent": RainbowDQNAgent,
