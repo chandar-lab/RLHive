@@ -42,7 +42,9 @@ class PrioritizedReplayBuffer(EfficientCircularBuffer):
     def set_beta(self, beta):
         self._beta = beta
 
-    def _add_transition(self, priority, **transition):
+    def _add_transition(self, priority=None, **transition):
+        if priority is None:
+            priority = self._sum_tree.max_recorded_priority
         self._sum_tree.set_priority(self._cursor, priority)
         super()._add_transition(**transition)
 
@@ -61,13 +63,23 @@ class PrioritizedReplayBuffer(EfficientCircularBuffer):
             new_indices = self._sum_tree.sample(batch_size - len(indices))
             new_indices = self._filter_transitions(new_indices)
             indices = np.concatenate([indices, new_indices])
-        return indices + self._stack_size - 1
+        return indices
 
     def _filter_transitions(self, indices):
-        indices = super()._filter_transitions(indices)
-        low = self._cursor
-        high = low + self.size()
-        indices = indices[np.logical_and(low <= indices, indices < high)]
+        indices = super()._filter_transitions(indices - (self._stack_size - 1)) + (
+            self._stack_size - 1
+        )
+        if self._num_added < self._capacity:
+            indices = indices[indices < self._cursor - self._n_step]
+            indices = indices[indices >= self._stack_size - 1]
+        else:
+            low = (self._cursor - self._n_step) % self._capacity
+            high = (self._cursor + self._stack_size - 1) % self._capacity
+            if low < high:
+                indices = indices[np.logical_or(indices < low, indices > high)]
+            else:
+                indices = indices[~np.logical_or(indices >= low, indices <= high)]
+
         return indices
 
     def sample(self, batch_size):
@@ -100,8 +112,10 @@ class SumTree:
         self._priorities = self._tree[
             self._last_level_start : self._last_level_start + self._capacity
         ]
+        self.max_recorded_priority = 1.0
 
     def set_priority(self, indices, priorities):
+        self.max_recorded_priority = max(self.max_recorded_priority, np.max(priorities))
         indices = self._last_level_start + indices
         diffs = priorities - self._tree[indices]
         for _ in range(self._depth):
