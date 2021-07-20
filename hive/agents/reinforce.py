@@ -24,6 +24,7 @@ from hive.utils.utils import OptimizerFn
 
 import time
 
+
 class REINFORCEAgent(Agent):
     """An agent implementing the REINFORCE algorithm. Uses an epsilon greedy
     exploration policy
@@ -82,9 +83,13 @@ class REINFORCEAgent(Agent):
         self._training = False
 
         self._stack_size = stack_size
-        self._episode_info = {"observation": torch.tensor([]), "action": [], "reward": []}
+        self._episode_info = {
+            "observation": torch.tensor([]),
+            "action": [],
+            "reward": [],
+        }
 
-        #adding small constant to prevent numerical errors in normalization of return
+        # adding small constant to prevent numerical errors in normalization of return
         self.eps = np.finfo(np.float32).eps.item()
 
     def train(self):
@@ -135,33 +140,59 @@ class REINFORCEAgent(Agent):
         reward = update_info["reward"]
 
         if update_info["done"]:
-            #Add (last) update_info to _episode_info
-            #Perform reinforce update with _episode_info
-            #Reset _episode_info info to empty
-            self._episode_info["observation"] = torch.cat((self._episode_info["observation"], torch.tensor(np.expand_dims(observation, axis=0))), dim=0)
+            # Add (last) update_info to _episode_info
+            # Perform reinforce update with _episode_info
+            # Reset _episode_info info to empty
+            self._episode_info["observation"] = torch.cat(
+                (
+                    self._episode_info["observation"],
+                    torch.tensor(np.expand_dims(observation, axis=0)),
+                ),
+                dim=0,
+            )
             self._episode_info["action"].append(action)
             self._episode_info["reward"].append(reward)
 
             if self._training:
-                #construct stacked observation input
+                # construct stacked observation input
                 obs_shape = self._episode_info["observation"].shape
                 stacked_observations = torch.tensor([])
-                
+
                 for i in range(obs_shape[0]):
-                    if i < self._stack_size-1:
-                        zero_padding = torch.zeros([obs_shape[1]*(self._stack_size-i-1)] + list(obs_shape[2:]))
-                        stacked_observation = torch.cat([zero_padding] + [self._episode_info["observation"][j] for j in range(0, i+1)], dim=0)
+                    if i < self._stack_size - 1:
+                        zero_padding = torch.zeros(
+                            [obs_shape[1] * (self._stack_size - i - 1)]
+                            + list(obs_shape[2:])
+                        )
+                        stacked_observation = torch.cat(
+                            [zero_padding]
+                            + [
+                                self._episode_info["observation"][j]
+                                for j in range(0, i + 1)
+                            ],
+                            dim=0,
+                        )
                     else:
-                        stacked_observation = torch.cat([self._episode_info["observation"][j] for j in range(i+1-self._stack_size, i+1)], dim=0)
-                    stacked_observations = torch.cat((stacked_observations, stacked_observation.unsqueeze(0)), dim=0)
+                        stacked_observation = torch.cat(
+                            [
+                                self._episode_info["observation"][j]
+                                for j in range(i + 1 - self._stack_size, i + 1)
+                            ],
+                            dim=0,
+                        )
+                    stacked_observations = torch.cat(
+                        (stacked_observations, stacked_observation.unsqueeze(0)), dim=0
+                    )
                 stacked_observations = stacked_observations.to(self._device)
 
-                #perform reinforce update
+                # perform reinforce update
                 # Compute predicted Q values
                 self._optimizer.zero_grad()
                 pred_qvals = self._qnet(stacked_observations)
 
-                actions = torch.tensor(self._episode_info["action"]).long().to(self._device)
+                actions = (
+                    torch.tensor(self._episode_info["action"]).long().to(self._device)
+                )
 
                 probs = F.softmax(pred_qvals, dim=1)
                 prob_dist = Categorical(probs)
@@ -170,7 +201,7 @@ class REINFORCEAgent(Agent):
                 Ret = 0.0
                 returns = []
                 for rew in self._episode_info["reward"][::-1]:
-                    Ret = rew + self._discount_rate*Ret
+                    Ret = rew + self._discount_rate * Ret
                     returns.insert(0, Ret)
                 returns = torch.tensor(returns).float().to(self._device)
                 returns = (returns - returns.mean()) / (returns.std() + self.eps)
@@ -184,12 +215,22 @@ class REINFORCEAgent(Agent):
                     )
                 self._optimizer.step()
 
-            #reset episode buffer
-            self._episode_info = {"observation": torch.tensor([]), "action": [], "reward": []}
+            # reset episode buffer
+            self._episode_info = {
+                "observation": torch.tensor([]),
+                "action": [],
+                "reward": [],
+            }
 
         else:
-            #Add (non-last) update_info to episode info
-            self._episode_info["observation"] = torch.cat((self._episode_info["observation"], torch.tensor(np.expand_dims(observation, axis=0))), dim=0)
+            # Add (non-last) update_info to episode info
+            self._episode_info["observation"] = torch.cat(
+                (
+                    self._episode_info["observation"],
+                    torch.tensor(np.expand_dims(observation, axis=0)),
+                ),
+                dim=0,
+            )
             self._episode_info["action"].append(action)
             self._episode_info["reward"].append(reward)
 
