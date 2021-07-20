@@ -136,8 +136,6 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             "done": done,
         }
         transition.update(kwargs)
-        if transition.keys() != self._specs.keys():
-            raise ValueError("Keys passed do not match replay signature")
         for key in self._specs:
             obj_type = (
                 transition[key].dtype
@@ -203,8 +201,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
                 + self._cursor
             )
             start_index = self._filter_transitions(start_index)
-            indices = np.concatenate([indices, start_index + self._stack_size - 1])
-        return indices
+            indices = np.concatenate([indices, start_index])
+        return indices + self._stack_size - 1
 
     def _filter_transitions(self, indices):
         """Filters invalid indices."""
@@ -227,6 +225,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             raise ValueError("Not enough transitions added to the buffer to sample")
         indices = self._sample_indices(batch_size)
         batch = {}
+        batch["indices"] = indices
         terminals = self._get_from_storage("done", indices, self._n_step)
 
         if self._n_step == 1:
