@@ -1,13 +1,16 @@
-import os
 import abc
 import copy
+import os
+from typing import List
+
 import torch
 import wandb
+from hive import Registrable, registry
 from hive.utils.schedule import ConstantSchedule, Schedule, get_schedule
-from hive.utils.utils import Chomp, create_folder, create_class_constructor
+from hive.utils.utils import Chomp, create_folder
 
 
-class Logger(abc.ABC):
+class Logger(abc.ABC, Registrable):
     """Abstract class for logging in hive."""
 
     def __init__(self, timescales):
@@ -32,6 +35,14 @@ class Logger(abc.ABC):
             timescale (str): timescale to register.
         """
         self._timescales.append(timescale)
+
+    @abc.abstractmethod
+    def log_config(self, config):
+        """Log a config file.
+        Args:
+            config: dict, config parameters.
+        """
+        pass
 
     @abc.abstractmethod
     def log_scalar(self, name, value, timescale):
@@ -69,6 +80,10 @@ class Logger(abc.ABC):
             dir_name: name of the directory to load the log file from.
         """
         pass
+
+    @classmethod
+    def type_name(cls):
+        return "logger"
 
 
 class ScheduledLogger(Logger):
@@ -174,8 +189,11 @@ class NullLogger(ScheduledLogger):
     framework that ask for a logger.
     """
 
-    def __init__(self, **kwargs):
-        super().__init__("null", ConstantSchedule(False))
+    def __init__(self, timescales, logger_schedules=None):
+        super().__init__(timescales, logger_schedules)
+
+    def log_config(self, config):
+        pass
 
     def log_scalar(self, name, value, timescale):
         pass
@@ -205,7 +223,7 @@ class WandbLogger(ScheduledLogger):
         run_name,
         timescales="wandb",
         logger_schedules=None,
-        offline=False,
+        mode="online",
         **kwargs,
     ):
         """Constructor for the WandbLogger.
@@ -217,10 +235,22 @@ class WandbLogger(ScheduledLogger):
             logger_schedule (Schedule): Schedule used to define when logging should occur.
             logger_name (str): Used to differentiate between different loggers/timescales
                 in the same run.
-            offline (bool): Whether to log offline.
+            mode (str): The mode of logging. Can be "online", "offline" or "disabled".
+            In offline mode, writes all data to disk for later syncing to a server, while
+            in disabled mode, it makes all calls to wandb api's noop's, while maintaining
+            core functionality
         """
         super().__init__(timescales, logger_schedules)
-        wandb.init(project=project_name, name=run_name)
+
+        if "save_dir" in kwargs.keys():
+            wandb.init(
+                project=project_name, name=run_name, dir=kwargs["save_dir"], mode=mode
+            )
+        else:
+            wandb.init(project=project_name, name=run_name, mode=mode)
+
+    def log_config(self, config):
+        wandb.config.update(config)
 
     def log_scalar(self, name, value, timescale):
         metrics = {f"{timescale}_{name}": value}
@@ -251,6 +281,9 @@ class ChompLogger(ScheduledLogger):
     def __init__(self, timescales, logger_schedules=None):
         super().__init__(timescales, logger_schedules)
         self._log_data = Chomp()
+
+    def log_config(self, config):
+        self._log_data["config"] = config
 
     def log_scalar(self, name, value, timescale):
         metric_name = f"{timescale}_{name}"
@@ -296,12 +329,9 @@ class CompositeLogger(Logger):
     should not be logging for the timescale.
     """
 
-    def __init__(self, logger_list):
+    def __init__(self, logger_list: List[Logger]):
         super().__init__([])
         self._logger_list = logger_list
-        for idx, logger in enumerate(self._logger_list):
-            if isinstance(logger, dict):
-                self._logger_list[idx] = get_logger(logger)
 
     def register_timescale(self, timescale, schedule=None):
         for logger in self._logger_list:
@@ -309,6 +339,10 @@ class CompositeLogger(Logger):
                 logger.register_timescale(timescale, schedule)
             else:
                 logger.register_timescale(timescale)
+
+    def log_config(self, config):
+        for logger in self._logger_list:
+            logger.log_config(config)
 
     def log_scalar(self, name, value, timescale):
         for logger in self._logger_list:
@@ -344,7 +378,7 @@ class CompositeLogger(Logger):
             logger.load(load_dir)
 
 
-get_logger = create_class_constructor(
+registry.register_all(
     Logger,
     {
         "NullLogger": NullLogger,
@@ -353,3 +387,5 @@ get_logger = create_class_constructor(
         "CompositeLogger": CompositeLogger,
     },
 )
+
+get_logger = getattr(registry, f"get_{Logger.type_name()}")
