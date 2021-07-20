@@ -92,7 +92,7 @@ class PrioritizedReplayBuffer(EfficientCircularBuffer):
         return batch
 
     def update_priorities(self, indices, priorities):
-        self._sum_tree.set_priorities(indices, priorities)
+        self._sum_tree.set_priority(indices, priorities)
 
     def save(self, dname):
         super().save(dname)
