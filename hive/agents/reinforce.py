@@ -1,19 +1,26 @@
+from hive.agents.qnets.base import FunctionApproximator
 import os
 import copy
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.distributions import Categorical
+from typing import Tuple, Callable
 
 from hive.utils.utils import create_folder, get_optimizer_fn
+from hive.utils.logging import Logger, NullLogger, get_logger
+
 from hive.utils.schedule import (
     PeriodicSchedule,
     LinearSchedule,
     SwitchSchedule,
     get_schedule,
+    Schedule,
 )
 from hive.agents.agent import Agent
 from hive.agents.qnets import get_qnet
+from hive.utils.utils import OptimizerFn
+
 
 import time
 
@@ -24,18 +31,18 @@ class REINFORCEAgent(Agent):
 
     def __init__(
         self,
-        qnet,
-        obs_dim,
-        act_dim,
-        optimizer_fn=None,
-        id=0,
-        discount_rate=0.99,
-        grad_clip=None,
-        epsilon_schedule=None,
-        seed=42,
-        device="cpu",
+        qnet: FunctionApproximator,
+        obs_dim: Tuple,
+        act_dim: int,
+        optimizer_fn: OptimizerFn = None,
+        id: str = 0,
+        discount_rate: float = 0.99,
+        grad_clip: float = None,
+        epsilon_schedule: Schedule = None,
+        seed: int = 42,
+        device: str = "cpu",
         stack_size=1,
-        logger=-1
+        logger: Logger = None,
     ):
         """
         Args:
@@ -59,14 +66,7 @@ class REINFORCEAgent(Agent):
             logger removed for now (set to -1)
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
-        if isinstance(qnet, dict):
-            if "kwargs" not in qnet:
-                qnet["kwargs"] = dict()
-            qnet["kwargs"]["in_dim"] = self._obs_dim
-            qnet["kwargs"]["out_dim"] = self._act_dim
-
-        self._qnet = get_qnet(qnet).to(device)
-        optimizer_fn = get_optimizer_fn(optimizer_fn)
+        self._qnet = qnet(self._obs_dim, self._act_dim).to(device)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
@@ -75,7 +75,7 @@ class REINFORCEAgent(Agent):
         self._grad_clip = grad_clip
         self._device = torch.device(device)
         # self._loss_fn = torch.nn.SmoothL1Loss()
-        self._epsilon_schedule = get_schedule(epsilon_schedule)
+        self._epsilon_schedule = epsilon_schedule
         if self._epsilon_schedule is None:
             self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
 
