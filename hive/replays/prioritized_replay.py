@@ -1,3 +1,4 @@
+from hive.utils.utils import numpify
 import os
 from typing import Dict, Tuple
 
@@ -92,6 +93,10 @@ class PrioritizedReplayBuffer(EfficientCircularBuffer):
         return batch
 
     def update_priorities(self, indices, priorities):
+        indices = numpify(indices)
+        priorities = numpify(priorities)
+        indices, unique_idxs = np.unique(indices, return_index=True)
+        priorities = priorities[unique_idxs]
         self._sum_tree.set_priority(indices, priorities)
 
     def save(self, dname):

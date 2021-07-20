@@ -4,6 +4,9 @@ import pickle
 from collections import OrderedDict
 from copy import deepcopy
 
+import numpy as np
+import torch
+
 from hive import registry
 from hive.utils.registry import CallableType
 from torch import optim
@@ -12,6 +15,15 @@ from torch import optim
 def create_folder(folder):
     if not os.path.exists(folder):
         os.makedirs(folder)
+
+
+def numpify(t):
+    if isinstance(t, np.ndarray):
+        return t
+    elif isinstance(t, torch.Tensor):
+        return t.detach().cpu().numpy()
+    else:
+        return np.array(t)
 
 
 class Chomp:
