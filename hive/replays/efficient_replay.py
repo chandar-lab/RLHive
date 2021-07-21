@@ -213,7 +213,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         if self._stack_size == 2:
             indices = indices[~done]
         else:
-            indices = indices[done.any(axis=1)]
+            indices = indices[~done.any(axis=1)]
         return indices
 
     def sample(self, batch_size):
