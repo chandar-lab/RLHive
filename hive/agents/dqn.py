@@ -4,7 +4,7 @@ import copy
 import numpy as np
 import torch
 from typing import Tuple
-from hive.replays import BaseReplayBuffer, CircularReplayBuffer, PrioritizedReplayBuffer
+from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.logging import Logger, NullLogger
 from hive.utils.utils import OptimizerFn, create_folder
 from hive.utils.schedule import (
@@ -205,14 +205,7 @@ class DQNAgent(Agent):
                 1 - batch["done"]
             )
 
-            loss = self._loss_fn(pred_qvals, q_targets)
-
-            if isinstance(self._replay_buffer, PrioritizedReplayBuffer):
-                td_errors = (pred_qvals - q_targets).detach().abs().cpu().numpy()
-                self._replay_buffer.update_priorities(batch["indices"], td_errors)
-                loss *= batch["weights"]
-
-            loss = loss.mean()
+            loss = self._loss_fn(pred_qvals, q_targets).mean()
 
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar(
