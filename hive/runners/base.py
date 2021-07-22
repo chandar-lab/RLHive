@@ -63,7 +63,7 @@ class Runner(ABC):
             self._test_schedule = schedule.ConstantSchedule(False)
         else:
             self._test_schedule = schedule.PeriodicSchedule(False, True, test_frequency)
-        self.test_num_episodes = test_num_episodes
+        self._test_num_episodes = test_num_episodes
         self._train_step_schedule.update()
         self._test_schedule.update()
         self._experiment_manager.experiment_state.add_from_dict(
@@ -138,11 +138,11 @@ class Runner(ABC):
             # Run test episodes
             while self._test_schedule.update():
                 self.train_mode(False)
-                mean_episode_metrics = dict.fromkeys(episode_metrics.get_flat_dict(), 0)
-                for _ in range(self.test_num_episodes):
+                mean_episode_metrics = self.create_episode_metrics().get_flat_dict()
+                for _ in range(self._test_num_episodes):
                     episode_metrics = self.run_episode()
                     for metric, value in episode_metrics.get_flat_dict().items():
-                        mean_episode_metrics[metric] += value / self.test_num_episodes
+                        mean_episode_metrics[metric] += value / self._test_num_episodes
                 if self._logger.update_step("test_episodes"):
                     self._logger.log_metrics(mean_episode_metrics, "test_episodes")
 
@@ -152,11 +152,11 @@ class Runner(ABC):
 
         # Run a final test episode and save the experiment.
         self.train_mode(False)
-        mean_episode_metrics = dict.fromkeys(episode_metrics.get_flat_dict(), 0)
-        for _ in range(self.test_num_episodes):
+        mean_episode_metrics = self.create_episode_metrics().get_flat_dict()
+        for _ in range(self._test_num_episodes):
             episode_metrics = self.run_episode()
             for metric, value in episode_metrics.get_flat_dict().items():
-                mean_episode_metrics[metric] += value / self.test_num_episodes
+                mean_episode_metrics[metric] += value / self._test_num_episodes
 
         self._logger.update_step("test_episodes")
         self._logger.log_metrics(mean_episode_metrics, "test_episodes")
