@@ -218,7 +218,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             is_terminal = terminals
             trajectory_lengths = np.ones(batch_size)
         else:
-            is_terminal = terminals.any(axis=1)
+            is_terminal = terminals.any(axis=1).astype(int)
             trajectory_lengths = (
                 np.argmax(terminals.astype(bool), axis=1) + 1
             ) * is_terminal + self._n_step * (1 - is_terminal)
