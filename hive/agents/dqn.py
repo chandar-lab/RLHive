@@ -38,6 +38,7 @@ class DQNAgent(Agent):
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
+        update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
         learn_schedule: Schedule = None,
         seed: int = 42,
@@ -68,6 +69,7 @@ class DQNAgent(Agent):
                 net parameters in a soft update.
             target_net_update_schedule: Schedule determining how frequently the
                 target net is updated.
+            update_period_schedule: Schedule determining how frequently the agent's net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
             learn_schedule: Schedule determining when the learning process actually
@@ -106,6 +108,9 @@ class DQNAgent(Agent):
         self._target_net_update_schedule = target_net_update_schedule
         if self._target_net_update_schedule is None:
             self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
+        self._update_period_schedule = update_period_schedule
+        if self._update_period_schedule is None:
+            self._update_period_schedule = PeriodicSchedule(False, True, 1)
         self._epsilon_schedule = epsilon_schedule
         if self._epsilon_schedule is None:
             self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
@@ -189,7 +194,7 @@ class DQNAgent(Agent):
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
-        if self._replay_buffer.size() > 0:
+        if self._replay_buffer.size() > 0 and self._update_period_schedule.update():
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             for key in batch:
                 batch[key] = torch.tensor(batch[key]).to(self._device)
