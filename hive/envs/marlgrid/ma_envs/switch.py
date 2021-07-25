@@ -1,6 +1,11 @@
 from marlgrid.base import MultiGridEnv, MultiGrid
 from marlgrid.objects import Goal, GridAgent, Key, Floor
 import numpy as np
+from gym_minigrid.rendering import (
+    fill_coords,
+    point_in_rect,
+    point_in_circle
+)
 
 
 class SwitchMultiGrid(MultiGridEnv):
@@ -22,8 +27,8 @@ class SwitchMultiGrid(MultiGridEnv):
             if row != (height - 2) // 2 and row != (height - 2) // 2 - 1:
                 self.grid.horz_wall(3, row + 1, width - 6)
 
-        self.put_obj(Floor(color="blue"), 1, 1)
-        self.put_obj(Floor(color="red"), self.width - 2, self.height - 2)
+        self.put_obj(Floor2(color="blue"), 1, 1)
+        self.put_obj(Floor2(color="red"), self.width - 2, self.height - 2)
         self.agent_spawn_kwargs = {}
         self.ghost_mode = False
 
@@ -117,7 +122,6 @@ class SwitchMultiGrid(MultiGridEnv):
                                 step_rewards[agent_no] += 5
                                 agent.reward(5)
                                 agent.done = True
-                                print(agent.color)
 
                         # Remove agent from old cell
                         if cur_cell == agent:
@@ -217,3 +221,15 @@ class SwitchMultiGrid(MultiGridEnv):
         step_rewards = np.array([np.sum(step_rewards) for _ in self.agents])
 
         return obs, step_rewards, done, {}
+
+# Map of color names to RGB values
+COLORS = {
+    "red": np.array([255, 0, 0]),
+    "blue": np.array([0, 0, 255]),
+}
+
+
+class Floor2(Floor):
+
+    def render(self, img):
+        fill_coords(img, point_in_rect(0, 1, 0, 1), COLORS[self.color])
