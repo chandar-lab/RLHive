@@ -1,14 +1,11 @@
-from marlgrid.base import MultiGridEnv, MultiGrid
-from marlgrid.objects import Goal, GridAgent, Key, Floor
+from marlgrid.base import MultiGrid
+from hive.envs.marlgrid.ma_envs.base import MultiGridEnvHive
+from marlgrid.objects import Goal, GridAgent, Floor
 import numpy as np
-from gym_minigrid.rendering import (
-    fill_coords,
-    point_in_rect,
-    point_in_circle
-)
+from gym_minigrid.rendering import fill_coords, point_in_rect, point_in_circle
 
 
-class SwitchMultiGrid(MultiGridEnv):
+class SwitchMultiGrid(MultiGridEnvHive):
     """
     Checkers environment based on sunehag et al. 2017
 
@@ -222,6 +219,7 @@ class SwitchMultiGrid(MultiGridEnv):
 
         return obs, step_rewards, done, {}
 
+
 # Map of color names to RGB values
 COLORS = {
     "red": np.array([255, 0, 0]),
@@ -230,6 +228,5 @@ COLORS = {
 
 
 class Floor2(Floor):
-
     def render(self, img):
         fill_coords(img, point_in_rect(0, 1, 0, 1), COLORS[self.color])
