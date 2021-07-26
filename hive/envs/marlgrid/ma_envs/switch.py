@@ -21,7 +21,7 @@ class SwitchMultiGrid(MultiGridEnvHive):
         self.grid = MultiGrid((width, height))
         self.grid.wall_rect(0, 0, width, height)
         for row in range(height - 2):
-            if row != (height - 2) // 2 and row != (height - 2) // 2 - 1:
+            if row != (height - 2) // 2:
                 self.grid.horz_wall(3, row + 1, width - 6)
 
         self.put_obj(Floor2(color="blue"), 1, 1)
