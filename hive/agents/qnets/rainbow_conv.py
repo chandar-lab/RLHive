@@ -14,16 +14,16 @@ class ComplexConv(nn.Module):
         self,
         in_dim,
         out_dim,
-        channels,
-        mlp_layers,
-        kernel_sizes=1,
-        strides=1,
-        paddings=0,
-        normalization_factor=255,
-        noisy=False,
-        dueling=False,
-        sigma_init=0.5,
-        atoms=1,
+        channels: list = [16],
+        mlp_layers: list = [128],
+        kernel_sizes: list = [3],
+        strides: list = [1],
+        paddings: list = [0],
+        normalization_factor: int = 255,
+        noisy: bool = False,
+        dueling: bool = False,
+        sigma_init: float = 0.5,
+        atoms: int = 1,
     ):
         super(ComplexConv, self).__init__()
         self._normalization_factor = normalization_factor
@@ -62,9 +62,9 @@ class ComplexConv(nn.Module):
         self._in_dim = np.prod(in_dim)
         self._feature_size = self.conv_out_size(h, w)
         self._mlp_layers = mlp_layers
+        self._num_mlp_layers = len(mlp_layers)
         if self._dueling:
-            num_mlp_layers = max(len(mlp_layers) - 1, 2)
-        self._num_mlp_layers = num_mlp_layers
+            self._num_mlp_layers = max(len(mlp_layers) - 1, 2)
         self._out_dim = out_dim
         self._atoms = atoms
         self.init_networks()
