@@ -19,10 +19,10 @@ class MultiGridEnvHive(MultiGridEnv):
         seed=1337,
         respawn=False,
         ghost_mode=True,
+        full_obs=False,
         agent_spawn_kwargs={},
     ):
-        # TODO: Give ful_obs as an argument
-        self.full_obs = True
+        self.full_obs = full_obs
         super().__init__(
             agents,
             grid_size,
