@@ -262,7 +262,7 @@ class RainbowDQNAgent(DQNAgent):
                 loss = self._loss_fn(pred_qvals, q_targets)
 
             if isinstance(self._replay_buffer, PrioritizedReplayBuffer):
-                td_errors = (pred_qvals - q_targets).detach().abs().cpu().numpy()
+                td_errors = loss.detach().abs().cpu().numpy()
                 self._replay_buffer.update_priorities(batch["indices"], td_errors)
                 loss *= batch["weights"]
             loss = loss.mean()
