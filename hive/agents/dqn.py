@@ -1,22 +1,19 @@
 from hive.agents.qnets.base import FunctionApproximator
-from hive.replays.replay_buffer import BaseReplayBuffer
 import os
 import copy
 import numpy as np
 import torch
-from typing import Tuple, Callable
-from hive.replays import CircularReplayBuffer, get_replay
-from hive.utils.logging import Logger, NullLogger, get_logger
-from hive.utils.utils import OptimizerFn, create_folder, get_optimizer_fn
+from typing import Tuple
+from hive.replays import BaseReplayBuffer, CircularReplayBuffer
+from hive.utils.logging import Logger, NullLogger
+from hive.utils.utils import OptimizerFn, create_folder
 from hive.utils.schedule import (
     PeriodicSchedule,
     LinearSchedule,
     Schedule,
     SwitchSchedule,
-    get_schedule,
 )
 from hive.agents.agent import Agent
-from hive.agents.qnets import get_qnet
 from hive.utils.utils import OptimizerFn
 
 
@@ -96,7 +93,7 @@ class DQNAgent(Agent):
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
         self._device = torch.device(device)
-        self._loss_fn = torch.nn.SmoothL1Loss()
+        self._loss_fn = torch.nn.SmoothL1Loss(reduction="none")
         self._batch_size = batch_size
         self._logger = logger
         if self._logger is None:
@@ -217,7 +214,8 @@ class DQNAgent(Agent):
                 1 - batch["done"]
             )
 
-            loss = self._loss_fn(pred_qvals, q_targets)
+            loss = self._loss_fn(pred_qvals, q_targets).mean()
+
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar(
                     "train_loss" if self._training else "test_loss",
