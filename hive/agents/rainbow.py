@@ -1,25 +1,14 @@
-from hive.agents.qnets.base import FunctionApproximator
-from hive.replays.replay_buffer import BaseReplayBuffer
-
-import os
-import copy
 import numpy as np
 import torch
 from typing import Tuple, Callable
 
-from hive.replays import CircularReplayBuffer, get_replay
-from hive.utils.logging import Logger, NullLogger, get_logger
-from hive.utils.utils import OptimizerFn, create_folder, get_optimizer_fn
-from hive.utils.schedule import (
-    PeriodicSchedule,
-    LinearSchedule,
-    Schedule,
-    SwitchSchedule,
-    get_schedule,
-)
-from hive.agents.agent import Agent
+from hive.agents.qnets.base import FunctionApproximator
+from hive.replays.replay_buffer import BaseReplayBuffer
+from hive.utils.logging import Logger
+from hive.utils.utils import OptimizerFn
+from hive.utils.schedule import Schedule
+from hive.replays import PrioritizedReplayBuffer
 from hive.agents.dqn import DQNAgent
-from hive.agents.qnets import get_qnet
 
 
 class RainbowDQNAgent(DQNAgent):
@@ -252,7 +241,6 @@ class RainbowDQNAgent(DQNAgent):
                 target_prob = self.projection_distribution(batch)
 
                 loss = -(target_prob * log_p).sum(1)
-                loss = loss.mean()
 
             else:
                 pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
@@ -272,6 +260,12 @@ class RainbowDQNAgent(DQNAgent):
                 )
 
                 loss = self._loss_fn(pred_qvals, q_targets)
+
+            if isinstance(self._replay_buffer, PrioritizedReplayBuffer):
+                td_errors = (pred_qvals - q_targets).detach().abs().cpu().numpy()
+                self._replay_buffer.update_priorities(batch["indices"], td_errors)
+                loss *= batch["weights"]
+            loss = loss.mean()
 
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar(
