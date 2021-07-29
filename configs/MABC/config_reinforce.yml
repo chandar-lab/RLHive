@@ -1,9 +1,10 @@
 # General training loop config
-run_name: &run_name 'checkers-reinforce'
-train_steps: 200000
+run_name: &run_name 'MABC'
+train_steps: 500000
 test_frequency: 2
 test_num_episodes: 2
 self_play: False
+staged_learning: False
 num_agents: 2
 stack_size: &stack_size 3
 saving_schedule:
@@ -12,55 +13,50 @@ saving_schedule:
     off_value: False
     on_value: True
     period: 15000
-save_dir: 'experiment'
+save_dir: &save_dir 'experiment'
 
 # Environment config
 environment:
-  name: 'MarlGridEnv'
+  name: 'MultiAgentDiscEnv'
   kwargs:
-    env_name: 'MarlGrid-2AgentCheckers8x8-v0'
+    env_name: 'MABC-v0'
     num_players: 2
+    seed: 42
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
-agents: 
-  - 
+agents:
+  -
     name: 'REINFORCEAgent'
     kwargs:
       qnet:
-        name: 'SimpleConvModel'
+        name: 'DiscObsSimpleMLP'
         kwargs:
-          channels: [ 32, 64, 64 ]
-          kernel_sizes: [ 8, 4, 3 ]
-          strides: [ 4, 2, 1 ]
-          paddings: [ 0, 1, 1 ]
-          mlp_layers: [ 512 ]
+          hidden_units: 256
+          num_hidden_layers: 2
       optimizer_fn:
         name: 'Adam'
         kwargs:
-          lr: 0.0001
+          lr: 0.00001
       id: 0
-      discount_rate: .99
+      discount_rate: .9
       seed: 42
       device: 'cpu'
       stack_size: *stack_size
-  - 
+  -
     name: 'REINFORCEAgent'
     kwargs:
       qnet:
-        name: 'SimpleConvModel'
+        name: 'DiscObsSimpleMLP'
         kwargs:
-          channels: [ 32, 64, 64 ]
-          kernel_sizes: [ 8, 4, 3 ]
-          strides: [ 4, 2, 1 ]
-          paddings: [ 0, 1, 1 ]
-          mlp_layers: [ 512 ]
+          hidden_units: 256
+          num_hidden_layers: 2
       optimizer_fn:
         name: 'Adam'
         kwargs:
-          lr: 0.0001
+          lr: 0.00001
       id: 1
-      discount_rate: .99
+      discount_rate: .9
       seed: 43
       device: 'cpu'
       stack_size: *stack_size
@@ -72,4 +68,5 @@ loggers:
     kwargs:
       project_name: Hive-v1
       run_name: *run_name
-      offline: False
+      save_dir: *save_dir
+      offline: True

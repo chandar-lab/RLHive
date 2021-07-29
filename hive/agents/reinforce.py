@@ -35,6 +35,7 @@ class REINFORCEAgent(Agent):
         qnet: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
+        env_info: dict = {},
         optimizer_fn: OptimizerFn = None,
         id: str = 0,
         discount_rate: float = 0.99,
@@ -42,7 +43,7 @@ class REINFORCEAgent(Agent):
         epsilon_schedule: Schedule = None,
         seed: int = 42,
         device: str = "cpu",
-        stack_size=1,
+        stack_size: int = 1,
         logger: Logger = None,
     ):
         """
@@ -67,7 +68,10 @@ class REINFORCEAgent(Agent):
             logger removed for now (set to -1)
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
-        self._qnet = qnet(self._obs_dim, self._act_dim).to(device)
+        if "num_disc_per_obs_dim" in env_info.keys():
+            self._qnet = qnet(self._obs_dim, self._act_dim, env_info["num_disc_per_obs_dim"]).to(device)
+        else:
+            self._qnet = qnet(self._obs_dim, self._act_dim).to(device)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
@@ -139,6 +143,10 @@ class REINFORCEAgent(Agent):
         action = update_info["action"].item()
         reward = update_info["reward"]
 
+        #for single valued observations
+        if observation.shape == ():
+            observation = np.expand_dims(observation, axis=0)
+
         if update_info["done"]:
             # Add (last) update_info to _episode_info
             # Perform reinforce update with _episode_info
@@ -180,6 +188,7 @@ class REINFORCEAgent(Agent):
                             ],
                             dim=0,
                         )
+
                     stacked_observations = torch.cat(
                         (stacked_observations, stacked_observation.unsqueeze(0)), dim=0
                     )
@@ -207,7 +216,7 @@ class REINFORCEAgent(Agent):
                 returns = (returns - returns.mean()) / (returns.std() + self.eps)
 
                 policy_loss = -torch.dot(log_probs, returns)
-
+                print(policy_loss)
                 policy_loss.backward()
                 if self._grad_clip is not None:
                     torch.nn.utils.clip_grad_value_(

@@ -105,6 +105,7 @@ class MultiAgentRunner(Runner):
             info = self._transition_info.get_info(agent)
             agent.update(info)
             episode_metrics[agent.id]["reward"] += info["reward"]
+            episode_metrics[agent.id]["disc_reward"] += agent._discount_rate ** (episode_metrics[agent.id]["episode_length"]) * info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
             episode_metrics["full_episode_length"] += 1
         else:
@@ -142,6 +143,7 @@ class MultiAgentRunner(Runner):
             info = self._transition_info.get_info(agent, done=True)
             agent.update(info)
             episode_metrics[agent.id]["reward"] += info["reward"]
+            episode_metrics[agent.id]["disc_reward"] += agent._discount_rate ** (episode_metrics[agent.id]["episode_length"]) * info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
             episode_metrics["full_episode_length"] += 1
 
@@ -228,6 +230,7 @@ def set_up_experiment(config):
             else:
                 agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
             agent_config["kwargs"]["act_dim"] = env_spec.act_dim[idx]
+            agent_config["kwargs"]["env_info"] = env_spec.env_info
             agent_config["kwargs"]["logger"] = logger
 
             if "replay_buffer" in agent_config["kwargs"]:
