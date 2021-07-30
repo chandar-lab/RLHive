@@ -11,7 +11,7 @@ register_marl_env(
     n_agents=2,
     grid_size=8,
     view_size=5,  # Needs to be same as grid_size if full_obs = True.
-    env_kwargs={"max_steps": 100, "full_obs": True},
+    env_kwargs={"max_steps": 100, "full_obs": False},
 )
 
 register_marl_env(
@@ -20,7 +20,7 @@ register_marl_env(
     n_agents=3,
     grid_size=8,
     view_size=5,  # Needs to be same as grid_size if full_obs = True.
-    env_kwargs={"max_steps": 500, "full_obs": True},
+    env_kwargs={"max_steps": 500, "full_obs": False},
 )
 
 register_marl_env(
