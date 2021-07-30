@@ -23,7 +23,7 @@ agent:
   name: 'RainbowDQNAgent'
   kwargs:
     qnet:
-      name: 'DistributionalConv'
+      name: 'ComplexConv'
       kwargs:
         channels: [16]
         mlp_layers: [128, 128]
@@ -34,15 +34,15 @@ agent:
         noisy: False
         dueling: True
     optimizer_fn:
-      name: 'RMSprop'
+      name: 'Adam'
       kwargs:
-        lr: 0.00025
-        alpha: 0.95
-        eps: 0.01
-        centered: True
+        lr: 0.0001
+#        alpha: 0.95
+        eps: 0.0003125
+#        centered: True
     id: 0
     replay_buffer:
-      name: 'EfficientCircularBuffer'
+      name: 'PrioritizedReplayBuffer'
       kwargs:
         seed: 43
         capacity: 100000
@@ -71,10 +71,10 @@ agent:
     device: 'cpu'
     log_frequency: 1000
     double: True
-    distributional: True
+    distributional: False
     use_eps_greedy: True
-    v_min: 0.0
-    v_max: 50.0
+    v_min: -100.0
+    v_max: 100.0
     atoms: 51
 
 # List of logger configs used.

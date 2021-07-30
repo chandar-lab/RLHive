@@ -117,6 +117,8 @@ class RainbowDQNAgent(DQNAgent):
             log_frequency=log_frequency,
         )
 
+        print("optimizer = ", self._optimizer)
+        print("qnet = ", self._qnet)
         self._use_eps_greedy = use_eps_greedy
 
     def get_max_next_state_action(self, next_states):
@@ -225,7 +227,7 @@ class RainbowDQNAgent(DQNAgent):
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
-        if self._replay_buffer.size() > 0:
+        if self._replay_buffer.size() > 2000:
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             for key in batch:
                 batch[key] = torch.tensor(batch[key]).to(self._device)
@@ -239,8 +241,13 @@ class RainbowDQNAgent(DQNAgent):
                 current_dist = self._qnet.dist(batch["observation"])
                 log_p = torch.log(current_dist[range(self._batch_size), actions])
                 target_prob = self.projection_distribution(batch)
+                print("current_dist shape = ", current_dist.shape)
+                print("logp shape = ", log_p.shape)
+                print("target_prob shape = ", target_prob.shape)
+
 
                 loss = -(target_prob * log_p).sum(1)
+                print("loss = ", loss)
 
             else:
                 pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
@@ -266,6 +273,7 @@ class RainbowDQNAgent(DQNAgent):
                 self._replay_buffer.update_priorities(batch["indices"], td_errors)
                 loss *= batch["weights"]
             loss = loss.mean()
+            print("mean loss = ", loss)
 
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar(
