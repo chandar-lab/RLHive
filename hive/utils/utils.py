@@ -3,14 +3,27 @@ import os
 import pickle
 from collections import OrderedDict
 from copy import deepcopy
-from functools import partial
 
+import numpy as np
+import torch
+
+from hive import registry
+from hive.utils.registry import CallableType
 from torch import optim
 
 
 def create_folder(folder):
     if not os.path.exists(folder):
         os.makedirs(folder)
+
+
+def numpify(t):
+    if isinstance(t, np.ndarray):
+        return t
+    elif isinstance(t, torch.Tensor):
+        return t.detach().cpu().numpy()
+    else:
+        return np.array(t)
 
 
 class Chomp:
@@ -85,57 +98,27 @@ class Chomp:
         return new_container
 
 
-def create_class_constructor(base_class, class_dict):
-    """Creates a constructor function for subclasses of base_class.
-
-    The constructor function returned takes in either None, a object that is an
-    instance of base_class, or a dictionary config. If the argument is None or an
-    instance of base_class, it is returned without modification. If it is a
-    dictionary, the config should have two keys: name and kwargs. The name
-    parameter is used to lookup the correct class from class_dict and the object is
-    created using kwargs as parameters.
-
-    Args:
-        base_class (type|"callable"): If base_class is a type, it is used to verify
-            the type of the object passed to the constructor. If base_class is the
-            string "callable", the object passed to the constructor is simply checked
-            to see if it's callable.
-        class_dict: A dictionary of class names to callables that can be passed kwargs
-            to create the necessary objects.
-    """
-
-    def constructor(object_or_config):
-        if object_or_config is None:
-            return None
-        if base_class == "callable":
-            if callable(object_or_config):
-                return object_or_config
-        elif isinstance(object_or_config, base_class):
-            return object_or_config
-        name = object_or_config["name"]
-        kwargs = object_or_config["kwargs"]
-        if name in class_dict:
-            object_class = class_dict[name]
-            return object_class(**kwargs)
-        else:
-            raise ValueError(f"{name} class not found")
-
-    return constructor
+class OptimizerFn(CallableType):
+    @classmethod
+    def type_name(cls):
+        return "optimizer_fn"
 
 
-get_optimizer_fn = create_class_constructor(
-    "callable",
+registry.register_all(
+    OptimizerFn,
     {
-        "Adadelta": (lambda **kwargs: partial(optim.Adadelta, **kwargs)),
-        "Adagrad": (lambda **kwargs: partial(optim.Adagrad, **kwargs)),
-        "Adam": (lambda **kwargs: partial(optim.Adam, **kwargs)),
-        "Adamax": (lambda **kwargs: partial(optim.Adamax, **kwargs)),
-        "AdamW": (lambda **kwargs: partial(optim.AdamW, **kwargs)),
-        "ASGD": (lambda **kwargs: partial(optim.ASGD, **kwargs)),
-        "LBFGS": (lambda **kwargs: partial(optim.LBFGS, **kwargs)),
-        "RMSprop": (lambda **kwargs: partial(optim.RMSprop, **kwargs)),
-        "Rprop": (lambda **kwargs: partial(optim.Rprop, **kwargs)),
-        "SGD": (lambda **kwargs: partial(optim.SGD, **kwargs)),
-        "SparseAdam": (lambda **kwargs: partial(optim.SparseAdam, **kwargs)),
+        "Adadelta": OptimizerFn(optim.Adadelta),
+        "Adagrad": OptimizerFn(optim.Adagrad),
+        "Adam": OptimizerFn(optim.Adam),
+        "Adamax": OptimizerFn(optim.Adamax),
+        "AdamW": OptimizerFn(optim.AdamW),
+        "ASGD": OptimizerFn(optim.ASGD),
+        "LBFGS": OptimizerFn(optim.LBFGS),
+        "RMSprop": OptimizerFn(optim.RMSprop),
+        "Rprop": OptimizerFn(optim.Rprop),
+        "SGD": OptimizerFn(optim.SGD),
+        "SparseAdam": OptimizerFn(optim.SparseAdam),
     },
 )
+
+get_optimizer_fn = getattr(registry, f"get_{OptimizerFn.type_name()}")

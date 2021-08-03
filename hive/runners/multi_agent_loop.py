@@ -1,14 +1,12 @@
 import argparse
 import copy
-import numpy as np
-import torch
-import yaml
 
 from hive import agents as agent_lib
 from hive import envs
 from hive.utils import experiment, logging, schedule, utils
 from hive.runners.utils import load_config, TransitionInfo, set_seed
 from hive.runners.base import Runner
+from hive.utils.registry import get_parsed_args
 
 
 class MultiAgentRunner(Runner):
@@ -173,28 +171,50 @@ class MultiAgentRunner(Runner):
 def set_up_experiment(config):
     """Returns a runner object based on the config."""
 
-    original_config = utils.Chomp(copy.deepcopy(config))
+    args = get_parsed_args(
+        {
+            "seed": int,
+            "train_steps": int,
+            "train_episodes": int,
+            "test_frequency": int,
+            "test_num_episodes": int,
+            "stack_size": int,
+            "resume": bool,
+            "run_name": str,
+            "save_dir": str,
+        }
+    )
+    config.update(args)
+    full_config = utils.Chomp(copy.deepcopy(config))
+
     if "seed" in config:
         set_seed(config["seed"])
 
     # Set up environment
-    environment = envs.get_env(config["environment"])
+    environment, full_config["environment"] = envs.get_env(config["environment"], "env")
     env_spec = environment.env_spec
 
     # Set up loggers
-    logger_config = config.get("loggers", None)
+    logger_config = config.get("loggers", {"name": "NullLogger"})
     if logger_config is None or len(logger_config) == 0:
-        logger = logging.NullLogger()
-    else:
+        logger_config = {"name": "NullLogger"}
+    if isinstance(logger_config, list):
         for logger in logger_config:
+            logger["kwargs"] = logger.get("kwargs", {})
             logger["kwargs"]["timescales"] = ["train_episodes", "test_episodes"]
-        if len(logger_config) == 1:
-            logger = logging.get_logger(logger_config[0])
-        else:
-            logger = logging.CompositeLogger(logger_config)
+        logger_config = {
+            "name": "CompositeLogger",
+            "kwargs": {"logger_list": logger_config},
+        }
+    else:
+        logger_config["kwargs"] = logger_config.get("kwargs", {})
+        logger_config["kwargs"]["timescales"] = ["train_episodes", "test_episodes"]
+
+    logger, full_config["loggers"] = logging.get_logger(logger_config, "loggers")
 
     # Set up agents
     agents = []
+    full_config["agents"] = []
     num_agents = config["num_agents"] if config["self_play"] else len(config["agents"])
     for idx in range(num_agents):
 
@@ -213,19 +233,22 @@ def set_up_experiment(config):
             if "replay_buffer" in agent_config["kwargs"]:
                 replay_args = agent_config["kwargs"]["replay_buffer"]["kwargs"]
                 replay_args["observation_shape"] = env_spec.obs_dim[idx]
-
-            agents.append(agent_lib.get_agent(agent_config))
+            agent, full_agent_config = agent_lib.get_agent(agent_config, f"agent.{idx}")
+            agents.append(agent)
+            full_config["agents"].append(full_agent_config)
         else:
             agents.append(copy.copy(agents[0]))
             agents[-1]._id = idx
 
     # Set up experiment manager
-    saving_schedule = schedule.get_schedule(config["saving_schedule"])
+    saving_schedule, full_config["saving_schedule"] = schedule.get_schedule(
+        config["saving_schedule"], "saving_schedule"
+    )
     experiment_manager = experiment.Experiment(
         config["run_name"], config["save_dir"], saving_schedule
     )
     experiment_manager.register_experiment(
-        config=original_config,
+        config=full_config,
         logger=logger,
         agents=agents,
     )
@@ -248,13 +271,17 @@ def set_up_experiment(config):
     return runner
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", default="./config.yml")
     parser.add_argument("-a", "--agent-config")
     parser.add_argument("-e", "--env-config")
     parser.add_argument("-l", "--logger-config")
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
     config = load_config(args)
     runner = set_up_experiment(config)
     runner.run_training()
+
+
+if __name__ == "__main__":
+    main()

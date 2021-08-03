@@ -1,12 +1,13 @@
-import os
 import abc
-import numpy as np
+import os
 import pickle
 
+import numpy as np
+from hive import Registrable
 from hive.utils.utils import create_folder
 
 
-class BaseReplayBuffer(abc.ABC):
+class BaseReplayBuffer(abc.ABC, Registrable):
     """Base class for replay buffers. Every implemented buffer should be a subclass of this class."""
 
     @abc.abstractmethod
@@ -54,6 +55,10 @@ class BaseReplayBuffer(abc.ABC):
         Returns:
             True if successfully loaded the buffer. False otherwise.
         """
+
+    @classmethod
+    def type_name(cls):
+        return "replay"
 
 
 class CircularReplayBuffer(BaseReplayBuffer):

@@ -1,5 +1,5 @@
-from hive.envs.env_spec import EnvSpec
 from hive.envs.base import BaseEnv, ParallelEnv
+from hive.envs.env_spec import EnvSpec
 from hive.envs.gym_env import GymEnv
 
 try:
@@ -27,9 +27,9 @@ try:
 except ImportError:
     MinAtarEnv = None
 
-from hive.utils.utils import create_class_constructor
+from hive import registry
 
-get_env = create_class_constructor(
+registry.register_all(
     BaseEnv,
     {
         "GymEnv": GymEnv,
@@ -40,3 +40,5 @@ get_env = create_class_constructor(
         "MinAtarEnv": MinAtarEnv,
     },
 )
+
+get_env = getattr(registry, f"get_{BaseEnv.type_name()}")

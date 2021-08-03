@@ -63,22 +63,6 @@ class SimpleConvModel(nn.Module):
             )
             conv_seq.append(torch.nn.ReLU())
         self.conv = torch.nn.Sequential(*conv_seq)
-        conv_layers = [
-            torch.nn.Conv2d(
-                in_channels=in_c,
-                out_channels=out_c,
-                kernel_size=ks,
-                stride=s,
-                padding=p,
-            )
-            for (in_c, out_c, ks, s, p) in zip(
-                channels[:-1], channels[1:], kernel_sizes, strides, paddings
-            )
-        ]
-        conv_seq = list()
-        for conv_layer in conv_layers:
-            conv_seq.extend([conv_layer, torch.nn.ReLU()])
-        self.conv = torch.nn.Sequential(*conv_seq)
 
         # MLP Layers
         mlp_layers.append(out_dim)

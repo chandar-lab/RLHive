@@ -140,8 +140,6 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             "done": done,
         }
         transition.update(kwargs)
-        if transition.keys() != self._specs.keys():
-            raise ValueError("Keys passed do not match replay signature")
         for key in self._specs:
             obj_type = (
                 transition[key].dtype
@@ -199,13 +197,28 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             )
 
     def _sample_indices(self, batch_size):
-        indices = []
+        """Samples valid indices that can be used by the replay."""
+        indices = np.array([], dtype=np.int32)
         while len(indices) < batch_size:
-            start_index = self._rng.integers(self.size()) + self._cursor
-            if self._get_from_storage("done", start_index, self._stack_size - 1).any():
-                continue
-            indices.append(start_index + self._stack_size - 1)
-        return np.array(indices)
+            start_index = (
+                self._rng.integers(self.size(), size=batch_size - len(indices))
+                + self._cursor
+            )
+            start_index = self._filter_transitions(start_index)
+            indices = np.concatenate([indices, start_index])
+        return indices + self._stack_size - 1
+
+    def _filter_transitions(self, indices):
+        """Filters invalid indices."""
+        if self._stack_size == 1:
+            return indices
+        done = self._get_from_storage("done", indices, self._stack_size - 1)
+        done = done.astype(bool)
+        if self._stack_size == 2:
+            indices = indices[~done]
+        else:
+            indices = indices[~done.any(axis=1)]
+        return indices
 
     def sample(self, batch_size):
         """Sample transitions from the buffer. For a given transition, if it's
@@ -216,13 +229,14 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             raise ValueError("Not enough transitions added to the buffer to sample")
         indices = self._sample_indices(batch_size)
         batch = {}
+        batch["indices"] = indices
         terminals = self._get_from_storage("done", indices, self._n_step)
 
         if self._n_step == 1:
             is_terminal = terminals
             trajectory_lengths = np.ones(batch_size)
         else:
-            is_terminal = terminals.any(axis=1)
+            is_terminal = terminals.any(axis=1).astype(int)
             trajectory_lengths = (
                 np.argmax(terminals.astype(bool), axis=1) + 1
             ) * is_terminal + self._n_step * (1 - is_terminal)

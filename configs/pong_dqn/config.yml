@@ -3,6 +3,7 @@ run_name: &run_name 'pong-dqn'
 train_steps: 10000000
 test_frequency: 100
 test_num_episodes: 10
+stack_size: &stack_size 4
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
@@ -33,7 +34,7 @@ agent:
       kwargs:
         seed: 42
         capacity: 1000000
-        stack_size: 4
+        stack_size: *stack_size
     discount_rate: .99
     target_net_update_schedule:
       name: 'PeriodicSchedule'
@@ -41,6 +42,12 @@ agent:
         off_value: False
         on_value: True
         period: 10000
+    update_period_schedule:
+      name: 'PeriodicSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        period: 4
     epsilon_schedule:
       name: 'LinearSchedule'
       kwargs:
@@ -68,4 +75,4 @@ loggers:
     kwargs:
       project_name: Hive-v1
       run_name: *run_name
-      offline: False
+      mode: "online"

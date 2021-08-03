@@ -1,5 +1,5 @@
+from hive.replays import PrioritizedReplayBuffer
 import pytest
-import os
 
 import numpy as np
 from hive.replays import EfficientCircularBuffer
@@ -12,13 +12,32 @@ GAMMA = 0.99
 
 
 @pytest.fixture()
-def buffer():
+def efficient_buffer():
     return EfficientCircularBuffer(
         capacity=CAPACITY,
         observation_shape=OBS_SHAPE,
         observation_dtype=np.float32,
-        extra_storage_types={"foo": (np.int8, ())},
+        extra_storage_types={"priority": (np.int8, ())},
     )
+
+
+@pytest.fixture()
+def prioritized_buffer():
+    return PrioritizedReplayBuffer(
+        capacity=CAPACITY,
+        observation_shape=OBS_SHAPE,
+        observation_dtype=np.float32,
+    )
+
+
+@pytest.fixture(
+    params=[
+        pytest.lazy_fixture("prioritized_buffer"),
+        pytest.lazy_fixture("efficient_buffer"),
+    ]
+)
+def buffer(request):
+    return request.param
 
 
 @pytest.fixture()
@@ -29,19 +48,40 @@ def full_buffer(buffer):
             action=i,
             reward=i % 10,
             done=((i + 1) % 15) == 0,
-            foo=i % 5,
+            priority=(i % 10) + 1,
         )
     return buffer
 
 
 @pytest.fixture()
-def stacked_buffer():
+def stacked_efficient_buffer():
     return EfficientCircularBuffer(
         capacity=CAPACITY,
         stack_size=STACK_SIZE,
         observation_shape=OBS_SHAPE,
         observation_dtype=np.float32,
+        extra_storage_types={"priority": (np.int8, ())},
     )
+
+
+@pytest.fixture()
+def stacked_prioritized_buffer():
+    return PrioritizedReplayBuffer(
+        capacity=CAPACITY,
+        stack_size=STACK_SIZE,
+        observation_shape=OBS_SHAPE,
+        observation_dtype=np.float32,
+    )
+
+
+@pytest.fixture(
+    params=[
+        pytest.lazy_fixture("stacked_prioritized_buffer"),
+        pytest.lazy_fixture("stacked_efficient_buffer"),
+    ]
+)
+def stacked_buffer(request):
+    return request.param
 
 
 @pytest.fixture()
@@ -52,6 +92,7 @@ def full_stacked_buffer(stacked_buffer):
             action=i,
             reward=i % 10,
             done=((i + 1) % 15) == 0,
+            priority=(i % 10) + 1,
         )
     return stacked_buffer
 
@@ -75,6 +116,9 @@ def full_n_step_buffer():
     return n_step_buffer
 
 
+@pytest.mark.parametrize(
+    "constructor", [EfficientCircularBuffer, PrioritizedReplayBuffer]
+)
 @pytest.mark.parametrize("observation_shape", [(), (2,), (3, 4)])
 @pytest.mark.parametrize("observation_dtype", [np.uint8, np.float32])
 @pytest.mark.parametrize("action_shape", [(), (5,)])
@@ -83,6 +127,7 @@ def full_n_step_buffer():
 @pytest.mark.parametrize("reward_dtype", [np.int8, np.float32])
 @pytest.mark.parametrize("extra_storage_types", [None, {"foo": (np.float32, (7,))}])
 def test_constructor(
+    constructor,
     observation_shape,
     observation_dtype,
     action_shape,
@@ -91,7 +136,7 @@ def test_constructor(
     reward_dtype,
     extra_storage_types,
 ):
-    buffer = EfficientCircularBuffer(
+    buffer = constructor(
         capacity=10,
         observation_shape=observation_shape,
         observation_dtype=observation_dtype,
@@ -122,7 +167,7 @@ def test_add(buffer):
             action=i,
             reward=i % 10,
             done=((i + 1) % 15) == 0,
-            foo=i % 5,
+            priority=(i % 10) + 1,
         )
         assert buffer.size() == i
         assert buffer._cursor == ((i + 1) % CAPACITY)
@@ -133,7 +178,7 @@ def test_add(buffer):
             action=i,
             reward=i % 10,
             done=((i + 1) % 15) == 0,
-            foo=i % 5,
+            priority=(i % 10) + 1,
         )
         assert buffer.size() == CAPACITY - 1
         assert buffer._cursor == ((i + 1) % CAPACITY)
@@ -145,7 +190,7 @@ def test_sample(full_buffer):
     for i in range(CAPACITY - 1):
         timestep = batch["action"][i]
         assert batch["reward"][i] == timestep % 10
-        assert batch["foo"][i] == timestep % 5
+        # assert batch["foo"][i] == timestep % 5
         assert batch["done"][i] == (((timestep + 1) % 15) == 0)
         assert batch["observation"][i] == pytest.approx(np.ones(OBS_SHAPE) * timestep)
         if not batch["done"][i]:
@@ -205,6 +250,7 @@ def test_stacked_buffer_add(stacked_buffer):
             action=i,
             reward=i % 10,
             done=((i + 1) % 15) == 0,
+            priority=(i % 10) + 1,
         )
         assert (
             stacked_buffer.size()
@@ -217,6 +263,7 @@ def test_stacked_buffer_add(stacked_buffer):
             action=i,
             reward=i % 10,
             done=((i + 1) % 15) == 0,
+            priority=(i % 10) + 1,
         )
         assert stacked_buffer.size() == CAPACITY - STACK_SIZE
     assert stacked_buffer._num_added == CAPACITY + 20 + 1 + (CAPACITY + 20) // 15
