@@ -23,16 +23,13 @@ agent:
   name: 'RainbowDQNAgent'
   kwargs:
     qnet:
-      name: 'ComplexConv'
+      name: 'DistributionalMLP'
       kwargs:
-        channels: [16]
-        mlp_layers: [128, 128]
-        kernel_sizes: [3]
-        strides: [1]
-        paddings: [0]
-        normalization_factor: 1
         noisy: False
         dueling: True
+        hidden_units: 256
+        num_hidden_layers: 2
+        sigma_init: 0.5
     optimizer_fn:
       name: 'Adam'
       kwargs:
@@ -71,7 +68,7 @@ agent:
     device: 'cpu'
     log_frequency: 1000
     double: True
-    distributional: False
+    distributional: True
     use_eps_greedy: True
     v_min: -100.0
     v_max: 100.0
