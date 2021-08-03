@@ -12,7 +12,7 @@ registry.register_all(
         "DQNAgent": DQNAgent,
         "RandomAgent": RandomAgent,
         "RainbowDQNAgent": RainbowDQNAgent,
-        "HanabiRainbowAgent": HanabiRainbowAgent
+        "HanabiRainbowAgent": HanabiRainbowAgent,
     },
 )
 

@@ -21,7 +21,7 @@ try:
     from hive.envs.hanabi import HanabiLearningEnv
 except ImportError:
     HanabiLearningEnv = None
-    
+
 try:
     from hive.envs.minatar import MinAtarEnv
 except ImportError:
