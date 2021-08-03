@@ -117,7 +117,7 @@ agents:
         kwargs:
           off_value: False
           on_value: True
-          steps: 100
+          steps: 1000
       seed: 42
       batch_size: 128
       device: 'cpu'
@@ -125,9 +125,6 @@ agents:
       double: False
       distributional: False
       use_eps_greedy: True
-      v_min: 0.0
-      v_max: 25.0
-      atoms: 1
 
 # List of logger configs used.
 loggers:
