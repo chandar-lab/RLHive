@@ -76,6 +76,20 @@ class RainbowDQNAgent(DQNAgent):
             distributional: whether or not to use the distributional feature (from distributional DQN)
             use_eps_greedy: whether or not to use epsilon greedy. Usually in case of noisy networks use_eps_greedy=False
         """
+        self._double = double
+        self._distributional = distributional
+
+        if self._distributional:
+            self._atoms = atoms
+            self._v_min = v_min
+            self._v_max = v_max
+            self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(
+                device
+            )
+            qnet.keywords["supports"] = self._supports
+            self._delta = float(self._v_max - self._v_min) / (self._atoms - 1)
+            self._nsteps = 1
+
         super().__init__(
             qnet,
             obs_dim,
@@ -96,19 +110,6 @@ class RainbowDQNAgent(DQNAgent):
             logger=logger,
             log_frequency=log_frequency,
         )
-        self._double = double
-        self._distributional = distributional
-
-        if self._distributional:
-            self._atoms = atoms
-            self._v_min = v_min
-            self._v_max = v_max
-            self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(
-                device
-            )
-            qnet["kwargs"]["supports"] = self._supports
-            self._delta = float(self._v_max - self._v_min) / (self._atoms - 1)
-            self._nsteps = 1
 
         self._use_eps_greedy = use_eps_greedy
 
