@@ -1,20 +1,16 @@
-import os
-import copy
 import numpy as np
 import torch
+from typing import Tuple, Callable
 
-from hive.replays import CircularReplayBuffer, get_replay
-from hive.utils.logging import NullLogger, get_logger
-from hive.utils.utils import create_folder, get_optimizer_fn
-from hive.utils.schedule import (
-    PeriodicSchedule,
-    LinearSchedule,
-    SwitchSchedule,
-    get_schedule,
-)
+
+from hive.agents.qnets.base import FunctionApproximator
+from hive.replays.replay_buffer import BaseReplayBuffer
+from hive.utils.logging import Logger
+from hive.utils.utils import OptimizerFn
+from hive.utils.schedule import Schedule
 from hive.agents.agent import Agent
 from hive.agents.rainbow import RainbowDQNAgent
-from hive.agents.qnets import get_qnet
+from hive.replays import PrioritizedReplayBuffer
 
 
 class HanabiRainbowAgent(RainbowDQNAgent):
@@ -24,30 +20,30 @@ class HanabiRainbowAgent(RainbowDQNAgent):
 
     def __init__(
         self,
-        qnet,
-        obs_dim,
-        act_dim,
-        v_min=0,
-        v_max=200,
-        atoms=51,
-        optimizer_fn=None,
-        id=0,
-        replay_buffer=None,
-        discount_rate=0.99,
-        grad_clip=None,
-        target_net_soft_update=False,
-        target_net_update_fraction=0.05,
-        target_net_update_schedule=None,
-        epsilon_schedule=None,
-        learn_schedule=None,
-        seed=42,
-        batch_size=32,
-        device="cpu",
-        logger=None,
-        log_frequency=100,
-        double=True,
-        distributional=False,
-        use_eps_greedy=True,
+        qnet: FunctionApproximator,
+        obs_dim: Tuple,
+        act_dim: int,
+        v_min: str = 0,
+        v_max: str = 200,
+        atoms: str = 51,
+        optimizer_fn: OptimizerFn = None,
+        id: str = 0,
+        replay_buffer: BaseReplayBuffer = None,
+        discount_rate: float = 0.99,
+        grad_clip: float = None,
+        target_net_soft_update: bool = False,
+        target_net_update_fraction: float = 0.05,
+        target_net_update_schedule: Schedule = None,
+        epsilon_schedule: Schedule = None,
+        learn_schedule: Schedule = None,
+        seed: int = 42,
+        batch_size: int = 32,
+        device: str = "cpu",
+        logger: Logger = None,
+        log_frequency: int = 100,
+        double: bool = True,
+        distributional: bool = False,
+        use_eps_greedy: bool = True,
     ):
         """
         Args:
@@ -202,7 +198,16 @@ class HanabiRainbowAgent(RainbowDQNAgent):
             pred_qvals = self._qnet(batch["observation"], batch["legal_moves"])
             actions = batch["action"].long()
 
-            if not self._distributional:
+            if self._distributional:
+                current_dist = self._qnet.dist(
+                    batch["observation"], batch["legal_moves"]
+                )
+                log_p = torch.log(current_dist[range(self._batch_size), actions])
+                target_prob = self.projection_distribution(batch)
+
+                loss = -(target_prob * log_p).sum(1)
+
+            else:
                 pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
                 # Compute 1-step Q targets
@@ -227,18 +232,11 @@ class HanabiRainbowAgent(RainbowDQNAgent):
 
                 loss = self._loss_fn(pred_qvals, q_targets)
 
-            else:
-                if not self._use_eps_greedy:
-                    self._qnet.sample_noise()
-                    self._target_qnet.sample_noise()
-                current_dist = self._qnet.dist(
-                    batch["observation"], batch["legal_moves"]
-                )
-                log_p = torch.log(current_dist[range(self._batch_size), actions])
-                target_prob = self.projection_distribution(batch)
-
-                loss = -(target_prob * log_p).sum(1)
-                loss = loss.mean()
+            if isinstance(self._replay_buffer, PrioritizedReplayBuffer):
+                td_errors = loss.detach().abs().cpu().numpy()
+                self._replay_buffer.update_priorities(batch["indices"], td_errors)
+                loss *= batch["weights"]
+            loss = loss.mean()
 
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar(

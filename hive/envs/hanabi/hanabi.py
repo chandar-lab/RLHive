@@ -57,6 +57,6 @@ class HanabiLearningEnv(HanabiEnv):
         current_player = observations["current_player"]
         hanabi_obs = observations["player_observations"][current_player]
         legal_moves_as_int = hanabi_obs["legal_moves_as_int"]
-        hanabi_obs["vectorized"] = np.array(hanabi_obs["vectorized"])
+        hanabi_obs["vectorized"] = np.array(hanabi_obs["vectorized"], dtype=np.uint8)
 
         return hanabi_obs, current_player

@@ -73,7 +73,7 @@ class ComplexHanabiMLP(nn.Module):
             )
 
     def forward(self, x, legal_moves):
-        x = torch.flatten(x, start_dim=1)
+        x = torch.flatten(x, start_dim=1).float()
         x = self.input_layer(x)
         x = self.hidden_layers(x)
 
@@ -129,7 +129,7 @@ class DistributionalHanabiMLP(ComplexHanabiMLP):
 
     def dist(self, x, legal_moves):
 
-        x = self.input_layer(x)
+        x = self.input_layer(x.float())
         x = self.hidden_layers(x)
 
         if self._dueling:
