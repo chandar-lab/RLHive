@@ -218,7 +218,7 @@ class RainbowDQNAgent(DQNAgent):
         # Add the most recent transition to the replay buffer.
         if self._training:
             self._replay_buffer.add(
-                update_info["observation"],
+                update_info["observation"].astype(np.uint8),
                 update_info["action"],
                 update_info["reward"],
                 update_info["done"],
