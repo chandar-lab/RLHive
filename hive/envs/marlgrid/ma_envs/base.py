@@ -22,7 +22,7 @@ class MultiGridEnvHive(MultiGridEnv):
         full_obs=False,
         agent_spawn_kwargs={},
     ):
-        self.full_obs = full_obs
+        self._full_obs = full_obs
         super().__init__(
             agents,
             grid_size,
@@ -35,25 +35,6 @@ class MultiGridEnvHive(MultiGridEnv):
             ghost_mode,
             agent_spawn_kwargs,
         )
-        if grid_size is not None:
-            assert width == None and height == None
-            width, height = grid_size, grid_size
-
-        self.respawn = respawn
-
-        self.window = None
-
-        self.width = width
-        self.height = height
-        self.max_steps = max_steps
-        self.reward_decay = reward_decay
-        self.seed(seed=seed)
-        self.agent_spawn_kwargs = agent_spawn_kwargs
-        self.ghost_mode = ghost_mode
-
-        self.agents = []
-        for agent in agents:
-            self.add_agent(agent)
 
     def gen_obs_grid(self, agent):
         # If the agent is inactive, return an empty grid and a visibility mask that hides everything.
@@ -66,7 +47,7 @@ class MultiGridEnvHive(MultiGridEnv):
             vis_mask = np.zeros((agent.view_size, agent.view_size), dtype=np.bool)
             return grid, vis_mask
 
-        if self.full_obs:
+        if self._full_obs:
             topX, topY, botX, botY = 0, 0, self.width, self.height
             grid = self.grid.slice(topX, topY, self.width, self.height, rot_k=0)
             vis_mask = np.ones((self.width, self.height), dtype=bool)
@@ -111,9 +92,7 @@ class MultiGridEnvHive(MultiGridEnv):
         agent_col_padding_px=2,
         pad_grey=100,
     ):
-        """
-        Render the whole-grid human view
-        """
+        """Render the whole-grid human view"""
 
         if close:
             if self.window:
@@ -127,7 +106,7 @@ class MultiGridEnvHive(MultiGridEnv):
         highlight_mask = np.full((self.width, self.height), False, dtype=np.bool)
         for agent in self.agents:
             if agent.active:
-                if self.full_obs:
+                if self._full_obs:
                     xlow, ylow, xhigh, yhigh = 0, 0, self.width, self.height
                 else:
                     xlow, ylow, xhigh, yhigh = agent.get_view_exts()

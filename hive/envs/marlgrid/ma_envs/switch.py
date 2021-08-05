@@ -1,8 +1,9 @@
-from marlgrid.base import MultiGrid
-from hive.envs.marlgrid.ma_envs.base import MultiGridEnvHive
-from marlgrid.objects import Goal, GridAgent, Floor
 import numpy as np
-from gym_minigrid.rendering import fill_coords, point_in_rect, point_in_circle
+
+from marlgrid.base import MultiGrid
+from marlgrid.objects import Goal, GridAgent, Floor
+from hive.envs.marlgrid.ma_envs.base import MultiGridEnvHive
+from gym_minigrid.rendering import fill_coords, point_in_rect
 
 
 class SwitchMultiGrid(MultiGridEnvHive):
@@ -24,8 +25,8 @@ class SwitchMultiGrid(MultiGridEnvHive):
             if row != (height - 2) // 2:
                 self.grid.horz_wall(3, row + 1, width - 6)
 
-        self.put_obj(Floor2(color="blue"), 1, 1)
-        self.put_obj(Floor2(color="red"), self.width - 2, self.height - 2)
+        self.put_obj(SimpleFloor(color="blue"), 1, 1)
+        self.put_obj(SimpleFloor(color="red"), self.width - 2, self.height - 2)
         self.agent_spawn_kwargs = {}
         self.ghost_mode = False
 
@@ -67,7 +68,10 @@ class SwitchMultiGrid(MultiGridEnvHive):
                 self.place_obj(agent, **self.agent_spawn_kwargs)
                 agent.activate()
 
-        assert len(actions) == len(self.agents)
+        if len(actions) != len(self.agents):
+            raise ValueError(
+                f"Number of actions is not equal to the number of agents {len(actions)} != {len(self.agents)}"
+            )
 
         step_rewards = np.zeros((len(self.agents)), dtype=np.float)
 
@@ -81,7 +85,6 @@ class SwitchMultiGrid(MultiGridEnvHive):
             agent.step_reward = 0
 
             if agent.active:
-
                 cur_pos = agent.pos[:]
                 cur_cell = self.grid.get(*cur_pos)
                 fwd_pos = agent.front_pos[:]
@@ -227,6 +230,6 @@ COLORS = {
 }
 
 
-class Floor2(Floor):
+class SimpleFloor(Floor):
     def render(self, img):
         fill_coords(img, point_in_rect(0, 1, 0, 1), COLORS[self.color])
