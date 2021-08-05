@@ -283,7 +283,7 @@ class ChompLogger(ScheduledLogger):
         self._log_data = Chomp()
 
     def log_config(self, config):
-        self._log_data["config"] = config
+        self._log_data["config"] = config.get()
 
     def log_scalar(self, name, value, timescale):
         metric_name = f"{timescale}_{name}"
