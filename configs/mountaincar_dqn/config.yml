@@ -6,13 +6,8 @@ training_schedule:
     off_value: True
     on_value: False
     steps: 1000000
-testing_schedule:
-  name: 'DoublePeriodicSchedule'
-  kwargs:
-    off_value: False
-    on_value: True
-    off_period: 10
-    on_period: 1
+test_frequency: 10
+test_num_episodes: 1
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
