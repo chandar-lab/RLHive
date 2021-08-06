@@ -287,7 +287,7 @@ class ChompLogger(ScheduledLogger):
 
     def log_scalar(self, name, value, timescale):
         metric_name = f"{timescale}_{name}"
-        if self._log_data[metric_name] is None:
+        if metric_name not in self._log_data:
             self._log_data[metric_name] = [[], []]
         if isinstance(value, torch.Tensor):
             self._log_data[metric_name][0].append(value.item())
@@ -300,7 +300,7 @@ class ChompLogger(ScheduledLogger):
     def log_metrics(self, metrics, timescale):
         for name in metrics:
             metric_name = f"{timescale}_{name}"
-            if self._log_data[metric_name] is None:
+            if metric_name not in self._log_data:
                 self._log_data[metric_name] = [[], []]
             if isinstance(metrics[name], torch.Tensor):
                 self._log_data[metric_name][0].append(metrics[name].item())

@@ -66,7 +66,7 @@ class Runner(ABC):
         self._test_num_episodes = test_num_episodes
         self._train_step_schedule.update()
         self._test_schedule.update()
-        self._experiment_manager.experiment_state.add_from_dict(
+        self._experiment_manager.experiment_state.update(
             {
                 "train_step_schedule": self._train_step_schedule,
                 "train_episode_schedule": self._train_episode_schedule,
