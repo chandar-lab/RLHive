@@ -74,9 +74,12 @@ class SingleAgentRunner(Runner):
         self._transition_info.start_agent(self._agents[0])
 
         # Run the loop until either training ends or the episode ends
-        while self._train_step_schedule.get_value() and not done:
+        while (
+            not self._training or self._train_step_schedule.get_value()
+        ) and not done:
             done, observation = self.run_one_step(observation, episode_metrics)
-            self._train_step_schedule.update()
+            if self._training:
+                self._train_step_schedule.update()
 
         return episode_metrics
 
