@@ -117,6 +117,7 @@ class RainbowDQNAgent(DQNAgent):
             log_frequency=log_frequency,
         )
 
+        self._loss_fn = torch.nn.MSELoss(reduction="none")
         self._use_eps_greedy = use_eps_greedy
 
     def get_max_next_state_action(self, next_states):
@@ -265,7 +266,7 @@ class RainbowDQNAgent(DQNAgent):
                 loss = self._loss_fn(pred_qvals, q_targets)
 
             if isinstance(self._replay_buffer, PrioritizedReplayBuffer):
-                td_errors = loss.detach().abs().cpu().numpy()
+                td_errors = loss.sqrt().detach().cpu().numpy()
                 self._replay_buffer.update_priorities(batch["indices"], td_errors)
                 loss *= batch["weights"]
             loss = loss.mean()
