@@ -129,9 +129,9 @@ class RainbowDQNAgent(DQNAgent):
         )
 
     def projection_distribution(self, batch):
-        batch_obs = batch["observation"]
+        batch_obs = batch["observation"].float()
         batch_action = batch["action"].long()
-        batch_next_obs = batch["next_observation"]
+        batch_next_obs = batch["next_observation"].float()
         batch_reward = batch["reward"].reshape(-1, 1).to(self._device)
         batch_not_done = 1 - batch["done"].reshape(-1, 1).to(self._device)
 
@@ -145,6 +145,9 @@ class RainbowDQNAgent(DQNAgent):
             b = (t_z - self._v_min) / self._delta
             l = b.floor().long()
             u = b.ceil().long()
+
+            l[(u > 0) * (l == u)] -= 1
+            u[(l < (self._atoms - 1)) * (l == u)] += 1
 
             offset = (
                 torch.linspace(
@@ -216,7 +219,7 @@ class RainbowDQNAgent(DQNAgent):
         # Add the most recent transition to the replay buffer.
         if self._training:
             self._replay_buffer.add(
-                update_info["observation"],
+                update_info["observation"].astype(np.uint8),
                 update_info["action"],
                 update_info["reward"],
                 update_info["done"],
@@ -240,7 +243,7 @@ class RainbowDQNAgent(DQNAgent):
                 log_p = torch.log(current_dist[range(self._batch_size), actions])
                 target_prob = self.projection_distribution(batch)
 
-                loss = -(target_prob * log_p).sum(1)
+                loss = -(target_prob * log_p).sum(-1)
 
             else:
                 pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
