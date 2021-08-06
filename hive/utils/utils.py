@@ -30,6 +30,7 @@ class Chomp(dict):
     """An extension of the dictionary class that allows for accessing through dot
     notation and easy saving/loading.
     """
+
     def __getattr__(self, k):
         if k not in self:
             raise AttributeError()
