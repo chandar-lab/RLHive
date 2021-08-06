@@ -53,38 +53,6 @@ class MultiAgentRunner(Runner):
             test_frequency,
             test_num_episodes,
         )
-        self._environment = environment
-        self._agents = agents
-        self._logger = logger
-        self._experiment_manager = experiment_manager
-        if train_steps == -1:
-            self._train_step_schedule = schedule.ConstantSchedule(True)
-        else:
-            self._train_step_schedule = schedule.SwitchSchedule(
-                True, False, train_steps
-            )
-        if train_episodes == -1:
-            self._train_episode_schedule = schedule.ConstantSchedule(True)
-        else:
-            self._train_episode_schedule = schedule.SwitchSchedule(
-                True, False, train_episodes
-            )
-        if test_frequency == -1:
-            self._test_schedule = schedule.ConstantSchedule(False)
-        else:
-            self._test_schedule = schedule.DoublePeriodicSchedule(
-                False, True, test_frequency, test_num_episodes
-            )
-        self._train_step_schedule.update()
-        self._test_schedule.update()
-        self._experiment_manager.experiment_state.add_from_dict(
-            {
-                "train_step_schedule": self._train_step_schedule,
-                "train_episode_schedule": self._train_episode_schedule,
-                "test_schedule": self._test_schedule,
-            }
-        )
-
         self._transition_info = TransitionInfo(self._agents, stack_size)
         self._training = True
 
