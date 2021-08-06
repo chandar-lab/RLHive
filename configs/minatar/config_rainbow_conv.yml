@@ -1,5 +1,6 @@
 # General training loop config
-run_name: &run_name 'breakout-rainbow-double-dueling-dist'
+# Based on https://arxiv.org/pdf/2011.14826.pdf
+run_name: &run_name 'breakout-rainbow'
 train_steps: 10000000
 test_frequency: 100
 test_num_episodes: 10
@@ -23,20 +24,22 @@ agent:
   name: 'RainbowDQNAgent'
   kwargs:
     qnet:
-      name: 'DistributionalMLP'
+      name: 'DistributionalConv'
       kwargs:
-        noisy: False
+        channels: [16]
+        mlp_layers: [128, 128]
+        kernel_sizes: [3]
+        strides: [1]
+        paddings: [0]
+        normalization_factor: 1
+        noisy: True
         dueling: True
-        hidden_units: 256
-        num_hidden_layers: 2
         sigma_init: 0.5
     optimizer_fn:
       name: 'Adam'
       kwargs:
-        lr: 0.0001
-#        alpha: 0.95
+        lr: 0.00025
         eps: 0.0003125
-#        centered: True
     id: 0
     replay_buffer:
       name: 'PrioritizedReplayBuffer'
@@ -69,7 +72,7 @@ agent:
     log_frequency: 1000
     double: True
     distributional: True
-    use_eps_greedy: True
+    use_eps_greedy: False
     v_min: -100.0
     v_max: 100.0
     atoms: 51
