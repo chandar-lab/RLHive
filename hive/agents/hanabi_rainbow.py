@@ -95,6 +95,9 @@ class HanabiRainbowAgent(RainbowDQNAgent):
             l = b.floor().long()
             u = b.ceil().long()
 
+            l[(u > 0) * (l == u)] -= 1
+            u[(l < (self._atoms - 1)) * (l == u)] += 1
+
             offset = (
                 torch.linspace(
                     0, (self._batch_size - 1) * self._atoms, self._batch_size
