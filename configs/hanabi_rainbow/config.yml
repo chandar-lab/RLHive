@@ -31,9 +31,9 @@ agents:
         name: 'DistributionalHanabiMLP'
         kwargs:
           dueling: False
-          hidden_units: 256
+          hidden_units: 512
           num_hidden_layers: 2
-          atoms: 2
+          atoms: 51
       optimizer_fn:
         name: 'Adam'
         kwargs:
@@ -41,10 +41,10 @@ agents:
           eps: 0.00003125
       id: 0
       replay_buffer:
-        name: 'EfficientCircularBuffer'
+        name: 'PrioritizedReplayBuffer'
         kwargs:
           seed: 42
-          capacity: 10000
+          capacity: 50000
           stack_size: *stack_size
           extra_storage_types:
             legal_moves:
@@ -56,7 +56,7 @@ agents:
         kwargs:
           off_value: False
           on_value: True
-          period: 100
+          period: 500
       epsilon_schedule:
         name: 'ConstantSchedule'
         kwargs:
@@ -74,9 +74,9 @@ agents:
       double: False
       distributional: True
       use_eps_greedy: True
-      v_min: 0.0
+      v_min: -25.0
       v_max: 25.0
-      atoms: 2
+      atoms: 51
   - 
     name: 'HanabiRainbowAgent'
     kwargs:
@@ -84,9 +84,9 @@ agents:
         name: 'DistributionalHanabiMLP'
         kwargs:
           dueling: False
-          hidden_units: 256
+          hidden_units: 512
           num_hidden_layers: 2
-          atoms: 2
+          atoms: 51
       optimizer_fn:
         name: 'Adam'
         kwargs:
@@ -94,10 +94,10 @@ agents:
           eps: 0.00003125
       id: 1
       replay_buffer:
-        name: 'EfficientCircularBuffer'
+        name: 'PrioritizedReplayBuffer'
         kwargs:
           seed: 42
-          capacity: 10000
+          capacity: 50000
           stack_size: *stack_size
           extra_storage_types:
             legal_moves:
@@ -109,7 +109,7 @@ agents:
         kwargs:
           off_value: False
           on_value: True
-          period: 100
+          period: 500
       epsilon_schedule:
         name: 'ConstantSchedule'
         kwargs:
