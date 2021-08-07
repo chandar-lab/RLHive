@@ -133,7 +133,7 @@ class DistributionalHanabiMLP(ComplexHanabiMLP):
         x = self.hidden_layers(x)
 
         if self._dueling:
-            adv = self.output_layer_adv(x) * torch.tensor(legal_moves).repeat(
+            adv = self.output_layer_adv(x) * legal_moves.repeat(
                 1, self._atoms
             )
             adv = adv.view(-1, self._out_dim, self._atoms)
@@ -142,7 +142,7 @@ class DistributionalHanabiMLP(ComplexHanabiMLP):
             x = val + adv - adv.mean(dim=1, keepdim=True)
 
         else:
-            x = self.output_layer(x) * torch.tensor(legal_moves).repeat(1, self._atoms)
+            x = self.output_layer(x) * legal_moves.repeat(1, self._atoms)
 
         x = x.view(-1, self._out_dim, self._atoms)
         x = F.softmax(x, dim=-1)

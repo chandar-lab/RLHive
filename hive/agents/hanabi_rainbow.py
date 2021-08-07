@@ -80,7 +80,7 @@ class HanabiRainbowAgent(RainbowDQNAgent):
         batch_obs = batch["observation"]
         batch_action = batch["action"].long()
         batch_next_obs = batch["next_observation"]
-        batch_legal_moves = batch["legal_moves"]
+        batch_legal_moves = torch.tensor(batch["legal_moves"]).to(self._device)
         batch_reward = batch["reward"].reshape(-1, 1).to(self._device)
         batch_not_done = 1 - batch["done"].reshape(-1, 1).to(self._device)
 
@@ -141,7 +141,7 @@ class HanabiRainbowAgent(RainbowDQNAgent):
         encoded_legal_moves = action_encoding(
             observation["legal_moves_as_int"], self._act_dim
         )
-        qvals = self._qnet(vectorized_observation, encoded_legal_moves).cpu()
+        qvals = self._qnet(vectorized_observation, torch.tensor(encoded_legal_moves).to(self._device)).cpu()
 
         if self._use_eps_greedy and self._rng.random() < epsilon:
             action = np.random.choice(observation["legal_moves_as_int"]).item()
