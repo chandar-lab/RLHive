@@ -1,6 +1,12 @@
 import numpy as np
 import torch
+from typing import Tuple, Callable
 
+from hive.agents.qnets.base import FunctionApproximator
+from hive.replays.replay_buffer import BaseReplayBuffer
+from hive.utils.logging import Logger
+from hive.utils.utils import OptimizerFn
+from hive.utils.schedule import Schedule
 from hive.replays import PrioritizedReplayBuffer
 from hive.agents.dqn import DQNAgent
 
@@ -12,31 +18,31 @@ class RainbowDQNAgent(DQNAgent):
 
     def __init__(
         self,
-        qnet,
-        obs_dim,
-        act_dim,
-        v_min=0,
-        v_max=200,
-        atoms=51,
-        optimizer_fn=None,
-        id=0,
-        replay_buffer=None,
-        discount_rate=0.99,
-        grad_clip=None,
-        target_net_soft_update=False,
-        target_net_update_fraction=0.05,
-        target_net_update_schedule=None,
-        update_period_schedule=None,
-        epsilon_schedule=None,
-        learn_schedule=None,
-        seed=42,
-        batch_size=32,
-        device="cpu",
-        logger=None,
-        log_frequency=100,
-        double=True,
-        distributional=False,
-        use_eps_greedy=True,
+        qnet: FunctionApproximator,
+        obs_dim: Tuple,
+        act_dim: int,
+        v_min: str = 0,
+        v_max: str = 200,
+        atoms: str = 51,
+        optimizer_fn: OptimizerFn = None,
+        id: str = 0,
+        replay_buffer: BaseReplayBuffer = None,
+        discount_rate: float = 0.99,
+        grad_clip: float = None,
+        target_net_soft_update: bool = False,
+        target_net_update_fraction: float = 0.05,
+        target_net_update_schedule: Schedule = None,
+        update_period_schedule: Schedule = None,
+        epsilon_schedule: Schedule = None,
+        learn_schedule: Schedule = None,
+        seed: int = 42,
+        batch_size: int = 32,
+        device: str = "cpu",
+        logger: Logger = None,
+        log_frequency: int = 100,
+        double: bool = True,
+        distributional: bool = False,
+        use_eps_greedy: bool = True,
     ):
         """
         Args:
@@ -78,6 +84,20 @@ class RainbowDQNAgent(DQNAgent):
             distributional: whether or not to use the distributional feature (from distributional DQN)
             use_eps_greedy: whether or not to use epsilon greedy. Usually in case of noisy networks use_eps_greedy=False
         """
+        self._double = double
+        self._distributional = distributional
+
+        if self._distributional:
+            self._atoms = atoms
+            self._v_min = v_min
+            self._v_max = v_max
+            self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(
+                device
+            )
+            qnet.keywords["supports"] = self._supports
+            self._delta = float(self._v_max - self._v_min) / (self._atoms - 1)
+            self._nsteps = 1
+
         super().__init__(
             qnet,
             obs_dim,
@@ -99,20 +119,8 @@ class RainbowDQNAgent(DQNAgent):
             logger=logger,
             log_frequency=log_frequency,
         )
-        self._double = double
-        self._distributional = distributional
 
-        if self._distributional:
-            self._atoms = atoms
-            self._v_min = v_min
-            self._v_max = v_max
-            self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(
-                device
-            )
-            qnet["kwargs"]["supports"] = self._supports
-            self._delta = float(self._v_max - self._v_min) / (self._atoms - 1)
-            self._nsteps = 1
-
+        self._loss_fn = torch.nn.MSELoss(reduction="none")
         self._use_eps_greedy = use_eps_greedy
 
     def get_max_next_state_action(self, next_states):
@@ -125,9 +133,9 @@ class RainbowDQNAgent(DQNAgent):
         )
 
     def projection_distribution(self, batch):
-        batch_obs = batch["observation"]
+        batch_obs = batch["observation"].float()
         batch_action = batch["action"].long()
-        batch_next_obs = batch["next_observation"]
+        batch_next_obs = batch["next_observation"].float()
         batch_reward = batch["reward"].reshape(-1, 1).to(self._device)
         batch_not_done = 1 - batch["done"].reshape(-1, 1).to(self._device)
 
@@ -141,6 +149,9 @@ class RainbowDQNAgent(DQNAgent):
             b = (t_z - self._v_min) / self._delta
             l = b.floor().long()
             u = b.ceil().long()
+
+            l[(u > 0) * (l == u)] -= 1
+            u[(l < (self._atoms - 1)) * (l == u)] += 1
 
             offset = (
                 torch.linspace(
@@ -164,7 +175,6 @@ class RainbowDQNAgent(DQNAgent):
 
     @torch.no_grad()
     def act(self, observation):
-        observation = torch.tensor(observation).to(self._device).float()
 
         if self._training:
             if not self._learn_schedule.get_value():
@@ -181,7 +191,7 @@ class RainbowDQNAgent(DQNAgent):
         observation = (
             torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
         )
-        qvals = self._qnet(observation)
+        qvals = self._qnet(observation).cpu()
 
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
@@ -213,7 +223,7 @@ class RainbowDQNAgent(DQNAgent):
         # Add the most recent transition to the replay buffer.
         if self._training:
             self._replay_buffer.add(
-                update_info["observation"],
+                update_info["observation"].astype(np.uint8),
                 update_info["action"],
                 update_info["reward"],
                 update_info["done"],
@@ -241,7 +251,7 @@ class RainbowDQNAgent(DQNAgent):
                 log_p = torch.log(current_dist[range(self._batch_size), actions])
                 target_prob = self.projection_distribution(batch)
 
-                loss = -(target_prob * log_p).sum(1)
+                loss = -(target_prob * log_p).sum(-1)
 
             else:
                 pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
@@ -263,7 +273,7 @@ class RainbowDQNAgent(DQNAgent):
                 loss = self._loss_fn(pred_qvals, q_targets)
 
             if isinstance(self._replay_buffer, PrioritizedReplayBuffer):
-                td_errors = (pred_qvals - q_targets).detach().abs().cpu().numpy()
+                td_errors = loss.sqrt().detach().cpu().numpy()
                 self._replay_buffer.update_priorities(batch["indices"], td_errors)
                 loss *= batch["weights"]
             loss = loss.mean()

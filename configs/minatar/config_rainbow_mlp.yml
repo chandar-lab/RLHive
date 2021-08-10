@@ -1,73 +1,76 @@
 # General training loop config
-run_name: &run_name 'mountaincar-dqn'
-training_schedule:
-  name: 'SwitchSchedule'
-  kwargs:
-    off_value: True
-    on_value: False
-    steps: 1000000
-test_frequency: 10
-test_num_episodes: 1
+run_name: &run_name 'breakout-rainbow-double-dueling-dist'
+train_steps: 10000000
+test_frequency: 100
+test_num_episodes: 10
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
     off_value: False
     on_value: True
-    period: 50000
+    period: 15000
 save_dir: 'experiment'
 
 # Environment config
 environment:
-  name: 'GymEnv'
+  name: 'MinAtarEnv'
   kwargs:
-    env_name: 'MountainCar-v0'
+    env_name: 'breakout'
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
 agent:
-  name: 'DQNAgent'
+  name: 'RainbowDQNAgent'
   kwargs:
     qnet:
-      name: 'SimpleMLP'
+      name: 'DistributionalMLP'
       kwargs:
+        noisy: False
+        dueling: True
         hidden_units: 256
         num_hidden_layers: 2
+        sigma_init: 0.5
     optimizer_fn:
       name: 'Adam'
       kwargs:
-        lr : 0.001
+        lr: 0.0001
+        eps: 0.0003125
     id: 0
     replay_buffer:
-      name: 'CircularReplayBuffer'
+      name: 'PrioritizedReplayBuffer'
       kwargs:
-        seed: 42
-        size: 500000
+        seed: 43
+        capacity: 100000
+        stack_size: 1
     discount_rate: .99
-    grad_clip : True
-    target_net_soft_update : True
-    target_net_update_fraction : 0.25
     target_net_update_schedule:
       name: 'PeriodicSchedule'
       kwargs:
         off_value: False
         on_value: True
-        period: 100
+        period: 1000
     epsilon_schedule:
       name: 'LinearSchedule'
       kwargs:
-        init_value: 1.0
-        end_value: .1
-        steps: 50000
+        init_value: 1
+        end_value: 0.1
+        steps: 100000
     learn_schedule:
       name: 'SwitchSchedule'
       kwargs:
         off_value: False
         on_value: True
         steps: 5000
-    seed: 42
-    batch_size: 128
+    seed: 43
+    batch_size: 32
     device: 'cpu'
-    log_frequency: 100
+    log_frequency: 1000
+    double: True
+    distributional: True
+    use_eps_greedy: True
+    v_min: -100.0
+    v_max: 100.0
+    atoms: 51
 
 # List of logger configs used.
 loggers:
@@ -80,4 +83,3 @@ loggers:
       project_name: Hive-v1
       run_name: *run_name
       mode: "online"
-
