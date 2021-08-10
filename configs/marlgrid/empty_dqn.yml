@@ -1,11 +1,11 @@
 # General training loop config
-run_name: &run_name 'marlgrid-dqn'
+run_name: &run_name 'empty-dqn'
 train_steps: 30000
 test_frequency: 10
 test_num_episodes: 1
 self_play: False
-num_agents: 3
-stack_size: &stack_size 2
+num_agents: 2
+stack_size: &stack_size 1
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
@@ -18,23 +18,20 @@ save_dir: 'experiment'
 environment:
   name: 'MarlGridEnv'
   kwargs:
-    env_name: 'MarlGrid-2Agent1RandomPursuit8x8-v0'
+    env_name: 'MarlGrid-2AgentEmpty9x9-v0'
     num_players: 2
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
-agents: 
-  - 
+agents:
+  -
     name: 'DQNAgent'
     kwargs:
       qnet:
-        name: 'SimpleConvModel'
+        name: 'SimpleMLP'
         kwargs:
-          channels: [ 32, 64, 64 ]
-          kernel_sizes: [ 8, 4, 3 ]
-          strides: [ 4, 2, 1 ]
-          paddings: [ 0, 1, 1 ]
-          mlp_layers: [ 512 ]
+          hidden_units: 256
+          num_hidden_layers: 2
       optimizer_fn:
         name: 'Adam'
         kwargs: {}
@@ -66,17 +63,14 @@ agents:
       batch_size: 128
       device: 'cpu'
       log_frequency: 100
-  - 
+  -
     name: 'DQNAgent'
     kwargs:
       qnet:
-        name: 'SimpleConvModel'
+        name: 'SimpleMLP'
         kwargs:
-          channels: [ 32, 64, 64 ]
-          kernel_sizes: [ 8, 4, 3 ]
-          strides: [ 4, 2, 1 ]
-          paddings: [ 0, 1, 1 ]
-          mlp_layers: [ 512 ]
+          hidden_units: 256
+          num_hidden_layers: 2
       optimizer_fn:
         name: 'Adam'
         kwargs: {}
@@ -104,7 +98,7 @@ agents:
           off_value: False
           on_value: True
           steps: 500
-      seed: 43
+      seed: 42
       batch_size: 128
       device: 'cpu'
       log_frequency: 100
