@@ -69,7 +69,8 @@ class RainbowDQNAgent(DQNAgent):
                 net parameters in a soft update.
             target_net_update_schedule: Schedule determining how frequently the
                 target net is updated.
-            update_period_schedule: Schedule determining how frequently the agent's net is updated.
+            update_period_schedule: Schedule determining how frequently
+                the agent's net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
             learn_schedule: Schedule determining when the learning process actually
@@ -81,8 +82,10 @@ class RainbowDQNAgent(DQNAgent):
             logger: Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
             double: whether or not to use the double feature (from double DQN)
-            distributional: whether or not to use the distributional feature (from distributional DQN)
-            use_eps_greedy: whether or not to use epsilon greedy. Usually in case of noisy networks use_eps_greedy=False
+            distributional: whether or not to use the distributional
+                feature (from distributional DQN)
+            use_eps_greedy: whether or not to use epsilon greedy.
+                Usually in case of noisy networks use_eps_greedy=False
         """
         self._double = double
         self._distributional = distributional

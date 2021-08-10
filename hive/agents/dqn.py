@@ -66,7 +66,8 @@ class DQNAgent(Agent):
                 net parameters in a soft update.
             target_net_update_schedule: Schedule determining how frequently the
                 target net is updated.
-            update_period_schedule: Schedule determining how frequently the agent's net is updated.
+            update_period_schedule: Schedule determining how frequently
+                the agent's net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
             learn_schedule: Schedule determining when the learning process actually
