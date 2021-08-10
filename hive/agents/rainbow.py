@@ -32,6 +32,7 @@ class RainbowDQNAgent(DQNAgent):
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
+        update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
         learn_schedule: Schedule = None,
         seed: int = 42,
@@ -68,6 +69,8 @@ class RainbowDQNAgent(DQNAgent):
                 net parameters in a soft update.
             target_net_update_schedule: Schedule determining how frequently the
                 target net is updated.
+            update_period_schedule: Schedule determining how frequently
+                the agent's net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
             learn_schedule: Schedule determining when the learning process actually
@@ -79,8 +82,10 @@ class RainbowDQNAgent(DQNAgent):
             logger: Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
             double: whether or not to use the double feature (from double DQN)
-            distributional: whether or not to use the distributional feature (from distributional DQN)
-            use_eps_greedy: whether or not to use epsilon greedy. Usually in case of noisy networks use_eps_greedy=False
+            distributional: whether or not to use the distributional
+                feature (from distributional DQN)
+            use_eps_greedy: whether or not to use epsilon greedy.
+                Usually in case of noisy networks use_eps_greedy=False
         """
         self._double = double
         self._distributional = distributional
@@ -108,6 +113,7 @@ class RainbowDQNAgent(DQNAgent):
             target_net_soft_update=target_net_soft_update,
             target_net_update_fraction=target_net_update_fraction,
             target_net_update_schedule=target_net_update_schedule,
+            update_period_schedule=update_period_schedule,
             epsilon_schedule=epsilon_schedule,
             learn_schedule=learn_schedule,
             seed=seed,
@@ -174,7 +180,7 @@ class RainbowDQNAgent(DQNAgent):
     def act(self, observation):
 
         if self._training:
-            if not self._learn_schedule.update():
+            if not self._learn_schedule.get_value():
                 epsilon = 1.0
             elif not self._use_eps_greedy:
                 epsilon = 0.0
@@ -229,7 +235,11 @@ class RainbowDQNAgent(DQNAgent):
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
-        if self._replay_buffer.size() > 0:
+        if (
+            self._learn_schedule.update()
+            and self._replay_buffer.size() > 0
+            and self._update_period_schedule.update()
+        ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             for key in batch:
                 batch[key] = torch.tensor(batch[key]).to(self._device)

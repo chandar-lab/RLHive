@@ -66,7 +66,8 @@ class DQNAgent(Agent):
                 net parameters in a soft update.
             target_net_update_schedule: Schedule determining how frequently the
                 target net is updated.
-            update_period_schedule: Schedule determining how frequently the agent's net is updated.
+            update_period_schedule: Schedule determining how frequently
+                the agent's net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
             learn_schedule: Schedule determining when the learning process actually
@@ -138,7 +139,7 @@ class DQNAgent(Agent):
 
         # Determine and log the value of epsilon
         if self._training:
-            if not self._learn_schedule.update():
+            if not self._learn_schedule.get_value():
                 epsilon = 1.0
             else:
                 epsilon = self._epsilon_schedule.update()
@@ -191,7 +192,11 @@ class DQNAgent(Agent):
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
-        if self._replay_buffer.size() > 0 and self._update_period_schedule.update():
+        if (
+            self._learn_schedule.update()
+            and self._replay_buffer.size() > 0
+            and self._update_period_schedule.update()
+        ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             for key in batch:
                 batch[key] = torch.tensor(batch[key]).to(self._device)
