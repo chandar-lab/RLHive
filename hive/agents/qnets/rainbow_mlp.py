@@ -73,8 +73,6 @@ class ComplexMLP(nn.Module):
         self._sigma_init = sigma_init
         self._in_dim = np.prod(in_dim)
         self._hidden_units = hidden_units
-        if self._dueling:
-            num_hidden_layers = max(num_hidden_layers - 1, 2)
         self._num_hidden_layers = num_hidden_layers
         self._out_dim = out_dim
         self._atoms = atoms
@@ -144,22 +142,20 @@ class ComplexMLP(nn.Module):
 
             else:
                 self.output_layer_adv = nn.Sequential(
-                    nn.Linear(self._hidden_units, self._hidden_units, self._sigma_init),
+                    nn.Linear(self._hidden_units, self._hidden_units),
                     nn.ReLU(),
                     nn.Linear(
                         self._hidden_units,
                         self._out_dim * self._atoms,
-                        self._sigma_init,
                     ),
                 )
 
                 self.output_layer_val = nn.Sequential(
-                    nn.Linear(self._hidden_units, self._hidden_units, self._sigma_init),
+                    nn.Linear(self._hidden_units, self._hidden_units),
                     nn.ReLU(),
                     nn.Linear(
                         self._hidden_units,
                         1 * self._atoms,
-                        self._sigma_init,
                     ),
                 )
         else:
@@ -174,6 +170,7 @@ class ComplexMLP(nn.Module):
 
     def forward(self, x):
         x = torch.flatten(x, start_dim=1)
+        x = x.float()
         x = self.input_layer(x)
         x = self.hidden_layers(x)
 
@@ -231,6 +228,7 @@ class DistributionalMLP(ComplexMLP):
 
     def dist(self, x):
 
+        x = x.float()
         x = self.input_layer(x)
         x = self.hidden_layers(x)
 
