@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from hive.utils import schedule
 from hive.runners.utils import Metrics
 
-from statistics import mean
 
 class Runner(ABC):
     """Base Runner class used to implement a training loop.
@@ -63,12 +62,11 @@ class Runner(ABC):
         if test_frequency == -1:
             self._test_schedule = schedule.ConstantSchedule(False)
         else:
-            self._test_schedule = schedule.DoublePeriodicSchedule(
-                False, True, test_frequency, test_num_episodes
-            )
+            self._test_schedule = schedule.PeriodicSchedule(False, True, test_frequency)
+        self._test_num_episodes = test_num_episodes
         self._train_step_schedule.update()
         self._test_schedule.update()
-        self._experiment_manager.experiment_state.add_from_dict(
+        self._experiment_manager.experiment_state.update(
             {
                 "train_step_schedule": self._train_step_schedule,
                 "train_episode_schedule": self._train_episode_schedule,
@@ -132,44 +130,37 @@ class Runner(ABC):
             # Run training episode
             self.train_mode(True)
             episode_metrics = self.run_episode()
-            # self._logger.update_step("train_episodes")
-            # if self._logger.update_step("train_episodes"):
-            #     self._logger.log_metrics(
-            #         episode_metrics.get_flat_dict(), "train_episodes"
-            #     )
+            if self._logger.update_step("train_episodes"):
+                self._logger.log_metrics(
+                    episode_metrics.get_flat_dict(), "train_episodes"
+                )
 
             # Run test episodes
-            episode_metrics_list = []
             while self._test_schedule.update():
-                self.train_mode(False)
-                episode_metrics = self.run_episode()
-                episode_metrics_list.append(episode_metrics)
-                # self._logger.update_step("test_episodes")
-
-                # if self._logger.update_step("test_episodes"):
-                #     self._logger.log_metrics(
-                #         episode_metrics.get_flat_dict(), "test_episodes"
-                #     )
-
-            if len(episode_metrics_list) != 0:
-                mean_episode_metrics = self.create_episode_metrics()
-                for agent in self._agents:
-                    mean_episode_metrics[agent.id]["reward"] = mean([ep_metrics[agent.id]["reward"] for ep_metrics in episode_metrics_list])
-                    mean_episode_metrics[agent.id]["episode_length"] = mean([ep_metrics[agent.id]["episode_length"] for ep_metrics in episode_metrics_list])
-                mean_episode_metrics[agent.id]["full_episode_length"] = mean([ep_metrics["full_episode_length"] for ep_metrics in episode_metrics_list])
-                self._logger.update_step("test_episodes")
-                self._logger.log_metrics(mean_episode_metrics.get_flat_dict(), "test_episodes")
+                test_metrics = self.run_testing()
+                if self._logger.update_step("test_episodes"):
+                    self._logger.log_metrics(test_metrics, "test_episodes")
 
             # Save experiment state
             if self._experiment_manager.update_step():
                 self._experiment_manager.save()
 
         # Run a final test episode and save the experiment.
-        # self.train_mode(False)
-        # episode_metrics = self.run_episode()
-        # self._logger.update_step("test_episodes")
-        # self._logger.log_metrics(episode_metrics.get_flat_dict(), "test_episodes")
-        # self._experiment_manager.save()
+        test_metrics = self.run_testing()
+
+        self._logger.update_step("test_episodes")
+        self._logger.log_metrics(test_metrics, "test_episodes")
+        self._experiment_manager.save()
+
+    def run_testing(self):
+        self.train_mode(False)
+        mean_episode_metrics = self.create_episode_metrics().get_flat_dict()
+        for _ in range(self._test_num_episodes):
+            episode_metrics = self.run_episode()
+            for metric, value in episode_metrics.get_flat_dict().items():
+                mean_episode_metrics[metric] += value / self._test_num_episodes
+
+        return mean_episode_metrics
 
     def resume(self):
         """Resume a saved experiment."""

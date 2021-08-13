@@ -1,9 +1,9 @@
 # General training loop config
-run_name: &run_name 'pong-dqn'
+# Based on https://arxiv.org/pdf/2011.14826.pdf
+run_name: &run_name 'breakout-rainbow'
 train_steps: 10000000
 test_frequency: 100
 test_num_episodes: 10
-stack_size: &stack_size 4
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
@@ -14,56 +14,68 @@ save_dir: 'experiment'
 
 # Environment config
 environment:
-  name: 'AtariEnv'
+  name: 'MinAtarEnv'
   kwargs:
-    env_name: 'Pong'
+    env_name: 'breakout'
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
 agent:
-  name: 'DQNAgent'
+  name: 'RainbowDQNAgent'
   kwargs:
     qnet:
-      name: 'NatureAtariDQNModel'
+      name: 'DistributionalConv'
+      kwargs:
+        channels: [16]
+        mlp_layers: [128, 128]
+        kernel_sizes: [3]
+        strides: [1]
+        paddings: [0]
+        normalization_factor: 1
+        noisy: True
+        dueling: True
+        sigma_init: 0.5
     optimizer_fn:
       name: 'Adam'
-      kwargs: {}
+      kwargs:
+        lr: 0.00025
+        eps: 0.0003125
     id: 0
     replay_buffer:
-      name: 'EfficientCircularBuffer'
+      name: 'PrioritizedReplayBuffer'
       kwargs:
-        seed: 42
-        capacity: 1000000
-        stack_size: *stack_size
+        seed: 43
+        capacity: 100000
+        stack_size: 1
     discount_rate: .99
     target_net_update_schedule:
       name: 'PeriodicSchedule'
       kwargs:
         off_value: False
         on_value: True
-        period: 10000
-    update_period_schedule:
-      name: 'PeriodicSchedule'
-      kwargs:
-        off_value: False
-        on_value: True
-        period: 4
+        period: 1000
     epsilon_schedule:
       name: 'LinearSchedule'
       kwargs:
         init_value: 1
-        end_value: 0.05
-        steps: 1000000
+        end_value: 0.1
+        steps: 100000
     learn_schedule:
       name: 'SwitchSchedule'
       kwargs:
         off_value: False
         on_value: True
-        steps: 500
-    seed: 42
+        steps: 5000
+    seed: 43
     batch_size: 32
-    device: 'cuda'
+    device: 'cpu'
     log_frequency: 1000
+    double: True
+    distributional: True
+    use_eps_greedy: False
+    v_min: -100.0
+    v_max: 100.0
+    atoms: 51
 
 # List of logger configs used.
 loggers:

@@ -224,6 +224,9 @@ class WandbLogger(ScheduledLogger):
         timescales="wandb",
         logger_schedules=None,
         mode="online",
+        id=None,
+        resume=None,
+        settings_str=None,
         **kwargs,
     ):
         """Constructor for the WandbLogger.
@@ -236,18 +239,40 @@ class WandbLogger(ScheduledLogger):
             logger_name (str): Used to differentiate between different loggers/timescales
                 in the same run.
             mode (str): The mode of logging. Can be "online", "offline" or "disabled".
-            In offline mode, writes all data to disk for later syncing to a server, while
-            in disabled mode, it makes all calls to wandb api's noop's, while maintaining
+                In offline mode, writes all data to disk for later syncing to a server, while
+                in disabled mode, it makes all calls to wandb api's noop's, while maintaining
             core functionality
+            id (str, optional): A unique ID for this run, used for resuming.
+                It must be unique in the project, and if you delete a run you can't reuse the ID.
+            resume (bool, str, optional): Sets the resuming behavior.
+                Options are the same as mentioned in Wandb's doc.
+           settings_str (str, optional): String to set Wandb's settings.
+            Options are the same as mentioned in Wandb's doc.
         """
         super().__init__(timescales, logger_schedules)
 
+        settings = None
+        if settings_str:
+            settings = wandb.Settings(start_method=settings_str)
         if "save_dir" in kwargs.keys():
             wandb.init(
-                project=project_name, name=run_name, dir=kwargs["save_dir"], mode=mode
+                project=project_name,
+                name=run_name,
+                dir=kwargs["save_dir"],
+                mode=mode,
+                settings=settings,
+                id=id,
+                resume=resume,
             )
         else:
-            wandb.init(project=project_name, name=run_name, mode=mode)
+            wandb.init(
+                project=project_name,
+                name=run_name,
+                mode=mode,
+                settings=settings,
+                id=id,
+                resume=resume,
+            )
 
     def log_config(self, config):
         wandb.config.update(config)
@@ -287,7 +312,7 @@ class ChompLogger(ScheduledLogger):
 
     def log_scalar(self, name, value, timescale):
         metric_name = f"{timescale}_{name}"
-        if self._log_data[metric_name] is None:
+        if metric_name not in self._log_data:
             self._log_data[metric_name] = [[], []]
         if isinstance(value, torch.Tensor):
             self._log_data[metric_name][0].append(value.item())
@@ -300,7 +325,7 @@ class ChompLogger(ScheduledLogger):
     def log_metrics(self, metrics, timescale):
         for name in metrics:
             metric_name = f"{timescale}_{name}"
-            if self._log_data[metric_name] is None:
+            if metric_name not in self._log_data:
                 self._log_data[metric_name] = [[], []]
             if isinstance(metrics[name], torch.Tensor):
                 self._log_data[metric_name][0].append(metrics[name].item())
