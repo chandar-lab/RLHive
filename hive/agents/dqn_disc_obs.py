@@ -20,7 +20,7 @@ from hive.agents.qnets import get_qnet
 from hive.utils.utils import OptimizerFn
 
 
-class DQNAgent(Agent):
+class DQNAgent_disc_obs(Agent):
     """An agent implementing the DQN algorithm. Uses an epsilon greedy
     exploration policy
     """
@@ -30,6 +30,7 @@ class DQNAgent(Agent):
         qnet: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
+        env_info: dict = {},
         optimizer_fn: OptimizerFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
@@ -80,7 +81,7 @@ class DQNAgent(Agent):
             log_frequency (int): How often to log the agent's metrics.
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
-        self._qnet = qnet(self._obs_dim, self._act_dim).to(device)
+        self._qnet = qnet(self._obs_dim, self._act_dim, env_info["num_disc_per_obs_dim"]).to(device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam

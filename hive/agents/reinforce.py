@@ -206,6 +206,7 @@ class REINFORCEAgent(Agent):
                 probs = F.softmax(pred_qvals, dim=1)
                 prob_dist = Categorical(probs)
                 log_probs = prob_dist.log_prob(actions)
+                baseline = (probs*pred_qvals).sum(dim=1)
 
                 Ret = 0.0
                 returns = []
@@ -213,10 +214,11 @@ class REINFORCEAgent(Agent):
                     Ret = rew + self._discount_rate * Ret
                     returns.insert(0, Ret)
                 returns = torch.tensor(returns).float().to(self._device)
-                returns = (returns - returns.mean()) / (returns.std() + self.eps)
+                advantages = returns - baseline
 
-                policy_loss = -torch.dot(log_probs, returns)
-                print(policy_loss)
+                advantages = (advantages - advantages.mean()) / (advantages.std() + self.eps)
+
+                policy_loss = -torch.dot(log_probs, advantages)
                 policy_loss.backward()
                 if self._grad_clip is not None:
                     torch.nn.utils.clip_grad_value_(

@@ -7,7 +7,9 @@ from hive.utils import experiment, logging, schedule, utils
 from hive.runners.utils import load_config, TransitionInfo, set_seed
 from hive.runners.base import Runner
 from hive.utils.registry import get_parsed_args
+from hive.runners.utils import Metrics
 
+from statistics import mean
 
 class MultiAgentRunner(Runner):
     """Runner class used to implement a multiagent training loop."""
@@ -88,6 +90,14 @@ class MultiAgentRunner(Runner):
         self._transition_info = TransitionInfo(self._agents, stack_size)
         self._training = True
 
+    def create_episode_metrics(self):
+        """Create the metrics used during the loop."""
+        return Metrics(
+            self._agents,
+            [("reward", 0), ("disc_reward", 0), ("episode_length", 0)],
+            [("full_episode_length", 0), ("env_steps", -1)],
+        )
+
     def run_one_step(self, observation, turn, episode_metrics):
         """Run one step of the training loop.
 
@@ -105,6 +115,7 @@ class MultiAgentRunner(Runner):
             info = self._transition_info.get_info(agent)
             agent.update(info)
             episode_metrics[agent.id]["reward"] += info["reward"]
+            episode_metrics[agent.id]["disc_reward"] += agent._discount_rate ** (episode_metrics[agent.id]["episode_length"]) * info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
             episode_metrics["full_episode_length"] += 1
         else:
@@ -142,6 +153,7 @@ class MultiAgentRunner(Runner):
             info = self._transition_info.get_info(agent, done=True)
             agent.update(info)
             episode_metrics[agent.id]["reward"] += info["reward"]
+            episode_metrics[agent.id]["disc_reward"] += agent._discount_rate ** (episode_metrics[agent.id]["episode_length"]) * info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
             episode_metrics["full_episode_length"] += 1
 
@@ -167,6 +179,38 @@ class MultiAgentRunner(Runner):
             self.run_end_step(episode_metrics)
         return episode_metrics
 
+    def run_training(self):
+        """Run the training loop."""
+
+        while (
+            self._train_episode_schedule.update()
+            and self._train_step_schedule.get_value()
+        ):
+            # Run training episode
+            self.train_mode(True)
+            episode_metrics = self.run_episode()
+
+            # Run test episodes
+            episode_metrics_list = []
+            while self._test_schedule.update():
+                self.train_mode(False)
+                episode_metrics = self.run_episode()
+                episode_metrics_list.append(episode_metrics)
+
+            if len(episode_metrics_list) != 0:
+                mean_episode_metrics = self.create_episode_metrics()
+                for agent in self._agents:
+                    mean_episode_metrics[agent.id]["reward"] = mean([ep_metrics[agent.id]["reward"] for ep_metrics in episode_metrics_list])
+                    mean_episode_metrics[agent.id]["disc_reward"] = mean([ep_metrics[agent.id]["disc_reward"] for ep_metrics in episode_metrics_list])
+                    mean_episode_metrics[agent.id]["episode_length"] = mean([ep_metrics[agent.id]["episode_length"] for ep_metrics in episode_metrics_list])
+                mean_episode_metrics["full_episode_length"] = mean([ep_metrics["full_episode_length"] for ep_metrics in episode_metrics_list])
+                mean_episode_metrics["env_steps"] = self._train_step_schedule._steps
+                self._logger.update_step("test_episodes")
+                self._logger.log_metrics(mean_episode_metrics.get_flat_dict(), "test_episodes")
+
+            # Save experiment state
+            if self._experiment_manager.update_step():
+                self._experiment_manager.save()
 
 def set_up_experiment(config):
     """Returns a runner object based on the config."""
@@ -228,6 +272,7 @@ def set_up_experiment(config):
             else:
                 agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
             agent_config["kwargs"]["act_dim"] = env_spec.act_dim[idx]
+            agent_config["kwargs"]["env_info"] = env_spec.env_info
             agent_config["kwargs"]["logger"] = logger
 
             if "replay_buffer" in agent_config["kwargs"]:

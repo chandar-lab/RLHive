@@ -66,7 +66,6 @@ class Runner(ABC):
             self._test_schedule = schedule.DoublePeriodicSchedule(
                 False, True, test_frequency, test_num_episodes
             )
-
         self._train_step_schedule.update()
         self._test_schedule.update()
         self._experiment_manager.experiment_state.add_from_dict(
@@ -88,8 +87,8 @@ class Runner(ABC):
         """Create the metrics used during the loop."""
         return Metrics(
             self._agents,
-            [("reward", 0), ("disc_reward", 0), ("episode_length", 0)],
-            [("full_episode_length", 0), ("env_steps", -1)],
+            [("reward", 0), ("episode_length", 0)],
+            [("full_episode_length", 0)],
         )
 
     def run_one_step(self, observation, turn, episode_metrics):
@@ -156,7 +155,6 @@ class Runner(ABC):
                 mean_episode_metrics = self.create_episode_metrics()
                 for agent in self._agents:
                     mean_episode_metrics[agent.id]["reward"] = mean([ep_metrics[agent.id]["reward"] for ep_metrics in episode_metrics_list])
-                    mean_episode_metrics[agent.id]["disc_reward"] = mean([ep_metrics[agent.id]["disc_reward"] for ep_metrics in episode_metrics_list])
                     mean_episode_metrics[agent.id]["episode_length"] = mean([ep_metrics[agent.id]["episode_length"] for ep_metrics in episode_metrics_list])
                 mean_episode_metrics["full_episode_length"] = mean([ep_metrics["full_episode_length"] for ep_metrics in episode_metrics_list])
                 mean_episode_metrics["env_steps"] = self._train_step_schedule._steps

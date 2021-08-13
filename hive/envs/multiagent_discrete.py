@@ -62,3 +62,4 @@ class MultiAgentDiscEnv(ParallelEnv, GymEnv):
             act_dim=act_dim,
             env_info=env_info,
         )
+        

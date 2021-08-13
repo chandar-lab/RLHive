@@ -1,6 +1,6 @@
 # General training loop config
 run_name: &run_name 'MABC'
-train_steps: 10000
+train_steps: 30000
 test_frequency: 2
 test_num_episodes: 2
 self_play: False
@@ -27,7 +27,7 @@ environment:
 # the list is used.
 agents:
   -
-    name: 'DQNAgent'
+    name: 'DQNAgent_disc_obs'
     kwargs:
       qnet:
         name: 'DiscObsSimpleMLP'
@@ -60,9 +60,9 @@ agents:
       seed: 42
       batch_size: 128
       device: 'cpu'
-      log_frequency: 100
+      log_frequency: 10000
   -
-    name: 'DQNAgent'
+    name: 'DQNAgent_disc_obs'
     kwargs:
       qnet:
         name: 'DiscObsSimpleMLP'
@@ -95,7 +95,7 @@ agents:
       seed: 43
       batch_size: 128
       device: 'cpu'
-      log_frequency: 100
+      log_frequency: 10000
 
 # List of logger configs used.
 loggers:
@@ -105,4 +105,4 @@ loggers:
       project_name: Hive-v1
       run_name: *run_name
       save_dir: *save_dir
-      offline: True
+      #mode: "offline"

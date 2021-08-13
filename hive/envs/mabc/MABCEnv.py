@@ -28,6 +28,7 @@ class MABC(gym.Env):
             [np.random.binomial(1, self.p[n]) for n in range(2)]
         )  # Arrival Bernoulli processes
 
+        self.prev_actions = np.zeros(2).astype(int)
         self.N_0 = np.zeros(2).astype(
             int
         )  # Initial buffer size. This is the initial "local state" {0,1}
@@ -49,12 +50,19 @@ class MABC(gym.Env):
         self.num_channel_obs = 3
         self.channel_obs = self.S_0
 
+        # 2 agents can send or not send
         self.action_space = gym.spaces.Tuple(
             tuple(gym.spaces.Discrete(2) for agent in range(2))
-        )  # 2 agents can send or not send
+        )
+
+        #1st bin - size 3 - 0,1,2 (idle,busy,no obs)
+        #2nd bin - size 2 - 0,1 (local state is "no packet in buffer" or "packet in buffer")
+        #3rd bin - size 2 - 0,1 (action of agent 0)
+        #4th bin - size 2 - 0,1 (action of agent 1)
+        #5th bin - size 2 - 0,1 (agent 0 or agent 1's obs)
         self.observation_space = gym.spaces.Tuple(
-            tuple(gym.spaces.Discrete(6) for agent in range(2))
-        )  # obs: (receive packet or not) x (channel state busy or idle or unknown)
+            tuple(gym.spaces.Discrete(48) for agent in range(2))
+        )
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -89,6 +97,8 @@ class MABC(gym.Env):
         # Channel state evolution
         self.S = np.random.multinomial(1, self.P[self.S]).argmax()
 
+        self.prev_actions = np.array(actions).astype(int)
+
         return self.gen_obs(), reward, False, {}
 
     def reset(self):
@@ -101,25 +111,20 @@ class MABC(gym.Env):
         self.N = self.N_0
         self.S = self.S_0
         self.channel_obs = self.S_0
+        self.prev_actions = np.zeros(2).astype(int)
 
         return self.gen_obs()
 
     def gen_agent_obs(self, agent):
         # for agent
-        # if local state x=0, obs is 0,1,2 (idle,busy,no obs)
-        # if local state x=1, obs is 3,4,5 (idle,busy,no obs)
-        if self.N[agent] == 0:
-            agent_obs = self.channel_obs
-        elif self.N[agent] == 1:
-            agent_obs = 3 + self.channel_obs
+        #1st bin - size 3 - 0,1,2 (idle,busy,no obs)
+        #2nd bin - size 2 - 0,1 (local state of agent is "no packet in buffer" or "packet in buffer")
+        #3rd bin - size 2 - 0,1 (prev action of agent 0)
+        #4th bin - size 2 - 0,1 (prev action of agent 1)
+        #5th bin - size 2 - 0,1 (agent 0 or agent 1's obs)
+        agent_obs = 24*agent + 12*self.prev_actions[1] + 6*self.prev_actions[0] + 3*self.N[agent] + self.channel_obs
         return np.uint8(agent_obs)
 
     def gen_obs(self):
         return [self.gen_agent_obs(agent) for agent in range(2)]
-
-
-# register(
-#     id='MABC-v0',
-#     entry_point='gym.envs.marl.MABCEnv:MABC',
-#     max_episode_steps=300,
-# )
+        
