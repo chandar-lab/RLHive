@@ -101,6 +101,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         for key in specs:
             dtype, shape = specs[key]
             dtype = str_to_dtype(dtype)
+            specs[key] = dtype, shape
             shape = (capacity,) + shape
             storage[key] = np.zeros(shape, dtype=dtype)
         return storage
