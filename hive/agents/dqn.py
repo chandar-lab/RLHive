@@ -1,22 +1,19 @@
 from hive.agents.qnets.base import FunctionApproximator
-from hive.replays.replay_buffer import BaseReplayBuffer
 import os
 import copy
 import numpy as np
 import torch
-from typing import Tuple, Callable
-from hive.replays import CircularReplayBuffer, get_replay
-from hive.utils.logging import Logger, NullLogger, get_logger
-from hive.utils.utils import OptimizerFn, create_folder, get_optimizer_fn
+from typing import Tuple
+from hive.replays import BaseReplayBuffer, CircularReplayBuffer
+from hive.utils.logging import Logger, NullLogger
+from hive.utils.utils import OptimizerFn, create_folder
 from hive.utils.schedule import (
     PeriodicSchedule,
     LinearSchedule,
     Schedule,
     SwitchSchedule,
-    get_schedule,
 )
 from hive.agents.agent import Agent
-from hive.agents.qnets import get_qnet
 from hive.utils.utils import OptimizerFn
 
 
@@ -38,6 +35,7 @@ class DQNAgent(Agent):
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
+        update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
         learn_schedule: Schedule = None,
         seed: int = 42,
@@ -68,6 +66,8 @@ class DQNAgent(Agent):
                 net parameters in a soft update.
             target_net_update_schedule: Schedule determining how frequently the
                 target net is updated.
+            update_period_schedule: Schedule determining how frequently
+                the agent's net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
             learn_schedule: Schedule determining when the learning process actually
@@ -94,7 +94,7 @@ class DQNAgent(Agent):
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
         self._device = torch.device(device)
-        self._loss_fn = torch.nn.SmoothL1Loss()
+        self._loss_fn = torch.nn.SmoothL1Loss(reduction="none")
         self._batch_size = batch_size
         self._logger = logger
         if self._logger is None:
@@ -106,6 +106,9 @@ class DQNAgent(Agent):
         self._target_net_update_schedule = target_net_update_schedule
         if self._target_net_update_schedule is None:
             self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
+        self._update_period_schedule = update_period_schedule
+        if self._update_period_schedule is None:
+            self._update_period_schedule = PeriodicSchedule(False, True, 1)
         self._epsilon_schedule = epsilon_schedule
         if self._epsilon_schedule is None:
             self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
@@ -136,7 +139,7 @@ class DQNAgent(Agent):
 
         # Determine and log the value of epsilon
         if self._training:
-            if not self._learn_schedule.update():
+            if not self._learn_schedule.get_value():
                 epsilon = 1.0
             else:
                 epsilon = self._epsilon_schedule.update()
@@ -189,7 +192,11 @@ class DQNAgent(Agent):
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
-        if self._replay_buffer.size() > 0:
+        if (
+            self._learn_schedule.update()
+            and self._replay_buffer.size() > 0
+            and self._update_period_schedule.update()
+        ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             for key in batch:
                 batch[key] = torch.tensor(batch[key]).to(self._device)
@@ -208,7 +215,8 @@ class DQNAgent(Agent):
                 1 - batch["done"]
             )
 
-            loss = self._loss_fn(pred_qvals, q_targets)
+            loss = self._loss_fn(pred_qvals, q_targets).mean()
+
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar(
                     "train_loss" if self._training else "test_loss",

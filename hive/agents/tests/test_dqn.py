@@ -277,9 +277,9 @@ def test_train_step(agent_with_mock_optimizer):
                 "done": False,
             }
         )
-    assert agent_with_mock_optimizer._optimizer.step.call_count == 7
+    assert agent_with_mock_optimizer._optimizer.step.call_count == 6
     assert agent_with_mock_optimizer._replay_buffer.size() == 7
-    assert agent_with_mock_optimizer._epsilon_schedule._value == pytest.approx(0.775)
+    assert agent_with_mock_optimizer._epsilon_schedule._value == pytest.approx(0.82)
 
 
 def test_eval_step(agent_with_mock_optimizer):
