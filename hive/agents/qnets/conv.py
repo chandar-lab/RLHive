@@ -18,6 +18,7 @@ class ConvNetwork(nn.Module):
         paddings=0,
         normalization_factor=255,
         noisy=False,
+        std_init=0.5,
     ):
         """
         Args:
@@ -66,7 +67,9 @@ class ConvNetwork(nn.Module):
 
         # MLP Layers
         self.head = torch.nn.Sequential(
-            MLPNetwork(self.conv_out_size(h, w), mlp_layers, noisy=noisy),
+            MLPNetwork(
+                self.conv_out_size(h, w), mlp_layers, noisy=noisy, std_init=std_init
+            ),
             torch.nn.ReLU(),
         )
 

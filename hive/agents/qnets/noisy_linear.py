@@ -7,7 +7,7 @@ import math
 class NoisyLinear(nn.Module):
     """NoisyLinear Layer"""
 
-    def __init__(self, in_dim, out_dim, std_init=0.4):
+    def __init__(self, in_dim, out_dim, std_init=0.5):
         super().__init__()
         self.in_features = in_dim
         self.out_features = out_dim
