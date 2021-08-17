@@ -78,7 +78,7 @@ class ConvNetwork(nn.Module):
             x = x.unsqueeze(0)
         elif len(x.shape) == 5:
             x = x.reshape(x.size(0), -1, x.size(-2), x.size(-1))
-        x = x.type(torch.float)
+        x = x.float()
         x = x / self._normalization_factor
         x = self.conv(x)
         x = self.head(x)

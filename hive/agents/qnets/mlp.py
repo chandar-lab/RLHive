@@ -20,5 +20,6 @@ class MLPNetwork(nn.Module):
         self.network = torch.nn.Sequential(*modules)
 
     def forward(self, x):
+        x = x.float()
         x = torch.flatten(x, start_dim=1)
         return self.network(x)
