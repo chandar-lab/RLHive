@@ -1,26 +1,33 @@
+import copy
+from functools import partial
+from typing import Tuple
+
 import numpy as np
 import torch
-from typing import Tuple, Callable
-
+from hive.agents.dqn import DQNAgent
 from hive.agents.qnets.base import FunctionApproximator
+from hive.agents.qnets.qnet_heads import (
+    DistributionalNetwork,
+    DQNNetwork,
+    DuelingNetwork,
+)
+from hive.agents.qnets.noisy_linear import NoisyLinear
+from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.logging import Logger
-from hive.utils.utils import OptimizerFn
 from hive.utils.schedule import Schedule
-from hive.replays import PrioritizedReplayBuffer
-from hive.agents.dqn import DQNAgent
+from hive.utils.utils import OptimizerFn
 
 
 class RainbowDQNAgent(DQNAgent):
-    """An agent implementing the DQN algorithm. Uses an epsilon greedy
-    exploration policy
-    """
+    """An agent implementing the Rainbow algorithm."""
 
     def __init__(
         self,
         qnet: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
+        hidden_dim: int,
         v_min: str = 0,
         v_max: str = 200,
         atoms: str = 51,
@@ -28,6 +35,7 @@ class RainbowDQNAgent(DQNAgent):
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
         discount_rate: float = 0.99,
+        n_step: int = 1,
         grad_clip: float = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
@@ -40,9 +48,12 @@ class RainbowDQNAgent(DQNAgent):
         device: str = "cpu",
         logger: Logger = None,
         log_frequency: int = 100,
+        noisy=True,
+        sigma_init=0.5,
         double: bool = True,
-        distributional: bool = False,
-        use_eps_greedy: bool = True,
+        dueling: bool = True,
+        distributional: bool = True,
+        use_eps_greedy: bool = False,
     ):
         """
         Args:
@@ -87,28 +98,29 @@ class RainbowDQNAgent(DQNAgent):
             use_eps_greedy: whether or not to use epsilon greedy.
                 Usually in case of noisy networks use_eps_greedy=False
         """
+        self._noisy = noisy
+        self._sigma_init = sigma_init
         self._double = double
+        self._dueling = dueling
         self._distributional = distributional
 
-        if self._distributional:
-            self._atoms = atoms
-            self._v_min = v_min
-            self._v_max = v_max
-            self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(
-                device
-            )
-            qnet.keywords["supports"] = self._supports
-            self._delta = float(self._v_max - self._v_min) / (self._atoms - 1)
-            self._nsteps = 1
+        self._atoms = atoms if self._distributional else 1
+        self._v_min = v_min
+        self._v_max = v_max
+        self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(
+            device
+        )
 
         super().__init__(
             qnet,
             obs_dim,
             act_dim,
+            hidden_dim=hidden_dim,
             optimizer_fn=optimizer_fn,
             id=id,
             replay_buffer=replay_buffer,
             discount_rate=discount_rate,
+            n_step=n_step,
             grad_clip=grad_clip,
             target_net_soft_update=target_net_soft_update,
             target_net_update_fraction=target_net_update_fraction,
@@ -126,55 +138,58 @@ class RainbowDQNAgent(DQNAgent):
         self._loss_fn = torch.nn.MSELoss(reduction="none")
         self._use_eps_greedy = use_eps_greedy
 
-    def get_max_next_state_action(self, next_states):
-        next_dist = self._qnet(next_states) * self._supports
-        return (
-            next_dist.sum(dim=2)
-            .max(1)[1]
-            .view(next_states.size(0), 1, 1)
-            .expand(-1, -1, self._atoms)
+    def create_q_networks(self, qnet, device):
+        network = qnet(self._obs_dim)
+
+        # Use NoisyLinear when creating output heads if noisy is true
+        linear_fn = (
+            partial(NoisyLinear, std_init=self._sigma_init)
+            if self._noisy
+            else torch.nn.Linear
         )
 
-    def projection_distribution(self, batch):
-        batch_obs = batch["observation"].float()
-        batch_action = batch["action"].long()
-        batch_next_obs = batch["next_observation"].float()
-        batch_reward = batch["reward"].reshape(-1, 1).to(self._device)
-        batch_not_done = 1 - batch["done"].reshape(-1, 1).to(self._device)
-
-        with torch.no_grad():
-            next_action = self._target_qnet(batch_next_obs).argmax(1)
-            next_dist = self._target_qnet.dist(batch_next_obs)
-            next_dist = next_dist[range(self._batch_size), next_action]
-
-            t_z = batch_reward + batch_not_done * self._discount_rate * self._supports
-            t_z = t_z.clamp(min=self._v_min, max=self._v_max)
-            b = (t_z - self._v_min) / self._delta
-            l = b.floor().long()
-            u = b.ceil().long()
-
-            l[(u > 0) * (l == u)] -= 1
-            u[(l < (self._atoms - 1)) * (l == u)] += 1
-
-            offset = (
-                torch.linspace(
-                    0, (self._batch_size - 1) * self._atoms, self._batch_size
-                )
-                .long()
-                .unsqueeze(1)
-                .expand(self._batch_size, self._atoms)
-                .to(self._device)
+        # Set up Dueling heads
+        if self._dueling:
+            network = DuelingNetwork(
+                network, self._hidden_dim, self._act_dim, linear_fn, self._atoms
+            )
+        else:
+            network = DQNNetwork(
+                network, self._hidden_dim, self._act_dim * self._atoms, linear_fn
             )
 
-            proj_dist = torch.zeros(next_dist.size(), device=self._device)
-            proj_dist.view(-1).index_add_(
-                0, (l + offset).view(-1), (next_dist * (u.float() - b)).view(-1)
+        # Set up DistributionalNetwork wrapper if distributional is true
+        if self._distributional:
+            self._qnet = DistributionalNetwork(
+                network, self._act_dim, self._vmin, self._vmax, self._atoms
             )
-            proj_dist.view(-1).index_add_(
-                0, (u + offset).view(-1), (next_dist * (b - l.float())).view(-1)
-            )
+        else:
+            self._qnet = network
+        self._qnet.to(device=device)
+        self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
-        return proj_dist
+    def target_projection(self, next_observation, reward, done):
+        """Project distribution of target Q-values."""
+        next_observation = next_observation.float()
+        reward = reward.reshape(-1, 1).to(self._device)
+        not_done = 1 - done.reshape(-1, 1).to(self._device)
+        batch_size = next_observation.size(0)
+        next_action = self._target_qnet(next_observation).argmax(1)
+        next_dist = self._target_qnet.dist(next_observation)
+        next_dist = next_dist[torch.arange(batch_size), next_action]
+
+        dist_supports = reward + not_done * self._discount_rate * self._supports
+        dist_supports = dist_supports.clamp(min=self._v_min, max=self._v_max)
+        dist_supports = dist_supports.unsqueeze(1)
+        dist_supports.tile([1, self._atoms, 1])
+        projected_supports = self._supports.tile([batch_size, 1]).unsqueeze(2)
+
+        delta = float(self._v_max - self._v_min) / (self._atoms - 1)
+        quotient = 1 - (torch.abs(dist_supports - projected_supports) / delta)
+        quotient = quotient.clamp(min=0, max=1)
+
+        projection = torch.sum(quotient * next_dist.unsqueeze(1), dim=2)
+        return projection
 
     @torch.no_grad()
     def act(self, observation):
@@ -194,12 +209,12 @@ class RainbowDQNAgent(DQNAgent):
         observation = (
             torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
         )
-        qvals = self._qnet(observation).cpu()
+        qvals = self._qnet(observation)
 
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
         else:
-            action = torch.argmax(qvals).numpy()
+            action = torch.argmax(qvals).item()
 
         if self._logger.should_log(self._timescale) and self._state["episode_start"]:
             self._logger.log_scalar(
@@ -251,8 +266,13 @@ class RainbowDQNAgent(DQNAgent):
 
             if self._distributional:
                 current_dist = self._qnet.dist(batch["observation"])
-                log_p = torch.log(current_dist[range(self._batch_size), actions])
-                target_prob = self.projection_distribution(batch)
+                log_p = torch.log(
+                    current_dist[torch.arange(batch["observations"].size(0)), actions]
+                )
+                with torch.no_grad():
+                    target_prob = self.target_projection(
+                        batch["next_observation"], batch["reward"], batch["done"]
+                    )
 
                 loss = -(target_prob * log_p).sum(-1)
 
