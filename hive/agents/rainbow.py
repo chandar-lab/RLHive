@@ -49,7 +49,7 @@ class RainbowDQNAgent(DQNAgent):
         logger: Logger = None,
         log_frequency: int = 100,
         noisy=True,
-        sigma_init=0.5,
+        std_init=0.5,
         double: bool = True,
         dueling: bool = True,
         distributional: bool = True,
@@ -99,7 +99,7 @@ class RainbowDQNAgent(DQNAgent):
                 Usually in case of noisy networks use_eps_greedy=False
         """
         self._noisy = noisy
-        self._sigma_init = sigma_init
+        self._std_init = std_init
         self._double = double
         self._dueling = dueling
         self._distributional = distributional
@@ -107,8 +107,8 @@ class RainbowDQNAgent(DQNAgent):
         self._atoms = atoms if self._distributional else 1
         self._v_min = v_min
         self._v_max = v_max
-        self._supports = torch.linspace(self._v_min, self._v_max, self._atoms).to(
-            device
+        self._supports = torch.linspace(
+            self._v_min, self._v_max, self._atoms, device=device
         )
 
         super().__init__(
@@ -143,7 +143,7 @@ class RainbowDQNAgent(DQNAgent):
 
         # Use NoisyLinear when creating output heads if noisy is true
         linear_fn = (
-            partial(NoisyLinear, std_init=self._sigma_init)
+            partial(NoisyLinear, std_init=self._std_init)
             if self._noisy
             else torch.nn.Linear
         )
@@ -161,7 +161,7 @@ class RainbowDQNAgent(DQNAgent):
         # Set up DistributionalNetwork wrapper if distributional is true
         if self._distributional:
             self._qnet = DistributionalNetwork(
-                network, self._act_dim, self._vmin, self._vmax, self._atoms
+                network, self._act_dim, self._v_min, self._v_max, self._atoms
             )
         else:
             self._qnet = network
@@ -267,7 +267,7 @@ class RainbowDQNAgent(DQNAgent):
             if self._distributional:
                 current_dist = self._qnet.dist(batch["observation"])
                 log_p = torch.log(
-                    current_dist[torch.arange(batch["observations"].size(0)), actions]
+                    current_dist[torch.arange(batch["observation"].size(0)), actions]
                 )
                 with torch.no_grad():
                     target_prob = self.target_projection(

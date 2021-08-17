@@ -49,8 +49,6 @@ class DuelingNetwork(nn.Module):
         )
 
     def forward(self, x):
-        x = torch.flatten(x, start_dim=1)
-        x = x.float()
         x = self.shared_network(x)
 
         adv = self.output_layer_adv(x)
@@ -80,18 +78,17 @@ class DistributionalNetwork(nn.Module):
     ):
         super().__init__()
         self.base_network = base_network
-        self._supports = torch.linspace(vmin, vmax, atoms)
+        self._supports = torch.nn.Parameter(torch.linspace(vmin, vmax, atoms))
         self._out_dim = out_dim
         self._atoms = atoms
 
     def forward(self, x):
-        x = torch.flatten(x, start_dim=1)
         x = self.dist(x)
         x = torch.sum(x * self._supports, dim=2)
         return x
 
     def dist(self, x):
-        x = self._base_network(x)
+        x = self.base_network(x)
         x = x.view(-1, self._out_dim, self._atoms)
         x = F.softmax(x, dim=-1)
         x = x.clamp(min=1e-3)
