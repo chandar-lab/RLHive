@@ -171,8 +171,8 @@ class RainbowDQNAgent(DQNAgent):
     def target_projection(self, next_observation, reward, done):
         """Project distribution of target Q-values."""
         next_observation = next_observation.float()
-        reward = reward.reshape(-1, 1).to(self._device)
-        not_done = 1 - done.reshape(-1, 1).to(self._device)
+        reward = reward.reshape(-1, 1)
+        not_done = 1 - done.reshape(-1, 1)
         batch_size = next_observation.size(0)
         next_action = self._target_qnet(next_observation).argmax(1)
         next_dist = self._target_qnet.dist(next_observation)
@@ -241,7 +241,7 @@ class RainbowDQNAgent(DQNAgent):
         # Add the most recent transition to the replay buffer.
         if self._training:
             self._replay_buffer.add(
-                update_info["observation"].astype(np.uint8),
+                update_info["observation"],
                 update_info["action"],
                 update_info["reward"],
                 update_info["done"],
