@@ -73,11 +73,13 @@ class Runner(ABC):
                 "test_schedule": self._test_schedule,
             }
         )
+        self._training = True
 
     def train_mode(self, training):
         """If training is true, sets all agents to training mode. If training is false,
         sets all agents to eval mode.
         """
+        self._training = training
         for agent in self._agents:
             agent.train() if training else agent.eval()
 

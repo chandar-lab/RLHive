@@ -35,7 +35,6 @@ class SingleAgentRunner(Runner):
             test_num_episodes,
         )
         self._transition_info = TransitionInfo(self._agents, stack_size)
-        self._training = True
 
     def run_one_step(self, observation, episode_metrics):
         """Run one step of the training loop.
