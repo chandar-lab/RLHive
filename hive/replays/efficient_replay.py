@@ -273,18 +273,19 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         Args:
             dname: directory where to save buffer. Should already have been created.
         """
-        np.save(os.path.join(dname, "storage.npy"), self._storage)
+        storage = pickle.dumps(self._storage)
+        max_bytes = 2 ** 31 - 1
+        with open(os.path.join(dname, "storage.npy"), "wb") as f:
+            for idx in range(0, len(storage), max_bytes):
+                f.write(storage[idx:idx + max_bytes])
         state = {
             "episode_start": self._episode_start,
             "cursor": self._cursor,
             "num_added": self._num_added,
             "rng": self._rng,
         }
-        state = pickle.dumps(state)
-        max_bytes = 2 ** 31 - 1
         with open(os.path.join(dname, "replay.pkl"), "wb") as f:
-            for idx in range(0, len(state), max_bytes):
-                f.write(state[idx:idx + max_bytes])
+            pickle.dump(state, f)
 
     def load(self, dname):
         """Load the replay buffer.
@@ -292,16 +293,15 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         Args:
             dname: directory where to load buffer from.
         """
-        self._storage = np.load(
-            os.path.join(dname, "storage.npy"), allow_pickle=True
-        ).item()
-        state = bytearray(0)
-        state_file_size = os.path.getsize(os.path.join(dname, "replay.pkl"))
+        storage = bytearray(0)
+        storage_file_size = os.path.getsize(os.path.join(dname, "storage.npy"))
         max_bytes = 2 ** 31 - 1
+        with open(os.path.join(dname, "storage.npy"), "rb") as f:
+            for _ in range(0, storage_file_size, max_bytes):
+                storage += f.read(max_bytes)
+        self._storage = pickle.loads(storage)
         with open(os.path.join(dname, "replay.pkl"), "rb") as f:
-            for _ in range(0, state_file_size, max_bytes):
-                state += f.read(max_bytes)
-        state = pickle.loads(state)
+            state = pickle.load(f)
         self._episode_start = state["episode_start"]
         self._cursor = state["cursor"]
         self._num_added = state["num_added"]
