@@ -1,9 +1,10 @@
-from marlgrid.base import MultiGridEnv, MultiGrid
+from marlgrid.base import MultiGrid
+from hive.envs.marlgrid.ma_envs.base import MultiGridEnvHive
 from marlgrid.objects import Goal, Lava, GridAgent, Wall
 import numpy as np
 
 
-class PursuitMultiGrid(MultiGridEnv):
+class PursuitMultiGrid(MultiGridEnvHive):
     """
     Pursuit–Evasion environment based on Gupta et al. 2017
 
