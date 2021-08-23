@@ -280,7 +280,7 @@ class WandbLogger(ScheduledLogger):
             if isinstance(v, list):
                 config[k] = {}
                 for idx, param in enumerate(v):
-                    config[k][str(idx)] = param
+                    config[k][idx] = param
 
         wandb.config.update(config)
 
