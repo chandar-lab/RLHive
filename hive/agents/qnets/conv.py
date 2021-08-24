@@ -1,8 +1,9 @@
+from hive.agents.qnets.mlp import MLPNetwork
 import torch
 from torch import nn
 
 
-class SimpleConvModel(nn.Module):
+class ConvNetwork(nn.Module):
     """
     Simple convolutional network approximator for Q-Learning.
     """
@@ -10,13 +11,14 @@ class SimpleConvModel(nn.Module):
     def __init__(
         self,
         in_dim,
-        out_dim,
         channels,
         mlp_layers,
         kernel_sizes=1,
         strides=1,
         paddings=0,
         normalization_factor=255,
+        noisy=False,
+        std_init=0.5,
     ):
         """
         Args:
@@ -43,9 +45,8 @@ class SimpleConvModel(nn.Module):
         if isinstance(paddings, int):
             paddings = [paddings] * len(channels)
 
-        assert len(channels) == len(kernel_sizes)
-        assert len(channels) == len(strides)
-        assert len(channels) == len(paddings)
+        if not all(len(x) == len(channels) for x in [kernel_sizes, strides, paddings]):
+            raise ValueError("The lengths of the parameter lists must be the same")
 
         c, h, w = in_dim
         # Convolutional Layers
@@ -65,22 +66,21 @@ class SimpleConvModel(nn.Module):
         self.conv = torch.nn.Sequential(*conv_seq)
 
         # MLP Layers
-        mlp_layers.append(out_dim)
-        head_seq = [torch.nn.Linear(self.conv_out_size(h, w), mlp_layers[0])]
-        for i in range(len(mlp_layers) - 1):
-            head_seq.append(torch.nn.ReLU())
-            head_seq.append(torch.nn.Linear(mlp_layers[i], mlp_layers[i + 1]))
-        self.head = torch.nn.Sequential(*head_seq)
+        self.head = torch.nn.Sequential(
+            MLPNetwork(
+                self.conv_out_size(h, w), mlp_layers, noisy=noisy, std_init=std_init
+            ),
+            torch.nn.ReLU(),
+        )
 
     def forward(self, x):
         if len(x.shape) == 3:
             x = x.unsqueeze(0)
         elif len(x.shape) == 5:
             x = x.reshape(x.size(0), -1, x.size(-2), x.size(-1))
-        x = x.type(torch.float)
+        x = x.float()
         x = x / self._normalization_factor
         x = self.conv(x)
-        x = torch.flatten(x, 1)
         x = self.head(x)
         return x
 

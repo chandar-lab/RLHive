@@ -1,10 +1,12 @@
-from marlgrid.base import MultiGrid
-from hive.envs.marlgrid.ma_envs.base import MultiGridEnvHive
-from marlgrid.objects import Goal, GridAgent
 import numpy as np
 
+from marlgrid.base import MultiGrid
+from marlgrid.objects import Goal, GridAgent, Floor
+from hive.envs.marlgrid.ma_envs.base import MultiGridEnvHive
+from gym_minigrid.rendering import fill_coords, point_in_rect
 
-class CheckersMultiGrid(MultiGridEnvHive):
+
+class SwitchMultiGrid(MultiGridEnvHive):
     """
     Checkers environment based on sunehag et al. 2017
 
@@ -17,22 +19,14 @@ class CheckersMultiGrid(MultiGridEnvHive):
     """
 
     def _gen_grid(self, width, height):
-        self.num_rows = 3
         self.grid = MultiGrid((width, height))
         self.grid.wall_rect(0, 0, width, height)
-        apple = Goal(color="green", reward=10)
-        orange = Goal(color="red", reward=-10)
-        self.num_remained_apples = 0
-        for j in range(self.num_rows):
-            oranges_loc = [2 * i + 1 + j % 2 for i in range(width // 2 - 1)]
-            apples_loc = [2 * i + 1 + (j + 1) % 2 for i in range(width // 2 - 1)]
-            for orange_loc in oranges_loc:
-                self.put_obj(orange, orange_loc, j + 1)
+        for row in range(height - 2):
+            if row != (height - 2) // 2:
+                self.grid.horz_wall(3, row + 1, width - 6)
 
-            for apple_loc in apples_loc:
-                self.put_obj(apple, apple_loc, j + 1)
-                self.num_remained_apples += 1
-
+        self.put_obj(SimpleFloor(color="blue"), 1, 1)
+        self.put_obj(SimpleFloor(color="red"), self.width - 2, self.height - 2)
         self.agent_spawn_kwargs = {}
         self.ghost_mode = False
 
@@ -43,12 +37,16 @@ class CheckersMultiGrid(MultiGridEnvHive):
 
         self._gen_grid(self.width, self.height)
 
-        for agent in self.agents:
+        for id, agent in enumerate(self.agents):
+            if id == 0:
+                top = (0, 0)
+            else:
+                top = (self.width - 3, 0)
             if agent.spawn_delay == 0:
                 self.place_obj(
                     agent,
-                    top=(0, self.num_rows + 1),
-                    size=(self.width, self.height - self.num_rows - 1),
+                    top=top,
+                    size=(2, self.height - 1),
                     **self.agent_spawn_kwargs,
                 )
                 agent.activate()
@@ -70,7 +68,10 @@ class CheckersMultiGrid(MultiGridEnvHive):
                 self.place_obj(agent, **self.agent_spawn_kwargs)
                 agent.activate()
 
-        assert len(actions) == len(self.agents)
+        if len(actions) != len(self.agents):
+            raise ValueError(
+                f"Number of actions is not equal to the number of agents {len(actions)} != {len(self.agents)}"
+            )
 
         step_rewards = np.zeros((len(self.agents)), dtype=np.float)
 
@@ -84,7 +85,6 @@ class CheckersMultiGrid(MultiGridEnvHive):
             agent.step_reward = 0
 
             if agent.active:
-
                 cur_pos = agent.pos[:]
                 cur_cell = self.grid.get(*cur_pos)
                 fwd_pos = agent.front_pos[:]
@@ -115,6 +115,13 @@ class CheckersMultiGrid(MultiGridEnvHive):
                         else:
                             fwd_cell.agents.append(agent)
                             agent.pos = fwd_pos
+                            if (
+                                isinstance(fwd_cell, Floor)
+                                and agent.color == fwd_cell.color
+                            ):
+                                step_rewards[agent_no] += 5
+                                agent.reward(5)
+                                agent.done = True
 
                         # Remove agent from old cell
                         if cur_cell == agent:
@@ -143,14 +150,10 @@ class CheckersMultiGrid(MultiGridEnvHive):
                             rwd = fwd_cell.get_reward(agent)
 
                             # Modify the reward for less sensitive agent
-                            if agent_no == 0:
-                                rwd /= 10
                             if bool(self.reward_decay):
                                 rwd *= 1.0 - 0.9 * (self.step_count / self.max_steps)
                             step_rewards[agent_no] += rwd
                             agent.reward(rwd)
-                            if rwd > 0:
-                                self.num_remained_apples -= 1
 
                 # Pick up an object
                 elif action == agent.actions.pickup:
@@ -205,10 +208,8 @@ class CheckersMultiGrid(MultiGridEnvHive):
 
         # The episode overall is done if all the agents are done,
         # or if it exceeds the step limit or all the apples are collected.
-        done = (
-            (self.step_count >= self.max_steps)
-            or all([agent.done for agent in self.agents])
-            or self.num_remained_apples == 0
+        done = (self.step_count >= self.max_steps) or all(
+            [agent.done for agent in self.agents]
         )
 
         obs = [
@@ -220,3 +221,15 @@ class CheckersMultiGrid(MultiGridEnvHive):
         step_rewards = np.array([np.sum(step_rewards) for _ in self.agents])
 
         return obs, step_rewards, done, {}
+
+
+# Map of color names to RGB values
+COLORS = {
+    "red": np.array([255, 0, 0]),
+    "blue": np.array([0, 0, 255]),
+}
+
+
+class SimpleFloor(Floor):
+    def render(self, img):
+        fill_coords(img, point_in_rect(0, 1, 0, 1), COLORS[self.color])
