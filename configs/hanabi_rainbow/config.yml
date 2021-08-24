@@ -28,12 +28,12 @@ agents:
     name: 'HanabiRainbowAgent'
     kwargs:
       qnet:
-        name: 'DistributionalHanabiMLP'
+        name: 'MLPNetwork'
         kwargs:
-          dueling: False
           hidden_units: 512
-          num_hidden_layers: 2
-          atoms: 51
+          noisy: False
+          std_init: 0.5
+      hidden_dim: 512
       optimizer_fn:
         name: 'Adam'
         kwargs:
@@ -41,7 +41,7 @@ agents:
           eps: 0.00003125
       id: 0
       replay_buffer:
-        name: 'PrioritizedReplayBuffer'
+        name: 'HanabiBuffer'
         kwargs:
           seed: 42
           capacity: 50000
@@ -73,60 +73,10 @@ agents:
       log_frequency: 100
       double: False
       distributional: True
-      use_eps_greedy: True
-      v_min: -25.0
-      v_max: 25.0
-      atoms: 51
-  - 
-    name: 'HanabiRainbowAgent'
-    kwargs:
-      qnet:
-        name: 'DistributionalHanabiMLP'
-        kwargs:
-          dueling: False
-          hidden_units: 512
-          num_hidden_layers: 2
-          atoms: 51
-      optimizer_fn:
-        name: 'Adam'
-        kwargs:
-          lr: 0.000025
-          eps: 0.00003125
-      id: 1
-      replay_buffer:
-        name: 'PrioritizedReplayBuffer'
-        kwargs:
-          seed: 42
-          capacity: 50000
-          stack_size: *stack_size
-          extra_storage_types:
-            legal_moves:
-              - np.int8
-              - (20)
-      discount_rate: .99
-      target_net_update_schedule:
-        name: 'PeriodicSchedule'
-        kwargs:
-          off_value: False
-          on_value: True
-          period: 500
-      epsilon_schedule:
-        name: 'ConstantSchedule'
-        kwargs:
-          value: .0
-      learn_schedule:
-        name: 'SwitchSchedule'
-        kwargs:
-          off_value: False
-          on_value: True
-          steps: 1000
-      seed: 42
-      batch_size: 128
-      device: 'cpu'
-      log_frequency: 100
-      double: False
-      distributional: True
-      use_eps_greedy: True
+      dueling: False
+      noisy: False
+      std_init: .5
+      use_eps_greedy: False
       v_min: -25.0
       v_max: 25.0
       atoms: 51
@@ -141,4 +91,4 @@ loggers:
     kwargs:
       project_name: Hive-v1
       run_name: *run_name
-      offline: False
+      mode: "online"
