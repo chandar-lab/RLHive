@@ -1,6 +1,6 @@
 # General training loop config
 run_name: &run_name 'pong-dqn'
-train_steps: 10000000
+train_steps: 200000000
 test_frequency: 100
 test_num_episodes: 10
 stack_size: &stack_size 4
@@ -9,8 +9,8 @@ saving_schedule:
   kwargs:
     off_value: False
     on_value: True
-    period: 15000
-save_dir: 'experiment'
+    period: 1000
+save_dir: './experiment'
 
 # Environment config
 environment:
@@ -59,7 +59,7 @@ agent:
       kwargs:
         off_value: False
         on_value: True
-        steps: 500
+        steps: 50000
     seed: 42
     batch_size: 32
     device: 'cuda'
@@ -75,4 +75,7 @@ loggers:
     kwargs:
       project_name: Hive-v1
       run_name: *run_name
-      mode: "online"
+      mode: "offline"
+      id: "re-hive-dqn-atari-pong-s0-0"
+      resume: "allow"
+      settings: "fork"
