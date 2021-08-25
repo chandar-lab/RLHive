@@ -12,19 +12,19 @@ class EfficientCircularBuffer(BaseReplayBuffer):
     """
 
     def __init__(
-            self,
-            capacity=10000,
-            stack_size=1,
-            n_step=1,
-            gamma=0.99,
-            observation_shape=(),
-            observation_dtype=np.uint8,
-            action_shape=(),
-            action_dtype=np.int8,
-            reward_shape=(),
-            reward_dtype=np.float32,
-            extra_storage_types=None,
-            seed=42,
+        self,
+        capacity=10000,
+        stack_size=1,
+        n_step=1,
+        gamma=0.99,
+        observation_shape=(),
+        observation_dtype=np.uint8,
+        action_shape=(),
+        action_dtype=np.int8,
+        reward_shape=(),
+        reward_dtype=np.float32,
+        extra_storage_types=None,
+        seed=42,
     ):
         """Constructor for EfficientCircularBuffer.
 
@@ -166,7 +166,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         """
         full_indices = np.indices((indices.shape[0], num_to_access))[1]
         full_indices = (full_indices + np.expand_dims(indices, axis=1)) % (
-                self.size() + self._stack_size + self._n_step - 1
+            self.size() + self._stack_size + self._n_step - 1
         )
         elements = array[full_indices]
         elements = elements.reshape(indices.shape[0], -1, *elements.shape[3:])
@@ -188,7 +188,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         elif num_to_access == 1:
             return self._storage[key][
                 indices % (self.size() + self._stack_size + self._n_step - 1)
-                ]
+            ]
         else:
             return self._get_from_array(
                 self._storage[key], indices, num_to_access=num_to_access
@@ -199,8 +199,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         indices = np.array([], dtype=np.int32)
         while len(indices) < batch_size:
             start_index = (
-                    self._rng.integers(self.size(), size=batch_size - len(indices))
-                    + self._cursor
+                self._rng.integers(self.size(), size=batch_size - len(indices))
+                + self._cursor
             )
             start_index = self._filter_transitions(start_index)
             indices = np.concatenate([indices, start_index])
@@ -236,8 +236,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         else:
             is_terminal = terminals.any(axis=1).astype(int)
             trajectory_lengths = (
-                                         np.argmax(terminals.astype(bool), axis=1) + 1
-                                 ) * is_terminal + self._n_step * (1 - is_terminal)
+                np.argmax(terminals.astype(bool), axis=1) + 1
+            ) * is_terminal + self._n_step * (1 - is_terminal)
         trajectory_lengths = trajectory_lengths.astype(np.int64)
 
         for key in self._specs:
@@ -277,7 +277,11 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         storage_path = os.path.join(dname, "storage")
         create_folder(storage_path)
         for key in self._specs:
-            np.save(os.path.join(storage_path, f"{key}"), self._storage[key], allow_pickle=False)
+            np.save(
+                os.path.join(storage_path, f"{key}"),
+                self._storage[key],
+                allow_pickle=False,
+            )
         state = {
             "episode_start": self._episode_start,
             "cursor": self._cursor,
@@ -295,7 +299,9 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         """
         storage_path = os.path.join(dname, "storage")
         for key in self._specs:
-            self._storage[key] = np.load(os.path.join(storage_path, f"{key}.npy"), allow_pickle=False)
+            self._storage[key] = np.load(
+                os.path.join(storage_path, f"{key}.npy"), allow_pickle=False
+            )
         with open(os.path.join(dname, "replay.pkl"), "rb") as f:
             state = pickle.load(f)
         self._episode_start = state["episode_start"]
