@@ -245,8 +245,11 @@ def get_parsed_args(arguments, prefix=None):
 
     for argument in parsed_args:
         expected_type = arguments[argument]
-        if expected_type in [int, bool, str, float]:
+        if expected_type in [int, str, float]:
             parsed_args[argument] = expected_type(parsed_args[argument])
+        elif expected_type is bool:
+            value = str(parsed_args[argument]).lower()
+            parsed_args[argument] = not ("false".startswith(value) or value == "0")
         else:
             parsed_args[argument] = yaml.safe_load(parsed_args[argument])
 
