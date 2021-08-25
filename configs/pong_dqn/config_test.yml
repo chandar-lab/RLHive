@@ -1,0 +1,82 @@
+# General training loop config
+run_name: &run_name 'pong-dqn-s0'
+train_steps: 200000000
+test_frequency: 100
+test_num_episodes: 10
+stack_size: &stack_size 4
+resume: True
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 1000
+save_dir: 'experiment'
+
+# Environment config
+environment:
+  name: 'AtariEnv'
+  kwargs:
+    env_name: 'Pong'
+
+# List of agents for the experiment. In single agent, only the first agent in
+# the list is used.
+agent:
+  name: 'DQNAgent'
+  kwargs:
+    qnet:
+      name: 'NatureAtariDQNModel'
+    optimizer_fn:
+      name: 'Adam'
+      kwargs: {}
+    id: 0
+    replay_buffer:
+      name: 'EfficientCircularBuffer'
+      kwargs:
+        seed: 0
+        capacity: 1000000
+        stack_size: *stack_size
+    discount_rate: .99
+    target_net_update_schedule:
+      name: 'PeriodicSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        period: 10000
+    update_period_schedule:
+      name: 'PeriodicSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        period: 4
+    epsilon_schedule:
+      name: 'LinearSchedule'
+      kwargs:
+        init_value: 1
+        end_value: 0.05
+        steps: 1000000
+    learn_schedule:
+      name: 'SwitchSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        steps: 50000
+    seed: 0
+    batch_size: 32
+    device: 'cuda'
+    log_frequency: 1000
+
+# List of logger configs used.
+loggers:
+  -
+    name: ChompLogger
+    kwargs: {}
+  -
+    name: WandbLogger
+    kwargs:
+      project_name: Hive-v1
+      run_name: *run_name
+      mode: "offline"
+      id: "re-hive-dqn-atari-pong-s0-0"
+      resume: "allow"
+      settings: "fork"
