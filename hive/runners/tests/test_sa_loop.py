@@ -161,12 +161,12 @@ def test_run_training(initial_runner):
     [
         (
             "single_agent_loop.py"
-            " --agent.qnet.hidden_units 30"
+            " --agent.qnet.hidden_units [30,30]"
             " --agent.discount_rate .8 "
             " --seed 20"
             " --loggers.logger_list.0.arg1 2"
             " --loggers.logger_list.1.arg2 .2",
-            [30, 0.8, 20, 2, 0.2],
+            [[30, 30], 0.8, 20, 2, 0.2],
         ),
         (
             "single_agent_loop.py"
@@ -176,9 +176,9 @@ def test_run_training(initial_runner):
         ),
         (
             "single_agent_loop.py"
-            " --agent.qnet.hidden_units 30"
+            " --agent.qnet.hidden_units [30,30]"
             " --agent.discount_rate .8 ",
-            [30, 0.8, None, None, None],
+            [[30, 30], 0.8, None, None, None],
         ),
         (
             "single_agent_loop.py --seed 20",
@@ -188,7 +188,7 @@ def test_run_training(initial_runner):
 )
 @patch("hive.runners.single_agent_loop.set_seed")
 def test_cl_parsing(mock_seed, args, arg_string, cl_args):
-    defaults = [256, 0.99, None, 0, 0.5]
+    defaults = [[256, 256], 0.99, None, 0, 0.5]
     expected_args = [
         cl_args[idx] if cl_args[idx] else defaults[idx] for idx in range(len(cl_args))
     ]
@@ -197,7 +197,9 @@ def test_cl_parsing(mock_seed, args, arg_string, cl_args):
     runner = single_agent_loop.set_up_experiment(config)
     full_config = runner._experiment_manager._config
     # Check hidden units
-    assert runner._agents[0]._qnet.input_layer[0].out_features == expected_args[0]
+    assert (
+        runner._agents[0]._qnet.network.network[0].out_features == expected_args[0][0]
+    )
     assert (
         full_config["agent"]["kwargs"]["qnet"]["kwargs"]["hidden_units"]
         == expected_args[0]
