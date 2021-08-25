@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pickle
 
+from hive.utils.utils import create_folder
 from hive.replays.replay_buffer import BaseReplayBuffer
 
 
@@ -273,7 +274,10 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         Args:
             dname: directory where to save buffer. Should already have been created.
         """
-        np.save(os.path.join(dname, "storage.npy"), self._storage, allow_pickle=False)
+        storage_path = os.path.join(dname, "storage")
+        create_folder(storage_path)
+        for key in self._specs:
+            np.save(os.path.join(storage_path, f"{key}"), self._storage[key], allow_pickle=False)
         state = {
             "episode_start": self._episode_start,
             "cursor": self._cursor,
@@ -289,9 +293,9 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         Args:
             dname: directory where to load buffer from.
         """
-        self._storage = np.load(
-            os.path.join(dname, "storage.npy"), allow_pickle=False
-        ).item()
+        storage_path = os.path.join(dname, "storage")
+        for key in self._specs:
+            self._storage[key] = np.load(os.path.join(storage_path, f"{key}.npy"), allow_pickle=False)
         with open(os.path.join(dname, "replay.pkl"), "rb") as f:
             state = pickle.load(f)
         self._episode_start = state["episode_start"]
