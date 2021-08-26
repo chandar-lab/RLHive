@@ -275,6 +275,13 @@ class WandbLogger(ScheduledLogger):
             )
 
     def log_config(self, config):
+        # Convert list parameters to nested dictionary
+        for k, v in config.items():
+            if isinstance(v, list):
+                config[k] = {}
+                for idx, param in enumerate(v):
+                    config[k][idx] = param
+
         wandb.config.update(config)
 
     def log_scalar(self, name, value, timescale):

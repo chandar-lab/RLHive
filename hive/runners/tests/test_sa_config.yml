@@ -25,13 +25,13 @@ agent:
   name: 'DQNAgent'
   kwargs:
     qnet:
-      name: 'SimpleMLP'
+      name: 'MLPNetwork'
       kwargs:
-        hidden_units: 256
-        num_hidden_layers: 2
+        hidden_units: [256, 256]
     optimizer_fn:
       name: 'Adam'
       kwargs: {}
+    hidden_dim: 256
     id: 0
     replay_buffer:
       name: 'CircularReplayBuffer'
