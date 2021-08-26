@@ -162,7 +162,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         max_bytes = 2 ** 31 - 1
         with open(full_name, "wb") as f:
             for idx in range(0, len(sdict_data), max_bytes):
-                f.write(sdict_data[idx:idx + max_bytes])
+                f.write(sdict_data[idx : idx + max_bytes])
 
     def load(self, dname):
         """

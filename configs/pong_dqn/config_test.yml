@@ -4,7 +4,7 @@ train_steps: 200000000
 test_frequency: 100
 test_num_episodes: 10
 stack_size: &stack_size 4
-resume: True
+#resume: True
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
