@@ -1,20 +1,21 @@
-from hive.agents.qnets.base import FunctionApproximator
-import os
 import copy
+import os
+from typing import Tuple
+
 import numpy as np
 import torch
-from typing import Tuple
+from hive.agents.agent import Agent
+from hive.agents.qnets.base import FunctionApproximator
+from hive.agents.qnets.qnet_heads import DQNNetwork
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.logging import Logger, NullLogger
-from hive.utils.utils import OptimizerFn, create_folder
 from hive.utils.schedule import (
-    PeriodicSchedule,
     LinearSchedule,
+    PeriodicSchedule,
     Schedule,
     SwitchSchedule,
 )
-from hive.agents.agent import Agent
-from hive.utils.utils import OptimizerFn
+from hive.utils.utils import OptimizerFn, create_folder
 
 
 class DQNAgent(Agent):
@@ -27,10 +28,12 @@ class DQNAgent(Agent):
         qnet: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
+        hidden_dim: int,
         optimizer_fn: OptimizerFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
         discount_rate: float = 0.99,
+        n_step: int = 1,
         grad_clip: float = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
@@ -80,8 +83,8 @@ class DQNAgent(Agent):
             log_frequency (int): How often to log the agent's metrics.
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
-        self._qnet = qnet(self._obs_dim, self._act_dim).to(device)
-        self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
+        self._hidden_dim = hidden_dim
+        self.create_q_networks(qnet, device)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
@@ -89,7 +92,7 @@ class DQNAgent(Agent):
         self._replay_buffer = replay_buffer
         if self._replay_buffer is None:
             self._replay_buffer = CircularReplayBuffer(seed=seed)
-        self._discount_rate = discount_rate
+        self._discount_rate = discount_rate ** n_step
         self._grad_clip = grad_clip
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
@@ -119,6 +122,11 @@ class DQNAgent(Agent):
 
         self._state = {"episode_start": True}
         self._training = False
+
+    def create_q_networks(self, qnet, device):
+        network = qnet(self._obs_dim)
+        self._qnet = DQNNetwork(network, self._hidden_dim, self._act_dim).to(device)
+        self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
     def train(self):
         """Changes the agent to training mode."""
@@ -153,11 +161,11 @@ class DQNAgent(Agent):
         observation = (
             torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
         )
-        qvals = self._qnet(observation).cpu()
+        qvals = self._qnet(observation)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
         else:
-            action = torch.argmax(qvals).numpy()
+            action = torch.argmax(qvals).item()
 
         if self._logger.should_log(self._timescale) and self._state["episode_start"]:
             self._logger.log_scalar(
