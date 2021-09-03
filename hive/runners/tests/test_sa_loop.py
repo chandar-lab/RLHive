@@ -12,17 +12,17 @@ from unittest.mock import patch
 
 
 class FakeLogger1(ScheduledLogger):
-    def __init__(self, timescales, logger_schedules=None, arg1: int = 0):
+    def __init__(self, timescales=None, logger_schedules=None, arg1: int = 0):
         super().__init__(timescales, logger_schedules)
         self.arg1 = arg1
 
     def log_config(self, config):
         pass
 
-    def log_scalar(self, name, value, timescale):
+    def log_scalar(self, name, value, prefix):
         pass
 
-    def log_metrics(self, metrics, timescale):
+    def log_metrics(self, metrics, prefix):
         pass
 
     def save(self, dir_name):
@@ -33,17 +33,17 @@ class FakeLogger1(ScheduledLogger):
 
 
 class FakeLogger2(ScheduledLogger):
-    def __init__(self, timescales, logger_schedules=None, arg2: float = 0):
+    def __init__(self, timescales=None, logger_schedules=None, arg2: float = 0):
         super().__init__(timescales, logger_schedules)
         self.arg2 = arg2
 
     def log_config(self, config):
         pass
 
-    def log_scalar(self, name, value, timescale):
+    def log_scalar(self, name, value, prefix):
         pass
 
-    def log_metrics(self, metrics, timescale):
+    def log_metrics(self, metrics, prefix):
         pass
 
     def save(self, dir_name):
