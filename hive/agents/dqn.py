@@ -7,6 +7,7 @@ import torch
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.qnet_heads import DQNNetwork
+from hive.agents.qnets.utils import calculate_output_dim
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.logging import Logger, NullLogger
 from hive.utils.schedule import (
@@ -28,7 +29,6 @@ class DQNAgent(Agent):
         qnet: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
-        hidden_dim: int,
         optimizer_fn: OptimizerFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
@@ -83,7 +83,6 @@ class DQNAgent(Agent):
             log_frequency (int): How often to log the agent's metrics.
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
-        self._hidden_dim = hidden_dim
         self.create_q_networks(qnet, device)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
@@ -125,7 +124,8 @@ class DQNAgent(Agent):
 
     def create_q_networks(self, qnet, device):
         network = qnet(self._obs_dim)
-        self._qnet = DQNNetwork(network, self._hidden_dim, self._act_dim).to(device)
+        network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
+        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
     def train(self):
