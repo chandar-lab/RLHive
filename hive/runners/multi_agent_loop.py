@@ -19,7 +19,6 @@ class MultiAgentRunner(Runner):
         logger,
         experiment_manager,
         train_steps,
-        train_episodes,
         test_frequency,
         test_num_episodes,
         stack_size,
@@ -49,7 +48,6 @@ class MultiAgentRunner(Runner):
             logger,
             experiment_manager,
             train_steps,
-            train_episodes,
             test_frequency,
             test_num_episodes,
         )
@@ -67,6 +65,7 @@ class MultiAgentRunner(Runner):
             turn: Agent whose turn it is.
             episode_metrics: Metrics object keeping track of metrics for current episode.
         """
+        super().run_one_step(observation, turn, episode_metrics)
         agent = self._agents[turn]
         if self._transition_info.is_started(agent):
             info = self._transition_info.get_info(agent)
@@ -120,14 +119,12 @@ class MultiAgentRunner(Runner):
         observation, turn = self._environment.reset()
 
         # Run the loop until either training ends or the episode ends
-        while (
-            not self._training or self._train_step_schedule.get_value()
-        ) and not done:
+        while (not self._training or self._train_schedule.get_value()) and not done:
             done, observation, turn = self.run_one_step(
                 observation, turn, episode_metrics
             )
             if self._training:
-                self._train_step_schedule.update()
+                self._train_schedule.update()
 
         # If the episode ended, run the final update.
         if done:
@@ -142,7 +139,6 @@ def set_up_experiment(config):
         {
             "seed": int,
             "train_steps": int,
-            "train_episodes": int,
             "test_frequency": int,
             "test_num_episodes": int,
             "stack_size": int,
@@ -168,14 +164,14 @@ def set_up_experiment(config):
     if isinstance(logger_config, list):
         for logger in logger_config:
             logger["kwargs"] = logger.get("kwargs", {})
-            logger["kwargs"]["timescales"] = ["train_episodes", "test_episodes"]
+            logger["kwargs"]["timescales"] = ["train", "test"]
         logger_config = {
             "name": "CompositeLogger",
             "kwargs": {"logger_list": logger_config},
         }
     else:
         logger_config["kwargs"] = logger_config.get("kwargs", {})
-        logger_config["kwargs"]["timescales"] = ["train_episodes", "test_episodes"]
+        logger_config["kwargs"]["timescales"] = ["train", "test"]
 
     logger, full_config["loggers"] = logging.get_logger(logger_config, "loggers")
 
@@ -227,7 +223,6 @@ def set_up_experiment(config):
         logger,
         experiment_manager,
         config.get("train_steps", -1),
-        config.get("train_episodes", -1),
         config.get("test_frequency", -1),
         config.get("test_num_episodes", 1),
         config.get("stack_size", 1),
