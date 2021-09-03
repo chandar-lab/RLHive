@@ -75,8 +75,6 @@ class SingleAgentRunner(Runner):
         # Run the loop until either training ends or the episode ends
         while (not self._training or self._train_schedule.get_value()) and not done:
             done, observation = self.run_one_step(observation, episode_metrics)
-            if self._training:
-                self._train_schedule.update()
 
         return episode_metrics
 
@@ -111,14 +109,10 @@ def set_up_experiment(config):
     if isinstance(logger_config, list):
         for logger in logger_config:
             logger["kwargs"] = logger.get("kwargs", {})
-            logger["kwargs"]["timescales"] = ["train", "test"]
         logger_config = {
             "name": "CompositeLogger",
             "kwargs": {"logger_list": logger_config},
         }
-    else:
-        logger_config["kwargs"] = logger_config.get("kwargs", {})
-        logger_config["kwargs"]["timescales"] = ["train", "test"]
 
     logger, full_config["loggers"] = logging.get_logger(logger_config, "loggers")
 
