@@ -160,16 +160,10 @@ def set_up_experiment(config):
     if logger_config is None or len(logger_config) == 0:
         logger_config = {"name": "NullLogger"}
     if isinstance(logger_config, list):
-        for logger in logger_config:
-            logger["kwargs"] = logger.get("kwargs", {})
-            logger["kwargs"]["timescales"] = ["train", "test"]
         logger_config = {
             "name": "CompositeLogger",
             "kwargs": {"logger_list": logger_config},
         }
-    else:
-        logger_config["kwargs"] = logger_config.get("kwargs", {})
-        logger_config["kwargs"]["timescales"] = ["train", "test"]
 
     logger, full_config["loggers"] = logging.get_logger(logger_config, "loggers")
 
