@@ -58,6 +58,8 @@ class Runner(ABC):
                 "test_schedule": self._test_schedule,
             }
         )
+        self._logger.register_timescale("train")
+        self._logger.register_timescale("test")
         self._training = True
         self._save_experiment = False
         self._run_testing = False
@@ -90,10 +92,13 @@ class Runner(ABC):
             turn: Agent whose turn it is.
             episode_metrics: Metrics object keeping track of metrics for current episode.
         """
-        self._run_testing = self._test_schedule.update() or self._run_testing
-        self._save_experiment = (
-            self._experiment_manager.update_step() or self._save_experiment
-        )
+        if self._training:
+            self._train_schedule.update()
+            self._logger.update_step("train")
+            self._run_testing = self._test_schedule.update() or self._run_testing
+            self._save_experiment = (
+                self._experiment_manager.update_step() or self._save_experiment
+            )
 
     def run_end_step(self, episode_metrics):
         """Run the final step of an episode.
@@ -114,14 +119,12 @@ class Runner(ABC):
 
     def run_training(self):
         """Run the training loop."""
-
         while self._train_schedule.get_value():
             # Run training episode
             self.train_mode(True)
             episode_metrics = self.run_episode()
-            if self._logger.update_step("train"):
+            if self._logger.should_log("train"):
                 episode_metrics = episode_metrics.get_flat_dict()
-                episode_metrics["train_steps"] = self._train_schedule.get_value()
                 self._logger.log_metrics(episode_metrics, "train")
 
             # Run test episodes
@@ -150,7 +153,6 @@ class Runner(ABC):
             for metric, value in episode_metrics.get_flat_dict().items():
                 mean_episode_metrics[metric] += value / self._test_num_episodes
 
-        mean_episode_metrics["train_steps"] = self._train_schedule.get_value()
         return mean_episode_metrics
 
     def resume(self):

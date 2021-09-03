@@ -123,8 +123,6 @@ class MultiAgentRunner(Runner):
             done, observation, turn = self.run_one_step(
                 observation, turn, episode_metrics
             )
-            if self._training:
-                self._train_schedule.update()
 
         # If the episode ended, run the final update.
         if done:
