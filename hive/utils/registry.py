@@ -244,7 +244,7 @@ def get_parsed_args(arguments, prefix=None):
     }
 
     for argument in parsed_args:
-        expected_type = arguments[argument]
+        expected_type = arguments[argument].annotation
         if expected_type in [int, str, float]:
             parsed_args[argument] = expected_type(parsed_args[argument])
         elif expected_type is bool:
