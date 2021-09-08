@@ -17,10 +17,9 @@ class Runner(ABC):
         agents,
         logger,
         experiment_manager,
-        train_steps,
-        train_episodes,
-        test_frequency,
-        test_num_episodes,
+        train_steps=1000000,
+        test_frequency=10000,
+        test_num_episodes=1,
     ):
         """Initializes the Runner object.
         Args:
@@ -32,10 +31,7 @@ class Runner(ABC):
             train_steps: How many steps to train for. If this is -1, there is no limit
                 for the number of training steps. If both this and train_episodes are
                 -1, training loop will not terminate.
-            train_episodes: How many episodes to train for. If this is -1, there is no
-                limit for the number of training episodes. If both this and train_steps
-                are -1, training loop will not terminate.
-            test_frequency: After how many training episodes to run testing episodes.
+            test_frequency: After how many training steps to run testing episodes.
                 If this is -1, testing is not run.
             test_num_episodes: How many testing episodes to run during each testing
                 period.
@@ -48,32 +44,25 @@ class Runner(ABC):
         self._logger = logger
         self._experiment_manager = experiment_manager
         if train_steps == -1:
-            self._train_step_schedule = schedule.ConstantSchedule(True)
+            self._train_schedule = schedule.ConstantSchedule(True)
         else:
-            self._train_step_schedule = schedule.SwitchSchedule(
-                True, False, train_steps
-            )
-        if train_episodes == -1:
-            self._train_episode_schedule = schedule.ConstantSchedule(True)
-        else:
-            self._train_episode_schedule = schedule.SwitchSchedule(
-                True, False, train_episodes
-            )
+            self._train_schedule = schedule.SwitchSchedule(True, False, train_steps)
         if test_frequency == -1:
             self._test_schedule = schedule.ConstantSchedule(False)
         else:
             self._test_schedule = schedule.PeriodicSchedule(False, True, test_frequency)
         self._test_num_episodes = test_num_episodes
-        self._train_step_schedule.update()
-        self._test_schedule.update()
         self._experiment_manager.experiment_state.update(
             {
-                "train_step_schedule": self._train_step_schedule,
-                "train_episode_schedule": self._train_episode_schedule,
+                "train_step_schedule": self._train_schedule,
                 "test_schedule": self._test_schedule,
             }
         )
+        self._logger.register_timescale("train")
+        self._logger.register_timescale("test")
         self._training = True
+        self._save_experiment = False
+        self._run_testing = False
 
     def train_mode(self, training):
         """If training is true, sets all agents to training mode. If training is false,
@@ -103,7 +92,13 @@ class Runner(ABC):
             turn: Agent whose turn it is.
             episode_metrics: Metrics object keeping track of metrics for current episode.
         """
-        return NotImplementedError
+        if self._training:
+            self._train_schedule.update()
+            self._logger.update_step("train")
+            self._run_testing = self._test_schedule.update() or self._run_testing
+            self._save_experiment = (
+                self._experiment_manager.update_step() or self._save_experiment
+            )
 
     def run_end_step(self, episode_metrics):
         """Run the final step of an episode.
@@ -124,34 +119,30 @@ class Runner(ABC):
 
     def run_training(self):
         """Run the training loop."""
-
-        while (
-            self._train_episode_schedule.update()
-            and self._train_step_schedule.get_value()
-        ):
+        while self._train_schedule.get_value():
             # Run training episode
             self.train_mode(True)
             episode_metrics = self.run_episode()
-            if self._logger.update_step("train_episodes"):
-                self._logger.log_metrics(
-                    episode_metrics.get_flat_dict(), "train_episodes"
-                )
+            if self._logger.should_log("train"):
+                episode_metrics = episode_metrics.get_flat_dict()
+                self._logger.log_metrics(episode_metrics, "train")
 
             # Run test episodes
-            while self._test_schedule.update():
+            if self._run_testing:
                 test_metrics = self.run_testing()
-                if self._logger.update_step("test_episodes"):
-                    self._logger.log_metrics(test_metrics, "test_episodes")
+                self._logger.update_step("test")
+                self._logger.log_metrics(test_metrics, "test")
+                self._run_testing = False
 
             # Save experiment state
-            if self._experiment_manager.update_step():
+            if self._save_experiment:
                 self._experiment_manager.save()
+                self._save_experiment = False
 
         # Run a final test episode and save the experiment.
         test_metrics = self.run_testing()
-
-        self._logger.update_step("test_episodes")
-        self._logger.log_metrics(test_metrics, "test_episodes")
+        self._logger.update_step("test")
+        self._logger.log_metrics(test_metrics, "test")
         self._experiment_manager.save()
 
     def run_testing(self):
@@ -167,7 +158,7 @@ class Runner(ABC):
     def resume(self):
         """Resume a saved experiment."""
         self._experiment_manager.resume()
-        self._train_step_schedule = self._experiment_manager.experiment_state[
+        self._train_schedule = self._experiment_manager.experiment_state[
             "train_step_schedule"
         ]
         self._train_episode_schedule = self._experiment_manager.experiment_state[

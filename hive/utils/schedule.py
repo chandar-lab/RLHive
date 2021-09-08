@@ -84,13 +84,13 @@ class SwitchSchedule(Schedule):
                 value to the on value.
         """
 
-        self._steps = -1
+        self._steps = 0
         self._flip_step = steps
         self._off_value = off_value
         self._on_value = on_value
 
     def get_value(self):
-        if self._steps < self._flip_step:
+        if self._steps <= self._flip_step:
             return self._off_value
         else:
             return self._on_value
