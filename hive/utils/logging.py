@@ -13,7 +13,7 @@ from hive.utils.utils import Chomp, create_folder
 class Logger(abc.ABC, Registrable):
     """Abstract class for logging in hive."""
 
-    def __init__(self, timescales):
+    def __init__(self, timescales=None):
         """Constructor for base Logger class. Every Logger must call this constructor
         in its own constructor
 
@@ -21,7 +21,9 @@ class Logger(abc.ABC, Registrable):
             timescales (str|List): The different timescales at which logger needs to log.
                 If only logging at one timescale, it is acceptable to only pass a string.
         """
-        if isinstance(timescales, str):
+        if timescales is None:
+            self._timescales = []
+        elif isinstance(timescales, str):
             self._timescales = [timescales]
         elif isinstance(timescales, list):
             self._timescales = timescales
@@ -45,23 +47,23 @@ class Logger(abc.ABC, Registrable):
         pass
 
     @abc.abstractmethod
-    def log_scalar(self, name, value, timescale):
+    def log_scalar(self, name, value, prefix):
         """Log a scalar variable.
         Args:
             name: str, name of the metric to be logged.
             value: float, value to be logged.
             step: int, step value.
-            timescale (str): timescale at which to log.
+            prefix (str): prefix to append to metric name.
         """
         pass
 
     @abc.abstractmethod
-    def log_metrics(self, metrics, timescale):
+    def log_metrics(self, metrics, prefix):
         """Log a scalar variable.
         Args:
             metrics: dict, dictionary of metrics to be logged.
             step: int, step value.
-            timescale (str): timescale at which to log.
+            prefix (str): prefix to append to metric name.
         """
         pass
 
@@ -96,10 +98,9 @@ class ScheduledLogger(Logger):
     This schedule is not strictly enforced! It is still possible to log something
     even if should_log returns false. These functions are just for the purpose
     of convenience.
-
     """
 
-    def __init__(self, timescales, logger_schedules=None):
+    def __init__(self, timescales=None, logger_schedules=None):
         """Constructor for abstract class ScheduledLogger. Should be called by
         each subclass in the constructor.
 
@@ -189,7 +190,7 @@ class NullLogger(ScheduledLogger):
     framework that ask for a logger.
     """
 
-    def __init__(self, timescales, logger_schedules=None):
+    def __init__(self, timescales=None, logger_schedules=None):
         super().__init__(timescales, logger_schedules)
 
     def log_config(self, config):
@@ -221,7 +222,7 @@ class WandbLogger(ScheduledLogger):
         self,
         project_name,
         run_name,
-        timescales="wandb",
+        timescales=None,
         logger_schedules=None,
         mode="online",
         id=None,
@@ -284,21 +285,21 @@ class WandbLogger(ScheduledLogger):
 
         wandb.config.update(config)
 
-    def log_scalar(self, name, value, timescale):
-        metrics = {f"{timescale}_{name}": value}
+    def log_scalar(self, name, value, prefix):
+        metrics = {f"{prefix}/{name}": value}
         metrics.update(
             {
-                f"_{timescale}_step": self._steps[timescale]
+                f"{timescale}_step": self._steps[timescale]
                 for timescale in self._timescales
             }
         )
         wandb.log(metrics)
 
-    def log_metrics(self, metrics, timescale):
-        metrics = {f"{timescale}_{name}": value for (name, value) in metrics.items()}
+    def log_metrics(self, metrics, prefix):
+        metrics = {f"{prefix}/{name}": value for (name, value) in metrics.items()}
         metrics.update(
             {
-                f"_{timescale}_step": self._steps[timescale]
+                f"{timescale}_step": self._steps[timescale]
                 for timescale in self._timescales
             }
         )
@@ -310,15 +311,15 @@ class ChompLogger(ScheduledLogger):
     directly saved to disk.
     """
 
-    def __init__(self, timescales, logger_schedules=None):
+    def __init__(self, timescales=None, logger_schedules=None):
         super().__init__(timescales, logger_schedules)
         self._log_data = Chomp()
 
     def log_config(self, config):
         self._log_data["config"] = config
 
-    def log_scalar(self, name, value, timescale):
-        metric_name = f"{timescale}_{name}"
+    def log_scalar(self, name, value, prefix):
+        metric_name = f"{prefix}/{name}"
         if metric_name not in self._log_data:
             self._log_data[metric_name] = [[], []]
         if isinstance(value, torch.Tensor):
@@ -326,12 +327,12 @@ class ChompLogger(ScheduledLogger):
         else:
             self._log_data[metric_name][0].append(value)
         self._log_data[metric_name][1].append(
-            [self._steps[timescale] for timescale in self._timescales]
+            {timescale: self._steps[timescale] for timescale in self._timescales}
         )
 
-    def log_metrics(self, metrics, timescale):
+    def log_metrics(self, metrics, prefix):
         for name in metrics:
-            metric_name = f"{timescale}_{name}"
+            metric_name = f"{prefix}/{name}"
             if metric_name not in self._log_data:
                 self._log_data[metric_name] = [[], []]
             if isinstance(metrics[name], torch.Tensor):
@@ -339,7 +340,7 @@ class ChompLogger(ScheduledLogger):
             else:
                 self._log_data[metric_name][0].append(metrics[name])
             self._log_data[metric_name][1].append(
-                [self._steps[timescale] for timescale in self._timescales]
+                {timescale: self._steps[timescale] for timescale in self._timescales}
             )
 
     def save(self, dir_name):
@@ -376,15 +377,13 @@ class CompositeLogger(Logger):
         for logger in self._logger_list:
             logger.log_config(config)
 
-    def log_scalar(self, name, value, timescale):
+    def log_scalar(self, name, value, prefix):
         for logger in self._logger_list:
-            if not isinstance(logger, ScheduledLogger) or logger.should_log(timescale):
-                logger.log_scalar(name, value, timescale=timescale)
+            logger.log_scalar(name, value, prefix)
 
-    def log_metrics(self, metrics, timescale):
+    def log_metrics(self, metrics, prefix):
         for logger in self._logger_list:
-            if not isinstance(logger, ScheduledLogger) or logger.should_log(timescale):
-                logger.log_metrics(metrics, timescale=timescale)
+            logger.log_metrics(metrics, prefix=prefix)
 
     def update_step(self, timescale):
         for logger in self._logger_list:
