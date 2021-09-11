@@ -10,12 +10,12 @@ class HanabiDQNNetwork(nn.Module):
         self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
         self.ouput_layer = self._linear_fn(hidden_dim, out_dim)
 
-    def forward(self, x):
+    def forward(self, x, legal_moves):
         x = self.network(x)
         x = self.ouput_layer(x)
 
         # In the case of not having dueling or distributional heads
-        if x.size(-1) == legal_moves.size(0):
+        if legal_moves is not None:
             x = x * legal_moves
 
         return x
@@ -70,7 +70,7 @@ class HanabiDuelingNetwork(nn.Module):
                 x = x.squeeze(dim=2)
 
         # In the case of not having distributional head
-        if x.size(-1) == legal_moves.size(0):
+        if legal_moves is not None:
             x = x * legal_moves
 
         return x
@@ -100,7 +100,7 @@ class HanabiDistributionalNetwork(nn.Module):
         return x
 
     def dist(self, x, legal_moves):
-        x = self.base_network(x)
+        x = self.base_network(x, None)
         x = x.view(-1, self._out_dim, self._atoms)
         x = F.softmax(x, dim=-1)
         x = x.clamp(min=1e-3)
