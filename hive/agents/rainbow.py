@@ -6,12 +6,13 @@ import numpy as np
 import torch
 from hive.agents.dqn import DQNAgent
 from hive.agents.qnets.base import FunctionApproximator
+from hive.agents.qnets.noisy_linear import NoisyLinear
 from hive.agents.qnets.qnet_heads import (
     DistributionalNetwork,
     DQNNetwork,
     DuelingNetwork,
 )
-from hive.agents.qnets.noisy_linear import NoisyLinear
+from hive.agents.qnets.utils import calculate_output_dim
 from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.logging import Logger
@@ -27,7 +28,6 @@ class RainbowDQNAgent(DQNAgent):
         qnet: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
-        hidden_dim: int,
         v_min: str = 0,
         v_max: str = 200,
         atoms: str = 51,
@@ -115,7 +115,6 @@ class RainbowDQNAgent(DQNAgent):
             qnet,
             obs_dim,
             act_dim,
-            hidden_dim=hidden_dim,
             optimizer_fn=optimizer_fn,
             id=id,
             replay_buffer=replay_buffer,
@@ -140,6 +139,7 @@ class RainbowDQNAgent(DQNAgent):
 
     def create_q_networks(self, qnet, device):
         network = qnet(self._obs_dim)
+        network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
 
         # Use NoisyLinear when creating output heads if noisy is true
         linear_fn = (
@@ -151,11 +151,11 @@ class RainbowDQNAgent(DQNAgent):
         # Set up Dueling heads
         if self._dueling:
             network = DuelingNetwork(
-                network, self._hidden_dim, self._act_dim, linear_fn, self._atoms
+                network, network_output_dim, self._act_dim, linear_fn, self._atoms
             )
         else:
             network = DQNNetwork(
-                network, self._hidden_dim, self._act_dim * self._atoms, linear_fn
+                network, network_output_dim, self._act_dim * self._atoms, linear_fn
             )
 
         # Set up DistributionalNetwork wrapper if distributional is true

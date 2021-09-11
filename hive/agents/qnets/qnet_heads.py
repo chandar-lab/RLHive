@@ -50,7 +50,7 @@ class DuelingNetwork(nn.Module):
 
     def forward(self, x):
         x = self.shared_network(x)
-
+        x = x.flatten(start_dim=1)
         adv = self.output_layer_adv(x)
         val = self.output_layer_val(x)
 
