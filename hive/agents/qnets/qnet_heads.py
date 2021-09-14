@@ -36,17 +36,11 @@ class DuelingNetwork(nn.Module):
         self.init_networks()
 
     def init_networks(self):
-        self.output_layer_adv = nn.Sequential(
-            self._linear_fn(self._hidden_dim, self._hidden_dim),
-            nn.ReLU(),
-            self._linear_fn(self._hidden_dim, self._out_dim * self._atoms),
+        self.output_layer_adv = self._linear_fn(
+            self._hidden_dim, self._out_dim * self._atoms
         )
 
-        self.output_layer_val = nn.Sequential(
-            self._linear_fn(self._hidden_dim, self._hidden_dim),
-            nn.ReLU(),
-            self._linear_fn(self._hidden_dim, 1 * self._atoms),
-        )
+        self.output_layer_val = self._linear_fn(self._hidden_dim, 1 * self._atoms)
 
     def forward(self, x):
         x = self.shared_network(x)
