@@ -12,6 +12,7 @@ class DQNNetwork(nn.Module):
 
     def forward(self, x):
         x = self.network(x)
+        x = x.flatten(start_dim=1)
         return self.ouput_layer(x)
 
 
