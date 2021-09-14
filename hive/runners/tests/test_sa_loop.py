@@ -131,7 +131,7 @@ def test_resume(initial_runner):
     resumed_single_agent_runner._experiment_manager.resume()
     resumed_single_agent_runner._train_schedule = (
         resumed_single_agent_runner._experiment_manager.experiment_state[
-            "train_step_schedule"
+            "train_schedule"
         ]
     )
     resumed_single_agent_runner._test_schedule = (
