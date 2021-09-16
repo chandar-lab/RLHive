@@ -12,17 +12,17 @@ from unittest.mock import patch
 
 
 class FakeLogger1(ScheduledLogger):
-    def __init__(self, timescales, logger_schedules=None, arg1: int = 0):
+    def __init__(self, timescales=None, logger_schedules=None, arg1: int = 0):
         super().__init__(timescales, logger_schedules)
         self.arg1 = arg1
 
     def log_config(self, config):
         pass
 
-    def log_scalar(self, name, value, timescale):
+    def log_scalar(self, name, value, prefix):
         pass
 
-    def log_metrics(self, metrics, timescale):
+    def log_metrics(self, metrics, prefix):
         pass
 
     def save(self, dir_name):
@@ -33,17 +33,17 @@ class FakeLogger1(ScheduledLogger):
 
 
 class FakeLogger2(ScheduledLogger):
-    def __init__(self, timescales, logger_schedules=None, arg2: float = 0):
+    def __init__(self, timescales=None, logger_schedules=None, arg2: float = 0):
         super().__init__(timescales, logger_schedules)
         self.arg2 = arg2
 
     def log_config(self, config):
         pass
 
-    def log_scalar(self, name, value, timescale):
+    def log_scalar(self, name, value, prefix):
         pass
 
-    def log_metrics(self, metrics, timescale):
+    def log_metrics(self, metrics, prefix):
         pass
 
     def save(self, dir_name):
@@ -99,7 +99,7 @@ def test_run_step(initial_runner):
     assert turn == 0
     agent = single_agent_loop._agents[turn]
     done, observation = single_agent_loop.run_one_step(observation, episode_metrics)
-    single_agent_loop._train_step_schedule.update()
+    single_agent_loop._train_schedule.update()
     assert episode_metrics[agent.id]["episode_length"] == 1
 
 
@@ -116,7 +116,7 @@ def test_run_episode(initial_runner):
     )
     assert (
         episode_metrics[agent._id]["episode_length"]
-        == single_agent_runner._train_step_schedule._steps
+        == single_agent_runner._train_schedule._steps
     )
     single_agent_runner._experiment_manager.save()
 
@@ -126,17 +126,12 @@ def test_resume(initial_runner):
     test running training
     """
     resumed_single_agent_runner, config = initial_runner
-    assert resumed_single_agent_runner._train_step_schedule._steps == 0
+    assert resumed_single_agent_runner._train_schedule._steps == 0
 
     resumed_single_agent_runner._experiment_manager.resume()
-    resumed_single_agent_runner._train_step_schedule = (
+    resumed_single_agent_runner._train_schedule = (
         resumed_single_agent_runner._experiment_manager.experiment_state[
-            "train_step_schedule"
-        ]
-    )
-    resumed_single_agent_runner._train_episode_schedule = (
-        resumed_single_agent_runner._experiment_manager.experiment_state[
-            "train_episode_schedule"
+            "train_schedule"
         ]
     )
     resumed_single_agent_runner._test_schedule = (
@@ -153,7 +148,7 @@ def test_run_training(initial_runner):
     """
     single_agent_runner, config = initial_runner
     single_agent_runner.run_training()
-    assert single_agent_runner._train_step_schedule._steps == config["train_steps"]
+    assert single_agent_runner._train_schedule._steps == config["train_steps"] + 1
 
 
 @pytest.mark.parametrize(

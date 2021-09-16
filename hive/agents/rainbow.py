@@ -6,12 +6,13 @@ import numpy as np
 import torch
 from hive.agents.dqn import DQNAgent
 from hive.agents.qnets.base import FunctionApproximator
+from hive.agents.qnets.noisy_linear import NoisyLinear
 from hive.agents.qnets.qnet_heads import (
     DistributionalNetwork,
     DQNNetwork,
     DuelingNetwork,
 )
-from hive.agents.qnets.noisy_linear import NoisyLinear
+from hive.agents.qnets.utils import calculate_output_dim
 from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.logging import Logger
@@ -27,7 +28,6 @@ class RainbowDQNAgent(DQNAgent):
         qnet: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
-        hidden_dim: int,
         v_min: str = 0,
         v_max: str = 200,
         atoms: str = 51,
@@ -37,6 +37,7 @@ class RainbowDQNAgent(DQNAgent):
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: float = None,
+        reward_clip: float = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
@@ -48,8 +49,8 @@ class RainbowDQNAgent(DQNAgent):
         device: str = "cpu",
         logger: Logger = None,
         log_frequency: int = 100,
-        noisy=True,
-        std_init=0.5,
+        noisy: bool = True,
+        std_init: float = 0.5,
         double: bool = True,
         dueling: bool = True,
         distributional: bool = True,
@@ -73,6 +74,8 @@ class RainbowDQNAgent(DQNAgent):
                 future rewards are discounted by the agent.
             grad_clip (float): Gradients will be clipped to between
                 [-grad_clip, gradclip]
+            reward_clip (float): Rewards will be clipped to between
+                [-reward_clip, reward_clip]
             target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
@@ -115,13 +118,13 @@ class RainbowDQNAgent(DQNAgent):
             qnet,
             obs_dim,
             act_dim,
-            hidden_dim=hidden_dim,
             optimizer_fn=optimizer_fn,
             id=id,
             replay_buffer=replay_buffer,
             discount_rate=discount_rate,
             n_step=n_step,
             grad_clip=grad_clip,
+            reward_clip=reward_clip,
             target_net_soft_update=target_net_soft_update,
             target_net_update_fraction=target_net_update_fraction,
             target_net_update_schedule=target_net_update_schedule,
@@ -140,6 +143,7 @@ class RainbowDQNAgent(DQNAgent):
 
     def create_q_networks(self, qnet, device):
         network = qnet(self._obs_dim)
+        network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
 
         # Use NoisyLinear when creating output heads if noisy is true
         linear_fn = (
@@ -151,11 +155,11 @@ class RainbowDQNAgent(DQNAgent):
         # Set up Dueling heads
         if self._dueling:
             network = DuelingNetwork(
-                network, self._hidden_dim, self._act_dim, linear_fn, self._atoms
+                network, network_output_dim, self._act_dim, linear_fn, self._atoms
             )
         else:
             network = DQNNetwork(
-                network, self._hidden_dim, self._act_dim * self._atoms, linear_fn
+                network, network_output_dim, self._act_dim * self._atoms, linear_fn
             )
 
         # Set up DistributionalNetwork wrapper if distributional is true
@@ -237,6 +241,11 @@ class RainbowDQNAgent(DQNAgent):
         """
         if update_info["done"]:
             self._state["episode_start"] = True
+
+        if self._reward_clip is not None:
+            update_info["reward"] = np.clip(
+                update_info["reward"], -self._reward_clip, self._reward_clip
+            )
 
         # Add the most recent transition to the replay buffer.
         if self._training:

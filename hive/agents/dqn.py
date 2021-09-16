@@ -7,6 +7,7 @@ import torch
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.qnet_heads import DQNNetwork
+from hive.agents.qnets.utils import calculate_output_dim
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.logging import Logger, NullLogger
 from hive.utils.schedule import (
@@ -28,13 +29,13 @@ class DQNAgent(Agent):
         qnet: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
-        hidden_dim: int,
         optimizer_fn: OptimizerFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: float = None,
+        reward_clip: float = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
@@ -62,6 +63,8 @@ class DQNAgent(Agent):
                 future rewards are discounted by the agent.
             grad_clip (float): Gradients will be clipped to between
                 [-grad_clip, gradclip]
+            reward_clip (float): Rewards will be clipped to between
+                [-reward_clip, reward_clip]
             target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
@@ -83,7 +86,6 @@ class DQNAgent(Agent):
             log_frequency (int): How often to log the agent's metrics.
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
-        self._hidden_dim = hidden_dim
         self.create_q_networks(qnet, device)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
@@ -94,6 +96,7 @@ class DQNAgent(Agent):
             self._replay_buffer = CircularReplayBuffer(seed=seed)
         self._discount_rate = discount_rate ** n_step
         self._grad_clip = grad_clip
+        self._reward_clip = reward_clip
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
         self._device = torch.device(device)
@@ -125,7 +128,8 @@ class DQNAgent(Agent):
 
     def create_q_networks(self, qnet, device):
         network = qnet(self._obs_dim)
-        self._qnet = DQNNetwork(network, self._hidden_dim, self._act_dim).to(device)
+        network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
+        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
     def train(self):
@@ -187,6 +191,11 @@ class DQNAgent(Agent):
         """
         if update_info["done"]:
             self._state["episode_start"] = True
+
+        if self._reward_clip is not None:
+            update_info["reward"] = np.clip(
+                update_info["reward"], -self._reward_clip, self._reward_clip
+            )
 
         # Add the most recent transition to the replay buffer.
         if self._training:
