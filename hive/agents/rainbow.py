@@ -37,6 +37,7 @@ class RainbowDQNAgent(DQNAgent):
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: float = None,
+        reward_clip: float = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
@@ -73,6 +74,8 @@ class RainbowDQNAgent(DQNAgent):
                 future rewards are discounted by the agent.
             grad_clip (float): Gradients will be clipped to between
                 [-grad_clip, gradclip]
+            reward_clip (float): Rewards will be clipped to between
+                [-reward_clip, reward_clip]
             target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
@@ -121,6 +124,7 @@ class RainbowDQNAgent(DQNAgent):
             discount_rate=discount_rate,
             n_step=n_step,
             grad_clip=grad_clip,
+            reward_clip=reward_clip,
             target_net_soft_update=target_net_soft_update,
             target_net_update_fraction=target_net_update_fraction,
             target_net_update_schedule=target_net_update_schedule,
@@ -237,6 +241,11 @@ class RainbowDQNAgent(DQNAgent):
         """
         if update_info["done"]:
             self._state["episode_start"] = True
+
+        if self._reward_clip is not None:
+            update_info["reward"] = np.clip(
+                update_info["reward"], -self._reward_clip, self._reward_clip
+            )
 
         # Add the most recent transition to the replay buffer.
         if self._training:

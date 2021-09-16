@@ -35,6 +35,7 @@ class DQNAgent(Agent):
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: float = None,
+        reward_clip: float = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
@@ -62,6 +63,8 @@ class DQNAgent(Agent):
                 future rewards are discounted by the agent.
             grad_clip (float): Gradients will be clipped to between
                 [-grad_clip, gradclip]
+            reward_clip (float): Rewards will be clipped to between
+                [-reward_clip, reward_clip]
             target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
@@ -93,6 +96,7 @@ class DQNAgent(Agent):
             self._replay_buffer = CircularReplayBuffer(seed=seed)
         self._discount_rate = discount_rate ** n_step
         self._grad_clip = grad_clip
+        self._reward_clip = reward_clip
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
         self._device = torch.device(device)
@@ -187,6 +191,11 @@ class DQNAgent(Agent):
         """
         if update_info["done"]:
             self._state["episode_start"] = True
+
+        if self._reward_clip is not None:
+            update_info["reward"] = np.clip(
+                update_info["reward"], -self._reward_clip, self._reward_clip
+            )
 
         # Add the most recent transition to the replay buffer.
         if self._training:
