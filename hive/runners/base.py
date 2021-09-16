@@ -54,7 +54,7 @@ class Runner(ABC):
         self._test_num_episodes = test_num_episodes
         self._experiment_manager.experiment_state.update(
             {
-                "train_step_schedule": self._train_schedule,
+                "train_schedule": self._train_schedule,
                 "test_schedule": self._test_schedule,
             }
         )
@@ -159,9 +159,6 @@ class Runner(ABC):
         """Resume a saved experiment."""
         self._experiment_manager.resume()
         self._train_schedule = self._experiment_manager.experiment_state[
-            "train_step_schedule"
-        ]
-        self._train_episode_schedule = self._experiment_manager.experiment_state[
-            "train_episode_schedule"
+            "train_schedule"
         ]
         self._test_schedule = self._experiment_manager.experiment_state["test_schedule"]
