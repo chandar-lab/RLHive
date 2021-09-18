@@ -1,0 +1,101 @@
+# General training loop config
+run_name: &run_name 'pong-dopamine-atari-s0'
+train_steps: 200000000
+test_frequency: 100
+test_num_episodes: 10
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 15000
+save_dir: 'experiment'
+
+# Environment config
+environment:
+  name: 'AtariEnv'
+  kwargs:
+    env_name: 'Pong'
+
+# List of agents for the experiment. In single agent, only the first agent in
+# the list is used.
+agent:
+  name: 'RainbowDQNAgent'
+  kwargs:
+    qnet:
+      name: 'ConvNetwork'
+      kwargs:
+        channels: [16]
+        mlp_layers: [128]
+        kernel_sizes: [3]
+        strides: [1]
+        paddings: [0]
+        normalization_factor: 1
+        noisy: False
+        std_init: 0.5
+    optimizer_fn:
+      name: 'Adam'
+      kwargs:
+        lr: 0.0000625
+        eps: 0.00015
+    id: 0
+    n_step: &n_step 3
+    replay_buffer:
+      name: 'PrioritizedReplayBuffer'
+      kwargs:
+        seed: 0
+        capacity: 4000000
+        stack_size: 1
+        n_step: *n_step
+        gamma: .99
+    discount_rate: .99
+    target_net_update_schedule:
+      name: 'PeriodicSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        period: 1000
+    epsilon_schedule:
+      name: 'LinearSchedule'
+      kwargs:
+        init_value: 1
+        end_value: 0.1
+        steps: 1000000
+    learn_schedule:
+      name: 'SwitchSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        steps: 5000
+    update_period_schedule:
+      name: 'PeriodicSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        period: 4
+    seed: 0
+    batch_size: 32
+    device: 'cuda'
+    log_frequency: 1000
+    double: False
+    distributional: True
+    dueling: False
+    noisy: False
+    std_init: .5
+    use_eps_greedy: False
+    v_min: -40.0
+    v_max: 40.0
+    atoms: 51
+
+# List of logger configs used.
+loggers:
+  -
+    name: ChompLogger
+    kwargs: {}
+  -
+    name: WandbLogger
+    kwargs:
+      project_name: Hive-v2
+      run_name: *run_name
+      mode: "online"
+      settings_str: 'fork'
