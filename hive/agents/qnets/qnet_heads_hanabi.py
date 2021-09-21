@@ -1,14 +1,16 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+from hive.agents.qnets.qnet_heads import (
+    DQNNetwork,
+    DuelingNetwork,
+    DistributionalNetwork,
+)
 
 
-class HanabiDQNNetwork(nn.Module):
+class HanabiDQNNetwork(DQNNetwork):
     def __init__(self, network, hidden_dim, out_dim, linear_fn=None):
-        super().__init__()
-        self.network = network
-        self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
-        self.ouput_layer = self._linear_fn(hidden_dim, out_dim)
+        super().__init__(network, hidden_dim, out_dim, linear_fn)
 
     def forward(self, x, legal_moves):
         x = self.network(x)
@@ -21,7 +23,7 @@ class HanabiDQNNetwork(nn.Module):
         return x
 
 
-class HanabiDuelingNetwork(nn.Module):
+class HanabiDuelingNetwork(DuelingNetwork):
     """In dueling, we have two heads - one for estimating advantage function and one for
     estimating value function."""
 
@@ -33,26 +35,7 @@ class HanabiDuelingNetwork(nn.Module):
         linear_fn=None,
         atoms=1,
     ):
-        super().__init__()
-        self.shared_network = shared_network
-        self._hidden_dim = hidden_dim
-        self._out_dim = out_dim
-        self._atoms = atoms
-        self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
-        self.init_networks()
-
-    def init_networks(self):
-        self.output_layer_adv = nn.Sequential(
-            self._linear_fn(self._hidden_dim, self._hidden_dim),
-            nn.ReLU(),
-            self._linear_fn(self._hidden_dim, self._out_dim * self._atoms),
-        )
-
-        self.output_layer_val = nn.Sequential(
-            self._linear_fn(self._hidden_dim, self._hidden_dim),
-            nn.ReLU(),
-            self._linear_fn(self._hidden_dim, 1 * self._atoms),
-        )
+        super().__init__(shared_network, hidden_dim, out_dim, linear_fn, atoms)
 
     def forward(self, x, legal_moves):
         x = self.shared_network(x)
@@ -76,7 +59,7 @@ class HanabiDuelingNetwork(nn.Module):
         return x
 
 
-class HanabiDistributionalNetwork(nn.Module):
+class HanabiDistributionalNetwork(DistributionalNetwork):
     """Distributional MLP function approximator for Q-Learning."""
 
     def __init__(
@@ -87,11 +70,7 @@ class HanabiDistributionalNetwork(nn.Module):
         vmax=200,
         atoms=51,
     ):
-        super().__init__()
-        self.base_network = base_network
-        self._supports = torch.nn.Parameter(torch.linspace(vmin, vmax, atoms))
-        self._out_dim = out_dim
-        self._atoms = atoms
+        super().__init__(base_network, out_dim, vmin, vmax, atoms)
 
     def forward(self, x, legal_moves):
         x = self.dist(x, legal_moves)

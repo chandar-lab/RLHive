@@ -1,8 +1,8 @@
 # General training loop config
 run_name: &run_name 'hanabi-rainbow'
-train_steps: 30000
-test_frequency: 10
-test_num_episodes: 1
+train_steps: 100000000
+test_frequency: 10000
+test_num_episodes: 10
 self_play: True
 num_agents: 2
 stack_size: &stack_size 1
@@ -31,9 +31,6 @@ agents:
         name: 'MLPNetwork'
         kwargs:
           hidden_units: 512
-          noisy: False
-          std_init: 0.5
-      hidden_dim: 512
       optimizer_fn:
         name: 'Adam'
         kwargs:

@@ -11,6 +11,7 @@ from hive.agents.qnets.qnet_heads_hanabi import (
     HanabiDuelingNetwork,
 )
 from hive.agents.qnets.noisy_linear import NoisyLinear
+from hive.agents.qnets.utils import calculate_output_dim
 from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.logging import Logger
@@ -27,7 +28,6 @@ class HanabiRainbowAgent(RainbowDQNAgent):
         qnet: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
-        hidden_dim: int,
         v_min: str = 0,
         v_max: str = 200,
         atoms: str = 51,
@@ -37,6 +37,7 @@ class HanabiRainbowAgent(RainbowDQNAgent):
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: float = None,
+        reward_clip: float = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
@@ -63,7 +64,6 @@ class HanabiRainbowAgent(RainbowDQNAgent):
             qnet,
             obs_dim,
             act_dim,
-            hidden_dim=hidden_dim,
             v_min=v_min,
             v_max=v_max,
             atoms=atoms,
@@ -73,6 +73,7 @@ class HanabiRainbowAgent(RainbowDQNAgent):
             discount_rate=discount_rate,
             n_step=n_step,
             grad_clip=grad_clip,
+            reward_clip=reward_clip,
             target_net_soft_update=target_net_soft_update,
             target_net_update_fraction=target_net_update_fraction,
             target_net_update_schedule=target_net_update_schedule,
@@ -94,6 +95,7 @@ class HanabiRainbowAgent(RainbowDQNAgent):
 
     def create_q_networks(self, qnet, device):
         network = qnet(self._obs_dim)
+        network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
 
         # Use NoisyLinear when creating output heads if noisy is true
         linear_fn = (
@@ -105,11 +107,11 @@ class HanabiRainbowAgent(RainbowDQNAgent):
         # Set up Dueling heads
         if self._dueling:
             network = HanabiDuelingNetwork(
-                network, self._hidden_dim, self._act_dim, linear_fn, self._atoms
+                network, network_output_dim, self._act_dim, linear_fn, self._atoms
             )
         else:
             network = HanabiDQNNetwork(
-                network, self._hidden_dim, self._act_dim * self._atoms, linear_fn
+                network, network_output_dim, self._act_dim * self._atoms, linear_fn
             )
 
         # Set up DistributionalNetwork wrapper if distributional is true
@@ -204,6 +206,11 @@ class HanabiRainbowAgent(RainbowDQNAgent):
         """
         if update_info["done"]:
             self._state["episode_start"] = True
+
+        if self._reward_clip is not None:
+            update_info["reward"] = np.clip(
+                update_info["reward"], -self._reward_clip, self._reward_clip
+            )
 
         # Add the most recent transition to the replay buffer.
         if self._training:
