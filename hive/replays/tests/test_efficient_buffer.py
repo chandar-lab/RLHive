@@ -225,12 +225,19 @@ def test_sample_few_transitions(stack_size, n_step, num_added):
 def test_save_load(full_buffer, tmpdir):
     save_dir = tmpdir.mkdir("replay")
     full_buffer.save(save_dir)
-    buffer = EfficientCircularBuffer(
-        capacity=CAPACITY,
-        observation_shape=OBS_SHAPE,
-        observation_dtype=np.float32,
-        extra_storage_types={"priority": (np.int8, ())},
-    )
+    if isinstance(full_buffer, PrioritizedReplayBuffer):
+        buffer = PrioritizedReplayBuffer(
+            capacity=CAPACITY,
+            observation_shape=OBS_SHAPE,
+            observation_dtype=np.float32,
+        )
+    else:
+        buffer = EfficientCircularBuffer(
+            capacity=CAPACITY,
+            observation_shape=OBS_SHAPE,
+            observation_dtype=np.float32,
+            extra_storage_types={"priority": (np.int8, ())},
+        )
     buffer.load(save_dir)
     for key in full_buffer._storage:
         assert full_buffer._storage[key] == pytest.approx(buffer._storage[key])
