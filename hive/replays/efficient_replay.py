@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pickle
 
+from hive.utils.utils import create_folder
 from hive.replays.replay_buffer import BaseReplayBuffer
 
 
@@ -26,7 +27,6 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         seed=42,
     ):
         """Constructor for EfficientCircularBuffer.
-
         Args:
             capacity: Total number of observations that can be stored in the buffer.
                 Note, this is not the same as the number of transitions that can be
@@ -91,7 +91,6 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def _create_storage(self, capacity, specs):
         """Creates the storage buffer for each type of item in the buffer.
-
         Args:
             capacity: The capacity of the buffer.
             specs: A dictionary mapping item name to a tuple (type, shape) describing
@@ -125,7 +124,6 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def add(self, observation, action, reward, done, **kwargs):
         """Adds a transition to the buffer.
-
         The required components of a transition are given as positional arguments. The
         user can pass additional components to store in the buffer as kwargs as long as
         they were defined in the specification in the constructor.
@@ -161,7 +159,6 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         """Retrieves consecutive elements in the array, wrapping around if necessary.
         If more than 1 element is being accessed, the elements are concatenated along
         the first dimension.
-
         Args:
             array: array to access from
             indices: starts of ranges to access from
@@ -177,7 +174,6 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def _get_from_storage(self, key, indices, num_to_access=1):
         """Gets values from storage.
-
         Args:
             key: The name of the component to retrieve.
             indices: This can be a single int or a 1D numpyp array. The indices are
@@ -273,30 +269,36 @@ class EfficientCircularBuffer(BaseReplayBuffer):
 
     def save(self, dname):
         """Save the replay buffer.
-
         Args:
             dname: directory where to save buffer. Should already have been created.
         """
-        np.save(os.path.join(dname, "storage.npy"), self._storage)
+        storage_path = os.path.join(dname, "storage")
+        create_folder(storage_path)
+        for key in self._specs:
+            np.save(
+                os.path.join(storage_path, f"{key}"),
+                self._storage[key],
+                allow_pickle=False,
+            )
         state = {
             "episode_start": self._episode_start,
             "cursor": self._cursor,
             "num_added": self._num_added,
             "rng": self._rng,
         }
-
         with open(os.path.join(dname, "replay.pkl"), "wb") as f:
             pickle.dump(state, f)
 
     def load(self, dname):
         """Load the replay buffer.
-
         Args:
             dname: directory where to load buffer from.
         """
-        self._storage = np.load(
-            os.path.join(dname, "storage.npy"), allow_pickle=True
-        ).item()
+        storage_path = os.path.join(dname, "storage")
+        for key in self._specs:
+            self._storage[key] = np.load(
+                os.path.join(storage_path, f"{key}.npy"), allow_pickle=False
+            )
         with open(os.path.join(dname, "replay.pkl"), "rb") as f:
             state = pickle.load(f)
         self._episode_start = state["episode_start"]

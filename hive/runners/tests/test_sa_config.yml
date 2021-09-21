@@ -31,7 +31,6 @@ agent:
     optimizer_fn:
       name: 'Adam'
       kwargs: {}
-    hidden_dim: 256
     id: 0
     replay_buffer:
       name: 'CircularReplayBuffer'
