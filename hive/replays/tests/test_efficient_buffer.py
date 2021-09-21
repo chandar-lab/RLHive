@@ -229,7 +229,7 @@ def test_save_load(full_buffer, tmpdir):
         capacity=CAPACITY,
         observation_shape=OBS_SHAPE,
         observation_dtype=np.float32,
-        extra_storage_types={"foo": (np.int8, ())},
+        extra_storage_types={"priority": (np.int8, ())},
     )
     buffer.load(save_dir)
     for key in full_buffer._storage:
