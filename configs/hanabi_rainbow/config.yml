@@ -1,5 +1,5 @@
 # General training loop config
-run_name: &run_name 'hanabi-rainbow'
+run_name: &run_name 'pettingzoo-rainbow'
 train_steps: 100000000
 test_frequency: 10000
 test_num_episodes: 10
@@ -16,9 +16,10 @@ save_dir: 'experiment'
 
 # Environment config
 environment:
-  name: 'HanabiLearningEnv'
+  name: 'PettingZooEnv'
   kwargs:
-    env_name: 'Hanabi-Full'
+    env_name: 'hanabi_v4'
+    env_family: 'classic'
     num_players: 2
 
 # List of agents for the experiment. In single agent, only the first agent in
@@ -45,8 +46,8 @@ agents:
           stack_size: *stack_size
           extra_storage_types:
             legal_moves:
-              - 'np.int8'
-              - (20)
+              - 'np.float'
+              - [20]
       discount_rate: .99
       target_net_update_schedule:
         name: 'PeriodicSchedule'

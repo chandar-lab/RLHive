@@ -18,9 +18,9 @@ except ImportError:
     MarlGridEnv = None
 
 try:
-    from hive.envs.hanabi import HanabiLearningEnv
+    from hive.envs.pettingzoo import PettingZooEnv
 except ImportError:
-    HanabiLearningEnv = None
+    PettingZooEnv = None
 
 try:
     from hive.envs.minatar import MinAtarEnv
@@ -36,7 +36,7 @@ registry.register_all(
         "MiniGridEnv": MiniGridEnv,
         "MarlGridEnv": MarlGridEnv,
         "AtariEnv": AtariEnv,
-        "HanabiLearningEnv": HanabiLearningEnv,
+        "PettingZooEnv": PettingZooEnv,
         "MinAtarEnv": MinAtarEnv,
     },
 )

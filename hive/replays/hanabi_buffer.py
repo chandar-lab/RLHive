@@ -49,29 +49,11 @@ class HanabiBuffer(PrioritizedReplayBuffer):
         """
 
         batch = super().sample(batch_size)
-        indices = batch["indices"]
-
-        terminals = self._get_from_storage("done", indices, self._n_step)
-
-        if self._n_step == 1:
-            is_terminal = terminals
-            trajectory_lengths = np.ones(batch_size)
-        else:
-            is_terminal = terminals.any(axis=1).astype(int)
-            trajectory_lengths = (
-                np.argmax(terminals.astype(bool), axis=1) + 1
-            ) * is_terminal + self._n_step * (1 - is_terminal)
-        trajectory_lengths = trajectory_lengths.astype(np.int64)
 
         batch["next_legal_moves"] = self._get_from_storage(
             "legal_moves",
-            indices + trajectory_lengths - self._stack_size + 1,
+            batch["indices"] + batch["trajectory_lengths"] - self._stack_size + 1,
             num_to_access=self._stack_size,
         )
-
-        priorities = self._sum_tree.get_priorities(indices)
-        weights = (1.0 / priorities) ** self._beta
-        weights /= np.max(weights)
-        batch["weights"] = weights
 
         return batch

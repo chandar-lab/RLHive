@@ -256,6 +256,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
                 batch["reward"] = rewards
             else:
                 batch[key] = self._get_from_storage(key, indices)
+
+        batch["trajectory_lengths"] = trajectory_lengths
         batch["next_observation"] = self._get_from_storage(
             "observation",
             indices + trajectory_lengths - self._stack_size + 1,

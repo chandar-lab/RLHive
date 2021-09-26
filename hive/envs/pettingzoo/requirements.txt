@@ -1,0 +1,2 @@
+pettingzoo==1.11.2
+pettingzoo[classic]
