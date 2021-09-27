@@ -210,7 +210,8 @@ class DQNAgent(Agent):
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
         if (
-            self._learn_schedule.update()
+            self._training
+            and self._learn_schedule.update()
             and self._replay_buffer.size() > 0
             and self._update_period_schedule.update()
         ):
