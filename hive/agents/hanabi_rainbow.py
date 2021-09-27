@@ -91,9 +91,7 @@ class HanabiRainbowAgent(RainbowDQNAgent):
         super(HanabiRainbowAgent, self).create_q_networks(qnet, device)
 
         self._hanabi_qnet = HanabiHead(self._qnet).to(device=device)
-        self._target_hanabi_qnet = copy.deepcopy(self._hanabi_qnet).requires_grad_(
-            False
-        )
+        self._target_hanabi_qnet = HanabiHead(self._target_qnet).to(device=device)
 
     def target_projection(self, next_observation, next_legal_moves, reward, done):
         """Project distribution of target Q-values."""
@@ -148,13 +146,10 @@ class HanabiRainbowAgent(RainbowDQNAgent):
             vectorized_observation, torch.tensor(encoded_legal_moves).to(self._device)
         ).cpu()
 
-        if len(legal_moves_as_int) > 0:
-            if self._rng.random() < epsilon:
-                action = np.random.choice(legal_moves_as_int).item()
-            else:
-                action = torch.argmax(qvals).item()
+        if self._rng.random() < epsilon:
+            action = np.random.choice(legal_moves_as_int).item()
         else:
-            action = None
+            action = torch.argmax(qvals).item()
 
         if self._logger.should_log(self._timescale) and self._state["episode_start"]:
             self._logger.log_scalar(
