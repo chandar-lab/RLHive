@@ -91,11 +91,11 @@ class DQNAgent(Agent):
             log_frequency (int): How often to log the agent's metrics.
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
+        self._init_fn = create_init_weights_fn(init_fn)
         self.create_q_networks(qnet, device)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
-        self._init_fn = create_init_weights_fn(init_fn)
         self._rng = np.random.default_rng(seed=seed)
         self._replay_buffer = replay_buffer
         if self._replay_buffer is None:
