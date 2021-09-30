@@ -12,7 +12,7 @@ from hive.agents.qnets.qnet_heads import (
     DQNNetwork,
     DuelingNetwork,
 )
-from hive.agents.qnets.utils import calculate_output_dim
+from hive.agents.qnets.utils import InitializationFn, calculate_output_dim
 from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.logging import Logger
@@ -32,6 +32,7 @@ class RainbowDQNAgent(DQNAgent):
         v_max: str = 200,
         atoms: str = 51,
         optimizer_fn: OptimizerFn = None,
+        init_fn: InitializationFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
         discount_rate: float = 0.99,
@@ -119,6 +120,7 @@ class RainbowDQNAgent(DQNAgent):
             obs_dim,
             act_dim,
             optimizer_fn=optimizer_fn,
+            init_fn=init_fn,
             id=id,
             replay_buffer=replay_buffer,
             discount_rate=discount_rate,
@@ -170,6 +172,7 @@ class RainbowDQNAgent(DQNAgent):
         else:
             self._qnet = network
         self._qnet.to(device=device)
+        self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
     def target_projection(self, next_observation, reward, done):

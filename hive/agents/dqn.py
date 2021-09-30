@@ -7,7 +7,11 @@ import torch
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.qnet_heads import DQNNetwork
-from hive.agents.qnets.utils import calculate_output_dim
+from hive.agents.qnets.utils import (
+    InitializationFn,
+    calculate_output_dim,
+    create_init_weights_fn,
+)
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.logging import Logger, NullLogger
 from hive.utils.schedule import (
@@ -30,6 +34,7 @@ class DQNAgent(Agent):
         obs_dim: Tuple,
         act_dim: int,
         optimizer_fn: OptimizerFn = None,
+        init_fn: InitializationFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
         discount_rate: float = 0.99,
@@ -90,6 +95,7 @@ class DQNAgent(Agent):
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
+        self._init_fn = create_init_weights_fn(init_fn)
         self._rng = np.random.default_rng(seed=seed)
         self._replay_buffer = replay_buffer
         if self._replay_buffer is None:
@@ -130,6 +136,7 @@ class DQNAgent(Agent):
         network = qnet(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
         self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(device)
+        self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
     def train(self):
