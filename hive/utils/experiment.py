@@ -1,7 +1,6 @@
 """Implementation of a simple experiment class."""
 import logging
 import os
-from shutil import rmtree, copyfile
 
 from hive.utils.utils import create_folder, Chomp
 
