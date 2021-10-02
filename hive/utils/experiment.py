@@ -127,12 +127,7 @@ class Experiment(object):
             tag: str, tag for the saved experiment.
         """
 
-        if not self.is_resumable(tag):
-            logging.warning("This experiment is not resumable!")
-            logging.warning("Force restarting the experiment!")
-            self.force_restart(tag)
-
-        else:
+        if self.is_resumable(tag):
             save_dir = os.path.join(self._dir_name, tag)
             logging.info("Loading the experiment from {}".format(save_dir))
 
@@ -156,15 +151,3 @@ class Experiment(object):
             file_name = os.path.join(save_dir, "experiment_state.p")
             self.experiment_state.load(file_name)
             self._schedule = self.experiment_state["saving_schedule"]
-
-    def force_restart(self):
-        """Force restarting an experiment from beginning."""
-
-        logging.info("Force restarting the experiment...")
-
-        save_dir = os.path.join(self._dir_name)
-        create_folder(save_dir)
-        rmtree(save_dir)
-
-        if self._logger is not None:
-            self._logger.force_restart()
