@@ -172,13 +172,17 @@ class RainbowDQNAgent(DQNAgent):
         self._qnet.to(device=device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
-    def target_projection(self, next_observation, reward, done):
+    def target_projection(self, batch):
         """Project distribution of target Q-values."""
+        next_observation = batch["next_observation"]
+        reward = batch["reward"]
+        done = batch["done"]
         next_observation = next_observation.float()
         reward = reward.reshape(-1, 1)
         not_done = 1 - done.reshape(-1, 1)
         batch_size = next_observation.size(0)
-        next_action = self._target_qnet(next_observation).argmax(1)
+        _, target_qnet_input = preprocess_batch_observation(batch, self._device)
+        next_action = self._target_qnet(*target_qnet_input).argmax(1)
         next_dist = self._target_qnet.dist(next_observation)
         next_dist = next_dist[torch.arange(batch_size), next_action]
 
@@ -210,13 +214,17 @@ class RainbowDQNAgent(DQNAgent):
         else:
             epsilon = 0
 
-        observation = (
-            torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
-        )
-        qvals = self._qnet(observation)
+        qnet_input = preprocess_act_observation(observation, self._device)
+        qvals = self._qnet(*qnet_input)
 
         if self._rng.random() < epsilon:
-            action = self._rng.integers(self._act_dim)
+            if "action_mask" in observation:
+                action_mask_as_int = [
+                    i for i, x in enumerate(observation["action_mask"]) if x == 1
+                ]
+                action = np.random.choice(action_mask_as_int).item()
+            else:
+                action = self._rng.integers(self._act_dim)
         else:
             action = torch.argmax(qvals).item()
 
@@ -270,7 +278,10 @@ class RainbowDQNAgent(DQNAgent):
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(batch["observation"])
+            current_observation, next_observation = preprocess_batch_observation(
+                batch, self._device
+            )
+            pred_qvals = self._qnet(*current_observation)
             actions = batch["action"].long()
 
             if self._distributional:
@@ -279,9 +290,7 @@ class RainbowDQNAgent(DQNAgent):
                     current_dist[torch.arange(batch["observation"].size(0)), actions]
                 )
                 with torch.no_grad():
-                    target_prob = self.target_projection(
-                        batch["next_observation"], batch["reward"], batch["done"]
-                    )
+                    target_prob = self.target_projection(batch)
 
                 loss = -(target_prob * log_p).sum(-1)
 
@@ -290,12 +299,12 @@ class RainbowDQNAgent(DQNAgent):
 
                 # Compute 1-step Q targets
                 if self._double:
-                    next_action = self._qnet(batch["next_observation"])
+                    next_action = self._qnet(*next_observation)
                 else:
-                    next_action = self._target_qnet(batch["next_observation"])
+                    next_action = self._target_qnet(*next_observation)
 
                 _, next_action = torch.max(next_action, dim=1)
-                next_qvals = self._target_qnet(batch["next_observation"])
+                next_qvals = self._target_qnet(*next_observation)
                 next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
 
                 q_targets = batch["reward"] + self._discount_rate * next_qvals * (
@@ -327,3 +336,35 @@ class RainbowDQNAgent(DQNAgent):
         # Update target network
         if self._training and self._target_net_update_schedule.update():
             self._update_target()
+
+
+def action_encoding(action_mask):
+    encoded_action_mask = np.zeros(action_mask.shape)
+    encoded_action_mask[action_mask == 0] = -np.inf
+    return torch.tensor(encoded_action_mask)
+
+
+def preprocess_act_observation(observation, device):
+    if isinstance(observation, np.ndarray):
+        return torch.tensor(np.expand_dims(observation, axis=0)).to(device).float()
+    elif isinstance(observation, dict):
+        _observation = (
+            torch.tensor(np.expand_dims(observation["observation"], axis=0))
+            .to(device)
+            .float()
+        )
+
+        return _observation, action_encoding(observation["action_mask"]).to(device)
+
+
+def preprocess_batch_observation(batch, device):
+    if "action_mask" in batch:
+        return (
+            (batch["observation"], action_encoding(batch["action_mask"]).to(device)),
+            (
+                batch["next_observation"],
+                action_encoding(batch["next_action_mask"]).to(device),
+            ),
+        )
+    else:
+        return (batch["observation"],), (batch["next_observation"],)

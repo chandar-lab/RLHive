@@ -45,8 +45,8 @@ agents:
           capacity: 50000
           stack_size: *stack_size
           extra_storage_types:
-            legal_moves:
-              - 'np.float'
+            action_mask:
+              - 'np.uint8'
               - [20]
       discount_rate: .99
       target_net_update_schedule:

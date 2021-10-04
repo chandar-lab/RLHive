@@ -1,17 +1,15 @@
 import copy
-from functools import partial
 from typing import Tuple, Callable
 import numpy as np
 import torch
+from torch import nn
+import torch.nn.functional as F
 from hive.agents.rainbow import RainbowDQNAgent
 from hive.agents.qnets.base import FunctionApproximator
-from hive.agents.qnets.qnet_heads_hanabi import HanabiHead
-from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.logging import Logger
 from hive.utils.schedule import Schedule
 from hive.utils.utils import OptimizerFn
-from hive.agents.agent import Agent
 
 
 class HanabiRainbowAgent(RainbowDQNAgent):
@@ -90,187 +88,18 @@ class HanabiRainbowAgent(RainbowDQNAgent):
     def create_q_networks(self, qnet, device):
         super(HanabiRainbowAgent, self).create_q_networks(qnet, device)
 
-        self._hanabi_qnet = HanabiHead(self._qnet).to(device=device)
-        self._target_hanabi_qnet = HanabiHead(self._target_qnet).to(device=device)
-
-    def target_projection(self, next_observation, next_legal_moves, reward, done):
-        """Project distribution of target Q-values."""
-        next_observation = next_observation.float()
-        reward = reward.reshape(-1, 1)
-        not_done = 1 - done.reshape(-1, 1)
-        batch_size = next_observation.size(0)
-        next_action = self._target_hanabi_qnet(
-            next_observation, next_legal_moves
-        ).argmax(1)
-        next_dist = self._target_qnet.dist(next_observation)
-        next_dist = next_dist[torch.arange(batch_size), next_action]
-
-        dist_supports = reward + not_done * self._discount_rate * self._supports
-        dist_supports = dist_supports.clamp(min=self._v_min, max=self._v_max)
-        dist_supports = dist_supports.unsqueeze(1)
-        dist_supports.tile([1, self._atoms, 1])
-        projected_supports = self._supports.tile([batch_size, 1]).unsqueeze(2)
-
-        delta = float(self._v_max - self._v_min) / (self._atoms - 1)
-        quotient = 1 - (torch.abs(dist_supports - projected_supports) / delta)
-        quotient = quotient.clamp(min=0, max=1)
-
-        projection = torch.sum(quotient * next_dist.unsqueeze(1), dim=2)
-        return projection
-
-    @torch.no_grad()
-    def act(self, observation):
-
-        if self._training:
-            if not self._learn_schedule.get_value():
-                epsilon = 1.0
-            elif not self._use_eps_greedy:
-                epsilon = 0.0
-            else:
-                epsilon = self._epsilon_schedule.update()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_scalar("epsilon", epsilon, self._timescale)
-        else:
-            epsilon = 0
-
-        vectorized_observation = (
-            torch.tensor(np.expand_dims(observation["observation"], axis=0))
-            .to(self._device)
-            .float()
-        )
-        legal_moves_as_int = [
-            i for i, x in enumerate(observation["action_mask"]) if x == 1
-        ]
-        encoded_legal_moves = action_encoding(observation["action_mask"])
-        qvals = self._hanabi_qnet(
-            vectorized_observation, torch.tensor(encoded_legal_moves).to(self._device)
-        ).cpu()
-
-        if self._rng.random() < epsilon:
-            action = np.random.choice(legal_moves_as_int).item()
-        else:
-            action = torch.argmax(qvals).item()
-
-        if self._logger.should_log(self._timescale) and self._state["episode_start"]:
-            self._logger.log_scalar(
-                "train_qval" if self._training else "test_qval",
-                torch.max(qvals),
-                self._timescale,
-            )
-            self._state["episode_start"] = False
-
-        return action
-
-    def update(self, update_info):
-        """
-        Updates the DQN agent.
-
-        Args:
-            update_info: dictionary containing all the necessary information to
-            update the agent. Should contain a full transition, with keys for
-            "observation", "action", "reward", "next_observation", "done", "legal_moves", and "next_legal_moves".
-        """
-        if update_info["done"]:
-            self._state["episode_start"] = True
-
-        if self._reward_clip is not None:
-            update_info["reward"] = np.clip(
-                update_info["reward"], -self._reward_clip, self._reward_clip
-            )
-
-        # Add the most recent transition to the replay buffer.
-        if self._training:
-            self._replay_buffer.add(
-                np.array(update_info["observation"]["observation"], dtype=np.uint8),
-                update_info["action"],
-                update_info["reward"],
-                update_info["done"],
-                legal_moves=action_encoding(update_info["observation"]["action_mask"]),
-            )
-
-        # Update the q network based on a sample batch from the replay buffer.
-        # If the replay buffer doesn't have enough samples, catch the exception
-        # and move on.
-        if (
-            self._learn_schedule.update()
-            and self._replay_buffer.size() > 0
-            and self._update_period_schedule.update()
-        ):
-            batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            for key in batch:
-                batch[key] = torch.tensor(batch[key]).to(self._device)
-
-            # Compute predicted Q values
-            self._optimizer.zero_grad()
-            pred_qvals = self._hanabi_qnet(batch["observation"], batch["legal_moves"])
-            actions = batch["action"].long()
-
-            if self._distributional:
-                current_dist = self._qnet.dist(batch["observation"])
-                log_p = torch.log(
-                    current_dist[torch.arange(batch["observation"].size(0)), actions]
-                )
-                with torch.no_grad():
-                    target_prob = self.target_projection(
-                        batch["next_observation"],
-                        batch["next_legal_moves"],
-                        batch["reward"],
-                        batch["done"],
-                    )
-
-                loss = -(target_prob * log_p).sum(-1)
-
-            else:
-                pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
-
-                # Compute 1-step Q targets
-                if self._double:
-                    next_action = self._hanabi_qnet(
-                        batch["next_observation"], batch["next_legal_moves"]
-                    )
-                else:
-                    next_action = self._target_hanabi_qnet(
-                        batch["next_observation"], batch["next_legal_moves"]
-                    )
-
-                _, next_action = torch.max(next_action, dim=1)
-                next_qvals = self._target_hanabi_qnet(
-                    batch["next_observation"], batch["next_legal_moves"]
-                )
-                next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
-
-                q_targets = batch["reward"] + self._discount_rate * next_qvals * (
-                    1 - batch["done"]
-                )
-
-                loss = self._loss_fn(pred_qvals, q_targets)
-
-            if isinstance(self._replay_buffer, PrioritizedReplayBuffer):
-                td_errors = loss.sqrt().detach().cpu().numpy()
-                self._replay_buffer.update_priorities(batch["indices"], td_errors)
-                loss *= batch["weights"]
-            loss = loss.mean()
-
-            if self._logger.should_log(self._timescale):
-                self._logger.log_scalar(
-                    "train_loss" if self._training else "test_loss",
-                    loss,
-                    self._timescale,
-                )
-            if self._training:
-                loss.backward()
-                if self._grad_clip is not None:
-                    torch.nn.utils.clip_grad_value_(
-                        self._qnet.parameters(), self._grad_clip
-                    )
-                self._optimizer.step()
-
-        # Update target network
-        if self._training and self._target_net_update_schedule.update():
-            self._update_target()
+        self._qnet = HanabiHead(self._qnet).to(device=device)
+        self._target_qnet = HanabiHead(self._target_qnet).to(device=device)
 
 
-def action_encoding(legal_moves):
-    encoded_legal_moves = np.zeros(legal_moves.shape)
-    encoded_legal_moves[legal_moves == 0] = -np.inf
-    return encoded_legal_moves
+class HanabiHead(nn.Module):
+    def __init__(self, qnet):
+        super().__init__()
+        self._qnet = qnet
+
+    def forward(self, x, action_mask):
+        x = self._qnet(x)
+        return x + action_mask
+
+    def dist(self, x):
+        return self._qnet.dist(x)

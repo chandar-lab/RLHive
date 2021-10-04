@@ -50,8 +50,8 @@ class HanabiBuffer(PrioritizedReplayBuffer):
 
         batch = super().sample(batch_size)
 
-        batch["next_legal_moves"] = self._get_from_storage(
-            "legal_moves",
+        batch["next_action_mask"] = self._get_from_storage(
+            "action_mask",
             batch["indices"] + batch["trajectory_lengths"] - self._stack_size + 1,
             num_to_access=self._stack_size,
         )

@@ -56,14 +56,16 @@ class PettingZooEnv(GymEnv):
     def reset(self):
         self._env.reset()
         observation, _, _, _ = self._env.last()
-
+        for key in observation.keys():
+            observation[key] = np.array(observation[key], dtype=np.uint8)
         return observation, self._turn
 
     def step(self, action):
         self._env.step(action)
         observation, reward, done, info = self._env.last()
         self._turn = (self._turn + 1) % self._num_players
-
+        for key in observation.keys():
+            observation[key] = np.array(observation[key], dtype=np.uint8)
         return (
             observation,
             reward,
