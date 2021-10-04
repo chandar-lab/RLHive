@@ -128,20 +128,12 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         if self._episode_start:
             self._pad_buffer(self._stack_size - 1)
             self._episode_start = False
-        if isinstance(observation, np.ndarray):
-            transition = {
-                "observation": observation,
-                "action": action,
-                "reward": reward,
-                "done": done,
-            }
-        elif isinstance(observation, dict):
-            transition = {
-                "action": action,
-                "reward": reward,
-                "done": done,
-            }
-            transition.update(observation)
+        transition = {
+            "observation": observation,
+            "action": action,
+            "reward": reward,
+            "done": done,
+        }
         transition.update(kwargs)
         for key in self._specs:
             obj_type = (
