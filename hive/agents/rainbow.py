@@ -174,14 +174,13 @@ class RainbowDQNAgent(DQNAgent):
         self._qnet.to(device=device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
-    def target_projection(self, next_observation, reward, done):
+    def target_projection(self, target_net_inputs, reward, done):
         """Project distribution of target Q-values."""
-        next_observation = next_observation.float()
         reward = reward.reshape(-1, 1)
         not_done = 1 - done.reshape(-1, 1)
-        batch_size = next_observation.size(0)
-        next_action = self._target_qnet(next_observation).argmax(1)
-        next_dist = self._target_qnet.dist(next_observation)
+        batch_size = reward.size(0)
+        next_action = self._target_qnet(*target_net_inputs).argmax(1)
+        next_dist = self._target_qnet.dist(*target_net_inputs)
         next_dist = next_dist[torch.arange(batch_size), next_action]
 
         dist_supports = reward + not_done * self._discount_rate * self._supports
@@ -196,6 +195,24 @@ class RainbowDQNAgent(DQNAgent):
 
         projection = torch.sum(quotient * next_dist.unsqueeze(1), dim=2)
         return projection
+
+    def preprocess_update_info(self, update_info):
+        if self._reward_clip is not None:
+            update_info["reward"] = np.clip(
+                update_info["reward"], -self._reward_clip, self._reward_clip
+            )
+
+        return {
+            "observation": update_info["observation"],
+            "action": update_info["action"],
+            "reward": update_info["reward"],
+            "done": update_info["done"],
+        }
+
+    def preprocess_update_batch(self, batch):
+        for key in batch:
+            batch[key] = torch.tensor(batch[key]).to(self._device)
+        return (batch["observation"].float(),), (batch["next_observation"].float(),)
 
     @torch.no_grad()
     def act(self, observation):
@@ -247,18 +264,8 @@ class RainbowDQNAgent(DQNAgent):
         if not self._training:
             return
 
-        if self._reward_clip is not None:
-            update_info["reward"] = np.clip(
-                update_info["reward"], -self._reward_clip, self._reward_clip
-            )
-
         # Add the most recent transition to the replay buffer.
-        self._replay_buffer.add(
-            update_info["observation"],
-            update_info["action"],
-            update_info["reward"],
-            update_info["done"],
-        )
+        self._replay_buffer.add(**self.preprocess_update_info(update_info))
 
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
@@ -269,22 +276,19 @@ class RainbowDQNAgent(DQNAgent):
             and self._update_period_schedule.update()
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            for key in batch:
-                batch[key] = torch.tensor(batch[key]).to(self._device)
+            qnet_inputs, target_qnet_inputs = self.preprocess_update_batch(batch)
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(batch["observation"])
+            pred_qvals = self._qnet(*qnet_inputs)
             actions = batch["action"].long()
 
             if self._distributional:
-                current_dist = self._qnet.dist(batch["observation"])
-                log_p = torch.log(
-                    current_dist[torch.arange(batch["observation"].size(0)), actions]
-                )
+                current_dist = self._qnet.dist(*qnet_inputs)
+                log_p = torch.log(current_dist[torch.arange(actions.size(0)), actions])
                 with torch.no_grad():
                     target_prob = self.target_projection(
-                        batch["next_observation"], batch["reward"], batch["done"]
+                        target_qnet_inputs, batch["reward"], batch["done"]
                     )
 
                 loss = -(target_prob * log_p).sum(-1)
@@ -294,12 +298,12 @@ class RainbowDQNAgent(DQNAgent):
 
                 # Compute 1-step Q targets
                 if self._double:
-                    next_action = self._qnet(batch["next_observation"])
+                    next_action = self._qnet(*qnet_inputs)
                 else:
-                    next_action = self._target_qnet(batch["next_observation"])
+                    next_action = self._target_qnet(*target_qnet_inputs)
 
                 _, next_action = torch.max(next_action, dim=1)
-                next_qvals = self._target_qnet(batch["next_observation"])
+                next_qvals = self._target_qnet(*target_qnet_inputs)
                 next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
 
                 q_targets = batch["reward"] + self._discount_rate * next_qvals * (
