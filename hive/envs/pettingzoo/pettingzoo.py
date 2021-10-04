@@ -1,11 +1,11 @@
 import numpy as np
 
-from hive.envs import ParallelEnv, GymEnv
+from hive.envs import ParallelEnv, BaseEnv
 from importlib import import_module
 from hive.envs.env_spec import EnvSpec
 
 
-class PettingZooEnv(GymEnv):
+class PettingZooEnv(BaseEnv):
     """
     PettingZoo environment from https://github.com/PettingZoo-Team/PettingZoo
 
@@ -17,6 +17,7 @@ class PettingZooEnv(GymEnv):
         env_name,
         env_family,
         num_players,
+        **kwargs,
     ):
         """
         Args:
@@ -26,9 +27,9 @@ class PettingZooEnv(GymEnv):
             num_players (int): Number of learning agents
         """
         self._env_family = env_family
-        self.create_env(env_name)
-        self._env_spec = self.create_env_spec(env_name)
-        super().__init__(env_name, num_players)
+        self.create_env(env_name, **kwargs)
+        self._env_spec = self.create_env_spec(env_name, **kwargs)
+        super().__init__(self.create_env_spec(env_name, **kwargs), num_players)
 
     def create_env(self, env_name, **kwargs):
         env_module = import_module("pettingzoo." + self._env_family + "." + env_name)
@@ -73,3 +74,12 @@ class PettingZooEnv(GymEnv):
             self._turn,
             info,
         )
+
+    def render(self, mode="rgb_array"):
+        return self._env.render(mode=mode)
+
+    def seed(self, seed=None):
+        self._env.seed(seed=seed)
+
+    def close(self):
+        self._env.close()
