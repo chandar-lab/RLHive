@@ -87,7 +87,8 @@ class DQNAgent(Agent):
             log_frequency (int): How often to log the agent's metrics.
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
-        self.create_q_networks(qnet, device)
+        self._device = torch.device(device)
+        self.create_q_networks(qnet)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
@@ -100,7 +101,6 @@ class DQNAgent(Agent):
         self._reward_clip = reward_clip
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
-        self._device = torch.device(device)
         self._loss_fn = torch.nn.SmoothL1Loss(reduction="none")
         self._batch_size = batch_size
         self._logger = logger
@@ -128,10 +128,12 @@ class DQNAgent(Agent):
         self._state = {"episode_start": True}
         self._training = False
 
-    def create_q_networks(self, qnet, device):
+    def create_q_networks(self, qnet):
         network = qnet(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
-        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(device)
+        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(
+            self._device
+        )
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
     def train(self):

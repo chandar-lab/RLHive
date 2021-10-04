@@ -143,7 +143,7 @@ class RainbowDQNAgent(DQNAgent):
         self._loss_fn = torch.nn.MSELoss(reduction="none")
         self._use_eps_greedy = use_eps_greedy
 
-    def create_q_networks(self, qnet, device):
+    def create_q_networks(self, qnet):
         network = qnet(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
 
@@ -171,7 +171,7 @@ class RainbowDQNAgent(DQNAgent):
             )
         else:
             self._qnet = network
-        self._qnet.to(device=device)
+        self._qnet.to(device=self._device)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
     def target_projection(self, target_net_inputs, reward, done):
