@@ -346,7 +346,7 @@ def action_encoding(action_mask):
 
 def preprocess_act_observation(observation, device):
     if isinstance(observation, np.ndarray):
-        return torch.tensor(np.expand_dims(observation, axis=0)).to(device).float()
+        return (torch.tensor(np.expand_dims(observation, axis=0)).to(device).float(),)
     elif isinstance(observation, dict):
         _observation = (
             torch.tensor(np.expand_dims(observation["observation"], axis=0))
