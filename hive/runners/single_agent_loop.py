@@ -20,7 +20,7 @@ class SingleAgentRunner(Runner):
         experiment_manager,
         train_steps,
         test_frequency,
-        test_num_episodes,
+        test_steps,
         stack_size,
     ):
         super().__init__(
@@ -30,7 +30,7 @@ class SingleAgentRunner(Runner):
             experiment_manager,
             train_steps,
             test_frequency,
-            test_num_episodes,
+            test_steps,
         )
         self._transition_info = TransitionInfo(self._agents, stack_size)
 
@@ -56,7 +56,10 @@ class SingleAgentRunner(Runner):
             "done": done,
             "info": other_info,
         }
-        agent.update(info)
+
+        if self._training:
+            agent.update(info)
+
         self._transition_info.record_info(agent, info)
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1
@@ -71,12 +74,13 @@ class SingleAgentRunner(Runner):
         observation, _ = self._environment.reset()
         self._transition_info.reset()
         self._transition_info.start_agent(self._agents[0])
-
-        # Run the loop until either training ends or the episode ends
-        while (not self._training or self._train_schedule.get_value()) and not done:
+        steps = 0
+        # Run the loop until the episode ends or times out
+        while not done and steps < self._max_steps_per_episode:
             done, observation = self.run_one_step(observation, episode_metrics)
+            steps += 1
 
-        return episode_metrics
+        return episode_metrics, steps
 
 
 def set_up_experiment(config):
@@ -87,7 +91,8 @@ def set_up_experiment(config):
             "seed": int,
             "train_steps": int,
             "test_frequency": int,
-            "test_num_episodes": int,
+            "test_steps": int,
+            "max_steps_per_episode": int,
             "stack_size": int,
             "resume": bool,
             "run_name": str,
