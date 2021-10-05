@@ -32,7 +32,9 @@ class PettingZooEnv(BaseEnv):
         super().__init__(self.create_env_spec(env_name, **kwargs), num_players)
 
     def create_env(self, env_name, **kwargs):
-        env_module = import_module("hanabi_rainbow." + self._env_family + "." + env_name)
+        env_module = import_module(
+            "hanabi_rainbow." + self._env_family + "." + env_name
+        )
         self._env = env_module.env()
 
     def create_env_spec(self, env_name, **kwargs):
