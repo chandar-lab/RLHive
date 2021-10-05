@@ -1,14 +1,15 @@
 import numpy as np
 
-from hive.envs import ParallelEnv, GymEnv
+from hive.envs import ParallelEnv, BaseEnv
 from importlib import import_module
 from hive.envs.env_spec import EnvSpec
 
 
-class PettingZooEnv(ParallelEnv, GymEnv):
+class PettingZooEnv(BaseEnv):
     """
-    PettingZoo environemnt from https://github.com/PettingZoo-Team/PettingZoo
+    PettingZoo environment from https://github.com/PettingZoo-Team/PettingZoo
 
+    For now, we only support environments from PettingZoo with discrete actions.
     """
 
     def __init__(
@@ -16,19 +17,36 @@ class PettingZooEnv(ParallelEnv, GymEnv):
         env_name,
         env_family,
         num_players,
+        **kwargs,
     ):
+        """
+        Args:
+            env_name (str): Name of the environment
+            env_family (str): Family of the environment such as "Atari",
+            "Classic", "SISL", "Butterfly", "MAgent", and "MPE".
+            num_players (int): Number of learning agents
+        """
         self._env_family = env_family
-        self.create_env(env_name)
-        self._env_spec = self.create_env_spec(env_name)
-        super().__init__(env_name, num_players)
+        self.create_env(env_name, **kwargs)
+        self._env_spec = self.create_env_spec(env_name, **kwargs)
+        super().__init__(self.create_env_spec(env_name, **kwargs), num_players)
 
     def create_env(self, env_name, **kwargs):
-
-        env_module = import_module("pettingzoo." + self._env_family + "." + env_name)
+        env_module = import_module("hanabi_rainbow." + self._env_family + "." + env_name)
         self._env = env_module.env()
 
     def create_env_spec(self, env_name, **kwargs):
-        obs_dim = [space.shape for space in self._env.observation_spaces.values()]
+        """
+        Each family of environments have their own type of observations and actions.
+        You can add support for more families here by modifying obs_dim and act_dim.
+        """
+        if self._env_family in ["classic"]:
+            obs_dim = [
+                space["observation"].shape
+                for space in self._env.observation_spaces.values()
+            ]
+        elif self._env_family in ["sisl"]:
+            obs_dim = [space.shape for space in self._env.observation_spaces.values()]
         act_dim = [space.n for space in self._env.action_spaces.values()]
         return EnvSpec(
             env_name=env_name,
@@ -39,21 +57,29 @@ class PettingZooEnv(ParallelEnv, GymEnv):
     def reset(self):
         self._env.reset()
         observation, _, _, _ = self._env.last()
-        return np.asarray(observation, dtype=np.uint8), self._turn
+        for key in observation.keys():
+            observation[key] = np.array(observation[key], dtype=np.uint8)
+        return observation, self._turn
 
     def step(self, action):
-
-        self._actions.append(action)
         self._env.step(action)
         observation, reward, done, info = self._env.last()
-
-        self._done = done
         self._turn = (self._turn + 1) % self._num_players
-        self._info = info
+        for key in observation.keys():
+            observation[key] = np.array(observation[key], dtype=np.uint8)
         return (
-            np.asarray(observation, dtype=np.uint8),
+            observation,
             reward,
-            self._done and self._turn == 0,
+            done,
             self._turn,
-            self._info,
+            info,
         )
+
+    def render(self, mode="rgb_array"):
+        return self._env.render(mode=mode)
+
+    def seed(self, seed=None):
+        self._env.seed(seed=seed)
+
+    def close(self):
+        self._env.close()
