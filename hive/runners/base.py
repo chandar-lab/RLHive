@@ -19,7 +19,8 @@ class Runner(ABC):
         experiment_manager,
         train_steps=1000000,
         test_frequency=10000,
-        test_num_episodes=1,
+        test_steps=1,
+        max_steps_per_episode=27000,
     ):
         """Initializes the Runner object.
         Args:
@@ -29,12 +30,10 @@ class Runner(ABC):
             experiment_manager: ExperimentManager object that saves the state of the
                 training.
             train_steps: How many steps to train for. If this is -1, there is no limit
-                for the number of training steps. If both this and train_episodes are
-                -1, training loop will not terminate.
+                for the number of training steps.
             test_frequency: After how many training steps to run testing episodes.
                 If this is -1, testing is not run.
-            test_num_episodes: How many testing episodes to run during each testing
-                period.
+            test_steps: How many steps to run testing for.
         """
         self._environment = environment
         if isinstance(agents, list):
@@ -51,7 +50,9 @@ class Runner(ABC):
             self._test_schedule = schedule.ConstantSchedule(False)
         else:
             self._test_schedule = schedule.PeriodicSchedule(False, True, test_frequency)
-        self._test_num_episodes = test_num_episodes
+        self._test_steps = test_steps
+        self._max_steps_per_episode = max_steps_per_episode
+
         self._experiment_manager.experiment_state.update(
             {
                 "train_schedule": self._train_schedule,
@@ -100,7 +101,7 @@ class Runner(ABC):
                 self._experiment_manager.update_step() or self._save_experiment
             )
 
-    def run_end_step(self, episode_metrics):
+    def run_end_step(self, episode_metrics, done):
         """Run the final step of an episode.
 
         After an episode ends, iterate through agents and update then with the final
@@ -122,7 +123,7 @@ class Runner(ABC):
         while self._train_schedule.get_value():
             # Run training episode
             self.train_mode(True)
-            episode_metrics = self.run_episode()
+            episode_metrics, _ = self.run_episode()
             if self._logger.should_log("train"):
                 episode_metrics = episode_metrics.get_flat_dict()
                 self._logger.log_metrics(episode_metrics, "train")
@@ -147,13 +148,19 @@ class Runner(ABC):
 
     def run_testing(self):
         self.train_mode(False)
-        mean_episode_metrics = self.create_episode_metrics().get_flat_dict()
-        for _ in range(self._test_num_episodes):
-            episode_metrics = self.run_episode()
+        aggregated_episode_metrics = self.create_episode_metrics().get_flat_dict()
+        test_steps = 0
+        episodes = 0
+        while test_steps <= self._test_steps:
+            episode_metrics, steps = self.run_episode()
+            test_steps += steps
+            episodes += 1
             for metric, value in episode_metrics.get_flat_dict().items():
-                mean_episode_metrics[metric] += value / self._test_num_episodes
+                aggregated_episode_metrics[metric] += value
 
-        return mean_episode_metrics
+        for metric in aggregated_episode_metrics:
+            aggregated_episode_metrics[metric] /= episodes
+        return aggregated_episode_metrics
 
     def resume(self):
         """Resume a saved experiment."""

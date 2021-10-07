@@ -20,7 +20,7 @@ class MultiAgentRunner(Runner):
         experiment_manager,
         train_steps,
         test_frequency,
-        test_num_episodes,
+        test_steps,
         stack_size,
     ):
         """Initializes the Runner object.
@@ -31,15 +31,11 @@ class MultiAgentRunner(Runner):
             experiment_manager: ExperimentManager object that saves the state of the
                 training.
             train_steps: How many steps to train for. If this is -1, there is no limit
-                for the number of training steps. If both this and train_episodes are
-                -1, training loop will not terminate.
-            train_episodes: How many episodes to train for. If this is -1, there is no
-                limit for the number of training episodes. If both this and train_steps
-                are -1, training loop will not terminate.
-            test_frequency: After how many training episodes to run testing episodes.
+                for the number of training steps.
+            train_steps: How many steps to train for. If this is -1, there is no limit
+                for the number of training steps.
+            test_frequency: After how many training steps to run testing episodes.
                 If this is -1, testing is not run.
-            test_num_episodes: How many testing episodes to run during each testing
-                period.
             stack_size: The number of frames in an observation sent to an agent.
         """
         super().__init__(
@@ -49,7 +45,7 @@ class MultiAgentRunner(Runner):
             experiment_manager,
             train_steps,
             test_frequency,
-            test_num_episodes,
+            test_steps,
         )
         self._transition_info = TransitionInfo(self._agents, stack_size)
 
@@ -69,7 +65,10 @@ class MultiAgentRunner(Runner):
         agent = self._agents[turn]
         if self._transition_info.is_started(agent):
             info = self._transition_info.get_info(agent)
-            agent.update(info)
+
+            if self._training:
+                agent.update(info)
+
             episode_metrics[agent.id]["reward"] += info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
             episode_metrics["full_episode_length"] += 1
@@ -94,7 +93,7 @@ class MultiAgentRunner(Runner):
         self._transition_info.update_all_rewards(reward)
         return done, next_observation, turn
 
-    def run_end_step(self, episode_metrics):
+    def run_end_step(self, episode_metrics, done=True):
         """Run the final step of an episode.
 
         After an episode ends, iterate through agents and update then with the final
@@ -105,29 +104,32 @@ class MultiAgentRunner(Runner):
 
         """
         for agent in self._agents:
-            info = self._transition_info.get_info(agent, done=True)
-            agent.update(info)
+            info = self._transition_info.get_info(agent, done=done)
+
+            if self._training:
+                agent.update(info)
+
             episode_metrics[agent.id]["reward"] += info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
             episode_metrics["full_episode_length"] += 1
 
     def run_episode(self):
         """Run a single episode of the environment."""
-        self._transition_info.reset()
         episode_metrics = self.create_episode_metrics()
         done = False
         observation, turn = self._environment.reset()
-
-        # Run the loop until either training ends or the episode ends
-        while (not self._training or self._train_schedule.get_value()) and not done:
+        self._transition_info.reset()
+        steps = 0
+        # Run the loop until the episode ends or times out
+        while not done and steps < self._max_steps_per_episode:
             done, observation, turn = self.run_one_step(
                 observation, turn, episode_metrics
             )
+            steps += 1
 
-        # If the episode ended, run the final update.
-        if done:
-            self.run_end_step(episode_metrics)
-        return episode_metrics
+        # Run the final update.
+        self.run_end_step(episode_metrics, done)
+        return episode_metrics, steps
 
 
 def set_up_experiment(config):
@@ -138,7 +140,8 @@ def set_up_experiment(config):
             "seed": int,
             "train_steps": int,
             "test_frequency": int,
-            "test_num_episodes": int,
+            "test_steps": int,
+            "max_steps_per_episode": int,
             "stack_size": int,
             "resume": bool,
             "run_name": str,
@@ -216,7 +219,7 @@ def set_up_experiment(config):
         experiment_manager,
         config.get("train_steps", -1),
         config.get("test_frequency", -1),
-        config.get("test_num_episodes", 1),
+        config.get("test_steps", 1),
         config.get("stack_size", 1),
     )
     if config.get("resume", False):

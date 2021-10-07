@@ -46,6 +46,7 @@ class DQNAgent(Agent):
         target_net_update_schedule: Schedule = None,
         update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
+        test_epsilon: float = 0.001,
         learn_schedule: Schedule = None,
         seed: int = 42,
         batch_size: int = 32,
@@ -124,6 +125,7 @@ class DQNAgent(Agent):
         self._epsilon_schedule = epsilon_schedule
         if self._epsilon_schedule is None:
             self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
+        self._test_epsilon = test_epsilon
 
         self._learn_schedule = learn_schedule
         if self._learn_schedule is None:
@@ -165,7 +167,7 @@ class DQNAgent(Agent):
             if self._logger.update_step(self._timescale):
                 self._logger.log_scalar("epsilon", epsilon, self._timescale)
         else:
-            epsilon = 0
+            epsilon = self._test_epsilon
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
@@ -178,12 +180,12 @@ class DQNAgent(Agent):
         else:
             action = torch.argmax(qvals).item()
 
-        if self._logger.should_log(self._timescale) and self._state["episode_start"]:
-            self._logger.log_scalar(
-                "train_qval" if self._training else "test_qval",
-                torch.max(qvals),
-                self._timescale,
-            )
+        if (
+            self._training
+            and self._logger.should_log(self._timescale)
+            and self._state["episode_start"]
+        ):
+            self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
             self._state["episode_start"] = False
         return action
 
@@ -199,19 +201,21 @@ class DQNAgent(Agent):
         if update_info["done"]:
             self._state["episode_start"] = True
 
+        if not self._training:
+            return
+
         if self._reward_clip is not None:
             update_info["reward"] = np.clip(
                 update_info["reward"], -self._reward_clip, self._reward_clip
             )
 
         # Add the most recent transition to the replay buffer.
-        if self._training:
-            self._replay_buffer.add(
-                observation=update_info["observation"],
-                action=update_info["action"],
-                reward=update_info["reward"],
-                done=update_info["done"],
-            )
+        self._replay_buffer.add(
+            observation=update_info["observation"],
+            action=update_info["action"],
+            reward=update_info["reward"],
+            done=update_info["done"],
+        )
 
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
@@ -242,21 +246,17 @@ class DQNAgent(Agent):
             loss = self._loss_fn(pred_qvals, q_targets).mean()
 
             if self._logger.should_log(self._timescale):
-                self._logger.log_scalar(
-                    "train_loss" if self._training else "test_loss",
-                    loss,
-                    self._timescale,
+                self._logger.log_scalar("train_loss", loss, self._timescale)
+
+            loss.backward()
+            if self._grad_clip is not None:
+                torch.nn.utils.clip_grad_value_(
+                    self._qnet.parameters(), self._grad_clip
                 )
-            if self._training:
-                loss.backward()
-                if self._grad_clip is not None:
-                    torch.nn.utils.clip_grad_value_(
-                        self._qnet.parameters(), self._grad_clip
-                    )
-                self._optimizer.step()
+            self._optimizer.step()
 
         # Update target network
-        if self._training and self._target_net_update_schedule.update():
+        if self._target_net_update_schedule.update():
             self._update_target()
 
     def _update_target(self):

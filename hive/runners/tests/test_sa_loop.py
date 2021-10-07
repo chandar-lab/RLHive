@@ -108,7 +108,7 @@ def test_run_episode(initial_runner):
     test running one episode
     """
     single_agent_runner, config = initial_runner
-    episode_metrics = single_agent_runner.run_episode()
+    episode_metrics, steps = single_agent_runner.run_episode()
     agent = single_agent_runner._agents[0]
     assert (
         episode_metrics[agent._id]["episode_length"]
@@ -118,7 +118,7 @@ def test_run_episode(initial_runner):
         episode_metrics[agent._id]["episode_length"]
         == single_agent_runner._train_schedule._steps
     )
-    single_agent_runner._experiment_manager.save()
+    assert steps == single_agent_runner._train_schedule._steps
 
 
 def test_resume(initial_runner):
@@ -148,7 +148,12 @@ def test_run_training(initial_runner):
     """
     single_agent_runner, config = initial_runner
     single_agent_runner.run_training()
-    assert single_agent_runner._train_schedule._steps == config["train_steps"] + 1
+    assert single_agent_runner._train_schedule._steps >= config["train_steps"]
+    assert (
+        single_agent_runner._train_schedule._steps
+        <= config["train_steps"]
+        + single_agent_runner._environment._env._max_episode_steps
+    )
 
 
 @pytest.mark.parametrize(
