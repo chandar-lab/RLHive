@@ -138,7 +138,9 @@ class DQNAgent(Agent):
     def create_q_networks(self, qnet):
         network = qnet(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
-        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(self._device)
+        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(
+            self._device
+        )
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
