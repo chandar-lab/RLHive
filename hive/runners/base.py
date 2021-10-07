@@ -30,8 +30,7 @@ class Runner(ABC):
             experiment_manager: ExperimentManager object that saves the state of the
                 training.
             train_steps: How many steps to train for. If this is -1, there is no limit
-                for the number of training steps. If both this and train_episodes are
-                -1, training loop will not terminate.
+                for the number of training steps.
             test_frequency: After how many training steps to run testing episodes.
                 If this is -1, testing is not run.
             test_steps: How many steps to run testing for.

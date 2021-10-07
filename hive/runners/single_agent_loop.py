@@ -154,7 +154,7 @@ def set_up_experiment(config):
         experiment_manager,
         config.get("train_steps", -1),
         config.get("test_frequency", -1),
-        config.get("test_num_episodes", 1),
+        config.get("test_steps", 1),
         config.get("stack_size", 1),
     )
     if config.get("resume", False):

@@ -20,7 +20,7 @@ class MultiAgentRunner(Runner):
         experiment_manager,
         train_steps,
         test_frequency,
-        test_num_episodes,
+        test_steps,
         stack_size,
     ):
         """Initializes the Runner object.
@@ -31,15 +31,11 @@ class MultiAgentRunner(Runner):
             experiment_manager: ExperimentManager object that saves the state of the
                 training.
             train_steps: How many steps to train for. If this is -1, there is no limit
-                for the number of training steps. If both this and train_episodes are
-                -1, training loop will not terminate.
-            train_episodes: How many episodes to train for. If this is -1, there is no
-                limit for the number of training episodes. If both this and train_steps
-                are -1, training loop will not terminate.
-            test_frequency: After how many training episodes to run testing episodes.
+                for the number of training steps.
+            train_steps: How many steps to train for. If this is -1, there is no limit
+                for the number of training steps.
+            test_frequency: After how many training steps to run testing episodes.
                 If this is -1, testing is not run.
-            test_num_episodes: How many testing episodes to run during each testing
-                period.
             stack_size: The number of frames in an observation sent to an agent.
         """
         super().__init__(
@@ -49,7 +45,7 @@ class MultiAgentRunner(Runner):
             experiment_manager,
             train_steps,
             test_frequency,
-            test_num_episodes,
+            test_steps,
         )
         self._transition_info = TransitionInfo(self._agents, stack_size)
 
@@ -223,7 +219,7 @@ def set_up_experiment(config):
         experiment_manager,
         config.get("train_steps", -1),
         config.get("test_frequency", -1),
-        config.get("test_num_episodes", 1),
+        config.get("test_steps", 1),
         config.get("stack_size", 1),
     )
     if config.get("resume", False):
