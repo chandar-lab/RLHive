@@ -84,6 +84,33 @@ class HanabiRainbowAgent(RainbowDQNAgent):
             use_eps_greedy=use_eps_greedy,
         )
 
+    def create_q_networks(self, qnet):
+        super().create_q_networks(qnet)
+        self._qnet = HanabiHead(self._qnet)
+        self._target_qnet = HanabiHead(self._target_qnet)
+
+    def preprocess_update_info(self, update_info):
+        return {
+            "observation": np.array(
+                update_info["observation"]["observation"], dtype=np.uint8
+            ),
+            "action": update_info["action"],
+            "reward": update_info["reward"],
+            "done": update_info["done"],
+            "action_mask": np.array(
+                action_encoding(update_info["observation"]["action_mask"]),
+                dtype=np.uint8,
+            ),
+        }
+
+    def preprocess_update_batch(self, batch):
+        for key in batch:
+            batch[key] = torch.tensor(batch[key]).to(self._device)
+        return (
+            (batch["observation"], batch["action_mask"]),
+            (batch["next_observation"], batch["next_action_mask"]),
+        )
+
     @torch.no_grad()
     def act(self, observation):
         if self._training:
@@ -125,33 +152,6 @@ class HanabiRainbowAgent(RainbowDQNAgent):
             self._state["episode_start"] = False
 
         return action
-
-    def create_q_networks(self, qnet):
-        super().create_q_networks(qnet)
-        self._qnet = HanabiHead(self._qnet)
-        self._target_qnet = HanabiHead(self._target_qnet)
-
-    def preprocess_update_info(self, update_info):
-        return {
-            "observation": np.array(
-                update_info["observation"]["observation"], dtype=np.uint8
-            ),
-            "action": update_info["action"],
-            "reward": update_info["reward"],
-            "done": update_info["done"],
-            "action_mask": np.array(
-                action_encoding(update_info["observation"]["action_mask"]),
-                dtype=np.uint8,
-            ),
-        }
-
-    def preprocess_update_batch(self, batch):
-        for key in batch:
-            batch[key] = torch.tensor(batch[key]).to(self._device)
-        return (
-            (batch["observation"], batch["action_mask"]),
-            (batch["next_observation"], batch["next_action_mask"]),
-        )
 
 
 def action_encoding(action_mask):
