@@ -2,6 +2,7 @@ from hive import registry
 from hive.replays.efficient_replay import EfficientCircularBuffer
 from hive.replays.prioritized_replay import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer, CircularReplayBuffer
+from hive.replays.hanabi_buffer import HanabiBuffer
 
 registry.register_all(
     BaseReplayBuffer,
@@ -9,6 +10,7 @@ registry.register_all(
         "CircularReplayBuffer": CircularReplayBuffer,
         "EfficientCircularBuffer": EfficientCircularBuffer,
         "PrioritizedReplayBuffer": PrioritizedReplayBuffer,
+        "HanabiBuffer": HanabiBuffer,
     },
 )
 

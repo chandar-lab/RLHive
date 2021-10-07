@@ -7,7 +7,11 @@ import torch
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.qnet_heads import DQNNetwork
-from hive.agents.qnets.utils import calculate_output_dim
+from hive.agents.qnets.utils import (
+    InitializationFn,
+    calculate_output_dim,
+    create_init_weights_fn,
+)
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.logging import Logger, NullLogger
 from hive.utils.schedule import (
@@ -30,6 +34,7 @@ class DQNAgent(Agent):
         obs_dim: Tuple,
         act_dim: int,
         optimizer_fn: OptimizerFn = None,
+        init_fn: InitializationFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
         discount_rate: float = 0.99,
@@ -41,6 +46,7 @@ class DQNAgent(Agent):
         target_net_update_schedule: Schedule = None,
         update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
+        test_epsilon: float = 0.001,
         learn_schedule: Schedule = None,
         seed: int = 42,
         batch_size: int = 32,
@@ -86,7 +92,9 @@ class DQNAgent(Agent):
             log_frequency (int): How often to log the agent's metrics.
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
-        self.create_q_networks(qnet, device)
+        self._init_fn = create_init_weights_fn(init_fn)
+        self._device = torch.device(device)
+        self.create_q_networks(qnet)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
@@ -118,6 +126,7 @@ class DQNAgent(Agent):
         self._epsilon_schedule = epsilon_schedule
         if self._epsilon_schedule is None:
             self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
+        self._test_epsilon = test_epsilon
 
         self._learn_schedule = learn_schedule
         if self._learn_schedule is None:
@@ -126,10 +135,13 @@ class DQNAgent(Agent):
         self._state = {"episode_start": True}
         self._training = False
 
-    def create_q_networks(self, qnet, device):
+    def create_q_networks(self, qnet):
         network = qnet(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
-        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(device)
+        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(
+            self._device
+        )
+        self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
     def train(self):
@@ -143,6 +155,24 @@ class DQNAgent(Agent):
         super().eval()
         self._qnet.eval()
         self._target_qnet.eval()
+
+    def preprocess_update_info(self, update_info):
+        if self._reward_clip is not None:
+            update_info["reward"] = np.clip(
+                update_info["reward"], -self._reward_clip, self._reward_clip
+            )
+
+        return {
+            "observation": update_info["observation"],
+            "action": update_info["action"],
+            "reward": update_info["reward"],
+            "done": update_info["done"],
+        }
+
+    def preprocess_update_batch(self, batch):
+        for key in batch:
+            batch[key] = torch.tensor(batch[key]).to(self._device)
+        return (batch["observation"],), (batch["next_observation"],)
 
     @torch.no_grad()
     def act(self, observation):
@@ -158,7 +188,7 @@ class DQNAgent(Agent):
             if self._logger.update_step(self._timescale):
                 self._logger.log_scalar("epsilon", epsilon, self._timescale)
         else:
-            epsilon = 0
+            epsilon = self._test_epsilon
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
@@ -171,12 +201,12 @@ class DQNAgent(Agent):
         else:
             action = torch.argmax(qvals).item()
 
-        if self._logger.should_log(self._timescale) and self._state["episode_start"]:
-            self._logger.log_scalar(
-                "train_qval" if self._training else "test_qval",
-                torch.max(qvals),
-                self._timescale,
-            )
+        if (
+            self._training
+            and self._logger.should_log(self._timescale)
+            and self._state["episode_start"]
+        ):
+            self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
             self._state["episode_start"] = False
         return action
 
@@ -192,19 +222,11 @@ class DQNAgent(Agent):
         if update_info["done"]:
             self._state["episode_start"] = True
 
-        if self._reward_clip is not None:
-            update_info["reward"] = np.clip(
-                update_info["reward"], -self._reward_clip, self._reward_clip
-            )
+        if not self._training:
+            return
 
         # Add the most recent transition to the replay buffer.
-        if self._training:
-            self._replay_buffer.add(
-                observation=update_info["observation"],
-                action=update_info["action"],
-                reward=update_info["reward"],
-                done=update_info["done"],
-            )
+        self._replay_buffer.add(**self.preprocess_update_info(update_info))
 
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
@@ -215,17 +237,16 @@ class DQNAgent(Agent):
             and self._update_period_schedule.update()
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            for key in batch:
-                batch[key] = torch.tensor(batch[key]).to(self._device)
+            qnet_inputs, target_qnet_inputs = self.preprocess_update_batch(batch)
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(batch["observation"])
+            pred_qvals = self._qnet(*qnet_inputs)
             actions = batch["action"].long()
             pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
             # Compute 1-step Q targets
-            next_qvals = self._target_qnet(batch["next_observation"])
+            next_qvals = self._target_qnet(*target_qnet_inputs)
             next_qvals, _ = torch.max(next_qvals, dim=1)
 
             q_targets = batch["reward"] + self._discount_rate * next_qvals * (
@@ -235,21 +256,17 @@ class DQNAgent(Agent):
             loss = self._loss_fn(pred_qvals, q_targets).mean()
 
             if self._logger.should_log(self._timescale):
-                self._logger.log_scalar(
-                    "train_loss" if self._training else "test_loss",
-                    loss,
-                    self._timescale,
+                self._logger.log_scalar("train_loss", loss, self._timescale)
+
+            loss.backward()
+            if self._grad_clip is not None:
+                torch.nn.utils.clip_grad_value_(
+                    self._qnet.parameters(), self._grad_clip
                 )
-            if self._training:
-                loss.backward()
-                if self._grad_clip is not None:
-                    torch.nn.utils.clip_grad_value_(
-                        self._qnet.parameters(), self._grad_clip
-                    )
-                self._optimizer.step()
+            self._optimizer.step()
 
         # Update target network
-        if self._training and self._target_net_update_schedule.update():
+        if self._target_net_update_schedule.update():
             self._update_target()
 
     def _update_target(self):
