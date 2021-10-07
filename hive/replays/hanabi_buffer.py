@@ -7,8 +7,8 @@ from hive.replays.prioritized_replay import PrioritizedReplayBuffer
 
 
 class HanabiBuffer(PrioritizedReplayBuffer):
-    """An efficient version of a circular replay buffer that only stores each observation
-    once.
+    """A Prioritized Replay buffer for the games like Hanabi with legal moves
+    which need to add next_action_mask to the batch.
     """
 
     def __init__(
@@ -43,9 +43,8 @@ class HanabiBuffer(PrioritizedReplayBuffer):
         )
 
     def sample(self, batch_size):
-        """Sample transitions from the buffer. For a given transition, if it's
-        done is True, the next_observation value should not be taken to have any
-        meaning.
+        """Sample transitions from the buffer.
+        Adding next_action_mask to the batch for environments with legal moves.
         """
 
         batch = super().sample(batch_size)
