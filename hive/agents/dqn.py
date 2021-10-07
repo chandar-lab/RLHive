@@ -7,7 +7,11 @@ import torch
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.qnet_heads import DQNNetwork
-from hive.agents.qnets.utils import calculate_output_dim
+from hive.agents.qnets.utils import (
+    InitializationFn,
+    calculate_output_dim,
+    create_init_weights_fn,
+)
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.logging import Logger, NullLogger
 from hive.utils.schedule import (
@@ -30,6 +34,7 @@ class DQNAgent(Agent):
         obs_dim: Tuple,
         act_dim: int,
         optimizer_fn: OptimizerFn = None,
+        init_fn: InitializationFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
         discount_rate: float = 0.99,
@@ -87,6 +92,7 @@ class DQNAgent(Agent):
             log_frequency (int): How often to log the agent's metrics.
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
+        self._init_fn = create_init_weights_fn(init_fn)
         self._device = torch.device(device)
         self.create_q_networks(qnet)
         if optimizer_fn is None:
@@ -101,6 +107,7 @@ class DQNAgent(Agent):
         self._reward_clip = reward_clip
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
+        self._device = torch.device(device)
         self._loss_fn = torch.nn.SmoothL1Loss(reduction="none")
         self._batch_size = batch_size
         self._logger = logger
@@ -131,9 +138,8 @@ class DQNAgent(Agent):
     def create_q_networks(self, qnet):
         network = qnet(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
-        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(
-            self._device
-        )
+        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(self._device)
+        self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
     def train(self):
@@ -205,6 +211,7 @@ class DQNAgent(Agent):
     def update(self, update_info):
         """
         Updates the DQN agent.
+
         Args:
             update_info: dictionary containing all the necessary information to
             update the agent. Should contain a full transition, with keys for
