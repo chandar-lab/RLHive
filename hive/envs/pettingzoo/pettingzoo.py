@@ -48,7 +48,9 @@ class PettingZooEnv(BaseEnv):
         elif self._env_family in ["sisl"]:
             obs_dim = [space.shape for space in self._env.observation_spaces.values()]
         else:
-            raise ValueError(f"Hive does not support {self._env_family} environments from PettingZoo yet.")
+            raise ValueError(
+                f"Hive does not support {self._env_family} environments from PettingZoo yet."
+            )
         act_dim = [space.n for space in self._env.action_spaces.values()]
         return EnvSpec(
             env_name=env_name,
