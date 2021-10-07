@@ -3,6 +3,8 @@ from hive.agents.agent import Agent
 from hive.agents.dqn import DQNAgent
 from hive.agents.rainbow import RainbowDQNAgent
 from hive.agents.random import RandomAgent
+from hive.agents.hanabi_rainbow import HanabiRainbowAgent
+
 
 registry.register_all(
     Agent,
@@ -10,6 +12,7 @@ registry.register_all(
         "DQNAgent": DQNAgent,
         "RandomAgent": RandomAgent,
         "RainbowDQNAgent": RainbowDQNAgent,
+        "HanabiRainbowAgent": HanabiRainbowAgent,
     },
 )
 

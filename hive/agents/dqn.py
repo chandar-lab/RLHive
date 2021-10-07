@@ -93,7 +93,8 @@ class DQNAgent(Agent):
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
         self._init_fn = create_init_weights_fn(init_fn)
-        self.create_q_networks(qnet, device)
+        self._device = torch.device(device)
+        self.create_q_networks(qnet)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
@@ -134,10 +135,12 @@ class DQNAgent(Agent):
         self._state = {"episode_start": True}
         self._training = False
 
-    def create_q_networks(self, qnet, device):
+    def create_q_networks(self, qnet):
         network = qnet(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
-        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(device)
+        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(
+            self._device
+        )
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
@@ -152,6 +155,24 @@ class DQNAgent(Agent):
         super().eval()
         self._qnet.eval()
         self._target_qnet.eval()
+
+    def preprocess_update_info(self, update_info):
+        if self._reward_clip is not None:
+            update_info["reward"] = np.clip(
+                update_info["reward"], -self._reward_clip, self._reward_clip
+            )
+
+        return {
+            "observation": update_info["observation"],
+            "action": update_info["action"],
+            "reward": update_info["reward"],
+            "done": update_info["done"],
+        }
+
+    def preprocess_update_batch(self, batch):
+        for key in batch:
+            batch[key] = torch.tensor(batch[key]).to(self._device)
+        return (batch["observation"],), (batch["next_observation"],)
 
     @torch.no_grad()
     def act(self, observation):
@@ -204,18 +225,8 @@ class DQNAgent(Agent):
         if not self._training:
             return
 
-        if self._reward_clip is not None:
-            update_info["reward"] = np.clip(
-                update_info["reward"], -self._reward_clip, self._reward_clip
-            )
-
         # Add the most recent transition to the replay buffer.
-        self._replay_buffer.add(
-            observation=update_info["observation"],
-            action=update_info["action"],
-            reward=update_info["reward"],
-            done=update_info["done"],
-        )
+        self._replay_buffer.add(**self.preprocess_update_info(update_info))
 
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
@@ -226,17 +237,16 @@ class DQNAgent(Agent):
             and self._update_period_schedule.update()
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            for key in batch:
-                batch[key] = torch.tensor(batch[key]).to(self._device)
+            qnet_inputs, target_qnet_inputs = self.preprocess_update_batch(batch)
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(batch["observation"])
+            pred_qvals = self._qnet(*qnet_inputs)
             actions = batch["action"].long()
             pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
             # Compute 1-step Q targets
-            next_qvals = self._target_qnet(batch["next_observation"])
+            next_qvals = self._target_qnet(*target_qnet_inputs)
             next_qvals, _ = torch.max(next_qvals, dim=1)
 
             q_targets = batch["reward"] + self._discount_rate * next_qvals * (
