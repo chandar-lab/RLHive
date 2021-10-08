@@ -22,6 +22,11 @@ try:
 except ImportError:
     MinAtarEnv = None
 
+try:
+    from hive.envs.pettingzoo import PettingZooEnv
+except ImportError:
+    PettingZooEnv = None
+
 from hive import registry
 
 registry.register_all(
@@ -32,6 +37,7 @@ registry.register_all(
         "MarlGridEnv": MarlGridEnv,
         "AtariEnv": AtariEnv,
         "MinAtarEnv": MinAtarEnv,
+        "PettingZooEnv": PettingZooEnv,
     },
 )
 

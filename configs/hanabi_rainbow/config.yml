@@ -1,0 +1,92 @@
+# General training loop config
+run_name: &run_name 'pettingzoo-rainbow'
+train_steps: 100000000
+test_frequency: 10000
+test_num_episodes: 10
+self_play: True
+num_agents: 2
+stack_size: &stack_size 1
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 15000
+save_dir: 'experiment'
+
+# Environment config
+environment:
+  name: 'PettingZooEnv'
+  kwargs:
+    env_name: 'hanabi_v4'
+    env_family: 'classic'
+    num_players: 2
+
+# List of agents for the experiment. In single agent, only the first agent in
+# the list is used.
+agents:
+  -
+    name: 'HanabiRainbowAgent'
+    kwargs:
+      qnet:
+        name: 'MLPNetwork'
+        kwargs:
+          hidden_units: 512
+      optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr: 0.000025
+          eps: 0.00003125
+      id: 0
+      replay_buffer:
+        name: 'HanabiBuffer'
+        kwargs:
+          seed: 42
+          capacity: 50000
+          stack_size: *stack_size
+          extra_storage_types:
+            action_mask:
+              - 'np.uint8'
+              - [20]
+      discount_rate: .99
+      target_net_update_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 500
+      epsilon_schedule:
+        name: 'ConstantSchedule'
+        kwargs:
+          value: .0
+      learn_schedule:
+        name: 'SwitchSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          steps: 100
+      seed: 42
+      batch_size: 128
+      device: 'cpu'
+      log_frequency: 100
+      double: False
+      distributional: True
+      dueling: False
+      noisy: False
+      std_init: .5
+      use_eps_greedy: False
+      v_min: -25.0
+      v_max: 25.0
+      atoms: 51
+
+# List of logger configs used.
+loggers:
+  -
+    name: ChompLogger
+    kwargs: {}
+  -
+    name: WandbLogger
+    kwargs:
+      project_name: Hive-v1
+      run_name: *run_name
+      mode: "online"
