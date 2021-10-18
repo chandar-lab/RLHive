@@ -67,7 +67,7 @@ class MultiAgentRunner(Runner):
             info = self._transition_info.get_info(agent)
 
             if self._training:
-                agent.update(info)
+                agent.update(copy.deepcopy(info))
 
             episode_metrics[agent.id]["reward"] += info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
