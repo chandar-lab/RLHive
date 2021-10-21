@@ -1,5 +1,5 @@
 # General training loop config
-run_name: &run_name 'pettingzoo-rainbow'
+run_name: &run_name 'pettingzoo-rainbow-2p'
 train_steps: 100000000
 test_frequency: 10000
 test_num_episodes: 10
@@ -31,12 +31,14 @@ agents:
       qnet:
         name: 'MLPNetwork'
         kwargs:
-          hidden_units: 512
+          hidden_units: [512, 512]
       optimizer_fn:
         name: 'Adam'
         kwargs:
           lr: 0.000025
           eps: 0.00003125
+      init_fn:
+        name: 'variance_scaling'
       id: 0
       replay_buffer:
         name: 'HanabiBuffer'
@@ -46,7 +48,7 @@ agents:
           stack_size: *stack_size
           extra_storage_types:
             action_mask:
-              - 'np.uint8'
+              - 'np.float'
               - [20]
       discount_rate: .99
       target_net_update_schedule:
@@ -55,6 +57,12 @@ agents:
           off_value: False
           on_value: True
           period: 500
+      update_period_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 4
       epsilon_schedule:
         name: 'ConstantSchedule'
         kwargs:
@@ -90,3 +98,4 @@ loggers:
       project_name: Hive-v1
       run_name: *run_name
       mode: "online"
+      settings_str: 'fork'
