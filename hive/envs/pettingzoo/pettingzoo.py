@@ -27,13 +27,13 @@ class PettingZooEnv(BaseEnv):
             num_players (int): Number of learning agents
         """
         self._env_family = env_family
-        self.create_env(env_name, **kwargs)
+        self.create_env(env_name, num_players, **kwargs)
         self._env_spec = self.create_env_spec(env_name, **kwargs)
         super().__init__(self.create_env_spec(env_name, **kwargs), num_players)
 
-    def create_env(self, env_name, **kwargs):
+    def create_env(self, env_name, num_players, **kwargs):
         env_module = import_module("pettingzoo." + self._env_family + "." + env_name)
-        self._env = env_module.env()
+        self._env = env_module.env(players=num_players)
 
     def create_env_spec(self, env_name, **kwargs):
         """
