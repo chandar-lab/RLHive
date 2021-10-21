@@ -10,6 +10,7 @@ from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.logging import Logger
 from hive.utils.schedule import Schedule
 from hive.utils.utils import OptimizerFn
+from hive.agents.qnets.utils import InitializationFn
 
 
 class HanabiRainbowAgent(RainbowDQNAgent):
@@ -24,6 +25,7 @@ class HanabiRainbowAgent(RainbowDQNAgent):
         v_max: str = 200,
         atoms: str = 51,
         optimizer_fn: OptimizerFn = None,
+        init_fn: InitializationFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
         discount_rate: float = 0.99,
@@ -59,6 +61,7 @@ class HanabiRainbowAgent(RainbowDQNAgent):
             v_max=v_max,
             atoms=atoms,
             optimizer_fn=optimizer_fn,
+            init_fn=init_fn,
             id=id,
             replay_buffer=replay_buffer,
             discount_rate=discount_rate,
@@ -97,10 +100,7 @@ class HanabiRainbowAgent(RainbowDQNAgent):
             "action": update_info["action"],
             "reward": update_info["reward"],
             "done": update_info["done"],
-            "action_mask": np.array(
-                action_encoding(update_info["observation"]["action_mask"]),
-                dtype=np.uint8,
-            ),
+            "action_mask": action_encoding(update_info["observation"]["action_mask"]),
         }
 
     def preprocess_update_batch(self, batch):
