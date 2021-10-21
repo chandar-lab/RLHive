@@ -6,7 +6,7 @@ import pickle
 from hive.replays.prioritized_replay import PrioritizedReplayBuffer
 
 
-class HanabiBuffer(PrioritizedReplayBuffer):
+class LegalMovesBuffer(PrioritizedReplayBuffer):
     """A Prioritized Replay buffer for the games like Hanabi with legal moves
     which need to add next_action_mask to the batch.
     """

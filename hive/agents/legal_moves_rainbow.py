@@ -13,8 +13,8 @@ from hive.utils.utils import OptimizerFn
 from hive.agents.qnets.utils import InitializationFn
 
 
-class HanabiRainbowAgent(RainbowDQNAgent):
-    """A Hanabi agent implementing the Rainbow algorithm."""
+class LegalMovesRainbowAgent(RainbowDQNAgent):
+    """A Rainbow agent which supports games with legal actions."""
 
     def __init__(
         self,
@@ -89,8 +89,8 @@ class HanabiRainbowAgent(RainbowDQNAgent):
 
     def create_q_networks(self, qnet):
         super().create_q_networks(qnet)
-        self._qnet = HanabiHead(self._qnet)
-        self._target_qnet = HanabiHead(self._target_qnet)
+        self._qnet = LegalMovesHead(self._qnet)
+        self._target_qnet = LegalMovesHead(self._target_qnet)
 
     def preprocess_update_info(self, update_info):
         return {
@@ -160,7 +160,7 @@ def action_encoding(action_mask):
     return encoded_action_mask
 
 
-class HanabiHead(torch.nn.Module):
+class LegalMovesHead(torch.nn.Module):
     def __init__(self, base_network):
         super().__init__()
         self.base_network = base_network

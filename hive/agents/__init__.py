@@ -3,7 +3,7 @@ from hive.agents.agent import Agent
 from hive.agents.dqn import DQNAgent
 from hive.agents.rainbow import RainbowDQNAgent
 from hive.agents.random import RandomAgent
-from hive.agents.hanabi_rainbow import HanabiRainbowAgent
+from hive.agents.legal_moves_rainbow import LegalMovesRainbowAgent
 
 
 registry.register_all(
@@ -12,7 +12,7 @@ registry.register_all(
         "DQNAgent": DQNAgent,
         "RandomAgent": RandomAgent,
         "RainbowDQNAgent": RainbowDQNAgent,
-        "HanabiRainbowAgent": HanabiRainbowAgent,
+        "LegalMovesRainbowAgent": LegalMovesRainbowAgent,
     },
 )
 

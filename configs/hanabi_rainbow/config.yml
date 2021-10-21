@@ -26,7 +26,7 @@ environment:
 # the list is used.
 agents:
   -
-    name: 'HanabiRainbowAgent'
+    name: 'LegalMovesRainbowAgent'
     kwargs:
       qnet:
         name: 'MLPNetwork'
@@ -41,7 +41,7 @@ agents:
         name: 'variance_scaling'
       id: 0
       replay_buffer:
-        name: 'HanabiBuffer'
+        name: 'LegalMovesBuffer'
         kwargs:
           seed: 42
           capacity: 50000
