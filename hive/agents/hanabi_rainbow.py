@@ -50,6 +50,53 @@ class HanabiRainbowAgent(RainbowDQNAgent):
     ):
         """
         Args:
+            qnet: A network that outputs the q-values of the different actions
+                for an input observation.
+            obs_dim: The dimension of the observations.
+            act_dim: The number of actions available to the agent.
+            v_min: minimum possible value of the value function.
+            v_max: maximum possible value of the value function.
+            atoms: number of atoms in the distributional DQN context.
+            optimizer_fn: A function that takes in a list of parameters to optimize
+                and returns the optimizer.
+            id: ID used to create the timescale in the logger for the agent.
+            replay_buffer: The replay buffer that the agent will push observations
+                to and sample from during learning.
+            discount_rate (float): A number between 0 and 1 specifying how much
+                future rewards are discounted by the agent.
+            n_step (int): n used in n-step returns to compute TD(n) targets.
+            grad_clip (float): Gradients will be clipped to between
+                [-grad_clip, gradclip]
+            reward_clip (float): Rewards will be clipped to between
+                [-reward_clip, reward_clip]
+            target_net_soft_update (bool): Whether the target net parameters are
+                replaced by the qnet parameters completely or using a weighted
+                average of the target net parameters and the qnet parameters.
+            target_net_update_fraction (float): The weight given to the target
+                net parameters in a soft update.
+            target_net_update_schedule: Schedule determining how frequently the
+                target net is updated.
+            update_period_schedule: Schedule determining how frequently
+                the agent's net is updated.
+            epsilon_schedule: Schedule determining the value of epsilon through
+                the course of training.
+            learn_schedule: Schedule determining when the learning process actually
+                starts.
+            seed: Seed for numpy random number generator.
+            batch_size (int): The size of the batch sampled from the replay buffer
+                during learning.
+            device: Device on which all computations should be run.
+            logger: Logger used to log agent's metrics.
+            log_frequency (int): How often to log the agent's metrics.
+            noisy (bool): whether or not to use the noisy feature (from noisy DQN).
+            std_init (float): standard deviation for initialization of noises in the
+                case of noisy networks.
+            double: whether or not to use the double feature (from double DQN).
+            dueling: whether or not to use the dueling feature (from dueling DQN).
+            distributional: whether or not to use the distributional
+                feature (from distributional DQN).
+            use_eps_greedy: whether or not to use epsilon greedy.
+                Usually in case of noisy networks use_eps_greedy=False.
         """
         super().__init__(
             qnet,
