@@ -56,9 +56,8 @@ class SingleAgentRunner(Runner):
             "done": done,
             "info": other_info,
         }
-
         if self._training:
-            agent.update(info)
+            agent.update(copy.deepcopy(info))
 
         self._transition_info.record_info(agent, info)
         episode_metrics[agent.id]["reward"] += info["reward"]
