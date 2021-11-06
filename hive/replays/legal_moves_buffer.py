@@ -25,6 +25,8 @@ class LegalMovesBuffer(PrioritizedReplayBuffer):
         reward_shape: Tuple = (),
         reward_dtype: type = np.float32,
         extra_storage_types=None,
+        num_players=1,
+        shared_buffer=False,
         seed: int = 42,
     ):
         super().__init__(
@@ -39,6 +41,8 @@ class LegalMovesBuffer(PrioritizedReplayBuffer):
             reward_shape=reward_shape,
             reward_dtype=reward_dtype,
             extra_storage_types=extra_storage_types,
+            num_players=num_players,
+            shared_buffer=shared_buffer,
             seed=seed,
         )
 

@@ -100,6 +100,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
             "action": update_info["action"],
             "reward": update_info["reward"],
             "done": update_info["done"],
+            "current_agent": int(self._id),
             "action_mask": action_encoding(update_info["observation"]["action_mask"]),
         }
 

@@ -1,5 +1,5 @@
 # General training loop config
-run_name: &run_name 'pettingzoo-rainbow-2p'
+run_name: &run_name 'pettingzoo-rainbow'
 train_steps: 100000000
 test_frequency: 10000
 test_num_episodes: 10
@@ -26,29 +26,29 @@ environment:
 # the list is used.
 agents:
   -
-    name: 'LegalMovesRainbowAgent'
+    name: 'HanabiRainbowAgent'
     kwargs:
       qnet:
         name: 'MLPNetwork'
         kwargs:
-          hidden_units: [512, 512]
+          hidden_units: 512
       optimizer_fn:
         name: 'Adam'
         kwargs:
           lr: 0.000025
           eps: 0.00003125
-      init_fn:
-        name: 'variance_scaling'
       id: 0
       replay_buffer:
-        name: 'LegalMovesBuffer'
+        name: 'HanabiBuffer'
         kwargs:
           seed: 42
           capacity: 50000
           stack_size: *stack_size
+          shared_buffer: True
+          num_players: 2
           extra_storage_types:
             action_mask:
-              - 'np.float'
+              - 'np.uint8'
               - [20]
       discount_rate: .99
       target_net_update_schedule:
@@ -57,12 +57,6 @@ agents:
           off_value: False
           on_value: True
           period: 500
-      update_period_schedule:
-        name: 'PeriodicSchedule'
-        kwargs:
-          off_value: False
-          on_value: True
-          period: 4
       epsilon_schedule:
         name: 'ConstantSchedule'
         kwargs:
@@ -92,10 +86,9 @@ loggers:
   -
     name: ChompLogger
     kwargs: {}
-  -
-    name: WandbLogger
-    kwargs:
-      project_name: Hive-v1
-      run_name: *run_name
-      mode: "online"
-      settings_str: 'fork'
+#  -
+#    name: WandbLogger
+#    kwargs:
+#      project_name: Hive-v1
+#      run_name: *run_name
+#      mode: "online"
