@@ -123,7 +123,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             }
             self._add_transition(**transition)
 
-    def add(self, observation, action, reward, done, current_agent, **kwargs):
+    def add(self, observation, action, reward, done, **kwargs):
         """Adds a transition to the buffer.
         The required components of a transition are given as positional arguments. The
         user can pass additional components to store in the buffer as kwargs as long as
@@ -152,11 +152,11 @@ class EfficientCircularBuffer(BaseReplayBuffer):
                     f"received {type(transition[key])}."
                 )
         if self._shared_buffer:
-            self._episode_storage[current_agent].append(transition)
+            self._episode_storage[kwargs['current_agent']].append(transition)
             if done:
-                for transition in self._episode_storage[current_agent]:
+                for transition in self._episode_storage[kwargs['current_agent']]:
                     self._add_transition(**transition)
-                self._episode_storage[current_agent] = []
+                self._episode_storage[kwargs['current_agent']] = []
         else:
             self._add_transition(**transition)
 

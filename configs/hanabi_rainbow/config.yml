@@ -26,7 +26,7 @@ environment:
 # the list is used.
 agents:
   -
-    name: 'HanabiRainbowAgent'
+    name: 'LegalMovesRainbowAgent'
     kwargs:
       qnet:
         name: 'MLPNetwork'
@@ -39,7 +39,7 @@ agents:
           eps: 0.00003125
       id: 0
       replay_buffer:
-        name: 'HanabiBuffer'
+        name: 'LegalMovesBuffer'
         kwargs:
           seed: 42
           capacity: 50000
@@ -47,8 +47,11 @@ agents:
           shared_buffer: True
           num_players: 2
           extra_storage_types:
+            current_agent:
+              - 'np.int'
+              - [1]
             action_mask:
-              - 'np.uint8'
+              - 'np.float'
               - [20]
       discount_rate: .99
       target_net_update_schedule:
