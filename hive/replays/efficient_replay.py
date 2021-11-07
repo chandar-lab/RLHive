@@ -152,11 +152,11 @@ class EfficientCircularBuffer(BaseReplayBuffer):
                     f"received {type(transition[key])}."
                 )
         if self._shared_buffer:
-            self._episode_storage[kwargs['current_agent']].append(transition)
+            self._episode_storage[kwargs["current_agent"]].append(transition)
             if done:
-                for transition in self._episode_storage[kwargs['current_agent']]:
+                for transition in self._episode_storage[kwargs["current_agent"]]:
                     self._add_transition(**transition)
-                self._episode_storage[kwargs['current_agent']] = []
+                self._episode_storage[kwargs["current_agent"]] = []
         else:
             self._add_transition(**transition)
 
