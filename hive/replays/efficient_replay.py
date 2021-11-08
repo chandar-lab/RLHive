@@ -79,7 +79,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         self._num_added = 0
         self._rng = np.random.default_rng(seed=seed)
         self._num_players_share_buffer = num_players_share_buffer
-        self._episode_storage = [[] for _ in range(num_players_share_buffer)]
+        if num_players_share_buffer is not None:
+            self._episode_storage = [[] for _ in range(num_players_share_buffer)]
 
     def size(self):
         """Returns the number of transitions stored in the buffer."""
