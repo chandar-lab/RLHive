@@ -193,7 +193,7 @@ def set_up_experiment(config):
                 replay_args["observation_shape"] = env_spec.obs_dim[idx]
                 if config["self_play"]:
                     replay_args["extra_storage_types"] = {
-                        "current_agent": (np.int, [1])
+                        "current_agent": ("np.int", [1])
                     }
             agent, full_agent_config = agent_lib.get_agent(agent_config, f"agent.{idx}")
             agents.append(agent)
