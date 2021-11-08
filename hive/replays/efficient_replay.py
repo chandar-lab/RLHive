@@ -24,8 +24,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         reward_shape=(),
         reward_dtype=np.float32,
         extra_storage_types=None,
-        num_players=1,
-        shared_buffer=False,
+        num_players_share_buffer=None,
         seed=42,
     ):
         """Constructor for EfficientCircularBuffer.
@@ -79,9 +78,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         self._cursor = 0
         self._num_added = 0
         self._rng = np.random.default_rng(seed=seed)
-        self._num_players = num_players
-        self._shared_buffer = shared_buffer
-        self._episode_storage = [[] for _ in range(num_players)]
+        self._num_players_share_buffer = num_players_share_buffer
+        self._episode_storage = [[] for _ in range(num_players_share_buffer)]
 
     def size(self):
         """Returns the number of transitions stored in the buffer."""
@@ -151,14 +149,14 @@ class EfficientCircularBuffer(BaseReplayBuffer):
                     f"Key {key} has wrong dtype. Expected {self._specs[key][0]},"
                     f"received {type(transition[key])}."
                 )
-        if self._shared_buffer:
+        if self._num_players_share_buffer is None:
+            self._add_transition(**transition)
+        else:
             self._episode_storage[kwargs["current_agent"]].append(transition)
             if done:
                 for transition in self._episode_storage[kwargs["current_agent"]]:
                     self._add_transition(**transition)
                 self._episode_storage[kwargs["current_agent"]] = []
-        else:
-            self._add_transition(**transition)
 
         if done:
             self._episode_start = True

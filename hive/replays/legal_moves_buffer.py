@@ -25,10 +25,11 @@ class LegalMovesBuffer(PrioritizedReplayBuffer):
         reward_shape: Tuple = (),
         reward_dtype: type = np.float32,
         extra_storage_types=None,
-        num_players=1,
-        shared_buffer=False,
+        action_dim: int = None,
+        num_players_share_buffer=None,
         seed: int = 42,
     ):
+        extra_storage_types.update({"action_mask": (np.float, [action_dim])})
         super().__init__(
             capacity=capacity,
             stack_size=stack_size,
@@ -41,8 +42,7 @@ class LegalMovesBuffer(PrioritizedReplayBuffer):
             reward_shape=reward_shape,
             reward_dtype=reward_dtype,
             extra_storage_types=extra_storage_types,
-            num_players=num_players,
-            shared_buffer=shared_buffer,
+            num_players_share_buffer=num_players_share_buffer,
             seed=seed,
         )
 

@@ -1,10 +1,10 @@
 # General training loop config
-run_name: &run_name 'pettingzoo-rainbow'
+run_name: &run_name 'hanabi-rainbow'
 train_steps: 100000000
 test_frequency: 10000
 test_num_episodes: 10
 self_play: True
-num_agents: 2
+num_agents: &num_agents 2
 stack_size: &stack_size 1
 saving_schedule:
   name: 'PeriodicSchedule'
@@ -20,7 +20,7 @@ environment:
   kwargs:
     env_name: 'hanabi_v4'
     env_family: 'classic'
-    num_players: 2
+    num_players: *num_agents
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
@@ -31,7 +31,7 @@ agents:
       qnet:
         name: 'MLPNetwork'
         kwargs:
-          hidden_units: 512
+          hidden_units: [512, 512]
       optimizer_fn:
         name: 'Adam'
         kwargs:
@@ -44,15 +44,8 @@ agents:
           seed: 42
           capacity: 50000
           stack_size: *stack_size
-          shared_buffer: True
-          num_players: 2
-          extra_storage_types:
-            current_agent:
-              - 'np.int'
-              - [1]
-            action_mask:
-              - 'np.float'
-              - [20]
+          action_dim: 20
+          num_players_share_buffer: 2
       discount_rate: .99
       target_net_update_schedule:
         name: 'PeriodicSchedule'
@@ -89,10 +82,10 @@ loggers:
   -
     name: ChompLogger
     kwargs: {}
-  -
-    name: WandbLogger
-    kwargs:
-      project_name: Hive-v1
-      run_name: *run_name
-      mode: "online"
-      settings_str: 'fork'
+#  -
+#    name: WandbLogger
+#    kwargs:
+#      project_name: Hive-v1
+#      run_name: *run_name
+#      mode: "online"
+#      settings_str: 'fork'
