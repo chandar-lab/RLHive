@@ -63,6 +63,8 @@ class PettingZooEnv(BaseEnv):
         observation, _, _, _ = self._env.last()
         for key in observation.keys():
             observation[key] = np.array(observation[key], dtype=np.uint8)
+        self._turn = self._env.agents.index(self._env.agent_selection)
+
         return observation, self._turn
 
     def step(self, action):
