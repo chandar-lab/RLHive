@@ -45,8 +45,9 @@ agents:
           capacity: 50000
           stack_size: *stack_size
           action_dim: 20
-          num_players_share_buffer: 2
+          num_players_sharing_buffer: *num_agents
           gamma: 0.99
+          extra_storage_types: {}
       discount_rate: .99
       update_period_schedule:
         name: 'PeriodicSchedule'
@@ -61,9 +62,11 @@ agents:
           on_value: True
           period: 500
       epsilon_schedule:
-        name: 'ConstantSchedule'
+        name: 'LinearSchedule'
         kwargs:
-          value: .0
+          init_value: 1
+          end_value: 0.0
+          steps: 1000
       test_epsilon: 0
       learn_schedule:
         name: 'SwitchSchedule'
@@ -79,7 +82,6 @@ agents:
       distributional: True
       dueling: False
       noisy: False
-      std_init: .5
       use_eps_greedy: True
       v_min: -25.0
       v_max: 25.0
@@ -90,10 +92,10 @@ loggers:
   -
     name: ChompLogger
     kwargs: {}
-#  -
-#    name: WandbLogger
-#    kwargs:
-#      project_name: Hive-v2
-#      run_name: *run_name
-#      mode: "online"
-#      settings_str: 'fork'
+  -
+    name: WandbLogger
+    kwargs:
+      project_name: Hive-v2
+      run_name: *run_name
+      mode: "online"
+      settings_str: 'fork'

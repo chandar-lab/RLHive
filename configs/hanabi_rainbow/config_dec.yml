@@ -60,9 +60,11 @@ agents:
           on_value: True
           period: 500
       epsilon_schedule:
-        name: 'ConstantSchedule'
+        name: 'LinearSchedule'
         kwargs:
-          value: .0
+          init_value: 1
+          end_value: 0.0
+          steps: 1000
       test_epsilon: 0
       learn_schedule:
         name: 'SwitchSchedule'
@@ -118,9 +120,11 @@ agents:
           on_value: True
           period: 500
       epsilon_schedule:
-        name: 'ConstantSchedule'
+        name: 'LinearSchedule'
         kwargs:
-          value: .0
+          init_value: 1
+          end_value: 0.0
+          steps: 1000
       test_epsilon: 0
       learn_schedule:
         name: 'SwitchSchedule'
@@ -136,7 +140,6 @@ agents:
       distributional: True
       dueling: False
       noisy: False
-      std_init: .5
       use_eps_greedy: True
       v_min: -25.0
       v_max: 25.0
@@ -147,10 +150,10 @@ loggers:
   -
     name: ChompLogger
     kwargs: {}
-#  -
-#    name: WandbLogger
-#    kwargs:
-#      project_name: Hive-v2
-#      run_name: *run_name
-#      mode: "online"
-#      settings_str: 'fork'
+  -
+    name: WandbLogger
+    kwargs:
+      project_name: Hive-v2
+      run_name: *run_name
+      mode: "online"
+      settings_str: 'fork'
