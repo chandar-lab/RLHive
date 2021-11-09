@@ -22,6 +22,7 @@ class MultiAgentRunner(Runner):
         test_frequency,
         test_steps,
         stack_size,
+        self_play,
     ):
         """Initializes the Runner object.
         Args:
@@ -48,6 +49,7 @@ class MultiAgentRunner(Runner):
             test_steps,
         )
         self._transition_info = TransitionInfo(self._agents, stack_size)
+        self._self_play = self_play
 
     def run_one_step(self, observation, turn, episode_metrics):
         """Run one step of the training loop.
@@ -90,6 +92,13 @@ class MultiAgentRunner(Runner):
                 "info": other_info,
             },
         )
+        if self._self_play:
+            self._transition_info.record_info(
+                agent,
+                {
+                    "agent_id": agent.id,
+                },
+            )
         self._transition_info.update_all_rewards(reward)
         return done, next_observation, turn
 
@@ -146,6 +155,7 @@ def set_up_experiment(config):
             "resume": bool,
             "run_name": str,
             "save_dir": str,
+            "self_play": bool,
         }
     )
     config.update(args)
@@ -192,9 +202,7 @@ def set_up_experiment(config):
                 replay_args = agent_config["kwargs"]["replay_buffer"]["kwargs"]
                 replay_args["observation_shape"] = env_spec.obs_dim[idx]
                 if config["self_play"]:
-                    replay_args["extra_storage_types"] = {
-                        "current_agent": ("np.int", [1])
-                    }
+                    replay_args["extra_storage_types"] = {"agent_id": ("np.int", [1])}
             agent, full_agent_config = agent_lib.get_agent(agent_config, f"agent.{idx}")
             agents.append(agent)
             full_config["agents"].append(full_agent_config)
@@ -225,6 +233,7 @@ def set_up_experiment(config):
         config.get("test_frequency", -1),
         config.get("test_steps", 1),
         config.get("stack_size", 1),
+        config.get("self_play", False),
     )
     if config.get("resume", False):
         runner.resume()

@@ -37,6 +37,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         target_net_update_schedule: Schedule = None,
         update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
+        test_epsilon: float = 0.001,
         learn_schedule: Schedule = None,
         seed: int = 42,
         batch_size: int = 32,
@@ -73,6 +74,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
             target_net_update_schedule=target_net_update_schedule,
             update_period_schedule=update_period_schedule,
             epsilon_schedule=epsilon_schedule,
+            test_epsilon=test_epsilon,
             learn_schedule=learn_schedule,
             seed=seed,
             batch_size=batch_size,
@@ -93,16 +95,18 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         self._target_qnet = LegalMovesHead(self._target_qnet)
 
     def preprocess_update_info(self, update_info):
-        return {
+        preprocessed_update_info = {
             "observation": np.array(
                 update_info["observation"]["observation"], dtype=np.uint8
             ),
             "action": update_info["action"],
             "reward": update_info["reward"],
             "done": update_info["done"],
-            "current_agent": int(self._id),
             "action_mask": action_encoding(update_info["observation"]["action_mask"]),
         }
+        if "agent_id" in update_info:
+            preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
+        return preprocessed_update_info
 
     def preprocess_update_batch(self, batch):
         for key in batch:

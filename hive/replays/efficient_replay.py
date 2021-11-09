@@ -108,7 +108,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
     def _add_transition(self, **transition):
         """Internal method to add a transition to the buffer."""
         for key in transition:
-            self._storage[key][self._cursor] = transition[key]
+            if key in self._storage:
+                self._storage[key][self._cursor] = transition[key]
         self._num_added += 1
         self._cursor = (self._cursor + 1) % self._capacity
 
@@ -153,11 +154,11 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         if self._num_players_share_buffer is None:
             self._add_transition(**transition)
         else:
-            self._episode_storage[kwargs["current_agent"]].append(transition)
+            self._episode_storage[kwargs["agent_id"]].append(transition)
             if done:
-                for transition in self._episode_storage[kwargs["current_agent"]]:
+                for transition in self._episode_storage[kwargs["agent_id"]]:
                     self._add_transition(**transition)
-                self._episode_storage[kwargs["current_agent"]] = []
+                self._episode_storage[kwargs["agent_id"]] = []
 
         if done:
             self._episode_start = True
