@@ -4,6 +4,7 @@ from hive.agents.dqn import DQNAgent
 from hive.agents.rainbow import RainbowDQNAgent
 from hive.agents.random import RandomAgent
 from hive.agents.hanabi_rainbow import HanabiRainbowAgent
+from hive.utils import torch_utils
 
 
 registry.register_all(

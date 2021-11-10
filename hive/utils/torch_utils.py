@@ -1,6 +1,7 @@
 import numpy as np
 import torch
-from hive.utils.utils import OptimizerFn, registry
+from hive import registry
+from hive.utils.utils import OptimizerFn
 from torch import optim
 
 
@@ -29,3 +30,5 @@ registry.register_all(
         "SparseAdam": OptimizerFn(optim.SparseAdam),
     },
 )
+
+get_optimizer_fn = getattr(registry, f"get_{OptimizerFn.type_name()}")

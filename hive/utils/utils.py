@@ -35,6 +35,3 @@ class OptimizerFn(CallableType):
     @classmethod
     def type_name(cls):
         return "optimizer_fn"
-
-
-get_optimizer_fn = getattr(registry, f"get_{OptimizerFn.type_name()}")
