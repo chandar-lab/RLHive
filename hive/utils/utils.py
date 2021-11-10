@@ -37,4 +37,11 @@ class OptimizerFn(CallableType):
         return "optimizer_fn"
 
 
+class LossFn(CallableType):
+    @classmethod
+    def type_name(cls):
+        return "loss_fn"
+
+
 get_optimizer_fn = getattr(registry, f"get_{OptimizerFn.type_name()}")
+get_loss_fn = getattr(registry, f"get_{LossFn.type_name()}")

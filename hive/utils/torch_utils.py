@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from hive.utils.utils import OptimizerFn, registry
+from hive.utils.utils import LossFn, OptimizerFn, registry
 from torch import optim
 
 
@@ -172,5 +172,13 @@ registry.register_all(
         "Rprop": OptimizerFn(optim.Rprop),
         "SGD": OptimizerFn(optim.SGD),
         "SparseAdam": OptimizerFn(optim.SparseAdam),
+    },
+)
+
+registry.register_all(
+    LossFn,
+    {
+        "MSELoss": LossFn(torch.nn.MSELoss),
+        "SmoothL1Loss": LossFn(torch.nn.SmoothL1Loss),
     },
 )
