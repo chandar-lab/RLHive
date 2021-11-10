@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from hive import registry
-from hive.utils.utils import OptimizerFn
+from hive.utils.utils import LossFn, OptimizerFn
 from torch import optim
 
 
@@ -176,4 +176,13 @@ registry.register_all(
     },
 )
 
+registry.register_all(
+    LossFn,
+    {
+        "MSELoss": LossFn(torch.nn.MSELoss),
+        "SmoothL1Loss": LossFn(torch.nn.SmoothL1Loss),
+    },
+)
+
 get_optimizer_fn = getattr(registry, f"get_{OptimizerFn.type_name()}")
+get_loss_fn = getattr(registry, f"get_{LossFn.type_name()}")
