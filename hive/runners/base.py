@@ -122,7 +122,6 @@ class Runner(ABC):
         """Run the training loop."""
         while self._train_schedule.get_value():
             # Run training episode
-            self.train_mode(True)
             episode_metrics, _ = self.run_episode()
             if self._logger.should_log("train"):
                 episode_metrics = episode_metrics.get_flat_dict()
