@@ -199,6 +199,7 @@ class DQNAgent(Agent):
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
         else:
+            # Note: not explicitly handling the ties
             action = torch.argmax(qvals).item()
 
         if (
