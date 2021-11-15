@@ -69,13 +69,13 @@ class PettingZooEnv(BaseEnv):
 
     def step(self, action):
         self._env.step(action)
-        observation, reward, done, info = self._env.last()
+        observation, _, done, info = self._env.last()
         self._turn = (self._turn + 1) % self._num_players
         for key in observation.keys():
             observation[key] = np.array(observation[key], dtype=np.uint8)
         return (
             observation,
-            reward,
+            [self._env.rewards[agent] for agent in self._env.agents],
             done,
             self._turn,
             info,

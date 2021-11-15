@@ -29,6 +29,8 @@ class LegalMovesBuffer(PrioritizedReplayBuffer):
         num_players_sharing_buffer=None,
         seed: int = 42,
     ):
+        if extra_storage_types is None:
+            extra_storage_types = {}
         extra_storage_types["action_mask"] = (np.float, [action_dim])
         super().__init__(
             capacity=capacity,

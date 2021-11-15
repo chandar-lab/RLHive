@@ -117,7 +117,6 @@ class MultiAgentRunner(Runner):
 
             if self._training:
                 agent.update(info)
-
             episode_metrics[agent.id]["reward"] += info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
             episode_metrics["full_episode_length"] += 1
@@ -201,8 +200,6 @@ def set_up_experiment(config):
             if "replay_buffer" in agent_config["kwargs"]:
                 replay_args = agent_config["kwargs"]["replay_buffer"]["kwargs"]
                 replay_args["observation_shape"] = env_spec.obs_dim[idx]
-                # if config["self_play"]:
-                #     replay_args["extra_storage_types"] = {"agent_id": ("np.int", [1])}
             agent, full_agent_config = agent_lib.get_agent(agent_config, f"agent.{idx}")
             agents.append(agent)
             full_config["agents"].append(full_agent_config)
