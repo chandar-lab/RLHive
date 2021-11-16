@@ -1,5 +1,5 @@
 # General training loop config
-run_name: &run_name 'hanabi-rainbow'
+run_name: &run_name 'hanabi-independent-rainbow-2p'
 train_steps: 100000000
 test_frequency: 10000
 test_num_episodes: 10
@@ -42,7 +42,7 @@ agents:
         name: 'LegalMovesBuffer'
         kwargs:
           seed: 42
-          capacity: 50000
+          capacity: 1000000
           stack_size: *stack_size
           action_dim: 20
           gamma: 0.99
@@ -73,7 +73,7 @@ agents:
           on_value: True
           steps: 500
       seed: 42
-      batch_size: 128
+      batch_size: 32
       device: 'cpu'
       log_frequency: 100
       double: False
@@ -133,7 +133,7 @@ agents:
           on_value: True
           steps: 500
       seed: 43
-      batch_size: 128
+      batch_size: 32
       device: 'cpu'
       log_frequency: 100
       double: False

@@ -1,5 +1,5 @@
 # General training loop config
-run_name: &run_name 'hanabi-rainbow'
+run_name: &run_name 'hanabi-rainbow-self-play-2p'
 train_steps: 100000000
 test_frequency: 10000
 test_num_episodes: 10
@@ -77,7 +77,7 @@ agents:
           on_value: True
           steps: 500
       seed: 42
-      batch_size: 128
+      batch_size: 32
       device: 'cpu'
       log_frequency: 100
       double: False
