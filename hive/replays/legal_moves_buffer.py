@@ -35,6 +35,7 @@ class LegalMovesBuffer(PrioritizedReplayBuffer):
         super().__init__(
             capacity=capacity,
             stack_size=stack_size,
+            beta=beta,
             n_step=n_step,
             gamma=gamma,
             observation_shape=observation_shape,
@@ -58,7 +59,7 @@ class LegalMovesBuffer(PrioritizedReplayBuffer):
         batch["next_action_mask"] = self._get_from_storage(
             "action_mask",
             batch["indices"] + batch["trajectory_lengths"] - self._stack_size + 1,
-            num_to_access=self._stack_size,
+            num_to_access=1,
         )
 
         return batch
