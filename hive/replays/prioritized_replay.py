@@ -1,4 +1,4 @@
-from hive.utils.utils import numpify
+from hive.utils.torch_utils import numpify
 import os
 from typing import Dict, Tuple
 
