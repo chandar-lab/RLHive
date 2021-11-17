@@ -41,9 +41,9 @@ class DQNAgent(Agent):
         n_step: int = 1,
         grad_clip: float = None,
         reward_clip: float = None,
+        update_period_schedule: Schedule = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
-        update_period_schedule: Schedule = None,
         target_net_update_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
@@ -71,13 +71,13 @@ class DQNAgent(Agent):
                 [-grad_clip, gradclip]
             reward_clip (float): Rewards will be clipped to between
                 [-reward_clip, reward_clip]
+            update_period_schedule: Schedule determining how frequently
+                the agent's net is updated.
             target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
             target_net_update_fraction (float): The weight given to the target
                 net parameters in a soft update.
-            update_period_schedule: Schedule determining how frequently
-                the agent's net is updated.
             target_net_update_schedule: Schedule determining how frequently the
                 target net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
