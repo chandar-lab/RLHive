@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from hive import registry
+from hive.utils.registry import registry
 from hive.utils.utils import OptimizerFn
 from torch import optim
 
