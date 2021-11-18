@@ -89,7 +89,7 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
         batch = super().sample(batch_size)
         indices = batch["indices"]
         priorities = self._sum_tree.get_priorities(indices)
-        weights = (1.0 / priorities) ** self._beta
+        weights = (1.0 / (priorities + 1e-10)) ** self._beta
         weights /= np.max(weights)
         batch["weights"] = weights
         return batch
