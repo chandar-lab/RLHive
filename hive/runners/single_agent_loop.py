@@ -20,7 +20,7 @@ class SingleAgentRunner(Runner):
         experiment_manager,
         train_steps,
         test_frequency,
-        test_steps,
+        test_episodes,
         stack_size,
     ):
         super().__init__(
@@ -30,7 +30,7 @@ class SingleAgentRunner(Runner):
             experiment_manager,
             train_steps,
             test_frequency,
-            test_steps,
+            test_episodes,
         )
         self._transition_info = TransitionInfo(self._agents, stack_size)
 
@@ -79,7 +79,7 @@ class SingleAgentRunner(Runner):
             done, observation = self.run_one_step(observation, episode_metrics)
             steps += 1
 
-        return episode_metrics, steps
+        return episode_metrics
 
 
 def set_up_experiment(config):

@@ -137,7 +137,7 @@ class MultiAgentRunner(Runner):
 
         # Run the final update.
         self.run_end_step(episode_metrics, done)
-        return episode_metrics, steps
+        return episode_metrics
 
 
 def set_up_experiment(config):
