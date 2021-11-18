@@ -187,7 +187,7 @@ def zeros_like(x):
     elif isinstance(x, dict):
         return {k: zeros_like(v) for k, v in x.items()}
     elif isinstance(x, list):
-        return list(zeros_like(np.array(x)))
+        return [zeros_like(item) for item in x]
     else:
         return 0
 
