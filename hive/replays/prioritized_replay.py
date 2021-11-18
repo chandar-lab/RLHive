@@ -21,6 +21,7 @@ class PrioritizedReplayBuffer(EfficientCircularBuffer):
         reward_shape: Tuple = (),
         reward_dtype: type = np.float32,
         extra_storage_types: Dict = None,
+        num_players_sharing_buffer=None,
         seed: int = 42,
     ):
         super().__init__(
@@ -35,6 +36,7 @@ class PrioritizedReplayBuffer(EfficientCircularBuffer):
             reward_shape=reward_shape,
             reward_dtype=reward_dtype,
             extra_storage_types=extra_storage_types,
+            num_players_sharing_buffer=num_players_sharing_buffer,
             seed=seed,
         )
         self._sum_tree = SumTree(self._capacity)

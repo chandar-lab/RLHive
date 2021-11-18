@@ -86,5 +86,4 @@ class DistributionalNetwork(nn.Module):
         x = self.base_network(x)
         x = x.view(-1, self._out_dim, self._atoms)
         x = F.softmax(x, dim=-1)
-        x = x.clamp(min=1e-3)
         return x
