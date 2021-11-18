@@ -6,7 +6,7 @@ import pickle
 from hive.replays.prioritized_replay import PrioritizedReplayBuffer
 
 
-class HanabiBuffer(PrioritizedReplayBuffer):
+class LegalMovesBuffer(PrioritizedReplayBuffer):
     """A Prioritized Replay buffer for the games like Hanabi with legal moves
     which need to add next_action_mask to the batch.
     """
@@ -25,11 +25,17 @@ class HanabiBuffer(PrioritizedReplayBuffer):
         reward_shape: Tuple = (),
         reward_dtype: type = np.float32,
         extra_storage_types=None,
+        action_dim: int = None,
+        num_players_sharing_buffer=None,
         seed: int = 42,
     ):
+        if extra_storage_types is None:
+            extra_storage_types = {}
+        extra_storage_types["action_mask"] = (np.float, [action_dim])
         super().__init__(
             capacity=capacity,
             stack_size=stack_size,
+            beta=beta,
             n_step=n_step,
             gamma=gamma,
             observation_shape=observation_shape,
@@ -39,6 +45,7 @@ class HanabiBuffer(PrioritizedReplayBuffer):
             reward_shape=reward_shape,
             reward_dtype=reward_dtype,
             extra_storage_types=extra_storage_types,
+            num_players_sharing_buffer=num_players_sharing_buffer,
             seed=seed,
         )
 
@@ -52,7 +59,7 @@ class HanabiBuffer(PrioritizedReplayBuffer):
         batch["next_action_mask"] = self._get_from_storage(
             "action_mask",
             batch["indices"] + batch["trajectory_lengths"] - self._stack_size + 1,
-            num_to_access=self._stack_size,
+            num_to_access=1,
         )
 
         return batch
