@@ -186,8 +186,8 @@ def test_run_training(initial_runner):
         ),
     ],
 )
-@patch("hive.runners.single_agent_loop.set_seed")
-def test_cl_parsing(mock_seed, args, arg_string, cl_args):
+@patch("hive.runners.single_agent_loop.utils.seeder")
+def test_cl_parsing(mock_seeder, args, arg_string, cl_args):
     defaults = [[256, 256], 0.99, None, 0, 0.5]
     expected_args = [
         cl_args[idx] if cl_args[idx] else defaults[idx] for idx in range(len(cl_args))
@@ -225,9 +225,8 @@ def test_cl_parsing(mock_seed, args, arg_string, cl_args):
             full_config["loggers"]["kwargs"]["logger_list"][1]["kwargs"]["arg2"]
             == expected_args[4]
         )
-
     # Check seed
     if cl_args[2]:
-        assert mock_seed.call_args.args == (cl_args[2],)
+        assert mock_seeder.set_global_seed.call_args.args == (cl_args[2],)
     else:
-        assert not mock_seed.called
+        assert not mock_seeder.set_global_seed.called
