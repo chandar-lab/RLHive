@@ -8,7 +8,7 @@ import torch
 from hive.agents import DQNAgent, RainbowDQNAgent, get_agent
 from hive.agents.qnets import MLPNetwork, ConvNetwork
 from hive.envs import EnvSpec
-from hive.replays import CircularReplayBuffer
+from hive.replays import SimpleReplayBuffer
 from hive.utils import schedule
 from torch.optim import Adam
 
@@ -46,7 +46,7 @@ def ddnd_agent_with_mock_optimizer(env_spec):
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
-        replay_buffer=CircularReplayBuffer(capacity=10),
+        replay_buffer=SimpleReplayBuffer(capacity=10),
         target_net_update_fraction=0.25,
         target_net_soft_update=True,
         target_net_update_schedule=schedule.PeriodicSchedule(False, True, 5),
@@ -73,7 +73,7 @@ def dxxx_agent_with_mock_optimizer(env_spec):
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
-        replay_buffer=CircularReplayBuffer(capacity=10),
+        replay_buffer=SimpleReplayBuffer(capacity=10),
         target_net_update_fraction=0.25,
         target_net_soft_update=True,
         target_net_update_schedule=schedule.PeriodicSchedule(False, True, 5),
@@ -97,7 +97,7 @@ def xdxx_agent_with_mock_optimizer(env_spec):
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
-        replay_buffer=CircularReplayBuffer(capacity=10),
+        replay_buffer=SimpleReplayBuffer(capacity=10),
         target_net_update_fraction=0.25,
         target_net_soft_update=True,
         target_net_update_schedule=schedule.PeriodicSchedule(False, True, 5),
@@ -121,7 +121,7 @@ def xxnx_agent_with_mock_optimizer(env_spec):
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
-        replay_buffer=CircularReplayBuffer(capacity=10),
+        replay_buffer=SimpleReplayBuffer(capacity=10),
         target_net_update_fraction=0.25,
         target_net_soft_update=True,
         target_net_update_schedule=schedule.PeriodicSchedule(False, True, 5),
@@ -146,7 +146,7 @@ def xxxd_agent_with_mock_optimizer(env_spec):
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
-        replay_buffer=CircularReplayBuffer(capacity=10),
+        replay_buffer=SimpleReplayBuffer(capacity=10),
         target_net_update_fraction=0.25,
         target_net_soft_update=True,
         target_net_update_schedule=schedule.PeriodicSchedule(False, True, 5),
@@ -173,7 +173,7 @@ def xxxx_agent_with_mock_optimizer(env_spec):
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
-        replay_buffer=CircularReplayBuffer(capacity=10),
+        replay_buffer=SimpleReplayBuffer(capacity=10),
         target_net_update_fraction=0.25,
         target_net_soft_update=True,
         target_net_update_schedule=schedule.PeriodicSchedule(False, True, 5),
@@ -192,7 +192,7 @@ def xxxx_rainbow_agent_with_mock_optimizer(env_spec):
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
-        replay_buffer=CircularReplayBuffer(capacity=10),
+        replay_buffer=SimpleReplayBuffer(capacity=10),
         target_net_update_fraction=0.25,
         target_net_soft_update=True,
         target_net_update_schedule=schedule.PeriodicSchedule(False, True, 5),
@@ -216,7 +216,7 @@ def agent_with_optimizer(env_spec):
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Adam,
-        replay_buffer=CircularReplayBuffer(capacity=10),
+        replay_buffer=SimpleReplayBuffer(capacity=10),
         target_net_update_fraction=0.25,
         target_net_soft_update=True,
         target_net_update_schedule=schedule.PeriodicSchedule(False, True, 5),
@@ -240,7 +240,7 @@ def test_create_agent_with_configs(env_spec):
             "act_dim": env_spec.act_dim,
             "optimizer_fn": {"name": "Adam", "kwargs": {"lr": 0.01}},
             "replay_buffer": {
-                "name": "CircularReplayBuffer",
+                "name": "SimpleReplayBuffer",
                 "kwargs": {"capacity": 10},
             },
             "target_net_update_schedule": {
