@@ -161,13 +161,16 @@ class DQNAgent(Agent):
             update_info["reward"] = np.clip(
                 update_info["reward"], -self._reward_clip, self._reward_clip
             )
-
-        return {
+        preprocessed_update_info = {
             "observation": update_info["observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
             "done": update_info["done"],
         }
+        if "agent_id" in update_info:
+            preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
+
+        return preprocessed_update_info
 
     def preprocess_update_batch(self, batch):
         for key in batch:
@@ -199,6 +202,7 @@ class DQNAgent(Agent):
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
         else:
+            # Note: not explicitly handling the ties
             action = torch.argmax(qvals).item()
 
         if (
