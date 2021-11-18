@@ -240,7 +240,7 @@ def set_up_experiment(config):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", default="./config.yml")
+    parser.add_argument("-c", "--config")
     parser.add_argument("-p", "--preset-config")
     parser.add_argument("-a", "--agent-config")
     parser.add_argument("-e", "--env-config")
