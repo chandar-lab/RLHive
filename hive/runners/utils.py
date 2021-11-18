@@ -1,17 +1,23 @@
+import os
 import random
 from collections import deque
 
 import numpy as np
 import torch
 import yaml
+from hive.utils.utils import PACKAGE_ROOT
 
 
 def load_config(args):
     """Used to load config for experiments. Agents, environment, and loggers components
     in main config file can be overrided based on other log files.
     """
-    with open(args.config) as f:
-        config = yaml.safe_load(f)
+    if args.config is not None:
+        with open(args.config) as f:
+            config = yaml.safe_load(f)
+    else:
+        with open(os.path.join(PACKAGE_ROOT, "configs", args.preset_config)) as f:
+            config = yaml.safe_load(f)
     if args.agent_config is not None:
         with open(args.agent_config) as f:
             config["agents"] = yaml.safe_load(f)
