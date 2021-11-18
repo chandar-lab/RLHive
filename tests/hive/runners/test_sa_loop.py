@@ -61,7 +61,7 @@ hive.registry.register("FakeLogger2", FakeLogger2, FakeLogger2)
 @pytest.fixture()
 def args():
     return Namespace(
-        config="hive/runners/tests/test_sa_config.yml",
+        config="tests/hive/runners/test_sa_config.yml",
         agent_config=None,
         env_config=None,
         logger_config=None,
