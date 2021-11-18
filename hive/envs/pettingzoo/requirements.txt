@@ -1,3 +1,2 @@
 pettingzoo==1.11.2
-pettingzoo[sisl]
-pettingzoo[atari]
+pettingzoo[sisl,atari,classic]

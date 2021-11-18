@@ -1,9 +1,10 @@
 import argparse
-from copy import deepcopy
 import inspect
-from typing import List, Mapping, Sequence, _GenericAlias
-import yaml
+from copy import deepcopy
 from functools import partial, update_wrapper
+from typing import List, Mapping, Sequence, _GenericAlias
+
+import yaml
 
 
 class Registrable:

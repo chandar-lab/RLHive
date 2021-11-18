@@ -1,5 +1,6 @@
 import torch
-from hive.utils.utils import CallableType, registry
+from hive.utils.registry import registry
+from hive.utils.utils import CallableType
 import math
 
 

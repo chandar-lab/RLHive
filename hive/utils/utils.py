@@ -1,7 +1,6 @@
 import os
 import pickle
 
-from hive import registry
 from hive.utils.registry import CallableType
 
 
