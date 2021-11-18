@@ -1,4 +1,5 @@
 import abc
+
 from hive import Registrable, registry
 
 

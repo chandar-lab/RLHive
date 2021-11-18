@@ -1,5 +1,6 @@
-from functools import reduce
 import operator
+from functools import reduce
+
 import gym
 import numpy as np
 

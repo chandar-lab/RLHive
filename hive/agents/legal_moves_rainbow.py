@@ -1,16 +1,15 @@
-import copy
-from typing import Tuple, Callable
+from typing import Tuple
+
 import numpy as np
 import torch
-from torch import nn
-import torch.nn.functional as F
-from hive.agents.rainbow import RainbowDQNAgent
+
 from hive.agents.qnets.base import FunctionApproximator
+from hive.agents.qnets.utils import InitializationFn
+from hive.agents.rainbow import RainbowDQNAgent
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.logging import Logger
 from hive.utils.schedule import Schedule
 from hive.utils.utils import OptimizerFn
-from hive.agents.qnets.utils import InitializationFn
 
 
 class LegalMovesRainbowAgent(RainbowDQNAgent):

@@ -3,9 +3,9 @@ import copy
 
 from hive import agents as agent_lib
 from hive import envs
-from hive.utils import experiment, logging, schedule, utils
-from hive.runners.utils import load_config, TransitionInfo, set_seed
 from hive.runners.base import Runner
+from hive.runners.utils import TransitionInfo, load_config, set_seed
+from hive.utils import experiment, logging, schedule, utils
 from hive.utils.registry import get_parsed_args
 
 

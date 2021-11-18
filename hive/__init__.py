@@ -1,1 +1,1 @@
-from hive.utils.registry import registry, Registrable
+from hive.utils.registry import Registrable, registry

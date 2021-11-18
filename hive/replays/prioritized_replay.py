@@ -1,9 +1,10 @@
-from hive.utils.torch_utils import numpify
 import os
 from typing import Dict, Tuple
 
 import numpy as np
+
 from hive.replays.efficient_replay import EfficientCircularBuffer
+from hive.utils.torch_utils import numpify
 
 
 class PrioritizedReplayBuffer(EfficientCircularBuffer):

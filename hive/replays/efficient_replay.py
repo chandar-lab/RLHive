@@ -1,9 +1,10 @@
 import os
-import numpy as np
 import pickle
 
-from hive.utils.utils import create_folder
+import numpy as np
+
 from hive.replays.replay_buffer import BaseReplayBuffer
+from hive.utils.utils import create_folder
 
 
 class EfficientCircularBuffer(BaseReplayBuffer):

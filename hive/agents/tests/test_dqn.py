@@ -1,16 +1,17 @@
 from copy import deepcopy
-from hive.agents.qnets.base import FunctionApproximator
 from unittest.mock import Mock
+
 import numpy as np
 import pytest
 import torch
+from torch.optim import Adam
 
 from hive.agents import DQNAgent, RainbowDQNAgent, get_agent
-from hive.agents.qnets import MLPNetwork, ConvNetwork
+from hive.agents.qnets import MLPNetwork
+from hive.agents.qnets.base import FunctionApproximator
 from hive.envs import EnvSpec
 from hive.replays import CircularReplayBuffer
 from hive.utils import schedule
-from torch.optim import Adam
 
 
 @pytest.fixture

@@ -1,14 +1,13 @@
-import hive
-from hive import runners
-from hive.utils.schedule import ConstantSchedule
-from hive.utils.logging import Logger, ScheduledLogger
+import sys
+from argparse import Namespace
+from unittest.mock import patch
+
 import pytest
 
-from argparse import Namespace
-from hive.runners.utils import load_config
+import hive
 from hive.runners import single_agent_loop
-import sys
-from unittest.mock import patch
+from hive.runners.utils import load_config
+from hive.utils.logging import ScheduledLogger
 
 
 class FakeLogger1(ScheduledLogger):

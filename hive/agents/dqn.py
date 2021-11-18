@@ -4,6 +4,7 @@ from typing import Tuple
 
 import numpy as np
 import torch
+
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.qnet_heads import DQNNetwork

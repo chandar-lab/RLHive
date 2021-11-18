@@ -1,8 +1,7 @@
-from hive.replays import PrioritizedReplayBuffer
+import numpy as np
 import pytest
 
-import numpy as np
-from hive.replays import EfficientCircularBuffer
+from hive.replays import EfficientCircularBuffer, PrioritizedReplayBuffer
 
 OBS_SHAPE = (4, 4)
 CAPACITY = 60
