@@ -47,6 +47,9 @@ class CallableType(Registrable):
     def type_name(cls):
         return "callable"
 
+    def __repr__(self):
+        return f"<{type(self).__name__} {repr(self._fn)}>"
+
 
 class Registry:
     """This is the Registry class for Hive. It allows you to register different types
@@ -131,6 +134,9 @@ class Registry:
         """
         for cls in class_dict:
             self.register(cls, class_dict[cls], base_class)
+
+    def __repr__(self):
+        return str(self._registry)
 
 
 def construct_objects(object_constructor, config, prefix=None):
