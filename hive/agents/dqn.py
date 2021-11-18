@@ -41,10 +41,10 @@ class DQNAgent(Agent):
         n_step: int = 1,
         grad_clip: float = None,
         reward_clip: float = None,
+        update_period_schedule: Schedule = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
-        update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
         learn_schedule: Schedule = None,
@@ -71,6 +71,8 @@ class DQNAgent(Agent):
                 [-grad_clip, gradclip]
             reward_clip (float): Rewards will be clipped to between
                 [-reward_clip, reward_clip]
+            update_period_schedule: Schedule determining how frequently
+                the agent's net is updated.
             target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
@@ -78,8 +80,6 @@ class DQNAgent(Agent):
                 net parameters in a soft update.
             target_net_update_schedule: Schedule determining how frequently the
                 target net is updated.
-            update_period_schedule: Schedule determining how frequently
-                the agent's net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
             learn_schedule: Schedule determining when the learning process actually
@@ -117,12 +117,12 @@ class DQNAgent(Agent):
         self._logger.register_timescale(
             self._timescale, PeriodicSchedule(False, True, log_frequency)
         )
-        self._target_net_update_schedule = target_net_update_schedule
-        if self._target_net_update_schedule is None:
-            self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
         self._update_period_schedule = update_period_schedule
         if self._update_period_schedule is None:
             self._update_period_schedule = PeriodicSchedule(False, True, 1)
+        self._target_net_update_schedule = target_net_update_schedule
+        if self._target_net_update_schedule is None:
+            self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
         self._epsilon_schedule = epsilon_schedule
         if self._epsilon_schedule is None:
             self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
@@ -202,6 +202,7 @@ class DQNAgent(Agent):
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
         else:
+            # Note: not explicitly handling the ties
             action = torch.argmax(qvals).item()
 
         if (
