@@ -46,7 +46,6 @@ class RainbowDQNAgent(DQNAgent):
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
         learn_schedule: Schedule = None,
-        seed: int = 42,
         batch_size: int = 32,
         device: str = "cpu",
         logger: Logger = None,
@@ -91,7 +90,6 @@ class RainbowDQNAgent(DQNAgent):
                 the course of training.
             learn_schedule: Schedule determining when the learning process actually
                 starts.
-            seed: Seed for numpy random number generator.
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
             device: Device on which all computations should be run.
@@ -135,7 +133,6 @@ class RainbowDQNAgent(DQNAgent):
             epsilon_schedule=epsilon_schedule,
             test_epsilon=test_epsilon,
             learn_schedule=learn_schedule,
-            seed=seed,
             batch_size=batch_size,
             device=device,
             logger=logger,

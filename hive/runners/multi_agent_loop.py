@@ -4,7 +4,7 @@ import copy
 from hive import agents as agent_lib
 from hive import envs
 from hive.utils import experiment, logging, schedule, utils
-from hive.runners.utils import load_config, TransitionInfo, set_seed
+from hive.runners.utils import load_config, TransitionInfo
 from hive.runners.base import Runner
 from hive.utils.registry import get_parsed_args
 
@@ -161,7 +161,7 @@ def set_up_experiment(config):
     full_config = utils.Chomp(copy.deepcopy(config))
 
     if "seed" in config:
-        set_seed(config["seed"])
+        utils.seeder.set_global_seed(config["seed"])
 
     # Set up environment
     environment, full_config["environment"] = envs.get_env(config["environment"], "env")
