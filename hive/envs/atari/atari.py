@@ -1,9 +1,9 @@
-import numpy as np
-import cv2
 import ale_py
+import cv2
+import numpy as np
 
-from hive.envs.gym_env import GymEnv
 from hive.envs.env_spec import EnvSpec
+from hive.envs.gym_env import GymEnv
 
 
 class AtariEnv(GymEnv):

@@ -4,6 +4,7 @@ from typing import Tuple
 
 import numpy as np
 import torch
+
 from hive.agents.dqn import DQNAgent
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.noisy_linear import NoisyLinear

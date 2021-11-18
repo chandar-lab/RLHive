@@ -1,4 +1,4 @@
-from hive import registry
+from hive.utils.registry import registry
 from hive.replays.circular_replay import CircularReplayBuffer, SimpleReplayBuffer
 from hive.replays.legal_moves_replay import LegalMovesBuffer
 from hive.replays.prioritized_replay import PrioritizedReplayBuffer

@@ -1,8 +1,10 @@
 from functools import partial
-from hive.agents.qnets.noisy_linear import NoisyLinear
+
 import numpy as np
 import torch
 from torch import nn
+
+from hive.agents.qnets.noisy_linear import NoisyLinear
 
 
 class MLPNetwork(nn.Module):

@@ -1,9 +1,9 @@
+from gym.envs.registration import register
 from marlgrid.envs import register_marl_env
+
 from hive.envs.marlgrid.ma_envs.checkers import CheckersMultiGrid
 from hive.envs.marlgrid.ma_envs.pursuit import PursuitMultiGrid
 from hive.envs.marlgrid.ma_envs.switch import SwitchMultiGrid
-
-from gym.envs.registration import register
 
 register_marl_env(
     "MarlGrid-2AgentCheckers8x8-v0",

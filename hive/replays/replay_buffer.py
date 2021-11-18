@@ -3,7 +3,8 @@ import os
 import pickle
 
 import numpy as np
-from hive import Registrable
+
+from hive.utils.registry import Registrable
 from hive.utils.utils import create_folder
 
 

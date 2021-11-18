@@ -27,7 +27,7 @@ try:
 except ImportError:
     PettingZooEnv = None
 
-from hive import registry
+from hive.utils.registry import registry
 
 registry.register_all(
     BaseEnv,
