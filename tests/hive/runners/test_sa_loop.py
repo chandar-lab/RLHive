@@ -1,14 +1,15 @@
-import hive
-from hive import runners
-from hive.utils.schedule import ConstantSchedule
-from hive.utils.logging import Logger, ScheduledLogger
-import pytest
-
-from argparse import Namespace
-from hive.runners.utils import load_config
-from hive.runners import single_agent_loop
+import os
 import sys
+from argparse import Namespace
 from unittest.mock import patch
+
+import hive
+import pytest
+from hive import runners
+from hive.runners import single_agent_loop
+from hive.runners.utils import load_config
+from hive.utils.logging import Logger, ScheduledLogger
+from hive.utils.schedule import ConstantSchedule
 
 
 class FakeLogger1(ScheduledLogger):
@@ -60,7 +61,7 @@ hive.registry.register("FakeLogger2", FakeLogger2, FakeLogger2)
 @pytest.fixture()
 def args():
     return Namespace(
-        config="hive/runners/tests/test_sa_config.yml",
+        config="tests/hive/runners/test_sa_config.yml",
         agent_config=None,
         env_config=None,
         logger_config=None,
@@ -68,8 +69,9 @@ def args():
 
 
 @pytest.fixture()
-def initial_runner(args):
+def initial_runner(args, tmpdir):
     config = load_config(args)
+    config["save_dir"] = os.path.join(tmpdir, config["save_dir"])
     runner = single_agent_loop.set_up_experiment(config)
 
     return runner, config
