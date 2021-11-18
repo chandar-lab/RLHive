@@ -24,6 +24,7 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         reward_shape=(),
         reward_dtype=np.float32,
         extra_storage_types=None,
+        num_players_sharing_buffer=None,
         seed=42,
     ):
         """Constructor for EfficientCircularBuffer.
@@ -54,6 +55,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
             extra_storage_types: A dictionary describing extra items to store in the
                 buffer. The mapping should be from the name of the item to a
                 (type, shape) tuple.
+            num_players_sharing_buffer: Number of agents that share their buffers.
+                It is used for self-play.
             seed: Random seed of numpy random generator used when sampling transitions.
         """
         self._capacity = capacity
@@ -77,6 +80,9 @@ class EfficientCircularBuffer(BaseReplayBuffer):
         self._cursor = 0
         self._num_added = 0
         self._rng = np.random.default_rng(seed=seed)
+        self._num_players_sharing_buffer = num_players_sharing_buffer
+        if num_players_sharing_buffer is not None:
+            self._episode_storage = [[] for _ in range(num_players_sharing_buffer)]
 
     def size(self):
         """Returns the number of transitions stored in the buffer."""
@@ -104,7 +110,8 @@ class EfficientCircularBuffer(BaseReplayBuffer):
     def _add_transition(self, **transition):
         """Internal method to add a transition to the buffer."""
         for key in transition:
-            self._storage[key][self._cursor] = transition[key]
+            if key in self._storage:
+                self._storage[key][self._cursor] = transition[key]
         self._num_added += 1
         self._cursor = (self._cursor + 1) % self._capacity
 
@@ -146,7 +153,14 @@ class EfficientCircularBuffer(BaseReplayBuffer):
                     f"Key {key} has wrong dtype. Expected {self._specs[key][0]},"
                     f"received {type(transition[key])}."
                 )
-        self._add_transition(**transition)
+        if self._num_players_sharing_buffer is None:
+            self._add_transition(**transition)
+        else:
+            self._episode_storage[kwargs["agent_id"]].append(transition)
+            if done:
+                for transition in self._episode_storage[kwargs["agent_id"]]:
+                    self._add_transition(**transition)
+                self._episode_storage[kwargs["agent_id"]] = []
 
         if done:
             self._episode_start = True
