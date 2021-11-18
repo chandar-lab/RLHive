@@ -30,7 +30,7 @@ class DQNAgent(Agent):
 
     def __init__(
         self,
-        qnet: FunctionApproximator,
+        representation_net: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
         optimizer_fn: OptimizerFn = None,
@@ -94,7 +94,7 @@ class DQNAgent(Agent):
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
         self._init_fn = create_init_weights_fn(init_fn)
         self._device = torch.device(device)
-        self.create_q_networks(qnet)
+        self.create_q_networks(representation_net)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
@@ -135,8 +135,8 @@ class DQNAgent(Agent):
         self._state = {"episode_start": True}
         self._training = False
 
-    def create_q_networks(self, qnet):
-        network = qnet(self._obs_dim)
+    def create_q_networks(self, representation_net):
+        network = representation_net(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
         self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(
             self._device
