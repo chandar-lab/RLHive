@@ -1,5 +1,6 @@
 import abc
-from hive import Registrable
+
+from hive.utils.registry import Registrable
 
 
 class Agent(abc.ABC, Registrable):

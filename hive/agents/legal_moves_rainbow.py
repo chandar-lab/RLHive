@@ -1,16 +1,15 @@
-import copy
-from typing import Tuple, Callable
+from typing import Tuple
+
 import numpy as np
 import torch
-from torch import nn
-import torch.nn.functional as F
-from hive.agents.rainbow import RainbowDQNAgent
+
 from hive.agents.qnets.base import FunctionApproximator
+from hive.agents.qnets.utils import InitializationFn
+from hive.agents.rainbow import RainbowDQNAgent
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.logging import Logger
 from hive.utils.schedule import Schedule
-from hive.utils.utils import OptimizerFn
-from hive.agents.qnets.utils import InitializationFn
+from hive.utils.utils import LossFn, OptimizerFn
 
 
 class LegalMovesRainbowAgent(RainbowDQNAgent):
@@ -18,13 +17,14 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
 
     def __init__(
         self,
-        qnet: FunctionApproximator,
+        representation_net: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
         v_min: str = 0,
         v_max: str = 200,
         atoms: str = 51,
         optimizer_fn: OptimizerFn = None,
+        loss_fn: LossFn = None,
         init_fn: InitializationFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
@@ -32,10 +32,10 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         n_step: int = 1,
         grad_clip: float = None,
         reward_clip: float = None,
+        update_period_schedule: Schedule = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
-        update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
         learn_schedule: Schedule = None,
@@ -52,15 +52,66 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
     ):
         """
         Args:
+            qnet: A network that outputs the q-values of the different actions
+                for an input observation.
+            obs_dim: The dimension of the observations.
+            act_dim: The number of actions available to the agent.
+            v_min: minimum possible value of the value function.
+            v_max: maximum possible value of the value function.
+            atoms: number of atoms in the distributional DQN context.
+            optimizer_fn: A function that takes in a list of parameters to optimize
+                and returns the optimizer.
+            init_fn: initializes the weights of qnet using create_init_weights_fn.
+            id: ID used to create the timescale in the logger for the agent.
+            replay_buffer: The replay buffer that the agent will push observations
+                to and sample from during learning.
+            discount_rate (float): A number between 0 and 1 specifying how much
+                future rewards are discounted by the agent.
+            n_step (int): n used in n-step returns to compute TD(n) targets.
+            grad_clip (float): Gradients will be clipped to between
+                [-grad_clip, gradclip]
+            reward_clip (float): Rewards will be clipped to between
+                [-reward_clip, reward_clip]
+            target_net_soft_update (bool): Whether the target net parameters are
+                replaced by the qnet parameters completely or using a weighted
+                average of the target net parameters and the qnet parameters.
+            target_net_update_fraction (float): The weight given to the target
+                net parameters in a soft update.
+            target_net_update_schedule: Schedule determining how frequently the
+                target net is updated.
+            update_period_schedule: Schedule determining how frequently
+                the agent's net is updated.
+            epsilon_schedule: Schedule determining the value of epsilon through
+                the course of training.
+            test_epsilon (float): epsilon (probability of choosing a random action)
+                to be used during testing phase.
+            learn_schedule: Schedule determining when the learning process actually
+                starts.
+            seed: Seed for numpy random number generator.
+            batch_size (int): The size of the batch sampled from the replay buffer
+                during learning.
+            device: Device on which all computations should be run.
+            logger: Logger used to log agent's metrics.
+            log_frequency (int): How often to log the agent's metrics.
+            noisy (bool): whether or not to use the noisy feature (from noisy DQN).
+            std_init (float): standard deviation for initialization of noises in the
+                case of noisy networks.
+            double: whether or not to use the double feature (from double DQN).
+            dueling: whether or not to use the dueling feature (from dueling DQN).
+            distributional: whether or not to use the distributional
+                feature (from distributional DQN).
+            use_eps_greedy: whether or not to use epsilon greedy.
+                Usually in case of noisy networks use_eps_greedy=False.
         """
         super().__init__(
-            qnet,
+            representation_net,
             obs_dim,
             act_dim,
             v_min=v_min,
             v_max=v_max,
             atoms=atoms,
             optimizer_fn=optimizer_fn,
+            loss_fn=loss_fn,
             init_fn=init_fn,
             id=id,
             replay_buffer=replay_buffer,
@@ -68,10 +119,10 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
             n_step=n_step,
             grad_clip=grad_clip,
             reward_clip=reward_clip,
+            update_period_schedule=update_period_schedule,
             target_net_soft_update=target_net_soft_update,
             target_net_update_fraction=target_net_update_fraction,
             target_net_update_schedule=target_net_update_schedule,
-            update_period_schedule=update_period_schedule,
             epsilon_schedule=epsilon_schedule,
             test_epsilon=test_epsilon,
             learn_schedule=learn_schedule,
@@ -87,16 +138,16 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
             use_eps_greedy=use_eps_greedy,
         )
 
-    def create_q_networks(self, qnet):
-        super().create_q_networks(qnet)
+    def create_q_networks(self, representation_net):
+        """Creates the qnet and target qnet."""
+        super().create_q_networks(representation_net)
         self._qnet = LegalMovesHead(self._qnet)
         self._target_qnet = LegalMovesHead(self._target_qnet)
 
     def preprocess_update_info(self, update_info):
+        """Clips the reward in update_info."""
         preprocessed_update_info = {
-            "observation": np.array(
-                update_info["observation"]["observation"], dtype=np.uint8
-            ),
+            "observation": update_info["observation"]["observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
             "done": update_info["done"],

@@ -4,6 +4,7 @@ from typing import Tuple
 
 import numpy as np
 import torch
+
 from hive.agents.dqn import DQNAgent
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.noisy_linear import NoisyLinear
@@ -17,7 +18,7 @@ from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.logging import Logger
 from hive.utils.schedule import Schedule
-from hive.utils.utils import OptimizerFn
+from hive.utils.utils import LossFn, OptimizerFn
 
 
 class RainbowDQNAgent(DQNAgent):
@@ -25,13 +26,14 @@ class RainbowDQNAgent(DQNAgent):
 
     def __init__(
         self,
-        qnet: FunctionApproximator,
+        representation_net: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
         v_min: str = 0,
         v_max: str = 200,
         atoms: str = 51,
         optimizer_fn: OptimizerFn = None,
+        loss_fn: LossFn = None,
         init_fn: InitializationFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
@@ -39,10 +41,10 @@ class RainbowDQNAgent(DQNAgent):
         n_step: int = 1,
         grad_clip: float = None,
         reward_clip: float = None,
+        update_period_schedule: Schedule = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
-        update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
         learn_schedule: Schedule = None,
@@ -68,15 +70,19 @@ class RainbowDQNAgent(DQNAgent):
             atoms: number of atoms in the distributional DQN context
             optimizer_fn: A function that takes in a list of parameters to optimize
                 and returns the optimizer.
+            init_fn: initializes the weights of qnet using create_init_weights_fn.
             id: ID used to create the timescale in the logger for the agent.
             replay_buffer: The replay buffer that the agent will push observations
                 to and sample from during learning.
             discount_rate (float): A number between 0 and 1 specifying how much
                 future rewards are discounted by the agent.
+            n_step (int): n used in n-step returns to compute TD(n) targets.
             grad_clip (float): Gradients will be clipped to between
                 [-grad_clip, gradclip]
             reward_clip (float): Rewards will be clipped to between
                 [-reward_clip, reward_clip]
+            update_period_schedule: Schedule determining how frequently
+                the agent's net is updated.
             target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
@@ -84,10 +90,10 @@ class RainbowDQNAgent(DQNAgent):
                 net parameters in a soft update.
             target_net_update_schedule: Schedule determining how frequently the
                 target net is updated.
-            update_period_schedule: Schedule determining how frequently
-                the agent's net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
+            test_epsilon (float): epsilon (probability of choosing a random action)
+                to be used during testing phase.
             learn_schedule: Schedule determining when the learning process actually
                 starts.
             batch_size (int): The size of the batch sampled from the replay buffer
@@ -95,11 +101,15 @@ class RainbowDQNAgent(DQNAgent):
             device: Device on which all computations should be run.
             logger: Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
-            double: whether or not to use the double feature (from double DQN)
+            noisy (bool): whether or not to use the noisy feature (from noisy DQN).
+            std_init (float): standard deviation for initialization of noises in the
+                case of noisy networks.
+            double: whether or not to use the double feature (from double DQN).
+            dueling: whether or not to use the dueling feature (from dueling DQN).
             distributional: whether or not to use the distributional
-                feature (from distributional DQN)
+                feature (from distributional DQN).
             use_eps_greedy: whether or not to use epsilon greedy.
-                Usually in case of noisy networks use_eps_greedy=False
+                Usually in case of noisy networks use_eps_greedy=False.
         """
         self._noisy = noisy
         self._std_init = std_init
@@ -113,13 +123,16 @@ class RainbowDQNAgent(DQNAgent):
         self._supports = torch.linspace(
             self._v_min, self._v_max, self._atoms, device=device
         )
+        if loss_fn is None:
+            loss_fn = torch.nn.MSELoss
 
         super().__init__(
-            qnet,
+            representation_net,
             obs_dim,
             act_dim,
             optimizer_fn=optimizer_fn,
             init_fn=init_fn,
+            loss_fn=loss_fn,
             id=id,
             replay_buffer=replay_buffer,
             discount_rate=discount_rate,
@@ -139,11 +152,10 @@ class RainbowDQNAgent(DQNAgent):
             log_frequency=log_frequency,
         )
 
-        self._loss_fn = torch.nn.MSELoss(reduction="none")
         self._use_eps_greedy = use_eps_greedy
 
-    def create_q_networks(self, qnet):
-        network = qnet(self._obs_dim)
+    def create_q_networks(self, representation_net):
+        network = representation_net(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
 
         # Use NoisyLinear when creating output heads if noisy is true
@@ -195,27 +207,6 @@ class RainbowDQNAgent(DQNAgent):
 
         projection = torch.sum(quotient * next_dist.unsqueeze(1), dim=2)
         return projection
-
-    def preprocess_update_info(self, update_info):
-        if self._reward_clip is not None:
-            update_info["reward"] = np.clip(
-                update_info["reward"], -self._reward_clip, self._reward_clip
-            )
-        preprocessed_update_info = {
-            "observation": update_info["observation"],
-            "action": update_info["action"],
-            "reward": update_info["reward"],
-            "done": update_info["done"],
-        }
-        if "agent_id" in update_info:
-            preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
-
-        return preprocessed_update_info
-
-    def preprocess_update_batch(self, batch):
-        for key in batch:
-            batch[key] = torch.tensor(batch[key]).to(self._device)
-        return (batch["observation"].float(),), (batch["next_observation"].float(),)
 
     @torch.no_grad()
     def act(self, observation):
