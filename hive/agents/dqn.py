@@ -143,7 +143,6 @@ class DQNAgent(Agent):
         self._state = {"episode_start": True}
         self._training = False
 
-
     def create_q_networks(self, qnet):
         """Creates the qnet and target qnet."""
         network = qnet(self._obs_dim)

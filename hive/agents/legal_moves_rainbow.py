@@ -62,6 +62,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
             atoms: number of atoms in the distributional DQN context.
             optimizer_fn: A function that takes in a list of parameters to optimize
                 and returns the optimizer.
+            init_fn: initializes the weights of qnet using create_init_weights_fn.
             id: ID used to create the timescale in the logger for the agent.
             replay_buffer: The replay buffer that the agent will push observations
                 to and sample from during learning.
@@ -83,6 +84,8 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
                 the agent's net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
+            test_epsilon (float): epsilon (probability of choosing a random action)
+                to be used during testing phase.
             learn_schedule: Schedule determining when the learning process actually
                 starts.
             seed: Seed for numpy random number generator.
@@ -138,11 +141,13 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         )
 
     def create_q_networks(self, representation_net):
+        """Creates the qnet and target qnet."""
         super().create_q_networks(representation_net)
         self._qnet = LegalMovesHead(self._qnet)
         self._target_qnet = LegalMovesHead(self._target_qnet)
 
     def preprocess_update_info(self, update_info):
+        """Clips the reward in update_info."""
         preprocessed_update_info = {
             "observation": update_info["observation"]["observation"],
             "action": update_info["action"],
