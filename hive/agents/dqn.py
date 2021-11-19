@@ -64,13 +64,15 @@ class DQNAgent(Agent):
             act_dim: The number of actions available to the agent.
             optimizer_fn: A function that takes in a list of parameters to optimize
                 and returns the optimizer.
+            init_fn: initializes the weights of qnet using create_init_weights_fn.
             id: ID used to create the timescale in the logger for the agent.
             replay_buffer: The replay buffer that the agent will push observations
                 to and sample from during learning.
             discount_rate (float): A number between 0 and 1 specifying how much
                 future rewards are discounted by the agent.
+            n_step (int): n used in n-step returns to compute TD(n) targets.
             grad_clip (float): Gradients will be clipped to between
-                [-grad_clip, gradclip]
+                [-grad_clip, grad_clip]
             reward_clip (float): Rewards will be clipped to between
                 [-reward_clip, reward_clip]
             update_period_schedule: Schedule determining how frequently
@@ -84,6 +86,8 @@ class DQNAgent(Agent):
                 target net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
+            test_epsilon (float): epsilon (probability of choosing a random action)
+                to be used during testing phase.
             learn_schedule: Schedule determining when the learning process actually
                 starts.
             seed: Seed for numpy random number generator.
@@ -139,8 +143,9 @@ class DQNAgent(Agent):
         self._state = {"episode_start": True}
         self._training = False
 
-    def create_q_networks(self, representation_net):
-        network = representation_net(self._obs_dim)
+    def create_q_networks(self, qnet):
+        """Creates the qnet and target qnet."""
+        network = qnet(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
         self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(
             self._device
@@ -161,6 +166,7 @@ class DQNAgent(Agent):
         self._target_qnet.eval()
 
     def preprocess_update_info(self, update_info):
+        """Clips the reward in update_info."""
         if self._reward_clip is not None:
             update_info["reward"] = np.clip(
                 update_info["reward"], -self._reward_clip, self._reward_clip
