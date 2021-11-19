@@ -25,7 +25,7 @@ class RainbowDQNAgent(DQNAgent):
 
     def __init__(
         self,
-        qnet: FunctionApproximator,
+        representation_net: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
         v_min: str = 0,
@@ -39,10 +39,10 @@ class RainbowDQNAgent(DQNAgent):
         n_step: int = 1,
         grad_clip: float = None,
         reward_clip: float = None,
+        update_period_schedule: Schedule = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
-        update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
         learn_schedule: Schedule = None,
@@ -78,6 +78,8 @@ class RainbowDQNAgent(DQNAgent):
                 [-grad_clip, gradclip]
             reward_clip (float): Rewards will be clipped to between
                 [-reward_clip, reward_clip]
+            update_period_schedule: Schedule determining how frequently
+                the agent's net is updated.
             target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
@@ -85,8 +87,6 @@ class RainbowDQNAgent(DQNAgent):
                 net parameters in a soft update.
             target_net_update_schedule: Schedule determining how frequently the
                 target net is updated.
-            update_period_schedule: Schedule determining how frequently
-                the agent's net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
             learn_schedule: Schedule determining when the learning process actually
@@ -117,7 +117,7 @@ class RainbowDQNAgent(DQNAgent):
         )
 
         super().__init__(
-            qnet,
+            representation_net,
             obs_dim,
             act_dim,
             optimizer_fn=optimizer_fn,
@@ -145,8 +145,8 @@ class RainbowDQNAgent(DQNAgent):
         self._loss_fn = torch.nn.MSELoss(reduction="none")
         self._use_eps_greedy = use_eps_greedy
 
-    def create_q_networks(self, qnet):
-        network = qnet(self._obs_dim)
+    def create_q_networks(self, representation_net):
+        network = representation_net(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
 
         # Use NoisyLinear when creating output heads if noisy is true

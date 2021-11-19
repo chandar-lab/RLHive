@@ -30,7 +30,7 @@ class DQNAgent(Agent):
 
     def __init__(
         self,
-        qnet: FunctionApproximator,
+        representation_net: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
         optimizer_fn: OptimizerFn = None,
@@ -41,10 +41,10 @@ class DQNAgent(Agent):
         n_step: int = 1,
         grad_clip: float = None,
         reward_clip: float = None,
+        update_period_schedule: Schedule = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
-        update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
         learn_schedule: Schedule = None,
@@ -71,6 +71,8 @@ class DQNAgent(Agent):
                 [-grad_clip, gradclip]
             reward_clip (float): Rewards will be clipped to between
                 [-reward_clip, reward_clip]
+            update_period_schedule: Schedule determining how frequently
+                the agent's net is updated.
             target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
@@ -78,8 +80,6 @@ class DQNAgent(Agent):
                 net parameters in a soft update.
             target_net_update_schedule: Schedule determining how frequently the
                 target net is updated.
-            update_period_schedule: Schedule determining how frequently
-                the agent's net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
             learn_schedule: Schedule determining when the learning process actually
@@ -94,7 +94,7 @@ class DQNAgent(Agent):
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
         self._init_fn = create_init_weights_fn(init_fn)
         self._device = torch.device(device)
-        self.create_q_networks(qnet)
+        self.create_q_networks(representation_net)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
@@ -117,12 +117,12 @@ class DQNAgent(Agent):
         self._logger.register_timescale(
             self._timescale, PeriodicSchedule(False, True, log_frequency)
         )
-        self._target_net_update_schedule = target_net_update_schedule
-        if self._target_net_update_schedule is None:
-            self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
         self._update_period_schedule = update_period_schedule
         if self._update_period_schedule is None:
             self._update_period_schedule = PeriodicSchedule(False, True, 1)
+        self._target_net_update_schedule = target_net_update_schedule
+        if self._target_net_update_schedule is None:
+            self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
         self._epsilon_schedule = epsilon_schedule
         if self._epsilon_schedule is None:
             self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
@@ -135,8 +135,8 @@ class DQNAgent(Agent):
         self._state = {"episode_start": True}
         self._training = False
 
-    def create_q_networks(self, qnet):
-        network = qnet(self._obs_dim)
+    def create_q_networks(self, representation_net):
+        network = representation_net(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
         self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(
             self._device

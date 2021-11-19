@@ -18,7 +18,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
 
     def __init__(
         self,
-        qnet: FunctionApproximator,
+        representation_net: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
         v_min: str = 0,
@@ -32,10 +32,10 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         n_step: int = 1,
         grad_clip: float = None,
         reward_clip: float = None,
+        update_period_schedule: Schedule = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
-        update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
         learn_schedule: Schedule = None,
@@ -55,7 +55,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         Args:
         """
         super().__init__(
-            qnet,
+            representation_net,
             obs_dim,
             act_dim,
             v_min=v_min,
@@ -69,10 +69,10 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
             n_step=n_step,
             grad_clip=grad_clip,
             reward_clip=reward_clip,
+            update_period_schedule=update_period_schedule,
             target_net_soft_update=target_net_soft_update,
             target_net_update_fraction=target_net_update_fraction,
             target_net_update_schedule=target_net_update_schedule,
-            update_period_schedule=update_period_schedule,
             epsilon_schedule=epsilon_schedule,
             test_epsilon=test_epsilon,
             learn_schedule=learn_schedule,
@@ -89,16 +89,14 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
             use_eps_greedy=use_eps_greedy,
         )
 
-    def create_q_networks(self, qnet):
-        super().create_q_networks(qnet)
+    def create_q_networks(self, representation_net):
+        super().create_q_networks(representation_net)
         self._qnet = LegalMovesHead(self._qnet)
         self._target_qnet = LegalMovesHead(self._target_qnet)
 
     def preprocess_update_info(self, update_info):
         preprocessed_update_info = {
-            "observation": np.array(
-                update_info["observation"]["observation"], dtype=np.uint8
-            ),
+            "observation": update_info["observation"]["observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
             "done": update_info["done"],
