@@ -93,6 +93,9 @@ class Metrics:
     def __setitem__(self, key, value):
         self._metrics[key] = value
 
+    def __repr__(self) -> str:
+        return str(self._metrics)
+
 
 class TransitionInfo:
     """Used to keep track of the most recent transition for each agent.
@@ -177,6 +180,15 @@ class TransitionInfo:
             list(self._previous_observations[agent.id]) + [observation]
         )
         return stacked_observation
+
+    def __repr__(self):
+        return str(
+            {
+                "transtions": self._transitions,
+                "started": self._started,
+                "previous_observations": self._previous_observations,
+            }
+        )
 
 
 def zeros_like(x):
