@@ -190,6 +190,7 @@ class TransitionInfo:
             }
         )
 
+
 def zeros_like(x):
     if isinstance(x, np.ndarray):
         return np.zeros_like(x)
