@@ -109,7 +109,7 @@ def test_run_episode(initial_runner):
     test running one episode
     """
     single_agent_runner, config = initial_runner
-    episode_metrics, steps = single_agent_runner.run_episode()
+    episode_metrics = single_agent_runner.run_episode()
     agent = single_agent_runner._agents[0]
     assert (
         episode_metrics[agent._id]["episode_length"]
@@ -119,7 +119,6 @@ def test_run_episode(initial_runner):
         episode_metrics[agent._id]["episode_length"]
         == single_agent_runner._train_schedule._steps
     )
-    assert steps == single_agent_runner._train_schedule._steps
 
 
 def test_resume(initial_runner):
