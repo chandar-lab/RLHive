@@ -1,17 +1,17 @@
 # General training loop config
-run_name: &run_name 'pettingzoo-rainbow'
+run_name: &run_name 'hanabi-rainbow-self-play-2p'
 train_steps: 100000000
 test_frequency: 10000
 test_num_episodes: 10
 self_play: True
-num_agents: 2
+num_agents: &num_agents 2
 stack_size: &stack_size 1
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
     off_value: False
     on_value: True
-    period: 15000
+    period: 10000000
 save_dir: 'experiment'
 
 # Environment config
@@ -20,35 +20,43 @@ environment:
   kwargs:
     env_name: 'hanabi_v4'
     env_family: 'classic'
-    num_players: 2
+    num_players: *num_agents
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
 agents:
   -
-    name: 'HanabiRainbowAgent'
+    name: 'LegalMovesRainbowAgent'
     kwargs:
       qnet:
         name: 'MLPNetwork'
         kwargs:
-          hidden_units: 512
+          hidden_units: [512, 512]
       optimizer_fn:
         name: 'Adam'
         kwargs:
           lr: 0.000025
           eps: 0.00003125
+      init_fn:
+        name: "variance_scaling"
       id: 0
       replay_buffer:
-        name: 'HanabiBuffer'
+        name: 'LegalMovesBuffer'
         kwargs:
           seed: 42
-          capacity: 50000
+          capacity: 1000000
           stack_size: *stack_size
-          extra_storage_types:
-            action_mask:
-              - 'np.uint8'
-              - [20]
+          action_dim: 20
+          num_players_sharing_buffer: *num_agents
+          gamma: 0.99
+          extra_storage_types: {}
       discount_rate: .99
+      update_period_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 4
       target_net_update_schedule:
         name: 'PeriodicSchedule'
         kwargs:
@@ -56,25 +64,27 @@ agents:
           on_value: True
           period: 500
       epsilon_schedule:
-        name: 'ConstantSchedule'
+        name: 'LinearSchedule'
         kwargs:
-          value: .0
+          init_value: 1
+          end_value: 0.0
+          steps: 1000
+      test_epsilon: 0
       learn_schedule:
         name: 'SwitchSchedule'
         kwargs:
           off_value: False
           on_value: True
-          steps: 100
+          steps: 500
       seed: 42
-      batch_size: 128
+      batch_size: 32
       device: 'cpu'
       log_frequency: 100
       double: False
       distributional: True
       dueling: False
       noisy: False
-      std_init: .5
-      use_eps_greedy: False
+      use_eps_greedy: True
       v_min: -25.0
       v_max: 25.0
       atoms: 51
@@ -87,6 +97,7 @@ loggers:
   -
     name: WandbLogger
     kwargs:
-      project_name: Hive-v1
+      project_name: Hive-v2
       run_name: *run_name
       mode: "online"
+      settings_str: 'fork'

@@ -1,9 +1,10 @@
 import argparse
-from copy import deepcopy
 import inspect
-from typing import List, Mapping, Sequence, _GenericAlias
-import yaml
+from copy import deepcopy
 from functools import partial, update_wrapper
+from typing import Mapping, Sequence, _GenericAlias
+
+import yaml
 
 
 class Registrable:
@@ -46,6 +47,9 @@ class CallableType(Registrable):
     @classmethod
     def type_name(cls):
         return "callable"
+
+    def __repr__(self):
+        return f"<{type(self).__name__} {repr(self._fn)}>"
 
 
 class Registry:
@@ -131,6 +135,9 @@ class Registry:
         """
         for cls in class_dict:
             self.register(cls, class_dict[cls], base_class)
+
+    def __repr__(self):
+        return str(self._registry)
 
 
 def construct_objects(object_constructor, config, prefix=None):

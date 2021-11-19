@@ -1,17 +1,23 @@
+import os
 import random
 from collections import deque
 
 import numpy as np
 import torch
 import yaml
+from hive.utils.utils import PACKAGE_ROOT
 
 
 def load_config(args):
     """Used to load config for experiments. Agents, environment, and loggers components
     in main config file can be overrided based on other log files.
     """
-    with open(args.config) as f:
-        config = yaml.safe_load(f)
+    if args.config is not None:
+        with open(args.config) as f:
+            config = yaml.safe_load(f)
+    else:
+        with open(os.path.join(PACKAGE_ROOT, "configs", args.preset_config)) as f:
+            config = yaml.safe_load(f)
     if args.agent_config is not None:
         with open(args.agent_config) as f:
             config["agents"] = yaml.safe_load(f)
@@ -93,6 +99,9 @@ class Metrics:
     def __setitem__(self, key, value):
         self._metrics[key] = value
 
+    def __repr__(self) -> str:
+        return str(self._metrics)
+
 
 class TransitionInfo:
     """Used to keep track of the most recent transition for each agent.
@@ -171,10 +180,41 @@ class TransitionInfo:
         if self._stack_size == 1:
             return observation
         while len(self._previous_observations[agent.id]) < self._stack_size - 1:
-            self._previous_observations[agent.id].append(np.zeros_like(observation))
+            self._previous_observations[agent.id].append(zeros_like(observation))
 
-        stacked_observation = np.stack(
-            list(self._previous_observations[agent.id]) + [observation],
-            axis=0,
+        stacked_observation = concatenate(
+            list(self._previous_observations[agent.id]) + [observation]
         )
         return stacked_observation
+
+    def __repr__(self):
+        return str(
+            {
+                "transtions": self._transitions,
+                "started": self._started,
+                "previous_observations": self._previous_observations,
+            }
+        )
+
+
+def zeros_like(x):
+    if isinstance(x, np.ndarray):
+        return np.zeros_like(x)
+    elif isinstance(x, torch.Tensor):
+        return torch.zeros_like(x)
+    elif isinstance(x, dict):
+        return {k: zeros_like(v) for k, v in x.items()}
+    elif isinstance(x, list):
+        return [zeros_like(item) for item in x]
+    else:
+        return 0
+
+
+def concatenate(xs):
+    if len(xs) == 0:
+        return np.array([])
+
+    if isinstance(xs[0], dict):
+        return {k: np.concatenate([x[k] for x in xs], axis=0) for k in xs[0]}
+    else:
+        return np.concatenate(xs, axis=0)

@@ -3,9 +3,9 @@ import copy
 
 from hive import agents as agent_lib
 from hive import envs
-from hive.utils import experiment, logging, schedule, utils
-from hive.runners.utils import load_config, TransitionInfo, set_seed
 from hive.runners.base import Runner
+from hive.runners.utils import TransitionInfo, load_config, set_seed
+from hive.utils import experiment, logging, schedule, utils
 from hive.utils.registry import get_parsed_args
 
 
@@ -22,6 +22,7 @@ class MultiAgentRunner(Runner):
         test_frequency,
         test_steps,
         stack_size,
+        self_play,
     ):
         """Initializes the Runner object.
         Args:
@@ -48,6 +49,7 @@ class MultiAgentRunner(Runner):
             test_steps,
         )
         self._transition_info = TransitionInfo(self._agents, stack_size)
+        self._self_play = self_play
 
     def run_one_step(self, observation, turn, episode_metrics):
         """Run one step of the training loop.
@@ -90,6 +92,13 @@ class MultiAgentRunner(Runner):
                 "info": other_info,
             },
         )
+        if self._self_play:
+            self._transition_info.record_info(
+                agent,
+                {
+                    "agent_id": agent.id,
+                },
+            )
         self._transition_info.update_all_rewards(reward)
         return done, next_observation, turn
 
@@ -108,7 +117,6 @@ class MultiAgentRunner(Runner):
 
             if self._training:
                 agent.update(info)
-
             episode_metrics[agent.id]["reward"] += info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
             episode_metrics["full_episode_length"] += 1
@@ -146,6 +154,7 @@ def set_up_experiment(config):
             "resume": bool,
             "run_name": str,
             "save_dir": str,
+            "self_play": bool,
         }
     )
     config.update(args)
@@ -221,6 +230,7 @@ def set_up_experiment(config):
         config.get("test_frequency", -1),
         config.get("test_steps", 1),
         config.get("stack_size", 1),
+        config.get("self_play", False),
     )
     if config.get("resume", False):
         runner.resume()
@@ -230,11 +240,14 @@ def set_up_experiment(config):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", default="./config.yml")
+    parser.add_argument("-c", "--config")
+    parser.add_argument("-p", "--preset-config")
     parser.add_argument("-a", "--agent-config")
     parser.add_argument("-e", "--env-config")
     parser.add_argument("-l", "--logger-config")
     args, _ = parser.parse_known_args()
+    if args.config is None and args.preset_config is None:
+        raise ValueError("Config needs to be provided")
     config = load_config(args)
     runner = set_up_experiment(config)
     runner.run_training()
