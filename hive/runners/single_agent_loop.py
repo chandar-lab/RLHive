@@ -164,11 +164,14 @@ def set_up_experiment(config):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", default="./config.yml")
+    parser.add_argument("-c", "--config")
+    parser.add_argument("-p", "--preset-config")
     parser.add_argument("-a", "--agent-config")
     parser.add_argument("-e", "--env-config")
     parser.add_argument("-l", "--logger-config")
     args, _ = parser.parse_known_args()
+    if args.config is None and args.preset_config is None:
+        raise ValueError("Config needs to be provided")
     config = load_config(args)
     runner = set_up_experiment(config)
     runner.run_training()

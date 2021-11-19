@@ -3,6 +3,8 @@ import pickle
 
 from hive.utils.registry import CallableType
 
+PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 def create_folder(folder):
     if not os.path.exists(folder):
