@@ -17,7 +17,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
 
     def __init__(
         self,
-        qnet: FunctionApproximator,
+        representation_net: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
         v_min: str = 0,
@@ -54,7 +54,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         Args:
         """
         super().__init__(
-            qnet,
+            representation_net,
             obs_dim,
             act_dim,
             v_min=v_min,
@@ -88,8 +88,8 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
             use_eps_greedy=use_eps_greedy,
         )
 
-    def create_q_networks(self, qnet):
-        super().create_q_networks(qnet)
+    def create_q_networks(self, representation_net):
+        super().create_q_networks(representation_net)
         self._qnet = LegalMovesHead(self._qnet)
         self._target_qnet = LegalMovesHead(self._target_qnet)
 

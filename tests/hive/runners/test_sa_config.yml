@@ -24,7 +24,7 @@ environment:
 agent:
   name: 'DQNAgent'
   kwargs:
-    qnet:
+    representation_net:
       name: 'MLPNetwork'
       kwargs:
         hidden_units: [256, 256]

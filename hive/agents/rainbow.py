@@ -26,7 +26,7 @@ class RainbowDQNAgent(DQNAgent):
 
     def __init__(
         self,
-        qnet: FunctionApproximator,
+        representation_net: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
         v_min: str = 0,
@@ -118,7 +118,7 @@ class RainbowDQNAgent(DQNAgent):
         )
 
         super().__init__(
-            qnet,
+            representation_net,
             obs_dim,
             act_dim,
             optimizer_fn=optimizer_fn,
@@ -146,8 +146,8 @@ class RainbowDQNAgent(DQNAgent):
         self._loss_fn = torch.nn.MSELoss(reduction="none")
         self._use_eps_greedy = use_eps_greedy
 
-    def create_q_networks(self, qnet):
-        network = qnet(self._obs_dim)
+    def create_q_networks(self, representation_net):
+        network = representation_net(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
 
         # Use NoisyLinear when creating output heads if noisy is true
