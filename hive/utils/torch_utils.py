@@ -3,7 +3,7 @@ import torch
 from torch import optim
 
 from hive.utils.registry import registry
-from hive.utils.utils import OptimizerFn
+from hive.utils.utils import LossFn, OptimizerFn
 
 
 def numpify(t):
