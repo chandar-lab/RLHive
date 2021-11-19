@@ -1,14 +1,15 @@
-import hive
-from hive import runners
-from hive.utils.schedule import ConstantSchedule
-from hive.utils.logging import Logger, ScheduledLogger
-import pytest
-
-from argparse import Namespace
-from hive.runners.utils import load_config
-from hive.runners import single_agent_loop
+import os
 import sys
+from argparse import Namespace
 from unittest.mock import patch
+
+import hive
+import pytest
+from hive import runners
+from hive.runners import single_agent_loop
+from hive.runners.utils import load_config
+from hive.utils.logging import Logger, ScheduledLogger
+from hive.utils.schedule import ConstantSchedule
 
 
 class FakeLogger1(ScheduledLogger):
@@ -68,8 +69,9 @@ def args():
 
 
 @pytest.fixture()
-def initial_runner(args):
+def initial_runner(args, tmpdir):
     config = load_config(args)
+    config["save_dir"] = os.path.join(tmpdir, config["save_dir"])
     runner = single_agent_loop.set_up_experiment(config)
 
     return runner, config
@@ -161,7 +163,7 @@ def test_run_training(initial_runner):
     [
         (
             "single_agent_loop.py"
-            " --agent.qnet.hidden_units [30,30]"
+            " --agent.representation_net.hidden_units [30,30]"
             " --agent.discount_rate .8 "
             " --seed 20"
             " --loggers.logger_list.0.arg1 2"
@@ -176,7 +178,7 @@ def test_run_training(initial_runner):
         ),
         (
             "single_agent_loop.py"
-            " --agent.qnet.hidden_units [30,30]"
+            " --agent.representation_net.hidden_units [30,30]"
             " --agent.discount_rate .8 ",
             [[30, 30], 0.8, None, None, None],
         ),
@@ -201,7 +203,7 @@ def test_cl_parsing(mock_seed, args, arg_string, cl_args):
         runner._agents[0]._qnet.network.network[0].out_features == expected_args[0][0]
     )
     assert (
-        full_config["agent"]["kwargs"]["qnet"]["kwargs"]["hidden_units"]
+        full_config["agent"]["kwargs"]["representation_net"]["kwargs"]["hidden_units"]
         == expected_args[0]
     )
     # Check discount factor

@@ -2,7 +2,7 @@ from hive.replays import PrioritizedReplayBuffer
 import pytest
 
 import numpy as np
-from hive.replays import EfficientCircularBuffer
+from hive.replays import CircularReplayBuffer
 
 OBS_SHAPE = (4, 4)
 CAPACITY = 60
@@ -13,7 +13,7 @@ GAMMA = 0.99
 
 @pytest.fixture()
 def efficient_buffer():
-    return EfficientCircularBuffer(
+    return CircularReplayBuffer(
         capacity=CAPACITY,
         observation_shape=OBS_SHAPE,
         observation_dtype=np.float32,
@@ -55,7 +55,7 @@ def full_buffer(buffer):
 
 @pytest.fixture()
 def stacked_efficient_buffer():
-    return EfficientCircularBuffer(
+    return CircularReplayBuffer(
         capacity=CAPACITY,
         stack_size=STACK_SIZE,
         observation_shape=OBS_SHAPE,
@@ -99,7 +99,7 @@ def full_stacked_buffer(stacked_buffer):
 
 @pytest.fixture()
 def full_n_step_buffer():
-    n_step_buffer = EfficientCircularBuffer(
+    n_step_buffer = CircularReplayBuffer(
         capacity=CAPACITY,
         observation_shape=OBS_SHAPE,
         observation_dtype=np.float32,
@@ -116,9 +116,7 @@ def full_n_step_buffer():
     return n_step_buffer
 
 
-@pytest.mark.parametrize(
-    "constructor", [EfficientCircularBuffer, PrioritizedReplayBuffer]
-)
+@pytest.mark.parametrize("constructor", [CircularReplayBuffer, PrioritizedReplayBuffer])
 @pytest.mark.parametrize("observation_shape", [(), (2,), (3, 4)])
 @pytest.mark.parametrize("observation_dtype", [np.uint8, np.float32])
 @pytest.mark.parametrize("action_shape", [(), (5,)])
@@ -210,7 +208,7 @@ def test_sample(full_buffer):
     ],
 )
 def test_sample_few_transitions(stack_size, n_step, num_added):
-    buffer = EfficientCircularBuffer(
+    buffer = CircularReplayBuffer(
         capacity=CAPACITY,
         stack_size=stack_size,
         n_step=n_step,
@@ -232,7 +230,7 @@ def test_save_load(full_buffer, tmpdir):
             observation_dtype=np.float32,
         )
     else:
-        buffer = EfficientCircularBuffer(
+        buffer = CircularReplayBuffer(
             capacity=CAPACITY,
             observation_shape=OBS_SHAPE,
             observation_dtype=np.float32,
