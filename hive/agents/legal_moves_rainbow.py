@@ -96,9 +96,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
 
     def preprocess_update_info(self, update_info):
         preprocessed_update_info = {
-            "observation": np.array(
-                update_info["observation"]["observation"], dtype=np.uint8
-            ),
+            "observation": update_info["observation"]["observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
             "done": update_info["done"],
