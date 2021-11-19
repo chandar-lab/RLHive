@@ -42,7 +42,7 @@ def agent_with_mock_optimizer(request):
 @pytest.fixture
 def ddnd_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
-        qnet=FunctionApproximator(MLPNetwork)(hidden_units=5, noisy=True),
+        representation_net=FunctionApproximator(MLPNetwork)(hidden_units=5, noisy=True),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
@@ -69,7 +69,7 @@ def ddnd_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def dxxx_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
-        qnet=FunctionApproximator(MLPNetwork)(hidden_units=5),
+        representation_net=FunctionApproximator(MLPNetwork)(hidden_units=5),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
@@ -93,7 +93,7 @@ def dxxx_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def xdxx_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
-        qnet=FunctionApproximator(MLPNetwork)(hidden_units=5),
+        representation_net=FunctionApproximator(MLPNetwork)(hidden_units=5),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
@@ -117,7 +117,7 @@ def xdxx_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def xxnx_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
-        qnet=FunctionApproximator(MLPNetwork)(hidden_units=5, noisy=True),
+        representation_net=FunctionApproximator(MLPNetwork)(hidden_units=5, noisy=True),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
@@ -142,7 +142,7 @@ def xxnx_agent_with_mock_optimizer(env_spec):
 def xxxd_agent_with_mock_optimizer(env_spec):
     supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
-        qnet=FunctionApproximator(MLPNetwork)(hidden_units=5),
+        representation_net=FunctionApproximator(MLPNetwork)(hidden_units=5),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
@@ -169,7 +169,7 @@ def xxxd_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def xxxx_agent_with_mock_optimizer(env_spec):
     agent = DQNAgent(
-        qnet=FunctionApproximator(MLPNetwork)(hidden_units=5),
+        representation_net=FunctionApproximator(MLPNetwork)(hidden_units=5),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
@@ -188,7 +188,7 @@ def xxxx_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def xxxx_rainbow_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
-        qnet=FunctionApproximator(MLPNetwork)(hidden_units=5),
+        representation_net=FunctionApproximator(MLPNetwork)(hidden_units=5),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
@@ -212,7 +212,7 @@ def xxxx_rainbow_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def agent_with_optimizer(env_spec):
     agent = DQNAgent(
-        qnet=FunctionApproximator(MLPNetwork)(hidden_units=5),
+        representation_net=FunctionApproximator(MLPNetwork)(hidden_units=5),
         obs_dim=env_spec.obs_dim,
         act_dim=env_spec.act_dim,
         optimizer_fn=Adam,
@@ -232,7 +232,7 @@ def test_create_agent_with_configs(env_spec):
     agent_config = {
         "name": "DQNAgent",
         "kwargs": {
-            "qnet": {
+            "representation_net": {
                 "name": "MLPNetwork",
                 "kwargs": {"hidden_units": 5},
             },

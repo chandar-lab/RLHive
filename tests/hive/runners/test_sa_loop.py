@@ -163,7 +163,7 @@ def test_run_training(initial_runner):
     [
         (
             "single_agent_loop.py"
-            " --agent.qnet.hidden_units [30,30]"
+            " --agent.representation_net.hidden_units [30,30]"
             " --agent.discount_rate .8 "
             " --seed 20"
             " --loggers.logger_list.0.arg1 2"
@@ -178,7 +178,7 @@ def test_run_training(initial_runner):
         ),
         (
             "single_agent_loop.py"
-            " --agent.qnet.hidden_units [30,30]"
+            " --agent.representation_net.hidden_units [30,30]"
             " --agent.discount_rate .8 ",
             [[30, 30], 0.8, None, None, None],
         ),
@@ -203,7 +203,7 @@ def test_cl_parsing(mock_seed, args, arg_string, cl_args):
         runner._agents[0]._qnet.network.network[0].out_features == expected_args[0][0]
     )
     assert (
-        full_config["agent"]["kwargs"]["qnet"]["kwargs"]["hidden_units"]
+        full_config["agent"]["kwargs"]["representation_net"]["kwargs"]["hidden_units"]
         == expected_args[0]
     )
     # Check discount factor
