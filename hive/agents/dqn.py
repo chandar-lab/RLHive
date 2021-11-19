@@ -21,7 +21,7 @@ from hive.utils.schedule import (
     Schedule,
     SwitchSchedule,
 )
-from hive.utils.utils import OptimizerFn, create_folder
+from hive.utils.utils import LossFn, OptimizerFn, create_folder
 
 
 class DQNAgent(Agent):
@@ -35,6 +35,7 @@ class DQNAgent(Agent):
         obs_dim: Tuple,
         act_dim: int,
         optimizer_fn: OptimizerFn = None,
+        loss_fn: LossFn = None,
         init_fn: InitializationFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
@@ -109,7 +110,9 @@ class DQNAgent(Agent):
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
         self._device = torch.device(device)
-        self._loss_fn = torch.nn.SmoothL1Loss(reduction="none")
+        if loss_fn is None:
+            loss_fn = torch.nn.SmoothL1Loss
+        self._loss_fn = loss_fn(reduction="none")
         self._batch_size = batch_size
         self._logger = logger
         if self._logger is None:

@@ -36,3 +36,9 @@ class OptimizerFn(CallableType):
     @classmethod
     def type_name(cls):
         return "optimizer_fn"
+
+
+class LossFn(CallableType):
+    @classmethod
+    def type_name(cls):
+        return "loss_fn"

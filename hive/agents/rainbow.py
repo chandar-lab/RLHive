@@ -18,7 +18,7 @@ from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.logging import Logger
 from hive.utils.schedule import Schedule
-from hive.utils.utils import OptimizerFn
+from hive.utils.utils import LossFn, OptimizerFn
 
 
 class RainbowDQNAgent(DQNAgent):
@@ -33,6 +33,7 @@ class RainbowDQNAgent(DQNAgent):
         v_max: str = 200,
         atoms: str = 51,
         optimizer_fn: OptimizerFn = None,
+        loss_fn: LossFn = None,
         init_fn: InitializationFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
@@ -116,6 +117,8 @@ class RainbowDQNAgent(DQNAgent):
         self._supports = torch.linspace(
             self._v_min, self._v_max, self._atoms, device=device
         )
+        if loss_fn is None:
+            loss_fn = torch.nn.MSELoss
 
         super().__init__(
             representation_net,
@@ -123,6 +126,7 @@ class RainbowDQNAgent(DQNAgent):
             act_dim,
             optimizer_fn=optimizer_fn,
             init_fn=init_fn,
+            loss_fn=loss_fn,
             id=id,
             replay_buffer=replay_buffer,
             discount_rate=discount_rate,
@@ -143,7 +147,6 @@ class RainbowDQNAgent(DQNAgent):
             log_frequency=log_frequency,
         )
 
-        self._loss_fn = torch.nn.MSELoss(reduction="none")
         self._use_eps_greedy = use_eps_greedy
 
     def create_q_networks(self, representation_net):

@@ -9,7 +9,7 @@ from hive.agents.rainbow import RainbowDQNAgent
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.logging import Logger
 from hive.utils.schedule import Schedule
-from hive.utils.utils import OptimizerFn
+from hive.utils.utils import LossFn, OptimizerFn
 
 
 class LegalMovesRainbowAgent(RainbowDQNAgent):
@@ -24,6 +24,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         v_max: str = 200,
         atoms: str = 51,
         optimizer_fn: OptimizerFn = None,
+        loss_fn: LossFn = None,
         init_fn: InitializationFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
@@ -61,6 +62,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
             v_max=v_max,
             atoms=atoms,
             optimizer_fn=optimizer_fn,
+            loss_fn=loss_fn,
             init_fn=init_fn,
             id=id,
             replay_buffer=replay_buffer,
