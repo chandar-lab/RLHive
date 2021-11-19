@@ -10,10 +10,11 @@ from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.logging import Logger
 from hive.utils.schedule import Schedule
 from hive.utils.utils import OptimizerFn
+from hive.agents.qnets.utils import InitializationFn
 
 
-class HanabiRainbowAgent(RainbowDQNAgent):
-    """A Hanabi agent implementing the Rainbow algorithm."""
+class LegalMovesRainbowAgent(RainbowDQNAgent):
+    """A Rainbow agent which supports games with legal actions."""
 
     def __init__(
         self,
@@ -24,17 +25,19 @@ class HanabiRainbowAgent(RainbowDQNAgent):
         v_max: str = 200,
         atoms: str = 51,
         optimizer_fn: OptimizerFn = None,
+        init_fn: InitializationFn = None,
         id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: float = None,
         reward_clip: float = None,
+        update_period_schedule: Schedule = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
-        update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
+        test_epsilon: float = 0.001,
         learn_schedule: Schedule = None,
         seed: int = 42,
         batch_size: int = 32,
@@ -59,17 +62,19 @@ class HanabiRainbowAgent(RainbowDQNAgent):
             v_max=v_max,
             atoms=atoms,
             optimizer_fn=optimizer_fn,
+            init_fn=init_fn,
             id=id,
             replay_buffer=replay_buffer,
             discount_rate=discount_rate,
             n_step=n_step,
             grad_clip=grad_clip,
             reward_clip=reward_clip,
+            update_period_schedule=update_period_schedule,
             target_net_soft_update=target_net_soft_update,
             target_net_update_fraction=target_net_update_fraction,
             target_net_update_schedule=target_net_update_schedule,
-            update_period_schedule=update_period_schedule,
             epsilon_schedule=epsilon_schedule,
+            test_epsilon=test_epsilon,
             learn_schedule=learn_schedule,
             seed=seed,
             batch_size=batch_size,
@@ -86,22 +91,20 @@ class HanabiRainbowAgent(RainbowDQNAgent):
 
     def create_q_networks(self, qnet):
         super().create_q_networks(qnet)
-        self._qnet = HanabiHead(self._qnet)
-        self._target_qnet = HanabiHead(self._target_qnet)
+        self._qnet = LegalMovesHead(self._qnet)
+        self._target_qnet = LegalMovesHead(self._target_qnet)
 
     def preprocess_update_info(self, update_info):
-        return {
-            "observation": np.array(
-                update_info["observation"]["observation"], dtype=np.uint8
-            ),
+        preprocessed_update_info = {
+            "observation": update_info["observation"]["observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
             "done": update_info["done"],
-            "action_mask": np.array(
-                action_encoding(update_info["observation"]["action_mask"]),
-                dtype=np.uint8,
-            ),
+            "action_mask": action_encoding(update_info["observation"]["action_mask"]),
         }
+        if "agent_id" in update_info:
+            preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
+        return preprocessed_update_info
 
     def preprocess_update_batch(self, batch):
         for key in batch:
@@ -160,7 +163,7 @@ def action_encoding(action_mask):
     return encoded_action_mask
 
 
-class HanabiHead(torch.nn.Module):
+class LegalMovesHead(torch.nn.Module):
     def __init__(self, base_network):
         super().__init__()
         self.base_network = base_network

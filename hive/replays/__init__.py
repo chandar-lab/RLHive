@@ -1,16 +1,16 @@
 from hive import registry
-from hive.replays.efficient_replay import EfficientCircularBuffer
+from hive.replays.circular_replay import CircularReplayBuffer, SimpleReplayBuffer
+from hive.replays.legal_moves_replay import LegalMovesBuffer
 from hive.replays.prioritized_replay import PrioritizedReplayBuffer
-from hive.replays.replay_buffer import BaseReplayBuffer, CircularReplayBuffer
-from hive.replays.hanabi_buffer import HanabiBuffer
+from hive.replays.replay_buffer import BaseReplayBuffer
 
 registry.register_all(
     BaseReplayBuffer,
     {
         "CircularReplayBuffer": CircularReplayBuffer,
-        "EfficientCircularBuffer": EfficientCircularBuffer,
+        "SimpleReplayBuffer": SimpleReplayBuffer,
         "PrioritizedReplayBuffer": PrioritizedReplayBuffer,
-        "HanabiBuffer": HanabiBuffer,
+        "LegalMovesBuffer": LegalMovesBuffer,
     },
 )
 

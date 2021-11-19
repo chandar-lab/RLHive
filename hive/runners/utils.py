@@ -171,10 +171,32 @@ class TransitionInfo:
         if self._stack_size == 1:
             return observation
         while len(self._previous_observations[agent.id]) < self._stack_size - 1:
-            self._previous_observations[agent.id].append(np.zeros_like(observation))
+            self._previous_observations[agent.id].append(zeros_like(observation))
 
-        stacked_observation = np.stack(
-            list(self._previous_observations[agent.id]) + [observation],
-            axis=0,
+        stacked_observation = concatenate(
+            list(self._previous_observations[agent.id]) + [observation]
         )
         return stacked_observation
+
+
+def zeros_like(x):
+    if isinstance(x, np.ndarray):
+        return np.zeros_like(x)
+    elif isinstance(x, torch.Tensor):
+        return torch.zeros_like(x)
+    elif isinstance(x, dict):
+        return {k: zeros_like(v) for k, v in x.items()}
+    elif isinstance(x, list):
+        return [zeros_like(item) for item in x]
+    else:
+        return 0
+
+
+def concatenate(xs):
+    if len(xs) == 0:
+        return np.array([])
+
+    if isinstance(xs[0], dict):
+        return {k: np.concatenate([x[k] for x in xs], axis=0) for k in xs[0]}
+    else:
+        return np.concatenate(xs, axis=0)

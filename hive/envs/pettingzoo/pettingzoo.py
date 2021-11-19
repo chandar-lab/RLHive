@@ -27,13 +27,13 @@ class PettingZooEnv(BaseEnv):
             num_players (int): Number of learning agents
         """
         self._env_family = env_family
-        self.create_env(env_name, **kwargs)
+        self.create_env(env_name, num_players, **kwargs)
         self._env_spec = self.create_env_spec(env_name, **kwargs)
         super().__init__(self.create_env_spec(env_name, **kwargs), num_players)
 
-    def create_env(self, env_name, **kwargs):
+    def create_env(self, env_name, num_players, **kwargs):
         env_module = import_module("pettingzoo." + self._env_family + "." + env_name)
-        self._env = env_module.env()
+        self._env = env_module.env(players=num_players)
 
     def create_env_spec(self, env_name, **kwargs):
         """
@@ -63,17 +63,19 @@ class PettingZooEnv(BaseEnv):
         observation, _, _, _ = self._env.last()
         for key in observation.keys():
             observation[key] = np.array(observation[key], dtype=np.uint8)
+        self._turn = self._env.agents.index(self._env.agent_selection)
+
         return observation, self._turn
 
     def step(self, action):
         self._env.step(action)
-        observation, reward, done, info = self._env.last()
+        observation, _, done, info = self._env.last()
         self._turn = (self._turn + 1) % self._num_players
         for key in observation.keys():
             observation[key] = np.array(observation[key], dtype=np.uint8)
         return (
             observation,
-            reward,
+            [self._env.rewards[agent] for agent in self._env.agents],
             done,
             self._turn,
             info,
