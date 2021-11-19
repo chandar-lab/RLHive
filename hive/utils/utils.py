@@ -1,8 +1,9 @@
 import os
 import pickle
 
-from hive import registry
 from hive.utils.registry import CallableType
+
+PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def create_folder(folder):
@@ -35,3 +36,9 @@ class OptimizerFn(CallableType):
     @classmethod
     def type_name(cls):
         return "optimizer_fn"
+
+
+class LossFn(CallableType):
+    @classmethod
+    def type_name(cls):
+        return "loss_fn"

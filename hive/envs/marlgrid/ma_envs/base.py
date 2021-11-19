@@ -1,7 +1,6 @@
 import gym
-from marlgrid.base import MultiGridEnv, MultiGrid
-from marlgrid.base import rotate_grid
 import numpy as np
+from marlgrid.base import MultiGrid, MultiGridEnv, rotate_grid
 from marlgrid.rendering import SimpleImageViewer
 
 TILE_PIXELS = 32

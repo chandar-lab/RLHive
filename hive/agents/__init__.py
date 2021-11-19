@@ -1,19 +1,18 @@
-from hive import registry
+from hive.agents import qnets
 from hive.agents.agent import Agent
 from hive.agents.dqn import DQNAgent
+from hive.agents.legal_moves_rainbow import LegalMovesRainbowAgent
 from hive.agents.rainbow import RainbowDQNAgent
 from hive.agents.random import RandomAgent
-from hive.agents.hanabi_rainbow import HanabiRainbowAgent
-from hive.utils import torch_utils
-
+from hive.utils.registry import registry
 
 registry.register_all(
     Agent,
     {
         "DQNAgent": DQNAgent,
-        "RandomAgent": RandomAgent,
+        "LegalMovesRainbowAgent": LegalMovesRainbowAgent,
         "RainbowDQNAgent": RainbowDQNAgent,
-        "HanabiRainbowAgent": HanabiRainbowAgent,
+        "RandomAgent": RandomAgent,
     },
 )
 

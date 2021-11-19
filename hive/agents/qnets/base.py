@@ -1,4 +1,3 @@
-from abc import ABC
 from hive.utils.registry import CallableType
 
 

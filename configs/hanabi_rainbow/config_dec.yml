@@ -1,0 +1,159 @@
+# General training loop config
+run_name: &run_name 'hanabi-independent-rainbow-2p'
+train_steps: 100000000
+test_frequency: 10000
+test_num_episodes: 10
+self_play: False
+num_agents: &num_agents 2
+stack_size: &stack_size 1
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 10000000
+save_dir: 'experiment'
+
+# Environment config
+environment:
+  name: 'PettingZooEnv'
+  kwargs:
+    env_name: 'hanabi_v4'
+    env_family: 'classic'
+    num_players: *num_agents
+
+# List of agents for the experiment. In single agent, only the first agent in
+# the list is used.
+agents:
+  -
+    name: 'LegalMovesRainbowAgent'
+    kwargs:
+      qnet:
+        name: 'MLPNetwork'
+        kwargs:
+          hidden_units: [512, 512]
+      optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr: 0.000025
+          eps: 0.00003125
+      id: 0
+      replay_buffer:
+        name: 'LegalMovesBuffer'
+        kwargs:
+          seed: 42
+          capacity: 1000000
+          stack_size: *stack_size
+          action_dim: 20
+          gamma: 0.99
+      discount_rate: .99
+      update_period_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 4
+      target_net_update_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 500
+      epsilon_schedule:
+        name: 'LinearSchedule'
+        kwargs:
+          init_value: 1
+          end_value: 0.0
+          steps: 1000
+      test_epsilon: 0
+      learn_schedule:
+        name: 'SwitchSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          steps: 500
+      seed: 42
+      batch_size: 32
+      device: 'cpu'
+      log_frequency: 100
+      double: False
+      distributional: True
+      dueling: False
+      noisy: False
+      std_init: .5
+      use_eps_greedy: True
+      v_min: -25.0
+      v_max: 25.0
+      atoms: 51
+  -
+    name: 'LegalMovesRainbowAgent'
+    kwargs:
+      qnet:
+        name: 'MLPNetwork'
+        kwargs:
+          hidden_units: [ 512, 512 ]
+      optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr: 0.000025
+          eps: 0.00003125
+      id: 1
+      replay_buffer:
+        name: 'LegalMovesBuffer'
+        kwargs:
+          seed: 43
+          capacity: 50000
+          stack_size: *stack_size
+          action_dim: 20
+          gamma: 0.99
+      discount_rate: .99
+      update_period_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 4
+      target_net_update_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 500
+      epsilon_schedule:
+        name: 'LinearSchedule'
+        kwargs:
+          init_value: 1
+          end_value: 0.0
+          steps: 1000
+      test_epsilon: 0
+      learn_schedule:
+        name: 'SwitchSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          steps: 500
+      seed: 43
+      batch_size: 32
+      device: 'cpu'
+      log_frequency: 100
+      double: False
+      distributional: True
+      dueling: False
+      noisy: False
+      use_eps_greedy: True
+      v_min: -25.0
+      v_max: 25.0
+      atoms: 51
+
+# List of logger configs used.
+loggers:
+  -
+    name: ChompLogger
+    kwargs: {}
+  -
+    name: WandbLogger
+    kwargs:
+      project_name: Hive-v2
+      run_name: *run_name
+      mode: "online"
+      settings_str: 'fork'
