@@ -1,10 +1,6 @@
 import abc
-import os
-import pickle
 
-import numpy as np
-from hive import Registrable
-from hive.utils.utils import create_folder
+from hive.utils.registry import Registrable
 
 
 class BaseReplayBuffer(abc.ABC, Registrable):

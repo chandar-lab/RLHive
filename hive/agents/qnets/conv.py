@@ -1,7 +1,8 @@
-from hive.agents.qnets.utils import calculate_output_dim
-from hive.agents.qnets.mlp import MLPNetwork
 import torch
 from torch import nn
+
+from hive.agents.qnets.mlp import MLPNetwork
+from hive.agents.qnets.utils import calculate_output_dim
 
 
 class ConvNetwork(nn.Module):

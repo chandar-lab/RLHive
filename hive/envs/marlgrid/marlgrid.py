@@ -1,7 +1,6 @@
-from marlgrid import envs
-import gym
-from hive.envs import ParallelEnv, GymEnv
+from hive.envs import GymEnv, ParallelEnv
 from hive.envs.wrappers.gym_wrappers import FlattenWrapper, PermuteImageWrapper
+from marlgrid import envs
 
 
 class MarlGridEnv(ParallelEnv, GymEnv):

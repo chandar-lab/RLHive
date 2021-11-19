@@ -1,7 +1,6 @@
-import os
-import numpy as np
 from typing import Dict, Tuple
-import pickle
+
+import numpy as np
 
 from hive.replays.prioritized_replay import PrioritizedReplayBuffer
 
@@ -24,9 +23,9 @@ class LegalMovesBuffer(PrioritizedReplayBuffer):
         action_dtype: type = np.int8,
         reward_shape: Tuple = (),
         reward_dtype: type = np.float32,
-        extra_storage_types=None,
+        extra_storage_types: Dict = None,
         action_dim: int = None,
-        num_players_sharing_buffer=None,
+        num_players_sharing_buffer: int = None,
         seed: int = 42,
     ):
         if extra_storage_types is None:

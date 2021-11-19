@@ -1,4 +1,4 @@
-from hive import registry
+from hive.utils.registry import registry
 from hive.agents.qnets.atari import NatureAtariDQNModel
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.conv import ConvNetwork

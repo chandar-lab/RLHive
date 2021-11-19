@@ -2,7 +2,7 @@ import argparse
 import inspect
 from copy import deepcopy
 from functools import partial, update_wrapper
-from typing import List, Mapping, Sequence, _GenericAlias
+from typing import Mapping, Sequence, _GenericAlias
 
 import yaml
 

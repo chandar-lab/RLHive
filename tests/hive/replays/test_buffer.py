@@ -1,7 +1,8 @@
-import pytest
 import os
 
 import numpy as np
+import pytest
+
 from hive import envs, replays
 
 

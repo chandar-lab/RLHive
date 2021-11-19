@@ -1,11 +1,10 @@
 import gym_minigrid
-
 from gym_minigrid.wrappers import (
-    FullyObsWrapper,
-    RGBImgObsWrapper,
     FlatObsWrapper,
-    RGBImgPartialObsWrapper,
+    FullyObsWrapper,
     ImgObsWrapper,
+    RGBImgObsWrapper,
+    RGBImgPartialObsWrapper,
 )
 
 from hive.envs.gym_env import GymEnv

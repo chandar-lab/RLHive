@@ -1,5 +1,6 @@
 import abc
-from hive import Registrable, registry
+
+from hive.utils.registry import Registrable, registry
 
 
 class Schedule(abc.ABC, Registrable):

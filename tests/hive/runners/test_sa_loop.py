@@ -3,13 +3,12 @@ import sys
 from argparse import Namespace
 from unittest.mock import patch
 
-import hive
 import pytest
-from hive import runners
+
+import hive
 from hive.runners import single_agent_loop
 from hive.runners.utils import load_config
-from hive.utils.logging import Logger, ScheduledLogger
-from hive.utils.schedule import ConstantSchedule
+from hive.utils.logging import ScheduledLogger
 
 
 class FakeLogger1(ScheduledLogger):
