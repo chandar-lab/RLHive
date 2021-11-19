@@ -20,7 +20,7 @@ class MultiAgentRunner(Runner):
         experiment_manager,
         train_steps,
         test_frequency,
-        test_steps,
+        test_episodes,
         stack_size,
         self_play,
     ):
@@ -46,7 +46,7 @@ class MultiAgentRunner(Runner):
             experiment_manager,
             train_steps,
             test_frequency,
-            test_steps,
+            test_episodes,
         )
         self._transition_info = TransitionInfo(self._agents, stack_size)
         self._self_play = self_play
@@ -148,7 +148,7 @@ def set_up_experiment(config):
             "seed": int,
             "train_steps": int,
             "test_frequency": int,
-            "test_steps": int,
+            "test_episodes": int,
             "max_steps_per_episode": int,
             "stack_size": int,
             "resume": bool,
@@ -228,7 +228,7 @@ def set_up_experiment(config):
         experiment_manager,
         config.get("train_steps", -1),
         config.get("test_frequency", -1),
-        config.get("test_steps", 1),
+        config.get("test_episodes", 1),
         config.get("stack_size", 1),
         config.get("self_play", False),
     )
