@@ -1,6 +1,6 @@
+import numpy as np
 import pytest
 
-import numpy as np
 from hive.envs.atari import AtariEnv
 
 test_env_configs = [("Pong", 4, 84), ("Breakout", 1, 100)]

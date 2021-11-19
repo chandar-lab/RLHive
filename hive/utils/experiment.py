@@ -2,7 +2,7 @@
 import logging
 import os
 
-from hive.utils.utils import create_folder, Chomp
+from hive.utils.utils import Chomp, create_folder
 
 
 class Experiment(object):

@@ -1,7 +1,7 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 
-from hive.utils import schedule
 from hive.runners.utils import Metrics
+from hive.utils import schedule
 
 
 class Runner(ABC):

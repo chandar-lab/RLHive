@@ -5,7 +5,8 @@ from typing import List
 
 import torch
 import wandb
-from hive import Registrable, registry
+
+from hive.utils.registry import Registrable, registry
 from hive.utils.schedule import ConstantSchedule, Schedule, get_schedule
 from hive.utils.utils import Chomp, create_folder
 

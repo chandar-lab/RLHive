@@ -1,7 +1,8 @@
-from marlgrid.base import MultiGrid
-from hive.envs.marlgrid.ma_envs.base import MultiGridEnvHive
-from marlgrid.objects import Goal, GridAgent
 import numpy as np
+from marlgrid.base import MultiGrid
+from marlgrid.objects import Goal, GridAgent
+
+from hive.envs.marlgrid.ma_envs.base import MultiGridEnvHive
 
 
 class CheckersMultiGrid(MultiGridEnvHive):

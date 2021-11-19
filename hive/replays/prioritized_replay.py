@@ -2,6 +2,7 @@ import os
 from typing import Dict, Tuple
 
 import numpy as np
+
 from hive.replays.circular_replay import CircularReplayBuffer
 from hive.utils.torch_utils import numpify
 
