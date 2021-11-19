@@ -10,7 +10,7 @@ def initial_buffer():
     environment = envs.GymEnv("CartPole-v1")
     seed = 100
     rng = np.random.default_rng(seed)
-    buffer = replays.CircularReplayBuffer(capacity=500, compress=True, seed=seed)
+    buffer = replays.SimpleReplayBuffer(capacity=500, compress=True, seed=seed)
 
     observation, _ = environment.reset()
     for i in range(400):
@@ -71,7 +71,7 @@ def test_loading_buffer(tmpdir, batch_size, initial_buffer):
     buffer.save(tmpdir / "saved_test_buffer")
     assert os.path.exists(tmpdir / "saved_test_buffer") is True
 
-    buffer_loaded = replays.CircularReplayBuffer(capacity=500, compress=True, seed=seed)
+    buffer_loaded = replays.SimpleReplayBuffer(capacity=500, compress=True, seed=seed)
     buffer_loaded.load(tmpdir / "saved_test_buffer")
     assert buffer.size() == 399
     batch = buffer_loaded.sample(batch_size)

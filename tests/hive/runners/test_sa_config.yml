@@ -37,6 +37,7 @@ agent:
       kwargs:
         seed: 42
         capacity: 10000
+        observation_dtype: 'np.float32'
     discount_rate: .99
     target_net_update_schedule:
       name: 'PeriodicSchedule'

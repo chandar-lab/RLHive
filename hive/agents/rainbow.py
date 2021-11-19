@@ -39,10 +39,10 @@ class RainbowDQNAgent(DQNAgent):
         n_step: int = 1,
         grad_clip: float = None,
         reward_clip: float = None,
+        update_period_schedule: Schedule = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
         target_net_update_schedule: Schedule = None,
-        update_period_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
         learn_schedule: Schedule = None,
@@ -78,6 +78,8 @@ class RainbowDQNAgent(DQNAgent):
                 [-grad_clip, gradclip]
             reward_clip (float): Rewards will be clipped to between
                 [-reward_clip, reward_clip]
+            update_period_schedule: Schedule determining how frequently
+                the agent's net is updated.
             target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
@@ -85,8 +87,6 @@ class RainbowDQNAgent(DQNAgent):
                 net parameters in a soft update.
             target_net_update_schedule: Schedule determining how frequently the
                 target net is updated.
-            update_period_schedule: Schedule determining how frequently
-                the agent's net is updated.
             epsilon_schedule: Schedule determining the value of epsilon through
                 the course of training.
             learn_schedule: Schedule determining when the learning process actually
