@@ -1,5 +1,9 @@
 import os
 import pickle
+import random
+
+import numpy as np
+import torch
 
 from hive.utils.registry import CallableType
 
@@ -9,6 +13,32 @@ PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def create_folder(folder):
     if not os.path.exists(folder):
         os.makedirs(folder)
+
+
+class Seeder:
+    def __init__(self):
+        self._seed = 0
+        self._current_seed = 0
+
+    def set_global_seed(self, seed):
+        """This reduces some sources of randomness in experiments. To get reproducible
+        results, you must run on the same machine and set the environment variable
+        CUBLAS_WORKSPACE_CONFIG to ":4096:8" or ":16:8" before starting the experiment.
+        """
+        self._seed = seed
+        self._current_seed = seed
+        torch.manual_seed(self._seed)
+        random.seed(self._seed)
+        np.random.seed(self._seed)
+        torch.backends.cudnn.benchmark = False
+        torch.use_deterministic_algorithms(True)
+
+    def get_new_seed(self):
+        self._current_seed += 1
+        return self._current_seed
+
+
+seeder = Seeder()
 
 
 class Chomp(dict):

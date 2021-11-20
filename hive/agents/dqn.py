@@ -21,7 +21,7 @@ from hive.utils.schedule import (
     Schedule,
     SwitchSchedule,
 )
-from hive.utils.utils import LossFn, OptimizerFn, create_folder
+from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder
 
 
 class DQNAgent(Agent):
@@ -50,7 +50,6 @@ class DQNAgent(Agent):
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
         learn_schedule: Schedule = None,
-        seed: int = 42,
         batch_size: int = 32,
         device: str = "cpu",
         logger: Logger = None,
@@ -90,7 +89,6 @@ class DQNAgent(Agent):
                 to be used during testing phase.
             learn_schedule: Schedule determining when the learning process actually
                 starts.
-            seed: Seed for numpy random number generator.
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
             device: Device on which all computations should be run.
@@ -104,10 +102,10 @@ class DQNAgent(Agent):
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
-        self._rng = np.random.default_rng(seed=seed)
+        self._rng = np.random.default_rng(seed=seeder.get_new_seed())
         self._replay_buffer = replay_buffer
         if self._replay_buffer is None:
-            self._replay_buffer = CircularReplayBuffer(seed=seed)
+            self._replay_buffer = CircularReplayBuffer(seed=seeder.get_new_seed())
         self._discount_rate = discount_rate ** n_step
         self._grad_clip = grad_clip
         self._reward_clip = reward_clip
