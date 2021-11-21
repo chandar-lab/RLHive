@@ -1,14 +1,14 @@
-import hive
-from hive import runners
-from hive.utils.schedule import ConstantSchedule
-from hive.utils.logging import Logger, ScheduledLogger
+import os
+import sys
+from argparse import Namespace
+from unittest.mock import patch
+
 import pytest
 
-from argparse import Namespace
-from hive.runners.utils import load_config
+import hive
 from hive.runners import single_agent_loop
-import sys
-from unittest.mock import patch
+from hive.runners.utils import load_config
+from hive.utils.logging import ScheduledLogger
 
 
 class FakeLogger1(ScheduledLogger):
@@ -60,7 +60,7 @@ hive.registry.register("FakeLogger2", FakeLogger2, FakeLogger2)
 @pytest.fixture()
 def args():
     return Namespace(
-        config="hive/runners/tests/test_sa_config.yml",
+        config="tests/hive/runners/test_sa_config.yml",
         agent_config=None,
         env_config=None,
         logger_config=None,
@@ -68,8 +68,9 @@ def args():
 
 
 @pytest.fixture()
-def initial_runner(args):
+def initial_runner(args, tmpdir):
     config = load_config(args)
+    config["save_dir"] = os.path.join(tmpdir, config["save_dir"])
     runner = single_agent_loop.set_up_experiment(config)
 
     return runner, config
@@ -108,7 +109,7 @@ def test_run_episode(initial_runner):
     test running one episode
     """
     single_agent_runner, config = initial_runner
-    episode_metrics, steps = single_agent_runner.run_episode()
+    episode_metrics = single_agent_runner.run_episode()
     agent = single_agent_runner._agents[0]
     assert (
         episode_metrics[agent._id]["episode_length"]
@@ -118,7 +119,6 @@ def test_run_episode(initial_runner):
         episode_metrics[agent._id]["episode_length"]
         == single_agent_runner._train_schedule._steps
     )
-    assert steps == single_agent_runner._train_schedule._steps
 
 
 def test_resume(initial_runner):
@@ -161,7 +161,7 @@ def test_run_training(initial_runner):
     [
         (
             "single_agent_loop.py"
-            " --agent.qnet.hidden_units [30,30]"
+            " --agent.representation_net.hidden_units [30,30]"
             " --agent.discount_rate .8 "
             " --seed 20"
             " --loggers.logger_list.0.arg1 2"
@@ -176,7 +176,7 @@ def test_run_training(initial_runner):
         ),
         (
             "single_agent_loop.py"
-            " --agent.qnet.hidden_units [30,30]"
+            " --agent.representation_net.hidden_units [30,30]"
             " --agent.discount_rate .8 ",
             [[30, 30], 0.8, None, None, None],
         ),
@@ -186,8 +186,8 @@ def test_run_training(initial_runner):
         ),
     ],
 )
-@patch("hive.runners.single_agent_loop.set_seed")
-def test_cl_parsing(mock_seed, args, arg_string, cl_args):
+@patch("hive.runners.single_agent_loop.utils.seeder")
+def test_cl_parsing(mock_seeder, args, arg_string, cl_args):
     defaults = [[256, 256], 0.99, None, 0, 0.5]
     expected_args = [
         cl_args[idx] if cl_args[idx] else defaults[idx] for idx in range(len(cl_args))
@@ -201,7 +201,7 @@ def test_cl_parsing(mock_seed, args, arg_string, cl_args):
         runner._agents[0]._qnet.network.network[0].out_features == expected_args[0][0]
     )
     assert (
-        full_config["agent"]["kwargs"]["qnet"]["kwargs"]["hidden_units"]
+        full_config["agent"]["kwargs"]["representation_net"]["kwargs"]["hidden_units"]
         == expected_args[0]
     )
     # Check discount factor
@@ -225,9 +225,8 @@ def test_cl_parsing(mock_seed, args, arg_string, cl_args):
             full_config["loggers"]["kwargs"]["logger_list"][1]["kwargs"]["arg2"]
             == expected_args[4]
         )
-
     # Check seed
     if cl_args[2]:
-        assert mock_seed.call_args.args == (cl_args[2],)
+        assert mock_seeder.set_global_seed.call_args.args == (cl_args[2],)
     else:
-        assert not mock_seed.called
+        assert not mock_seeder.set_global_seed.called

@@ -1,9 +1,9 @@
 import numpy as np
-
-from marlgrid.base import MultiGrid
-from marlgrid.objects import Goal, GridAgent, Floor
-from hive.envs.marlgrid.ma_envs.base import MultiGridEnvHive
 from gym_minigrid.rendering import fill_coords, point_in_rect
+from marlgrid.base import MultiGrid
+from marlgrid.objects import Floor, Goal, GridAgent
+
+from hive.envs.marlgrid.ma_envs.base import MultiGridEnvHive
 
 
 class SwitchMultiGrid(MultiGridEnvHive):

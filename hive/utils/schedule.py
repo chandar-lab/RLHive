@@ -1,5 +1,6 @@
 import abc
-from hive import Registrable, registry
+
+from hive.utils.registry import Registrable, registry
 
 
 class Schedule(abc.ABC, Registrable):
@@ -52,6 +53,14 @@ class LinearSchedule(Schedule):
             self._value = self._end_value
         return self._value
 
+    def __repr__(self):
+        return (
+            f"<class {type(self).__name__}"
+            f" value={self.get_value()}"
+            f" delta={self._delta}"
+            f" end_value={self._end_value}>"
+        )
+
 
 class ConstantSchedule(Schedule):
     """Returns a constant value over the course of the schedule"""
@@ -68,6 +77,9 @@ class ConstantSchedule(Schedule):
 
     def update(self):
         return self._value
+
+    def __repr__(self):
+        return f"<class {type(self).__name__} value={self.get_value()}>"
 
 
 class SwitchSchedule(Schedule):
@@ -100,6 +112,16 @@ class SwitchSchedule(Schedule):
         value = self.get_value()
         return value
 
+    def __repr__(self):
+        return (
+            f"<class {type(self).__name__}"
+            f" value={self.get_value()}"
+            f" steps={self._steps}"
+            f" off_value={self._off_value}"
+            f" on_value={self._on_value}"
+            f" flip_step={self._flip_step}>"
+        )
+
 
 class DoublePeriodicSchedule(Schedule):
     """Returns off value for off period, then switches to returning on value for on
@@ -130,6 +152,17 @@ class DoublePeriodicSchedule(Schedule):
         self._steps += 1
         return self.get_value()
 
+    def __repr__(self):
+        return (
+            f"<class {type(self).__name__}"
+            f" value={self.get_value()}"
+            f" steps={self._steps}"
+            f" off_value={self._off_value}"
+            f" on_value={self._on_value}"
+            f" off_period={self._off_period}"
+            f" on_period={self._total_period - self._off_period}>"
+        )
+
 
 class PeriodicSchedule(DoublePeriodicSchedule):
     """Returns one value on the first step of each period of a predefined number of
@@ -144,6 +177,16 @@ class PeriodicSchedule(DoublePeriodicSchedule):
             period (int): the number of steps in the period.
         """
         super().__init__(off_value, on_value, period - 1, 1)
+
+    def __repr__(self):
+        return (
+            f"<class {type(self).__name__}"
+            f" value={self.get_value()}"
+            f" steps={self._steps}"
+            f" off_value={self._off_value}"
+            f" on_value={self._on_value}"
+            f" period={self._off_period + 1}>"
+        )
 
 
 registry.register_all(

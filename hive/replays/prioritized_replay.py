@@ -1,12 +1,13 @@
-from hive.utils.torch_utils import numpify
 import os
 from typing import Dict, Tuple
 
 import numpy as np
-from hive.replays.efficient_replay import EfficientCircularBuffer
+
+from hive.replays.circular_replay import CircularReplayBuffer
+from hive.utils.torch_utils import numpify
 
 
-class PrioritizedReplayBuffer(EfficientCircularBuffer):
+class PrioritizedReplayBuffer(CircularReplayBuffer):
     def __init__(
         self,
         capacity: int,
@@ -21,6 +22,7 @@ class PrioritizedReplayBuffer(EfficientCircularBuffer):
         reward_shape: Tuple = (),
         reward_dtype: type = np.float32,
         extra_storage_types: Dict = None,
+        num_players_sharing_buffer=None,
         seed: int = 42,
     ):
         super().__init__(
@@ -35,6 +37,7 @@ class PrioritizedReplayBuffer(EfficientCircularBuffer):
             reward_shape=reward_shape,
             reward_dtype=reward_dtype,
             extra_storage_types=extra_storage_types,
+            num_players_sharing_buffer=num_players_sharing_buffer,
             seed=seed,
         )
         self._sum_tree = SumTree(self._capacity)
@@ -87,7 +90,7 @@ class PrioritizedReplayBuffer(EfficientCircularBuffer):
         batch = super().sample(batch_size)
         indices = batch["indices"]
         priorities = self._sum_tree.get_priorities(indices)
-        weights = (1.0 / priorities) ** self._beta
+        weights = (1.0 / (priorities + 1e-10)) ** self._beta
         weights /= np.max(weights)
         batch["weights"] = weights
         return batch

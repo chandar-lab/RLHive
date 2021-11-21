@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from hive import Registrable
+
+from hive.utils.registry import Registrable
 
 
 class BaseEnv(ABC, Registrable):
