@@ -1,11 +1,11 @@
-import numpy as np
 import cv2
 import gym
+import numpy as np
 
 from typing import Tuple, Dict, Any
 
-from hive.envs.gym_env import GymEnv
 from hive.envs.env_spec import EnvSpec
+from hive.envs.gym_env import GymEnv
 
 
 class AtariEnv(GymEnv):

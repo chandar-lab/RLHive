@@ -1,6 +1,9 @@
-import torch
-from hive.utils.utils import CallableType, registry
 import math
+
+import torch
+
+from hive.utils.registry import registry
+from hive.utils.utils import CallableType
 
 
 def calculate_output_dim(net, input_dim):

@@ -1,8 +1,9 @@
 import numpy as np
 import torch
-from hive import registry
-from hive.utils.utils import OptimizerFn
 from torch import optim
+
+from hive.utils.registry import registry
+from hive.utils.utils import LossFn, OptimizerFn
 
 
 def numpify(t):
@@ -176,4 +177,30 @@ registry.register_all(
     },
 )
 
+registry.register_all(
+    LossFn,
+    {
+        "BCELoss": LossFn(torch.nn.BCELoss),
+        "BCEWithLogitsLoss": LossFn(torch.nn.BCEWithLogitsLoss),
+        "CosineEmbeddingLoss": LossFn(torch.nn.CosineEmbeddingLoss),
+        "CrossEntropyLoss": LossFn(torch.nn.CrossEntropyLoss),
+        "CTCLoss": LossFn(torch.nn.CTCLoss),
+        "HingeEmbeddingLoss": LossFn(torch.nn.HingeEmbeddingLoss),
+        "KLDivLoss": LossFn(torch.nn.KLDivLoss),
+        "L1Loss": LossFn(torch.nn.L1Loss),
+        "MarginRankingLoss": LossFn(torch.nn.MarginRankingLoss),
+        "MSELoss": LossFn(torch.nn.MSELoss),
+        "MultiLabelMarginLoss": LossFn(torch.nn.MultiLabelMarginLoss),
+        "MultiLabelSoftMarginLoss": LossFn(torch.nn.MultiLabelSoftMarginLoss),
+        "MultiMarginLoss": LossFn(torch.nn.MultiMarginLoss),
+        "NLLLoss": LossFn(torch.nn.NLLLoss),
+        "NLLLoss2d": LossFn(torch.nn.NLLLoss2d),
+        "PoissonNLLLoss": LossFn(torch.nn.PoissonNLLLoss),
+        "SmoothL1Loss": LossFn(torch.nn.SmoothL1Loss),
+        "SoftMarginLoss": LossFn(torch.nn.SoftMarginLoss),
+        "TripletMarginLoss": LossFn(torch.nn.TripletMarginLoss),
+    },
+)
+
 get_optimizer_fn = getattr(registry, f"get_{OptimizerFn.type_name()}")
+get_loss_fn = getattr(registry, f"get_{LossFn.type_name()}")

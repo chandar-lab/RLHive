@@ -1,7 +1,7 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 
-from hive.utils import schedule
 from hive.runners.utils import Metrics
+from hive.utils import schedule
 
 
 class Runner(ABC):
@@ -19,7 +19,7 @@ class Runner(ABC):
         experiment_manager,
         train_steps=1000000,
         test_frequency=10000,
-        test_steps=1,
+        test_episodes=1,
         max_steps_per_episode=27000,
     ):
         """Initializes the Runner object.
@@ -33,7 +33,7 @@ class Runner(ABC):
                 for the number of training steps.
             test_frequency: After how many training steps to run testing episodes.
                 If this is -1, testing is not run.
-            test_steps: How many steps to run testing for.
+            test_episodes: How many episodes to run testing for.
         """
         self._environment = environment
         if isinstance(agents, list):
@@ -50,7 +50,7 @@ class Runner(ABC):
             self._test_schedule = schedule.ConstantSchedule(False)
         else:
             self._test_schedule = schedule.PeriodicSchedule(False, True, test_frequency)
-        self._test_steps = test_steps
+        self._test_episodes = test_episodes
         self._max_steps_per_episode = max_steps_per_episode
 
         self._experiment_manager.experiment_state.update(
@@ -123,7 +123,7 @@ class Runner(ABC):
         while self._train_schedule.get_value():
             # Run training episode
             self.train_mode(True)
-            episode_metrics, _ = self.run_episode()
+            episode_metrics = self.run_episode()
             if self._logger.should_log("train"):
                 episode_metrics = episode_metrics.get_flat_dict()
                 self._logger.log_metrics(episode_metrics, "train")
@@ -149,17 +149,13 @@ class Runner(ABC):
     def run_testing(self):
         self.train_mode(False)
         aggregated_episode_metrics = self.create_episode_metrics().get_flat_dict()
-        test_steps = 0
         episodes = 0
-        while test_steps <= self._test_steps:
-            episode_metrics, steps = self.run_episode()
-            test_steps += steps
+        while episodes <= self._test_episodes:
+            episode_metrics = self.run_episode()
             episodes += 1
             for metric, value in episode_metrics.get_flat_dict().items():
-                aggregated_episode_metrics[metric] += value
+                aggregated_episode_metrics[metric] += value / self._test_episodes
 
-        for metric in aggregated_episode_metrics:
-            aggregated_episode_metrics[metric] /= episodes
         return aggregated_episode_metrics
 
     def resume(self):
