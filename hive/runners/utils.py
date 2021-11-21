@@ -1,10 +1,10 @@
 import os
-import random
 from collections import deque
 
 import numpy as np
 import torch
 import yaml
+
 from hive.utils.utils import PACKAGE_ROOT
 
 
@@ -28,18 +28,6 @@ def load_config(args):
         with open(args.logger_config) as f:
             config["loggers"] = yaml.safe_load(f)
     return config
-
-
-def set_seed(seed):
-    """This reduces some sources of randomness in experiments. To get reproducible
-    results, you must run on the same machine and set the environment variable
-    CUBLAS_WORKSPACE_CONFIG to ":4096:8" or ":16:8" before starting the experiment.
-    """
-    torch.manual_seed(seed)
-    random.seed(seed)
-    np.random.seed(0)
-    torch.backends.cudnn.benchmark = False
-    torch.use_deterministic_algorithms(True)
 
 
 class Metrics:

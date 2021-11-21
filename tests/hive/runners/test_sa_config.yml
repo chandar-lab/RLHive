@@ -35,7 +35,6 @@ agent:
     replay_buffer:
       name: 'CircularReplayBuffer'
       kwargs:
-        seed: 42
         capacity: 10000
         observation_dtype: 'np.float32'
     discount_rate: .99
@@ -55,7 +54,6 @@ agent:
         off_value: False
         on_value: True
         steps: 500
-    seed: 42
     batch_size: 128
     device: 'cpu'
     log_frequency: 100
