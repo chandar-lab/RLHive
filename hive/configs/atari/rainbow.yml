@@ -1,7 +1,7 @@
 run_name: &run_name 'atari-rainbow'
 train_steps: 50000000
 test_frequency: 250000
-test_steps: 125000
+test_episodes: 10
 max_steps_per_episode: 27000
 stack_size: &stack_size 4
 save_dir: 'experiment'
@@ -14,13 +14,12 @@ saving_schedule:
 environment:
   name: 'AtariEnv'
   kwargs:
-    env_name: 'Asterix'
-    sticky_actions: True
+    game: 'Asterix'
 
 agent:
   name: 'RainbowDQNAgent'
   kwargs:
-    qnet:
+    representation_net:
       name: 'ConvNetwork'
       kwargs:
         channels: [32, 64, 64]
