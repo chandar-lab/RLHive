@@ -111,7 +111,9 @@ class DQNAgent(Agent):
         self._reward_clip = reward_clip
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
-        self._device = torch.device(device)
+        self._device = torch.device(
+            "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
+        )
         if loss_fn is None:
             loss_fn = torch.nn.SmoothL1Loss
         self._loss_fn = loss_fn(reduction="none")
