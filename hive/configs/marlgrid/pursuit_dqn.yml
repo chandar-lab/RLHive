@@ -1,7 +1,7 @@
 # General training loop config
 run_name: &run_name 'pursuit-dqn'
-train_steps: 1000000
-test_frequency: 10000
+train_steps: 100000
+test_frequency: 1000
 test_num_episodes: 10
 self_play: False
 num_agents: &num_agents 2
