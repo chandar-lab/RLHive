@@ -103,7 +103,9 @@ def set_up_experiment(config):
     if "seed" in config:
         utils.seeder.set_global_seed(config["seed"])
 
-    environment, full_config["environment"] = envs.get_env(config["environment"], "env")
+    environment, full_config["environment"] = envs.get_env(
+        config["environment"], "environment"
+    )
     env_spec = environment.env_spec
 
     # Set up loggers
