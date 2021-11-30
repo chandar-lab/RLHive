@@ -8,26 +8,32 @@ import yaml
 from hive.utils.utils import PACKAGE_ROOT
 
 
-def load_config(args):
+def load_config(
+    config=None,
+    preset_config=None,
+    agent_config=None,
+    env_config=None,
+    logger_config=None,
+):
     """Used to load config for experiments. Agents, environment, and loggers components
     in main config file can be overrided based on other log files.
     """
-    if args.config is not None:
-        with open(args.config) as f:
-            config = yaml.safe_load(f)
+    if config is not None:
+        with open(config) as f:
+            yaml_config = yaml.safe_load(f)
     else:
-        with open(os.path.join(PACKAGE_ROOT, "configs", args.preset_config)) as f:
-            config = yaml.safe_load(f)
-    if args.agent_config is not None:
-        with open(args.agent_config) as f:
-            config["agents"] = yaml.safe_load(f)
-    if args.env_config is not None:
-        with open(args.env_config) as f:
-            config["environment"] = yaml.safe_load(f)
-    if args.logger_config is not None:
-        with open(args.logger_config) as f:
-            config["loggers"] = yaml.safe_load(f)
-    return config
+        with open(os.path.join(PACKAGE_ROOT, "configs", preset_config)) as f:
+            yaml_config = yaml.safe_load(f)
+    if agent_config is not None:
+        with open(agent_config) as f:
+            yaml_config["agents"] = yaml.safe_load(f)
+    if env_config is not None:
+        with open(env_config) as f:
+            yaml_config["environment"] = yaml.safe_load(f)
+    if logger_config is not None:
+        with open(logger_config) as f:
+            yaml_config["loggers"] = yaml.safe_load(f)
+    return yaml_config
 
 
 class Metrics:
