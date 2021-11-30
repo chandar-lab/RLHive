@@ -55,7 +55,7 @@ class MinAtarEnv(BaseEnv):
         Remarks:
             * Execute self.frame_skips steps taking the action in the the environment.
             * This may execute fewer than self.frame_skip steps in the environment,
-            if the done state is reached.
+                if the done state is reached.
             * Furthermore, in this case the returned observation should be ignored.
         """
         assert action is not None

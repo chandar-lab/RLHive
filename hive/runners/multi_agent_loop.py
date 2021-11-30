@@ -23,8 +23,10 @@ class MultiAgentRunner(Runner):
         test_episodes,
         stack_size,
         self_play,
+        max_steps_per_episode=27000,
     ):
         """Initializes the Runner object.
+
         Args:
             environment: Environment used in the training loop.
             agents: List of agents that interact with the environment
@@ -47,6 +49,7 @@ class MultiAgentRunner(Runner):
             train_steps,
             test_frequency,
             test_episodes,
+            max_steps_per_episode,
         )
         self._transition_info = TransitionInfo(self._agents, stack_size)
         self._self_play = self_play
@@ -231,6 +234,7 @@ def set_up_experiment(config):
         config.get("test_episodes", 1),
         config.get("stack_size", 1),
         config.get("self_play", False),
+        config.get("max_steps_per_episode", 1e9),
     )
     if config.get("resume", False):
         runner.resume()

@@ -22,6 +22,7 @@ class SingleAgentRunner(Runner):
         test_frequency,
         test_episodes,
         stack_size,
+        max_steps_per_episode=27000,
     ):
         super().__init__(
             environment,
@@ -31,6 +32,7 @@ class SingleAgentRunner(Runner):
             train_steps,
             test_frequency,
             test_episodes,
+            max_steps_per_episode,
         )
         self._transition_info = TransitionInfo(self._agents, stack_size)
 
@@ -103,7 +105,9 @@ def set_up_experiment(config):
     if "seed" in config:
         utils.seeder.set_global_seed(config["seed"])
 
-    environment, full_config["environment"] = envs.get_env(config["environment"], "env")
+    environment, full_config["environment"] = envs.get_env(
+        config["environment"], "environment"
+    )
     env_spec = environment.env_spec
 
     # Set up loggers
@@ -155,6 +159,7 @@ def set_up_experiment(config):
         config.get("test_frequency", -1),
         config.get("test_episodes", 1),
         config.get("stack_size", 1),
+        config.get("max_steps_per_episode", 1e9),
     )
     if config.get("resume", False):
         runner.resume()

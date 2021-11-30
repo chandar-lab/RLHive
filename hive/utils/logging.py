@@ -107,6 +107,7 @@ class ScheduledLogger(Logger):
 
         Any timescales not assigned schedule from logger_schedules will be assigned
         a ConstantSchedule(True).
+
         Args:
             timescales (str|List): The different timescales at which logger needs to log.
                 If only logging at one timescale, it is acceptable to only pass a string.

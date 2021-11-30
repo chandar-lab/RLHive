@@ -29,6 +29,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         seed=42,
     ):
         """Constructor for CircularReplayBuffer.
+
         Args:
             capacity: Total number of observations that can be stored in the buffer.
                 Note, this is not the same as the number of transitions that can be
@@ -59,6 +60,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
             num_players_sharing_buffer: Number of agents that share their buffers.
                 It is used for self-play.
             seed: Random seed of numpy random generator used when sampling transitions.
+
         """
         self._capacity = capacity
         self._specs = {
