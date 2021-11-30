@@ -69,7 +69,12 @@ def args():
 
 @pytest.fixture()
 def initial_runner(args, tmpdir):
-    config = load_config(args)
+    config = load_config(
+        args.config,
+        agent_config=args.agent_config,
+        env_config=args.env_config,
+        logger_config=args.logger_config,
+    )
     config["save_dir"] = os.path.join(tmpdir, config["save_dir"])
     runner = single_agent_loop.set_up_experiment(config)
 
@@ -193,7 +198,12 @@ def test_cl_parsing(mock_seeder, args, arg_string, cl_args):
         cl_args[idx] if cl_args[idx] else defaults[idx] for idx in range(len(cl_args))
     ]
     sys.argv = arg_string.split()
-    config = load_config(args)
+    config = load_config(
+        args.config,
+        agent_config=args.agent_config,
+        env_config=args.env_config,
+        logger_config=args.logger_config,
+    )
     runner = single_agent_loop.set_up_experiment(config)
     full_config = runner._experiment_manager._config
     # Check hidden units

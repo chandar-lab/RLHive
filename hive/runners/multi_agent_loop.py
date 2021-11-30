@@ -70,7 +70,6 @@ class MultiAgentRunner(Runner):
         agent = self._agents[turn]
         if self._transition_info.is_started(agent):
             info = self._transition_info.get_info(agent)
-
             if self._training:
                 agent.update(copy.deepcopy(info))
 
@@ -116,13 +115,14 @@ class MultiAgentRunner(Runner):
 
         """
         for agent in self._agents:
-            info = self._transition_info.get_info(agent, done=done)
+            if self._transition_info.is_started(agent):
+                info = self._transition_info.get_info(agent, done=done)
 
-            if self._training:
-                agent.update(info)
+                if self._training:
+                    agent.update(info)
+                episode_metrics[agent.id]["episode_length"] += 1
+                episode_metrics["full_episode_length"] += 1
             episode_metrics[agent.id]["reward"] += info["reward"]
-            episode_metrics[agent.id]["episode_length"] += 1
-            episode_metrics["full_episode_length"] += 1
 
     def run_episode(self):
         """Run a single episode of the environment."""
@@ -158,6 +158,7 @@ def set_up_experiment(config):
             "run_name": str,
             "save_dir": str,
             "self_play": bool,
+            "num_agents": int,
         }
     )
     config.update(args)
@@ -167,7 +168,9 @@ def set_up_experiment(config):
         utils.seeder.set_global_seed(config["seed"])
 
     # Set up environment
-    environment, full_config["environment"] = envs.get_env(config["environment"], "env")
+    environment, full_config["environment"] = envs.get_env(
+        config["environment"], "environment"
+    )
     env_spec = environment.env_spec
 
     # Set up loggers
@@ -203,7 +206,9 @@ def set_up_experiment(config):
             if "replay_buffer" in agent_config["kwargs"]:
                 replay_args = agent_config["kwargs"]["replay_buffer"]["kwargs"]
                 replay_args["observation_shape"] = env_spec.obs_dim[idx]
-            agent, full_agent_config = agent_lib.get_agent(agent_config, f"agent.{idx}")
+            agent, full_agent_config = agent_lib.get_agent(
+                agent_config, f"agents.{idx}"
+            )
             agents.append(agent)
             full_config["agents"].append(full_agent_config)
         else:
@@ -252,7 +257,13 @@ def main():
     args, _ = parser.parse_known_args()
     if args.config is None and args.preset_config is None:
         raise ValueError("Config needs to be provided")
-    config = load_config(args)
+    config = load_config(
+        args.config,
+        args.preset_config,
+        args.agent_config,
+        args.env_config,
+        args.logger_config,
+    )
     runner = set_up_experiment(config)
     runner.run_training()
 
