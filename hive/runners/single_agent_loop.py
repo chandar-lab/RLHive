@@ -103,7 +103,9 @@ def set_up_experiment(config):
     if "seed" in config:
         utils.seeder.set_global_seed(config["seed"])
 
-    environment, full_config["environment"] = envs.get_env(config["environment"], "env")
+    environment, full_config["environment"] = envs.get_env(
+        config["environment"], "environment"
+    )
     env_spec = environment.env_spec
 
     # Set up loggers
@@ -172,7 +174,13 @@ def main():
     args, _ = parser.parse_known_args()
     if args.config is None and args.preset_config is None:
         raise ValueError("Config needs to be provided")
-    config = load_config(args)
+    config = load_config(
+        args.config,
+        args.preset_config,
+        args.agent_config,
+        args.env_config,
+        args.logger_config,
+    )
     runner = set_up_experiment(config)
     runner.run_training()
 
