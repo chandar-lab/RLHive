@@ -54,7 +54,7 @@ let's create the act function:
                 best_actions = np.where(self._q_values[state] == max_value)[0]
                 return np.random.choice(best_actions)
 
-Finally, we write our update function, which updates the state of our agent:
+Now, we write our update function, which updates the state of our agent:
 
 .. code-block:: python
     :name: tabular_agent_update
@@ -87,3 +87,10 @@ and resuming in the runner:
             self._q_values = np.load(os.path.join(dname, "qvalues.npy"))
             self._epsilon_schedule = pickle.load(open("state.p", "rb"))["schedule"]
 
+Finally, we :ref:`register <registration>` our agent class, so that it can be found when setting up experiments
+through the yaml config files and command line.
+
+.. code-block:: python
+    :name: tabular_agent_register
+    
+    hive.registry.register('TabularQLearningAgent', TabularQLearningAgent, Agent)
