@@ -18,7 +18,6 @@ We want this agent to have an epsilon greedy policy, with the exploration rate d
 First, we define the constructor:
 
 .. code-block:: python
-    :name: tabular_agent_init
     
     import numpy as np
     import os
@@ -40,7 +39,6 @@ state-action pair, and a linear decay schedule for the epsilon exploration rate.
 let's create the act function:
 
 .. code-block:: python
-    :name: tabular_agent_act
     
         def act(self, observation):
             # Return a random action if exploring
@@ -57,7 +55,6 @@ let's create the act function:
 Now, we write our update function, which updates the state of our agent:
 
 .. code-block:: python
-    :name: tabular_agent_update
     
         def update(self, update_info):
             state = np.argmax(update_info["observation"])
@@ -77,7 +74,6 @@ If we write a save and load function for this agent, we can also take advantage 
 and resuming in the runner: 
 
 .. code-block:: python
-    :name: tabular_agent_saveload
     
         def save(self, dname):
             np.save(os.path.join(dname, "qvalues.npy"), self._q_values)
@@ -91,6 +87,5 @@ Finally, we :ref:`register <registration>` our agent class, so that it can be fo
 through the yaml config files and command line.
 
 .. code-block:: python
-    :name: tabular_agent_register
     
     hive.registry.register('TabularQLearningAgent', TabularQLearningAgent, Agent)

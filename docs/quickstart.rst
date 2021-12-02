@@ -24,7 +24,6 @@ according to the specification of
 `Dopamine <https://github.com/google/dopamine/blob/master/dopamine/agents/dqn/configs/dqn.gin/>`_.
 
 .. code-block:: python
-    :name: sa_quickstart
     
     import hive
     from hive.runners.utils import load_config
@@ -40,7 +39,6 @@ You can also run multi-agent experiments in a similar fashion. To replicate
 , simply run: 
 
 .. code-block:: python
-    :name: ma_quickstart
     
     import hive
     from hive.runners.utils import load_config
