@@ -1,13 +1,13 @@
 Using the DQN/Rainbow Agents
 ===============================
 
-The :class:`~hive.agents.dqn.DQNAgent` and :class:`~hive.agents.rainbow.RainbowDQNAgent`
+The :py:class:`~hive.agents.dqn.DQNAgent` and :py:class:`~hive.agents.rainbow.RainbowDQNAgent`
 are written to allow for easy extensions and adaptation to your applications. We outline a few different use cases here.
 
 Using a different network architecture
 --------------------------------------
 Using different types of network architectures with
-:class:`~hive.agents.dqn.DQNAgent` and :class:`~hive.agents.rainbow.RainbowDQNAgent`
+:py:class:`~hive.agents.dqn.DQNAgent` and :py:class:`~hive.agents.rainbow.RainbowDQNAgent`
 is done using the ``representation_net`` parameter in the constructor. This network
 should not include the final layer which computes the final Q-values. It
 computes the representations that are fed into the layer which will compute the
@@ -19,14 +19,15 @@ You can modify the architecture of the representation network from the config, o
 a completely new architecture better suited to your needs. From the config, two different
 types of network architectures are supported:
 
-* :class:`~hive.agents.qnets.conv.ConvNetwork`: Networks with convolutional layers, followed by an MLP
-* :class:`~hive.agents.qnets.mlp.MLPNetwork`: An MLP with only linear layers
+* :py:class:`~hive.agents.qnets.conv.ConvNetwork`: Networks with convolutional layers, followed by an MLP
+* :py:class:`~hive.agents.qnets.mlp.MLPNetwork`: An MLP with only linear layers
 
-See :ref:`this page <configuration>` for details on how to configure the network.
+See :ref:`this page <tutorials/configuration_tutorial:configuration>` 
+for details on how to configure the network.
 
 To use an architecture not supported by the above classes, simply write the Pytorch
 module implementing the architecture, and register the class wrapped with 
-:class:`~hive.agents.qnets.base.FunctionApproximator` wrapper. The only requirement is that this class should take
+:py:class:`~hive.agents.qnets.base.FunctionApproximator` wrapper. The only requirement is that this class should take
 in the input dimension as the first positional argument:
 
 .. code-block:: python
