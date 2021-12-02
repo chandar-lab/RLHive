@@ -43,6 +43,7 @@ extensions = [
     "sphinx.ext.todo",
     "sphinx.ext.autosummary",
     "sphinx_autodoc_typehints",
+    "sphinx.ext.autosectionlabel",
 ]
 autoclass_content = "both"
 html_theme_options = {
@@ -61,7 +62,7 @@ html_theme_options = {
     # 'includehidden': True,
     "titles_only": True,
 }
-
+autosectionlabel_prefix_document = True
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
