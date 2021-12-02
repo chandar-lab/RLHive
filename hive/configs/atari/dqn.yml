@@ -14,7 +14,7 @@ saving_schedule:
 environment:
   name: 'AtariEnv'
   kwargs:
-    game: 'Asterix'
+    env_name: 'Asterix'
 
 agent:
   name: 'DQNAgent'
