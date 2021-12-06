@@ -159,7 +159,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
 
     def preprocess_update_batch(self, batch):
         for key in batch:
-            batch[key] = torch.tensor(batch[key]).to(self._device)
+            batch[key] = torch.tensor(batch[key], device=self._device)
         return (
             (batch["observation"], batch["action_mask"]),
             (batch["next_observation"], batch["next_action_mask"]),
@@ -179,18 +179,16 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         else:
             epsilon = self._test_epsilon
 
-        vectorized_observation = (
-            torch.tensor(np.expand_dims(observation["observation"], axis=0))
-            .to(self._device)
-            .float()
-        )
+        vectorized_observation = torch.tensor(
+            np.expand_dims(observation["observation"], axis=0), device=self._device
+        ).float()
         legal_moves_as_int = [
             i for i, x in enumerate(observation["action_mask"]) if x == 1
         ]
-        encoded_legal_moves = action_encoding(observation["action_mask"])
-        qvals = self._qnet(
-            vectorized_observation, torch.tensor(encoded_legal_moves).to(self._device)
-        ).cpu()
+        encoded_legal_moves = torch.tensor(
+            action_encoding(observation["action_mask"]), device=self._device
+        ).float()
+        qvals = self._qnet(vectorized_observation, encoded_legal_moves).cpu()
 
         if self._rng.random() < epsilon:
             action = np.random.choice(legal_moves_as_int).item()
