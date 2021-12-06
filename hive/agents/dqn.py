@@ -184,7 +184,7 @@ class DQNAgent(Agent):
 
     def preprocess_update_batch(self, batch):
         for key in batch:
-            batch[key] = torch.tensor(batch[key]).to(self._device)
+            batch[key] = torch.tensor(batch[key], device=self._device)
         return (batch["observation"],), (batch["next_observation"],)
 
     @torch.no_grad()
@@ -205,9 +205,9 @@ class DQNAgent(Agent):
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
-        observation = (
-            torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
-        )
+        observation = torch.tensor(
+            np.expand_dims(observation, axis=0), device=self._device
+        ).float()
         qvals = self._qnet(observation)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
