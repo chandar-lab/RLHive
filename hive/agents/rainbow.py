@@ -223,9 +223,9 @@ class RainbowDQNAgent(DQNAgent):
         else:
             epsilon = self._test_epsilon
 
-        observation = (
-            torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
-        )
+        observation = torch.tensor(
+            np.expand_dims(observation, axis=0), device=self._device
+        ).float()
         qvals = self._qnet(observation)
 
         if self._rng.random() < epsilon:
