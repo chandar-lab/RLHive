@@ -44,6 +44,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx_autodoc_typehints",
     "sphinx.ext.autosectionlabel",
+    "sphinx.ext.intersphinx",
 ]
 autoclass_content = "both"
 html_theme_options = {
@@ -70,6 +71,7 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+intersphinx_mapping = {"torch": ("https://pytorch.org/docs/stable", None)}
 
 
 # -- Options for HTML output -------------------------------------------------
