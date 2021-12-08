@@ -4,7 +4,18 @@ from torch import nn
 
 
 class DQNNetwork(nn.Module):
-    def __init__(self, network, hidden_dim, out_dim, linear_fn=None):
+    """Implements the standard DQN value computation. Transforms output from
+    :obj:`network` with output dimension :obj:`hidden_dim` to dimension
+    :obj:`out_dim`, which should be equal to the number of actions.
+    """
+
+    def __init__(
+        self,
+        network: nn.Module,
+        hidden_dim: int,
+        out_dim: int,
+        linear_fn: nn.Module = None,
+    ):
         super().__init__()
         self.network = network
         self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
