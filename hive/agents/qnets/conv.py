@@ -7,7 +7,15 @@ from hive.agents.qnets.utils import calculate_output_dim
 
 class ConvNetwork(nn.Module):
     """
-    Simple convolutional network approximator for Q-Learning.
+    Basic convolutional neural network architecture. Applies a number of
+    convolutional layers (each followed by a ReLU activation), and then
+    feeds the output into an :py:class:`hive.agents.qnets.mlp.MLPNetwork`.
+
+    Note, if :obj:`channels` is :const:`None`, the network created for the
+    convolution portion of the architecture is simply an
+    :py:class:`torch.nn.Identity` module. If :obj:`mlp_layers` is
+    :const:`None`, the mlp portion of the architecture is an
+    :py:class:`torch.nn.Identity` module.
     """
 
     def __init__(
@@ -26,9 +34,8 @@ class ConvNetwork(nn.Module):
         Args:
             in_dim (tuple): The tuple of observations dimension (channels, width,
                 height)
-            out_dim (int): The action dimension
             channels (list): The size of output channel for each convolutional layer
-            mlp_layers (list): The size of neurons for each mlp layer after the
+            mlp_layers (list): The number of neurons for each mlp layer after the
                 convolutional layers
             kernel_sizes (list | int): The kernel size for each convolutional layer
             strides (list | int): The stride used for each convolutional layer
@@ -36,6 +43,12 @@ class ConvNetwork(nn.Module):
                 layer
             normalization_factor (float | int): What the input is divided by before
                 the forward pass of the network
+            noisy (bool): Whether the MLP part of the network will use
+                :py:class:`~hive.agents.qnets.noisy_linear.NoisyLinear` layers or
+                :py:class:`torch.nn.Linear` layers.
+            std_init (float): The range for the initialization of the standard
+                deviation of the weights in
+                :py:class:`~hive.agents.qnets.noisy_linear.NoisyLinear`.
         """
         super().__init__()
         self._normalization_factor = normalization_factor
