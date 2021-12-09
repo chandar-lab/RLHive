@@ -185,7 +185,7 @@ class DQNAgent(Agent):
     def preprocess_update_batch(self, batch):
         for key in batch:
             batch[key] = torch.tensor(batch[key], device=self._device)
-        return (batch["observation"],), (batch["next_observation"],)
+        return (batch["observation"],), (batch["next_observation"],), batch
 
     @torch.no_grad()
     def act(self, observation):
@@ -251,16 +251,20 @@ class DQNAgent(Agent):
             and self._update_period_schedule.update()
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            qnet_inputs, target_qnet_inputs = self.preprocess_update_batch(batch)
+            (
+                current_state_inputs,
+                next_state_inputs,
+                batch,
+            ) = self.preprocess_update_batch(batch)
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(*qnet_inputs)
+            pred_qvals = self._qnet(*current_state_inputs)
             actions = batch["action"].long()
             pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
             # Compute 1-step Q targets
-            next_qvals = self._target_qnet(*target_qnet_inputs)
+            next_qvals = self._target_qnet(*next_state_inputs)
             next_qvals, _ = torch.max(next_qvals, dim=1)
 
             q_targets = batch["reward"] + self._discount_rate * next_qvals * (

@@ -269,19 +269,23 @@ class RainbowDQNAgent(DQNAgent):
             and self._update_period_schedule.update()
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            qnet_inputs, target_qnet_inputs = self.preprocess_update_batch(batch)
+            (
+                current_state_inputs,
+                next_state_inputs,
+                batch,
+            ) = self.preprocess_update_batch(batch)
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(*qnet_inputs)
+            pred_qvals = self._qnet(*current_state_inputs)
             actions = batch["action"].long()
 
             if self._distributional:
-                current_dist = self._qnet.dist(*qnet_inputs)
+                current_dist = self._qnet.dist(*current_state_inputs)
                 log_p = torch.log(current_dist[torch.arange(actions.size(0)), actions])
                 with torch.no_grad():
                     target_prob = self.target_projection(
-                        target_qnet_inputs, batch["reward"], batch["done"]
+                        next_state_inputs, batch["reward"], batch["done"]
                     )
 
                 loss = -(target_prob * log_p).sum(-1)
@@ -291,12 +295,12 @@ class RainbowDQNAgent(DQNAgent):
 
                 # Compute 1-step Q targets
                 if self._double:
-                    next_action = self._qnet(*qnet_inputs)
+                    next_action = self._qnet(*next_state_inputs)
                 else:
-                    next_action = self._target_qnet(*target_qnet_inputs)
+                    next_action = self._target_qnet(*next_state_inputs)
 
                 _, next_action = torch.max(next_action, dim=1)
-                next_qvals = self._target_qnet(*target_qnet_inputs)
+                next_qvals = self._target_qnet(*next_state_inputs)
                 next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
 
                 q_targets = batch["reward"] + self._discount_rate * next_qvals * (
