@@ -15,4 +15,8 @@ class FunctionApproximator(CallableType):
 
     @classmethod
     def type_name(cls):
+        """
+        Returns:
+            "function"
+        """
         return "function"

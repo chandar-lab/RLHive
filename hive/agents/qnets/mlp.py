@@ -25,12 +25,12 @@ class MLPNetwork(nn.Module):
     ):
         """
         Args:
-            in_dim: The shape of input observations
-            hidden_units: The number of neurons for each mlp layer
-            noisy: Whether the MLP should use
+            in_dim (tuple[int]): The shape of input observations.
+            hidden_units (int | list[int]): The number of neurons for each mlp layer.
+            noisy (bool): Whether the MLP should use
                 :py:class:`~hive.agents.qnets.noisy_linear.NoisyLinear` layers or normal
                 :py:class:`torch.nn.Linear` layers.
-            std_init: The range for the initialization of the standard deviation of the
+            std_init (float): The range for the initialization of the standard deviation of the
                 weights in :py:class:`~hive.agents.qnets.noisy_linear.NoisyLinear`.
         """
         super().__init__()

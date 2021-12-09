@@ -9,7 +9,8 @@ class NatureAtariDQNModel(ConvNetwork):
     def __init__(self, in_dim):
         """
         Args:
-            in_dim (tuple): The tuple of observations dimension (channels, width, height)
+            in_dim (tuple): The tuple of observations dimension
+                (channels, width, height).
         """
         super().__init__(
             in_dim=in_dim,

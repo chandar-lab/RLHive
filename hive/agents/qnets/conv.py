@@ -33,16 +33,16 @@ class ConvNetwork(nn.Module):
         """
         Args:
             in_dim (tuple): The tuple of observations dimension (channels, width,
-                height)
-            channels (list): The size of output channel for each convolutional layer
+                height).
+            channels (list): The size of output channel for each convolutional layer.
             mlp_layers (list): The number of neurons for each mlp layer after the
-                convolutional layers
+                convolutional layers.
             kernel_sizes (list | int): The kernel size for each convolutional layer
-            strides (list | int): The stride used for each convolutional layer
+            strides (list | int): The stride used for each convolutional layer.
             paddings (list | int): The size of the padding used for each convolutional
-                layer
+                layer.
             normalization_factor (float | int): What the input is divided by before
-                the forward pass of the network
+                the forward pass of the network.
             noisy (bool): Whether the MLP part of the network will use
                 :py:class:`~hive.agents.qnets.noisy_linear.NoisyLinear` layers or
                 :py:class:`torch.nn.Linear` layers.
