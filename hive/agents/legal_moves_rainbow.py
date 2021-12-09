@@ -163,6 +163,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         return (
             (batch["observation"], batch["action_mask"]),
             (batch["next_observation"], batch["next_action_mask"]),
+            batch,
         )
 
     @torch.no_grad()
