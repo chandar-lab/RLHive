@@ -1,4 +1,5 @@
 import gym
+import numpy as np
 
 from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
@@ -44,10 +45,12 @@ class GymEnv(BaseEnv):
 
     def reset(self):
         observation = self._env.reset()
+        observation = observation.astype(np.uint8)
         return observation, self._turn
 
     def step(self, action=None):
         observation, reward, done, info = self._env.step(action)
+        observation = observation.astype(np.uint8)
         self._turn = (self._turn + 1) % self._num_players
         return observation, reward, done, self._turn, info
 
