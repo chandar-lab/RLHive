@@ -186,19 +186,18 @@ class RainbowDQNAgent(DQNAgent):
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
-    def target_projection(self, target_net_inputs, reward, done):
+    def target_projection(self, target_net_inputs, next_action, reward, done):
         """Project distribution of target Q-values."""
         reward = reward.reshape(-1, 1)
         not_done = 1 - done.reshape(-1, 1)
         batch_size = reward.size(0)
-        next_action = self._target_qnet(*target_net_inputs).argmax(1)
         next_dist = self._target_qnet.dist(*target_net_inputs)
         next_dist = next_dist[torch.arange(batch_size), next_action]
 
         dist_supports = reward + not_done * self._discount_rate * self._supports
         dist_supports = dist_supports.clamp(min=self._v_min, max=self._v_max)
         dist_supports = dist_supports.unsqueeze(1)
-        dist_supports.tile([1, self._atoms, 1])
+        dist_supports = dist_supports.tile([1, self._atoms, 1])
         projected_supports = self._supports.tile([batch_size, 1]).unsqueeze(2)
 
         delta = float(self._v_max - self._v_min) / (self._atoms - 1)
@@ -280,12 +279,20 @@ class RainbowDQNAgent(DQNAgent):
             pred_qvals = self._qnet(*current_state_inputs)
             actions = batch["action"].long()
 
+            if self._double:
+                next_action = self._qnet(*next_state_inputs)
+            else:
+                next_action = self._target_qnet(*next_state_inputs)
+            next_action = next_action.argmax(1)
+
             if self._distributional:
                 current_dist = self._qnet.dist(*current_state_inputs)
-                log_p = torch.log(current_dist[torch.arange(actions.size(0)), actions])
+                probs = current_dist[torch.arange(actions.size(0)), actions]
+                probs = torch.clamp(probs, 1e-6, 1)  # NaN-guard
+                log_p = torch.log(probs)
                 with torch.no_grad():
                     target_prob = self.target_projection(
-                        next_state_inputs, batch["reward"], batch["done"]
+                        next_state_inputs, next_action, batch["reward"], batch["done"]
                     )
 
                 loss = -(target_prob * log_p).sum(-1)
@@ -293,13 +300,6 @@ class RainbowDQNAgent(DQNAgent):
             else:
                 pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
-                # Compute 1-step Q targets
-                if self._double:
-                    next_action = self._qnet(*next_state_inputs)
-                else:
-                    next_action = self._target_qnet(*next_state_inputs)
-
-                _, next_action = torch.max(next_action, dim=1)
                 next_qvals = self._target_qnet(*next_state_inputs)
                 next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
 
