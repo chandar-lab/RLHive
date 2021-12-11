@@ -4,7 +4,7 @@ run_name: &run_name 'breakout-rainbow'
 train_steps: 10000000
 test_frequency: 1000000
 max_steps_per_episode: 10000000
-test_steps: 125000
+test_episodes: 10
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
