@@ -9,6 +9,10 @@ from hive.envs.gym_env import GymEnv
 class AtariEnv(GymEnv):
     """
     Class for loading Atari environments.
+
+    Adapted from the Dopamine's Atari preprocessing code:
+    https://github.com/google/dopamine/blob/6fbb58ad9bc1340f42897e8a551f85a01fb142ce/dopamine/discrete_domains/atari_lib.py
+    Licensed under Apache 2.0, https://github.com/google/dopamine/blob/master/LICENSE
     """
 
     def __init__(
