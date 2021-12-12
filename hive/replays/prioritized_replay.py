@@ -8,6 +8,10 @@ from hive.utils.torch_utils import numpify
 
 
 class PrioritizedReplayBuffer(CircularReplayBuffer):
+    """Implements a replay with prioritized sampling. See
+    https://arxiv.org/abs/1511.05952
+    """
+
     def __init__(
         self,
         capacity: int,
@@ -25,6 +29,36 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
         num_players_sharing_buffer=None,
         seed: int = 42,
     ):
+        """
+        Args:
+            capacity (int): Total number of observations that can be stored in the
+                buffer. Note, this is not the same as the number of transitions that
+                can be stored in the buffer.
+            beta (float): Parameter controlling level of prioritization.
+            stack_size (int): The number of frames to stack to create an observation.
+            n_step (int): Horizon used to compute n-step return reward
+            gamma (float): Discounting factor used to compute n-step return reward
+            observation_shape: Shape of observations that will be stored in the buffer.
+            observation_dtype: Type of observations that will be stored in the buffer.
+                This can either be the type itself or string representation of the
+                type. The type can be either a native python type or a numpy type. If
+                a numpy type, a string of the form np.uint8 or numpy.uint8 is
+                acceptable.
+            action_shape: Shape of actions that will be stored in the buffer.
+            action_dtype: Type of actions that will be stored in the buffer. Format is
+                described in the description of observation_dtype.
+            action_shape: Shape of actions that will be stored in the buffer.
+            action_dtype: Type of actions that will be stored in the buffer. Format is
+                described in the description of observation_dtype.
+            reward_shape: Shape of rewards that will be stored in the buffer.
+            reward_dtype: Type of rewards that will be stored in the buffer. Format is
+                described in the description of observation_dtype.
+            extra_storage_types (dict): A dictionary describing extra items to store
+                in the buffer. The mapping should be from the name of the item to a
+                (type, shape) tuple.
+            num_players_sharing_buffer (int): Number of agents that share their
+                buffers. It is used for self-play.
+        """
         super().__init__(
             capacity=capacity,
             stack_size=stack_size,
@@ -96,6 +130,14 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
         return batch
 
     def update_priorities(self, indices, priorities):
+        """Update the priorities of the transitions at the specified indices.
+
+        Args:
+            indices: Which transitions to update priorities for. Can be numpy array
+                or torch tensor.
+            priorities: What the priorities should be updated to. Can be numpy array
+                or torch tensor.
+        """
         indices = numpify(indices)
         priorities = numpify(priorities)
         indices, unique_idxs = np.unique(indices, return_index=True)
@@ -112,6 +154,11 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
 
 
 class SumTree:
+    """Data structure used to implement prioritized sampling. It is implemented
+    as a tree where the value of each node is the sum of the values of the subtree
+    of the node.
+    """
+
     def __init__(self, capacity: int):
         self._capacity = capacity
         self._depth = int(np.ceil(np.log2(capacity))) + 1
@@ -123,6 +170,12 @@ class SumTree:
         self.max_recorded_priority = 1.0
 
     def set_priority(self, indices, priorities):
+        """Sets the priorities for the given indices.
+
+        Args:
+            indices (np.ndarray): Which transitions to update priorities for.
+            priorities (np.ndarray): What the priorities should be updated to.
+        """
         self.max_recorded_priority = max(self.max_recorded_priority, np.max(priorities))
         indices = self._last_level_start + indices
         diffs = priorities - self._tree[indices]
@@ -131,15 +184,35 @@ class SumTree:
             indices = (indices - 1) // 2
 
     def sample(self, batch_size):
+        """Sample elements from the sum tree with probability proportional to their
+        priority.
+
+        Args:
+            batch_size (int): The number of elements to sample.
+        """
         indices = self.extract(np.random.rand(batch_size))
         return indices
 
     def stratified_sample(self, batch_size):
+        """Performs stratified sampling using the sum tree.
+
+        Args:
+            batch_size (int): The number of elements to sample.
+        """
         query_values = (np.arange(batch_size) + np.random.rand(batch_size)) / batch_size
         indices = self.extract(query_values)
         return indices
 
     def extract(self, queries):
+        """Get the elements in the sum tree that correspond to the query.
+        For each query, the element that is selected is the one with the greatest
+        sum of "previous" elements in the tree, but also such that the sum is not
+        a greater proportion of the total sum of priorities than the query.
+
+        Args:
+            queries (np.ndarray): Queries to extract. Each element should be
+                between 0 and 1.
+        """
         queries *= self._tree[0]
         indices = np.zeros(queries.shape[0], dtype=np.int64)
         for i in range(self._depth - 1):
@@ -151,6 +224,11 @@ class SumTree:
         return indices - self._last_level_start
 
     def get_priorities(self, indices):
+        """Get the priorities of the elements at indicies.
+
+        Args:
+            indices (np.ndarray): The indices to query.
+        """
         return self._priorities[indices]
 
     def save(self, dname):
