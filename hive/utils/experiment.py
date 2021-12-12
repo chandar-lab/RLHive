@@ -2,6 +2,8 @@
 import logging
 import os
 
+import yaml
+
 from hive.utils.utils import Chomp, create_folder
 
 
@@ -84,8 +86,9 @@ class Experiment(object):
             os.remove(flag_file)
 
         if self._config is not None:
-            file_name = os.path.join(save_dir, "config.p")
-            self._config.save(file_name)
+            file_name = os.path.join(save_dir, "config.yml")
+            with open(file_name, "w") as f:
+                yaml.dump(dict(self._config), f)
 
         if self._logger is not None:
             folder_name = os.path.join(save_dir, "logger")
