@@ -175,6 +175,7 @@ def construct_objects(object_constructor, config, prefix=None):
             if (
                 issubclass(origin, Sequence)
                 and len(args) == 1
+                and isinstance(args[0], type)
                 and issubclass(args[0], Registrable)
                 and isinstance(config[argument], Sequence)
             ):
@@ -190,6 +191,7 @@ def construct_objects(object_constructor, config, prefix=None):
             elif (
                 issubclass(origin, Mapping)
                 and len(args) == 2
+                and isinstance(args[0], type)
                 and issubclass(args[1], Registrable)
                 and isinstance(config[argument], Mapping)
             ):

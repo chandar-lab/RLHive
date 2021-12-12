@@ -28,18 +28,18 @@ class MultiAgentRunner(Runner):
         """Initializes the Runner object.
 
         Args:
-            environment: Environment used in the training loop.
-            agents: List of agents that interact with the environment
-            logger: Logger object used to log metrics.
-            experiment_manager: ExperimentManager object that saves the state of the
-                training.
-            train_steps: How many steps to train for. If this is -1, there is no limit
-                for the number of training steps.
-            train_steps: How many steps to train for. If this is -1, there is no limit
-                for the number of training steps.
-            test_frequency: After how many training steps to run testing episodes.
+            environment (BaseEnv): Environment used in the training loop.
+            agents (list[Agent]): List of agents that interact with the environment
+            logger (ScheduledLogger): Logger object used to log metrics.
+            experiment_manager (Experiment): Experiment object that saves the state of
+                the training.
+            train_steps (int): How many steps to train for. If this is -1, there is no
+                limit for the number of training steps.
+            test_frequency (int): After how many training steps to run testing episodes.
                 If this is -1, testing is not run.
-            stack_size: The number of frames in an observation sent to an agent.
+            test_episodes (int): How many episodes to run testing for.
+            stack_size (int): The number of frames in an observation sent to an agent.
+            max_steps_per_episode (int): The number of frames in an observation sent to an agent.
         """
         super().__init__(
             environment,
