@@ -89,7 +89,7 @@ loggers:
   -
     name: WandbLogger
     kwargs:
-      project_name: Hive
-      run_name: *run_name
+      project: Hive
+      name: *run_name
       mode: "online"
-      settings_str: 'fork'
+      start_method: 'fork'
