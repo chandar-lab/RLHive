@@ -22,13 +22,11 @@ import os
 
 sys.path.insert(0, os.path.abspath("../"))
 project = "RLHive"
-copyright = "2021, Darshan Patil, Hadi Nekoei, Ali Rahimi-Kalahroudi, Sai Krishna, Sarath Chandar"
-author = (
-    "Darshan Patil, Hadi Nekoei, Ali Rahimi-Kalahroudi, Sai Krishna, Sarath Chandar"
-)
+copyright = "2021, Chandar Research Lab"
+author = "Chandar Research Lab"
 
 # The full version, including alpha/beta/rc tags
-release = "1.0"
+release = "0.1.0"
 
 
 # -- General configuration ---------------------------------------------------
@@ -64,6 +62,7 @@ html_theme_options = {
     "titles_only": True,
 }
 autosectionlabel_prefix_document = True
+autodoc_member_order = "bysource"
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
@@ -71,7 +70,15 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
-intersphinx_mapping = {"torch": ("https://pytorch.org/docs/stable", None)}
+intersphinx_mapping = {
+    "torch": ("https://pytorch.org/docs/stable", None),
+    "tensorflow": (
+        "https://www.tensorflow.org/api_docs/python",
+        "https://github.com/GPflow/tensorflow-intersphinx/raw/master/tf2_py_objects.inv",
+    ),
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
+}
 
 
 # -- Options for HTML output -------------------------------------------------
