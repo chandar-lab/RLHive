@@ -2,7 +2,7 @@ import argparse
 import inspect
 from copy import deepcopy
 from functools import partial, update_wrapper
-from typing import Mapping, Sequence, _GenericAlias
+from typing import List, Mapping, Sequence, _GenericAlias
 
 import yaml
 
@@ -176,7 +176,7 @@ def construct_objects(object_constructor, config, prefix=None):
             origin = expected_type.__origin__
             args = expected_type.__args__
             if (
-                issubclass(origin, Sequence)
+                (origin == List or origin == list)
                 and len(args) == 1
                 and isinstance(args[0], type)
                 and issubclass(args[0], Registrable)
@@ -192,9 +192,9 @@ def construct_objects(object_constructor, config, prefix=None):
                     expanded_config[argument].append(obj_config)
                 config[argument] = objs
             elif (
-                issubclass(origin, Mapping)
+                origin == dict
                 and len(args) == 2
-                and isinstance(args[0], type)
+                and isinstance(args[1], type)
                 and issubclass(args[1], Registrable)
                 and isinstance(config[argument], Mapping)
             ):

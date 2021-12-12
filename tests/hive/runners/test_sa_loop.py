@@ -8,7 +8,7 @@ import pytest
 import hive
 from hive.runners import single_agent_loop
 from hive.runners.utils import load_config
-from hive.utils.logging import ScheduledLogger
+from hive.utils.loggers import ScheduledLogger
 
 
 class FakeLogger1(ScheduledLogger):
@@ -208,7 +208,8 @@ def test_cl_parsing(mock_seeder, args, arg_string, cl_args):
     full_config = runner._experiment_manager._config
     # Check hidden units
     assert (
-        runner._agents[0]._qnet.network.network[0].out_features == expected_args[0][0]
+        runner._agents[0]._qnet.base_network.network[0].out_features
+        == expected_args[0][0]
     )
     assert (
         full_config["agent"]["kwargs"]["representation_net"]["kwargs"]["hidden_units"]
