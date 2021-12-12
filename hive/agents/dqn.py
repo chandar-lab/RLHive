@@ -1,6 +1,5 @@
 import copy
 import os
-from typing import Tuple
 
 import numpy as np
 import torch
@@ -14,7 +13,7 @@ from hive.agents.qnets.utils import (
     create_init_weights_fn,
 )
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
-from hive.utils.logging import Logger, NullLogger
+from hive.utils.loggers import Logger, NullLogger
 from hive.utils.schedule import (
     LinearSchedule,
     PeriodicSchedule,

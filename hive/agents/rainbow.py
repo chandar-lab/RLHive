@@ -16,7 +16,7 @@ from hive.agents.qnets.qnet_heads import (
 from hive.agents.qnets.utils import InitializationFn, calculate_output_dim
 from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
-from hive.utils.logging import Logger
+from hive.utils.loggers import Logger
 from hive.utils.schedule import Schedule
 from hive.utils.utils import LossFn, OptimizerFn, seeder
 
@@ -44,7 +44,7 @@ class RainbowDQNAgent(DQNAgent):
         target_net_update_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
-        learn_schedule: Schedule = None,
+        min_replay_history: int = 5000,
         batch_size: int = 32,
         device="cpu",
         logger: Logger = None,
@@ -157,7 +157,7 @@ class RainbowDQNAgent(DQNAgent):
             update_period_schedule=update_period_schedule,
             epsilon_schedule=epsilon_schedule,
             test_epsilon=test_epsilon,
-            learn_schedule=learn_schedule,
+            min_replay_history=min_replay_history,
             batch_size=batch_size,
             device=device,
             logger=logger,
@@ -205,39 +205,6 @@ class RainbowDQNAgent(DQNAgent):
         self._qnet.to(device=self._device)
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
-
-    def target_projection(self, target_net_inputs, next_action, reward, done):
-        """Project distribution of target Q-values.
-
-        Args:
-            target_net_inputs: Inputs to feed into the target net to compute the
-                projection of the target Q-values. Should be set from
-                :py:meth:`~hive.agents.dqn.DQNAgent.preprocess_update_batch`.
-            next_action (~torch.Tensor): Tensor containing next actions used to
-                compute target distribution.
-            reward (~torch.Tensor): Tensor containing rewards for the current batch.
-            done (~torch.Tensor): Tensor containing whether the states in the current
-                batch are terminal.
-
-        """
-        reward = reward.reshape(-1, 1)
-        not_done = 1 - done.reshape(-1, 1)
-        batch_size = reward.size(0)
-        next_dist = self._target_qnet.dist(*target_net_inputs)
-        next_dist = next_dist[torch.arange(batch_size), next_action]
-
-        dist_supports = reward + not_done * self._discount_rate * self._supports
-        dist_supports = dist_supports.clamp(min=self._v_min, max=self._v_max)
-        dist_supports = dist_supports.unsqueeze(1)
-        dist_supports = dist_supports.tile([1, self._atoms, 1])
-        projected_supports = self._supports.tile([batch_size, 1]).unsqueeze(2)
-
-        delta = float(self._v_max - self._v_min) / (self._atoms - 1)
-        quotient = 1 - (torch.abs(dist_supports - projected_supports) / delta)
-        quotient = quotient.clamp(min=0, max=1)
-
-        projection = torch.sum(quotient * next_dist.unsqueeze(1), dim=2)
-        return projection
 
     @torch.no_grad()
     def act(self, observation):
@@ -363,3 +330,36 @@ class RainbowDQNAgent(DQNAgent):
         # Update target network
         if self._target_net_update_schedule.update():
             self._update_target()
+
+    def target_projection(self, target_net_inputs, next_action, reward, done):
+        """Project distribution of target Q-values.
+
+        Args:
+            target_net_inputs: Inputs to feed into the target net to compute the
+                projection of the target Q-values. Should be set from
+                :py:meth:`~hive.agents.dqn.DQNAgent.preprocess_update_batch`.
+            next_action (~torch.Tensor): Tensor containing next actions used to
+                compute target distribution.
+            reward (~torch.Tensor): Tensor containing rewards for the current batch.
+            done (~torch.Tensor): Tensor containing whether the states in the current
+                batch are terminal.
+
+        """
+        reward = reward.reshape(-1, 1)
+        not_done = 1 - done.reshape(-1, 1)
+        batch_size = reward.size(0)
+        next_dist = self._target_qnet.dist(*target_net_inputs)
+        next_dist = next_dist[torch.arange(batch_size), next_action]
+
+        dist_supports = reward + not_done * self._discount_rate * self._supports
+        dist_supports = dist_supports.clamp(min=self._v_min, max=self._v_max)
+        dist_supports = dist_supports.unsqueeze(1)
+        dist_supports = dist_supports.tile([1, self._atoms, 1])
+        projected_supports = self._supports.tile([batch_size, 1]).unsqueeze(2)
+
+        delta = float(self._v_max - self._v_min) / (self._atoms - 1)
+        quotient = 1 - (torch.abs(dist_supports - projected_supports) / delta)
+        quotient = quotient.clamp(min=0, max=1)
+
+        projection = torch.sum(quotient * next_dist.unsqueeze(1), dim=2)
+        return projection
