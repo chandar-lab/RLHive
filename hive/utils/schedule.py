@@ -5,12 +5,12 @@ from hive.utils.registry import Registrable, registry
 
 class Schedule(abc.ABC, Registrable):
     @abc.abstractmethod
-    def get_value():
+    def get_value(self):
         """Returns the current value of the variable we are tracking"""
         pass
 
     @abc.abstractmethod
-    def update():
+    def update(self):
         """Update the value of the variable we are tracking and return the updated value.
         The first call to update will return the initial value of the schedule."""
         pass
@@ -30,8 +30,8 @@ class LinearSchedule(Schedule):
     def __init__(self, init_value, end_value, steps):
         """
         Args:
-            init_value (Union[int, float]): starting value for schedule.
-            end_value (Union[int, float]): end value for schedule.
+            init_value (int | float): Starting value for schedule.
+            end_value (int | float): End value for schedule.
             steps (int): Number of steps for schedule. Should be positive.
         """
         steps = max(int(steps), 1)
@@ -68,7 +68,7 @@ class ConstantSchedule(Schedule):
     def __init__(self, value):
         """
         Args:
-            value: the value to be returned.
+            value: The value to be returned.
         """
         self._value = value
 
@@ -90,9 +90,9 @@ class SwitchSchedule(Schedule):
     def __init__(self, off_value, on_value, steps):
         """
         Args:
-            off_value: the value to be returned in the first part of the schedule.
-            on_value: the value to be returned in the second part of the schedule.
-            steps (int): the number of steps after which to switch from the off
+            off_value: The value to be returned in the first part of the schedule.
+            on_value: The value to be returned in the second part of the schedule.
+            steps (int): The number of steps after which to switch from the off
                 value to the on value.
         """
 
@@ -131,8 +131,8 @@ class DoublePeriodicSchedule(Schedule):
     def __init__(self, off_value, on_value, off_period, on_period):
         """
         Args:
-            on_value: the value to be returned for the on period.
-            off_value: the value to be returned for the off period.
+            on_value: The value to be returned for the on period.
+            off_value: The value to be returned for the off period.
             on_period (int): the number of steps in the on period.
             off_period (int): the number of steps in the off period.
         """
@@ -172,9 +172,9 @@ class PeriodicSchedule(DoublePeriodicSchedule):
     def __init__(self, off_value, on_value, period):
         """
         Args:
-            on_value: the value to be returned on the first step of each period.
-            off_value: the value to be returned for every other step in the period.
-            period (int): the number of steps in the period.
+            on_value: The value to be returned on the first step of each period.
+            off_value: The value to be returned for every other step in the period.
+            period (int): The number of steps in the period.
         """
         super().__init__(off_value, on_value, period - 1, 1)
 

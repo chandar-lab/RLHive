@@ -19,8 +19,9 @@ class Logger(abc.ABC, Registrable):
         in its own constructor
 
         Args:
-            timescales (str|List): The different timescales at which logger needs to log.
-                If only logging at one timescale, it is acceptable to only pass a string.
+            timescales (str | list(str)): The different timescales at which logger
+                needs to log. If only logging at one timescale, it is acceptable to
+                only pass a string.
         """
         if timescales is None:
             self._timescales = []
@@ -35,52 +36,55 @@ class Logger(abc.ABC, Registrable):
         """Register a new timescale with the logger.
 
         Args:
-            timescale (str): timescale to register.
+            timescale (str): Timescale to register.
         """
         self._timescales.append(timescale)
 
     @abc.abstractmethod
     def log_config(self, config):
-        """Log a config file.
+        """Log the config.
+
         Args:
-            config: dict, config parameters.
+            config (dict): Config parameters.
         """
         pass
 
     @abc.abstractmethod
     def log_scalar(self, name, value, prefix):
         """Log a scalar variable.
+
         Args:
-            name: str, name of the metric to be logged.
-            value: float, value to be logged.
-            step: int, step value.
-            prefix (str): prefix to append to metric name.
+            name (str): Name of the metric to be logged.
+            value (float): Value to be logged.
+            prefix (str): Prefix to append to metric name.
         """
         pass
 
     @abc.abstractmethod
     def log_metrics(self, metrics, prefix):
-        """Log a scalar variable.
+        """Log a dictionary of values.
+
         Args:
-            metrics: dict, dictionary of metrics to be logged.
-            step: int, step value.
-            prefix (str): prefix to append to metric name.
+            metrics (dict): Dictionary of metrics to be logged.
+            prefix (str): Prefix to append to metric name.
         """
         pass
 
     @abc.abstractmethod
     def save(self, dir_name):
         """Saves the current state of the log files.
+
         Args:
-            dir_name: name of the directory to save the log files.
+            dir_name (str): Name of the directory to save the log files.
         """
         pass
 
     @abc.abstractmethod
     def load(self, dir_name):
         """Loads the log files from given directory.
+
         Args:
-            dir_name: name of the directory to load the log file from.
+            dir_name (str): Name of the directory to load the log file from.
         """
         pass
 
@@ -102,20 +106,19 @@ class ScheduledLogger(Logger):
     """
 
     def __init__(self, timescales=None, logger_schedules=None):
-        """Constructor for abstract class ScheduledLogger. Should be called by
-        each subclass in the constructor.
-
+        """
         Any timescales not assigned schedule from logger_schedules will be assigned
         a ConstantSchedule(True).
 
         Args:
-            timescales (str|List): The different timescales at which logger needs to log.
-                If only logging at one timescale, it is acceptable to only pass a string.
+            timescales (str|list[str]): The different timescales at which logger needs
+                to log. If only logging at one timescale, it is acceptable to only pass
+                a string.
             logger_schedules (Schedule|list|dict): Schedules used to keep track of when
-                to log. If a single schedule, it is copied for each timescale. If a list
-                of schedules, the schedules are matched up in order with the list of
-                timescales provided. If a dictionary, the keys should be the timescale
-                and the values should be the schedule.
+                to log. If a single schedule, it is copied for each timescale. If a
+                list of schedules, the schedules are matched up in order with the list
+                of timescales provided. If a dictionary, the keys should be the
+                timescale and the values should be the schedule.
         """
         super().__init__(timescales)
         if logger_schedules is None:
@@ -151,8 +154,8 @@ class ScheduledLogger(Logger):
         """Register a new timescale.
 
         Args:
-            timescale (str): timescale to register.
-            schedule: Schedule to use for this timescale.
+            timescale (str): Timescale to register.
+            schedule (Schedule): Schedule to use for this timescale.
         """
         super().register_timescale(timescale)
         if schedule is None:
@@ -161,13 +164,21 @@ class ScheduledLogger(Logger):
         self._steps[timescale] = 0
 
     def update_step(self, timescale):
-        """Update the step and schedule for a given timescale."""
+        """Update the step and schedule for a given timescale.
+
+        Args:
+            timescale (str): A registered timescale.
+        """
         self._steps[timescale] += 1
         self._logger_schedules[timescale].update()
         return self.should_log(timescale)
 
     def should_log(self, timescale):
-        """Check if you should log for a given timescale."""
+        """Check if you should log for a given timescale.
+
+        Args:
+            timescale (str): A registered timescale.
+        """
         return self._logger_schedules[timescale].get_value()
 
     def save(self, dir_name):
@@ -218,64 +229,69 @@ class WandbLogger(ScheduledLogger):
     locally on your system. Multiple timescales/loggers can be implemented by
     instantiating multiple loggers with different logger_names. These should still
     have the same project and run names.
+
+    Check the wandb documentation for more details on the parameters.
     """
 
     def __init__(
         self,
-        project_name,
-        run_name,
         timescales=None,
         logger_schedules=None,
-        mode="online",
+        project=None,
+        name=None,
+        dir=None,
+        mode=None,
         id=None,
         resume=None,
-        settings_str=None,
+        start_method=None,
         **kwargs,
     ):
-        """Constructor for the WandbLogger.
-
+        """
         Args:
-            project_name (str): Name of the project. Wandb's dash groups all runs with
+            timescales (str|list[str]): The different timescales at which logger needs
+                to log. If only logging at one timescale, it is acceptable to only pass
+                a string.
+            logger_schedules (Schedule|list|dict): Schedules used to keep track of when
+                to log. If a single schedule, it is copied for each timescale. If a
+                list of schedules, the schedules are matched up in order with the list
+                of timescales provided. If a dictionary, the keys should be the
+                timescale and the values should be the schedule.
+            project (str): Name of the project. Wandb's dash groups all runs with
                 the same project name together.
-            run_name (str): Name of the run. Used to identify the run on the wandb dash.
-            logger_schedule (Schedule): Schedule used to define when logging should occur.
-            logger_name (str): Used to differentiate between different loggers/timescales
-                in the same run.
+            name (str): Name of the run. Used to identify the run on the wandb
+                dash.
+            dir (str): Local directory where wandb saves logs.
             mode (str): The mode of logging. Can be "online", "offline" or "disabled".
-                In offline mode, writes all data to disk for later syncing to a server, while
-                in disabled mode, it makes all calls to wandb api's noop's, while maintaining
-            core functionality
+                In offline mode, writes all data to disk for later syncing to a server,
+                while in disabled mode, it makes all calls to wandb api's noop's, while
+                maintaining core functionality.
             id (str, optional): A unique ID for this run, used for resuming.
-                It must be unique in the project, and if you delete a run you can't reuse the ID.
+                It must be unique in the project, and if you delete a run you can't
+                reuse the ID.
             resume (bool, str, optional): Sets the resuming behavior.
                 Options are the same as mentioned in Wandb's doc.
-           settings_str (str, optional): String to set Wandb's settings.
-            Options are the same as mentioned in Wandb's doc.
+            start_method (str): The start method to use for wandb's process. See
+                https://docs.wandb.ai/guides/track/launch#init-start-error.
+            **kwargs: You can pass any other arguments to wandb's init method as
+                keyword arguments. Note, these arguments can't be overriden from the
+                command line.
         """
         super().__init__(timescales, logger_schedules)
 
         settings = None
-        if settings_str:
-            settings = wandb.Settings(start_method=settings_str)
-        if "save_dir" in kwargs.keys():
-            wandb.init(
-                project=project_name,
-                name=run_name,
-                dir=kwargs["save_dir"],
-                mode=mode,
-                settings=settings,
-                id=id,
-                resume=resume,
-            )
-        else:
-            wandb.init(
-                project=project_name,
-                name=run_name,
-                mode=mode,
-                settings=settings,
-                id=id,
-                resume=resume,
-            )
+        if start_method is not None:
+            settings = wandb.Settings(start_method=start_method)
+
+        wandb.init(
+            project=project,
+            name=name,
+            dir=dir,
+            mode=mode,
+            id=id,
+            resume=resume,
+            settings=settings,
+            **kwargs,
+        )
 
     def log_config(self, config):
         # Convert list parameters to nested dictionary
@@ -309,8 +325,8 @@ class WandbLogger(ScheduledLogger):
 
 
 class ChompLogger(ScheduledLogger):
-    """This logger uses the Chomp data structure to store all logged values which are then
-    directly saved to disk.
+    """This logger uses the Chomp data structure to store all logged values which are
+    then directly saved to disk.
     """
 
     def __init__(self, timescales=None, logger_schedules=None):
@@ -388,12 +404,25 @@ class CompositeLogger(Logger):
             logger.log_metrics(metrics, prefix=prefix)
 
     def update_step(self, timescale):
+        """Update the step and schedule for a given timescale for every
+        ScheduledLogger.
+
+        Args:
+            timescale (str): A registered timescale.
+        """
+
         for logger in self._logger_list:
             if isinstance(logger, ScheduledLogger):
                 logger.update_step(timescale)
         return self.should_log(timescale)
 
     def should_log(self, timescale):
+        """Check if you should log for a given timescale. If any logger in the list
+        is scheduled to log, returns True.
+
+        Args:
+            timescale (str): A registered timescale.
+        """
         for logger in self._logger_list:
             if not isinstance(logger, ScheduledLogger) or logger.should_log(timescale):
                 return True

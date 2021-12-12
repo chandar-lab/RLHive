@@ -17,8 +17,8 @@ class Experiment(object):
         this is the various schedules used in the Runner class.
 
         Args:
-            name: str, name of the experiment.
-            dir_name: str, absolute path to the directory to save/load the experiment.
+            name (str): Name of the experiment.
+            dir_name (str): Absolute path to the directory to save/load the experiment.
         """
 
         self._name = name
@@ -44,10 +44,10 @@ class Experiment(object):
         """Registers all the components of an experiment.
 
         Args:
-            config: a config dictionary.
-            logger: a logger object.
-            agents: either an agent object or a list of agents.
-            environment: an environment object.
+            config (Chomp): a config dictionary.
+            logger (Logger): a logger object.
+            agents (Agent | list[Agent]): either an agent object or a list of agents.
+            environment (BaseEnv): an environment object.
         """
 
         self._config = config
@@ -60,16 +60,18 @@ class Experiment(object):
         self._environment = environment
 
     def update_step(self):
+        """Updates the step of the saving schedule for the experiment."""
         self._step += 1
         return self._schedule.update()
 
     def should_save(self):
+        """Returns whether you should save the experiment at the current step."""
         return self._schedule.get_value()
 
     def save(self, tag="current"):
         """Saves the experiment.
         Args:
-            tag: str, tag to prefix the folder.
+            tag (str): Tag to prefix the folder.
         """
 
         save_dir = os.path.join(self._dir_name, tag)
@@ -110,7 +112,7 @@ class Experiment(object):
         """Returns true if the experiment is resumable.
 
         Args:
-            tag: str, tag for the saved experiment.
+            tag (str): Tag for the saved experiment.
         """
 
         flag_file = os.path.join(self._dir_name, tag, "flag.p")
@@ -123,7 +125,7 @@ class Experiment(object):
         """Resumes the experiment from a checkpoint.
 
         Args:
-            tag: str, tag for the saved experiment.
+            tag (str): Tag for the saved experiment.
         """
 
         if self.is_resumable(tag):
