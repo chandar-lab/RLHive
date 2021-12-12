@@ -1,7 +1,7 @@
-hive.utils.logging module
+hive.utils.loggers module
 =========================
 
-.. automodule:: hive.utils.logging
+.. automodule:: hive.utils.loggers
    :members:
    :undoc-members:
    :show-inheritance:

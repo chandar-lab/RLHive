@@ -14,6 +14,8 @@ help:
 
 .PHONY: help Makefile
 
+.PHONY: api
+
 api:
 	sphinx-apidoc -o api/ ../hive/ -e -f -d 3 -T 
 
