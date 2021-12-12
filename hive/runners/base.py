@@ -6,7 +6,7 @@ from hive.envs.base import BaseEnv
 from hive.runners.utils import Metrics
 from hive.utils import schedule
 from hive.utils.experiment import Experiment
-from hive.utils.logging import ScheduledLogger
+from hive.utils.loggers import ScheduledLogger
 
 
 class Runner(ABC):
@@ -92,16 +92,11 @@ class Runner(ABC):
     def run_one_step(self, observation, turn, episode_metrics):
         """Run one step of the training loop.
 
-        If it is the agent's first turn during the episode, do not run an update step.
-        Otherwise, run an update step based on the previous action and accumulated
-        reward since then.
-
         Args:
             observation: Current observation that the agent should create an action
                 for.
             turn (int): Agent whose turn it is.
-            episode_metrics (Metrics): Metrics object keeping track of metrics for
-                current episode.
+            episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
         if self._training:
             self._train_schedule.update()
@@ -114,12 +109,9 @@ class Runner(ABC):
     def run_end_step(self, episode_metrics, done):
         """Run the final step of an episode.
 
-        After an episode ends, iterate through agents and update then with the final
-        step in the episode.
-
         Args:
-            episode_metrics (Metrics): Metrics object keeping track of metrics for
-                current episode.
+            episode_metrics (Metrics): Keeps track of metrics for current episode.
+            done (bool): Whether this step was terminal.
 
         """
         return NotImplementedError

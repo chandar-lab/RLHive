@@ -5,7 +5,7 @@ from hive import agents as agent_lib
 from hive import envs
 from hive.runners.base import Runner
 from hive.runners.utils import TransitionInfo, load_config
-from hive.utils import experiment, logging, schedule, utils
+from hive.utils import experiment, loggers, schedule, utils
 from hive.utils.registry import get_parsed_args
 
 
@@ -35,11 +35,12 @@ class MultiAgentRunner(Runner):
                 the training.
             train_steps (int): How many steps to train for. If this is -1, there is no
                 limit for the number of training steps.
-            test_frequency (int): After how many training steps to run testing episodes.
-                If this is -1, testing is not run.
+            test_frequency (int): After how many training steps to run testing
+                episodes. If this is -1, testing is not run.
             test_episodes (int): How many episodes to run testing for.
             stack_size (int): The number of frames in an observation sent to an agent.
-            max_steps_per_episode (int): The number of frames in an observation sent to an agent.
+            max_steps_per_episode (int): The maximum number of steps to run an episode
+                for.
         """
         super().__init__(
             environment,
@@ -62,9 +63,10 @@ class MultiAgentRunner(Runner):
         reward since then.
 
         Args:
-            observation: Current observation that the agent should create an action for.
-            turn: Agent whose turn it is.
-            episode_metrics: Metrics object keeping track of metrics for current episode.
+            observation: Current observation that the agent should create an action
+                for.
+            turn (int): Agent whose turn it is.
+            episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
         super().run_one_step(observation, turn, episode_metrics)
         agent = self._agents[turn]
@@ -111,7 +113,8 @@ class MultiAgentRunner(Runner):
         step in the episode.
 
         Args:
-            episode_metrics: Metrics object keeping track of metrics for current episode.
+            episode_metrics (Metrics): Keeps track of metrics for current episode.
+            done (bool): Whether this step was terminal.
 
         """
         for agent in self._agents:
@@ -144,8 +147,14 @@ class MultiAgentRunner(Runner):
 
 
 def set_up_experiment(config):
-    """Returns a runner object based on the config."""
+    """Returns a :py:class:`MultiAgentRunner` object based on the config and any
+    command line arguments.
 
+    Args:
+        config: Configuration for experiment.
+    """
+
+    # Parses arguments from the command line.
     args = get_parsed_args(
         {
             "seed": int,
@@ -183,7 +192,7 @@ def set_up_experiment(config):
             "kwargs": {"logger_list": logger_config},
         }
 
-    logger, full_config["loggers"] = logging.get_logger(logger_config, "loggers")
+    logger, full_config["loggers"] = loggers.get_logger(logger_config, "loggers")
 
     # Set up agents
     agents = []
