@@ -21,7 +21,7 @@ class AtariEnv(GymEnv):
         """
         Args:
             env_name (str): Name of the environment
-            sticky_actions (boolean): Whether to use sticky_actions as per Machado et al.
+            sticky_actions (bool): Whether to use sticky_actions as per Machado et al.
             frame_skip (int): Number of times the agent takes the same action in the environment
             screen_size (int): Size of the resized frames from the environment
         """
@@ -68,9 +68,11 @@ class AtariEnv(GymEnv):
     def step(self, action=None):
         """
         Remarks:
-            * Execute self.frame_skips steps taking the action in the the environment.
-            * This may execute fewer than self.frame_skip steps in the environment, if the done state is reached.
-            * Furthermore, in this case the returned observation should be ignored.
+            * Executes the action for :attr:`self.frame_skips` steps in the the
+              environment.
+            * This may execute fewer than self.frame_skip steps in the environment, if
+              the done state is reached.
+            * In this case the returned observation should be ignored.
         """
         assert action is not None
 
@@ -96,10 +98,10 @@ class AtariEnv(GymEnv):
         """Get the screen input of the current observation given empty numpy array in grayscale.
 
         Args:
-          output (numpy array): screen buffer to hold the returned observation.
+          output (np.ndarray): screen buffer to hold the returned observation.
 
         Returns:
-          observation (numpy array): the current observation in grayscale.
+          observation (np.ndarray): the current observation in grayscale.
         """
         self._env.ale.getScreenGrayscale(output)
         return output
@@ -108,7 +110,7 @@ class AtariEnv(GymEnv):
         """Transforms two frames into a Nature DQN observation.
 
         Returns:
-          transformed_screen (numpy array): pooled, resized screen.
+          transformed_screen (np.ndarray): pooled, resized screen.
         """
         # Pool if there are enough screens to do so.
         if self.frame_skip > 1:
