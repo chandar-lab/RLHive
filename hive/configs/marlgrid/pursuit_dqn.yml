@@ -1,6 +1,6 @@
 # General training loop config
 run_name: &run_name 'pursuit-dqn'
-train_steps: 100000
+train_steps: 500000
 test_frequency: 1000
 test_num_episodes: 10
 self_play: False
@@ -44,7 +44,7 @@ agents:
         kwargs:
           capacity: 10000
           stack_size: *stack_size
-      discount_rate: .99
+      discount_rate: .9
       target_net_update_schedule:
         name: 'PeriodicSchedule'
         kwargs:
@@ -52,9 +52,11 @@ agents:
           on_value: True
           period: 100
       epsilon_schedule:
-        name: 'ConstantSchedule'
+        name: 'LinearSchedule'
         kwargs:
-          value: .01
+          init_value: 1
+          end_value: .05
+          steps: 10000
       learn_schedule:
         name: 'SwitchSchedule'
         kwargs:
@@ -84,7 +86,7 @@ agents:
         kwargs:
           capacity: 10000
           stack_size: *stack_size
-      discount_rate: .99
+      discount_rate: .9
       target_net_update_schedule:
         name: 'PeriodicSchedule'
         kwargs:
@@ -92,9 +94,11 @@ agents:
           on_value: True
           period: 100
       epsilon_schedule:
-        name: 'ConstantSchedule'
+        name: 'LinearSchedule'
         kwargs:
-          value: .01
+          init_value: 1
+          end_value: .05
+          steps: 10000
       learn_schedule:
         name: 'SwitchSchedule'
         kwargs:

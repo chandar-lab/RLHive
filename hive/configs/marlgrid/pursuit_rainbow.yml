@@ -1,6 +1,6 @@
 # General training loop config
 run_name: &run_name 'pursuit-rainbow'
-train_steps: 100000
+train_steps: 500000
 test_frequency: 1000
 test_num_episodes: 10
 self_play: False
@@ -57,8 +57,8 @@ agents:
         name: 'LinearSchedule'
         kwargs:
           init_value: 1
-          end_value: 0.1
-          steps: 100000
+          end_value: 0.05
+          steps: 10000
       learn_schedule:
         name: 'SwitchSchedule'
         kwargs:
@@ -107,8 +107,8 @@ agents:
         name: 'LinearSchedule'
         kwargs:
           init_value: 1
-          end_value: 0.1
-          steps: 100000
+          end_value: 0.05
+          steps: 10000
       learn_schedule:
         name: 'SwitchSchedule'
         kwargs:
