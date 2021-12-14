@@ -3,7 +3,7 @@ name: Python unit tests for Hive
 on:
   pull_request:
     branches: [ dev, main ]
-    paths-ignore:
+    paths:
       - 'hive/**'
       - '!hive/configs/**'
       - 'tests/**'
