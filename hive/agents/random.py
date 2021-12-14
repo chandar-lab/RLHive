@@ -4,23 +4,22 @@ import numpy as np
 import torch
 
 from hive.agents.agent import Agent
+from hive.utils.utils import seeder
 
 
 class RandomAgent(Agent):
-    """A random agent"""
+    """An agent that takes random steps at each timestep."""
 
-    def __init__(self, obs_dim, act_dim, id=0, seed=42, device="cpu", logger=None):
+    def __init__(self, obs_dim, act_dim, id=0, logger=None):
         """
         Args:
-            obs_dim: The dimension of the observations.
-            act_dim: The number of actions available to the agent.
-            id: ID used to create the timescale in the logger for the agent.
-            seed: Seed for numpy random number generator.
-            device: Device on which all computations should be run.
-            logger: Logger used to log agent's metrics.
+            obs_dim: The shape of the observations.
+            act_dim (int): The number of actions available to the agent.
+            id: Agent identifier.
+            logger (ScheduledLogger): Logger used to log agent's metrics.
         """
-        super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=f"random_agent_{id}")
-        self._rng = np.random.default_rng(seed=seed)
+        super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
+        self._rng = np.random.default_rng(seed=seeder.get_new_seed())
 
     @torch.no_grad()
     def act(self, observation):

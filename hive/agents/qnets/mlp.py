@@ -1,4 +1,5 @@
 from functools import partial
+from typing import List, Tuple, Union
 
 import numpy as np
 import torch
@@ -8,9 +9,30 @@ from hive.agents.qnets.noisy_linear import NoisyLinear
 
 
 class MLPNetwork(nn.Module):
-    """Simple MLP function approximator for Q-Learning."""
+    """Basic MLP neural network architecture.
 
-    def __init__(self, in_dim, hidden_units=256, noisy=False, std_init=0.5):
+    Contains a series of :py:class:`torch.nn.Linear` or
+    :py:class:`~hive.agents.qnets.noisy_linear.NoisyLinear` layers, each of which
+    is followed by a ReLU.
+    """
+
+    def __init__(
+        self,
+        in_dim: Tuple[int],
+        hidden_units: Union[int, List[int]] = 256,
+        noisy: bool = False,
+        std_init: float = 0.5,
+    ):
+        """
+        Args:
+            in_dim (tuple[int]): The shape of input observations.
+            hidden_units (int | list[int]): The number of neurons for each mlp layer.
+            noisy (bool): Whether the MLP should use
+                :py:class:`~hive.agents.qnets.noisy_linear.NoisyLinear` layers or normal
+                :py:class:`torch.nn.Linear` layers.
+            std_init (float): The range for the initialization of the standard deviation of the
+                weights in :py:class:`~hive.agents.qnets.noisy_linear.NoisyLinear`.
+        """
         super().__init__()
         if isinstance(hidden_units, int):
             hidden_units = [hidden_units]
