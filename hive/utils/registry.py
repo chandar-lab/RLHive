@@ -2,7 +2,7 @@ import argparse
 import inspect
 from copy import deepcopy
 from functools import partial, update_wrapper
-from typing import Mapping, Sequence, _GenericAlias
+from typing import List, Mapping, Sequence, _GenericAlias
 
 import yaml
 
@@ -30,7 +30,7 @@ class CallableType(Registrable):
 
     By default, the type_name is "callable", but if you want to create specific types
     of callables, you can simply create a subclass and override the type_name method.
-    See `hive.utils.utils.OptimizerFn`.
+    See :py:class:`hive.utils.utils.OptimizerFn`.
     """
 
     def __init__(self, fn):
@@ -54,7 +54,7 @@ class CallableType(Registrable):
 
 class Registry:
     """This is the Registry class for Hive. It allows you to register different types
-    of (`Registrable`) classes and objects and generates constructors for those
+    of :py:class:`Registrable` classes and objects and generates constructors for those
     classes in the form of `get_{type_name}`.
 
     These constructors allow you to construct objects from dictionary configs. These
@@ -92,10 +92,10 @@ class Registry:
         """Register a Registrable class/object with Hive.
 
         Args:
-            name: Name of the class/object being registered.
-            constructor: Callable that will be passed all kwargs from configs and be
-                analyzed to get type annotations.
-            type: Type of class/object being registered. Should be subclass of
+            name (str): Name of the class/object being registered.
+            constructor (callable): Callable that will be passed all kwargs from
+                configs and be analyzed to get type annotations.
+            type (type): Type of class/object being registered. Should be subclass of
                 Registrable.
 
         """
@@ -129,9 +129,11 @@ class Registry:
 
     def register_all(self, base_class, class_dict):
         """Bulk register function.
+
         Args:
-            base_class: Corresponds to the `type` of the register function
-            class_dict: A dictionary mapping from name to constructor.
+            base_class (type): Corresponds to the `type` of the register function
+            class_dict (dict[str, callable]): A dictionary mapping from name to
+                constructor.
         """
         for cls in class_dict:
             self.register(cls, class_dict[cls], base_class)
@@ -149,13 +151,14 @@ def construct_objects(object_constructor, config, prefix=None):
     this object.
 
     Args:
-        object_constructor: constructor of object that corresponds to config. The
-            signature of this function will be analyzed to see if there are any
-            `Registrable` objects that might be specified in the config.
-        config: The kwargs for the object being created. May contain configs for other
-            `Registrable` objects that need to be recursively created.
-        prefix: Prefix that is attached to the argument names when looking for command
-            line arguments.
+        object_constructor (callable): constructor of object that corresponds to
+            config. The signature of this function will be analyzed to see if there
+            are any :py:class:`Registrable` objects that might be specified in the
+            config.
+        config (dict): The kwargs for the object being created. May contain configs for
+            other `Registrable` objects that need to be recursively created.
+        prefix (str): Prefix that is attached to the argument names when looking for
+            command line arguments.
     """
     signature = inspect.signature(object_constructor)
     prefix = "" if prefix is None else f"{prefix}."
@@ -173,8 +176,9 @@ def construct_objects(object_constructor, config, prefix=None):
             origin = expected_type.__origin__
             args = expected_type.__args__
             if (
-                issubclass(origin, Sequence)
+                (origin == List or origin == list)
                 and len(args) == 1
+                and isinstance(args[0], type)
                 and issubclass(args[0], Registrable)
                 and isinstance(config[argument], Sequence)
             ):
@@ -188,8 +192,9 @@ def construct_objects(object_constructor, config, prefix=None):
                     expanded_config[argument].append(obj_config)
                 config[argument] = objs
             elif (
-                issubclass(origin, Mapping)
+                origin == dict
                 and len(args) == 2
+                and isinstance(args[1], type)
                 and issubclass(args[1], Registrable)
                 and isinstance(config[argument], Mapping)
             ):
@@ -210,10 +215,10 @@ def get_callable_parsed_args(callable, prefix=None):
     """Helper function that extracts the command line arguments for a given function.
 
     Args:
-        callable: function whose arguments will be inspected to extract arguments from
-            the command line.
-        prefix: Prefix that is attached to the argument names when looking for command
-            line arguments.
+        callable (callable): function whose arguments will be inspected to extract
+            arguments from the command line.
+        prefix (str): Prefix that is attached to the argument names when looking for
+            command line arguments.
     """
     signature = inspect.signature(callable)
     arguments = {
@@ -226,15 +231,18 @@ def get_callable_parsed_args(callable, prefix=None):
 
 def get_parsed_args(arguments, prefix=None):
     """Helper function that takes a dictionary mapping argument names to types, and
-    extracts command line arguments for those arguments.
+    extracts command line arguments for those arguments. If the dictionary contains
+    a key-value pair "bar": int, and the prefix passed is "foo", this function will
+    look for a command line argument "\-\-foo.bar". If present, it will cast it to an
+    int.
 
     If the type for a given argument is not one of `int`, `float`, `str`, or `bool`,
     it simply loads the string into python using a yaml loader.
 
     Args:
-        arguments: dictionary mapping argument names to types
-        prefix: prefix that is attached to each argument name before searching for
-            command line arguments.
+        arguments (dict[str, type]): dictionary mapping argument names to types
+        prefix (str): prefix that is attached to each argument name before searching
+            for command line arguments.
     """
     prefix = "" if prefix is None else f"{prefix}."
     parser = argparse.ArgumentParser()

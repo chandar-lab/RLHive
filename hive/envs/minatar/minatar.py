@@ -8,7 +8,7 @@ from hive.envs.env_spec import EnvSpec
 
 class MinAtarEnv(BaseEnv):
     """
-    Class for loading Atari environments.
+    Class for loading MinAtar environments. See https://github.com/kenjyoung/MinAtar.
     """
 
     def __init__(
@@ -16,12 +16,13 @@ class MinAtarEnv(BaseEnv):
         env_name,
         sticky_action_prob=0.1,
         difficulty_ramping=True,
-        random_seed=None,
     ):
         """
         Args:
             env_name (str): Name of the environment
-            sticky_actions (boolean): Whether to use sticky_actions as per Machado et al.
+            sticky_actions (bool): Whether to use sticky_actions as per
+                Machado et al.
+            difficulty_ramping (bool): Whether to periodically increase difficulty.
         """
         env_module = import_module("minatar.environments." + env_name)
         self.env_name = env_name
@@ -55,7 +56,7 @@ class MinAtarEnv(BaseEnv):
         Remarks:
             * Execute self.frame_skips steps taking the action in the the environment.
             * This may execute fewer than self.frame_skip steps in the environment,
-            if the done state is reached.
+              if the done state is reached.
             * Furthermore, in this case the returned observation should be ignored.
         """
         assert action is not None
