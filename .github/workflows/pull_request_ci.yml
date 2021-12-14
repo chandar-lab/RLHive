@@ -2,11 +2,14 @@ name: Python unit tests for Hive
 
 on:
   pull_request:
-    branches:
-      - dev 
-
+    branches: [ dev, main ]
+    paths:
+      - 'hive/**'
+      - '!hive/configs/**'
+      - 'tests/**'
+      
 jobs:
-  build-linux:
+  tests:
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 5

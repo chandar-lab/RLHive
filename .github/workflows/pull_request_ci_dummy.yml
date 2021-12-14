@@ -1,0 +1,16 @@
+name: Python unit tests for Hive
+
+on:
+  pull_request:
+    branches: [ dev, main ]
+    paths-ignore:
+      - 'hive/**'
+      - '!hive/configs/**'
+      - 'tests/**'
+
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No tests required" '

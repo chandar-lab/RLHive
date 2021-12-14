@@ -5,10 +5,16 @@ from hive.utils.registry import Registrable
 
 class BaseEnv(ABC, Registrable):
     """
-    Base class for environments, the learning task e.g. an MDP.
+    Base class for environments.
     """
 
     def __init__(self, env_spec, num_players):
+        """
+        Args:
+            env_spec (EnvSpec): An object containing information about the
+                environment.
+            num_players (int): The number of players in the environment.
+        """
         self._env_spec = env_spec
         self._num_players = num_players
         self._turn = 0
@@ -34,9 +40,9 @@ class BaseEnv(ABC, Registrable):
 
         Returns:
             observation: Indicates the next state that is an element of environment's observation space.
-            reward (float): A scalar reward achieved from the transition.
+            reward: A reward achieved from the transition.
             done (bool): Indicates whether the episode has ended.
-            turn: Indicates which agent should take turn.
+            turn (int): Indicates which agent should take turn.
             info (dict): Additional custom information.
         """
 
@@ -52,18 +58,27 @@ class BaseEnv(ABC, Registrable):
     def seed(self, seed=None):
         """
         Reseeds the environment.
+
+        Args:
+            seed (int): Seed to use for environment.
         """
         raise NotImplementedError
 
     def save(self, save_dir):
         """
         Saves the environment.
+
+        Args:
+            save_dir (str): Location to save environment state.
         """
         raise NotImplementedError
 
     def load(self, load_dir):
         """
         Loads the environment.
+
+        Args:
+            load_dir (str): Location to load environment state from.
         """
         raise NotImplementedError
 
@@ -83,6 +98,9 @@ class BaseEnv(ABC, Registrable):
 
     @classmethod
     def type_name(cls):
+        """
+        Returns: "env"
+        """
         return "env"
 
 
@@ -97,12 +115,14 @@ class ParallelEnv(BaseEnv):
     when writing your parallel environment, it should extend both this class and
     the class that implements the step method that takes in actions for all agents.
 
-    If class A has the logic for the step function that takes in the array of actions,
-    and class B is your parallel step version of that environment, class B should be
-    defined as:
+    If environment class A has the logic for the step function that takes in the
+    array of actions, and environment class B is your parallel step version of that
+    environment, class B should be defined as:
 
-    class B(ParallelEnv, A):
-        ...
+    .. code-block:: python
+
+        class B(ParallelEnv, A):
+            ...
 
     The order in which you list the classes is important. ParallelEnv **must** come
     before A in the order.
