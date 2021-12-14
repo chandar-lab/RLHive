@@ -31,12 +31,12 @@ class DQNNetwork(nn.Module):
         super().__init__()
         self.base_network = base_network
         self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
-        self.ouput_layer = self._linear_fn(hidden_dim, out_dim)
+        self.output_layer = self._linear_fn(hidden_dim, out_dim)
 
     def forward(self, x):
         x = self.base_network(x)
         x = x.flatten(start_dim=1)
-        return self.ouput_layer(x)
+        return self.output_layer(x)
 
 
 class DuelingNetwork(nn.Module):
