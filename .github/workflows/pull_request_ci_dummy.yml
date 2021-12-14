@@ -12,25 +12,5 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 5
-
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.8
-    - name: Cache pip
-      uses: actions/cache@v2
-      with:
-        path: ${{ env.pythonLocation }}
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-    - name: Install dependencies
-      run: |
-        find . -name "requirements.txt" -type f -exec pip install --upgrade --upgrade-strategy eager -r '{}' ';'
-    - name: Test with pytest
-      env:
-        GITHUB_CI: True
-      run: |
-        python -m pytest
+      - run: 'echo "No tests required" '
