@@ -10,7 +10,7 @@ saving_schedule:
   kwargs:
     off_value: False
     on_value: True
-    period: 1000
+    period: 10000
 
 environment:
   name: 'GymEnv'
@@ -55,12 +55,7 @@ agent:
       kwargs:
         value: .1
     test_epsilon: .001
-    learn_schedule:
-      name: 'SwitchSchedule'
-      kwargs:
-        off_value: False
-        on_value: True
-        steps: 500
+    min_replay_history: 500
     device: 'cuda'
     batch_size: 128
     log_frequency: 100
@@ -71,7 +66,7 @@ loggers:
   -
     name: WandbLogger
     kwargs:
-      project_name: Hive
-      run_name: *run_name
+      project: Hive
+      name: *run_name
       resume: "allow"
-      settings: "fork"
+      start_method: "fork"
