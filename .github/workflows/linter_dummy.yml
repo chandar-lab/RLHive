@@ -1,11 +1,11 @@
-name: Black Linter
+name: Dummy Linter
 
 # Controls when the action will run. 
 on:
   # Triggers the workflow on push or pull request events but only for the dev branch
   pull_request:
     branches: [ dev, main ]
-    paths:
+    paths-ignore:
       - 'hive/**'
       - '!hive/configs/**'
       - 'tests/**'

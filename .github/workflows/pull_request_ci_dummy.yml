@@ -7,7 +7,8 @@ on:
       - 'hive/**'
       - '!hive/configs/**'
       - 'tests/**'
-      
+
+
 jobs:
   tests:
     runs-on: ubuntu-latest
