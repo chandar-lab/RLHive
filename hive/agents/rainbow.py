@@ -120,6 +120,7 @@ class RainbowDQNAgent(DQNAgent):
                 categorical value distribution for distributional RL.
         """
 
+        device = torch.device("cpu" if not torch.cuda.is_available() else device)
         self._noisy = noisy
         self._std_init = std_init
         self._double = double
