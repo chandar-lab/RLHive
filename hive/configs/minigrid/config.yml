@@ -51,12 +51,7 @@ agent:
         init_value: 1
         end_value: 0.05
         steps: 25000
-    learn_schedule:
-      name: 'SwitchSchedule'
-      kwargs:
-        off_value: False
-        on_value: True
-        steps: 1000
+    min_replay_history: 1000
     seed: 42
     batch_size: 256
     device: 'cuda'
