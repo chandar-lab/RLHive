@@ -129,9 +129,7 @@ class RainbowDQNAgent(DQNAgent):
         self._atoms = atoms if self._distributional else 1
         self._v_min = v_min
         self._v_max = v_max
-        self._supports = torch.linspace(
-            self._v_min, self._v_max, self._atoms, device=device
-        )
+
         if loss_fn is None:
             loss_fn = torch.nn.MSELoss
 
@@ -163,7 +161,11 @@ class RainbowDQNAgent(DQNAgent):
             logger=logger,
             log_frequency=log_frequency,
         )
-
+        
+        self._supports = torch.linspace(
+            self._v_min, self._v_max, self._atoms, device=device
+        )
+        
         self._use_eps_greedy = use_eps_greedy
 
     def create_q_networks(self, representation_net):
