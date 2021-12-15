@@ -2,7 +2,7 @@ from importlib import import_module
 
 import numpy as np
 
-from hive.envs import BaseEnv, ParallelEnv
+from hive.envs import BaseEnv
 from hive.envs.env_spec import EnvSpec
 
 

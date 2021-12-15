@@ -3,14 +3,12 @@ import pytest
 
 from hive.envs.atari import AtariEnv
 
-test_env_configs = [("Pong", 4, 84, 0.25), ("Breakout", 1, 100, 0.0)]
+test_env_configs = [("Pong", 4, 84), ("Breakout", 1, 100)]
 
 
-@pytest.mark.parametrize(
-    "env_name,frame_skip,screen_size,sticky_actions_prob", test_env_configs
-)
-def test_reset_func(env_name, frame_skip, screen_size, sticky_actions_prob):
-    hive_env = AtariEnv(env_name, frame_skip, screen_size, sticky_actions_prob)
+@pytest.mark.parametrize("env_name,frame_skip,screen_size", test_env_configs)
+def test_reset_func(env_name, frame_skip, screen_size):
+    hive_env = AtariEnv(env_name, frame_skip, screen_size)
     hive_observation, hive_turn = hive_env.reset()
 
     assert isinstance(hive_observation, np.ndarray)
@@ -20,16 +18,11 @@ def test_reset_func(env_name, frame_skip, screen_size, sticky_actions_prob):
     assert hive_observation.shape[0] == 1
     assert hive_observation.shape[1] == screen_size
     assert hive_observation.shape[2] == screen_size
-    assert (
-        hive_env._env.ale.getFloat("repeat_action_probability") == sticky_actions_prob
-    )
 
 
-@pytest.mark.parametrize(
-    "env_name,frame_skip,screen_size,sticky_actions_prob", test_env_configs
-)
-def test_step_func(env_name, frame_skip, screen_size, sticky_actions_prob):
-    hive_env = AtariEnv(env_name, frame_skip, screen_size, sticky_actions_prob)
+@pytest.mark.parametrize("env_name,frame_skip,screen_size", test_env_configs)
+def test_step_func(env_name, frame_skip, screen_size):
+    hive_env = AtariEnv(env_name, frame_skip, screen_size)
     for action in range(hive_env.env_spec.act_dim[0]):
         hive_env.reset()
         hive_observation, hive_reward, hive_done, hive_turn, hive_info = hive_env.step(

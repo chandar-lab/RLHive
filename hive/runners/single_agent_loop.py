@@ -5,7 +5,7 @@ from hive import agents as agent_lib
 from hive import envs
 from hive.runners.base import Runner
 from hive.runners.utils import TransitionInfo, load_config
-from hive.utils import experiment, logging, schedule, utils
+from hive.utils import experiment, loggers, schedule, utils
 from hive.utils.registry import get_parsed_args
 
 
@@ -15,22 +15,42 @@ class SingleAgentRunner(Runner):
     def __init__(
         self,
         environment,
-        agents,
+        agent,
         logger,
         experiment_manager,
         train_steps,
         test_frequency,
         test_episodes,
         stack_size,
+        max_steps_per_episode=27000,
     ):
+        """Initializes the Runner object.
+
+        Args:
+            environment (BaseEnv): Environment used in the training loop.
+            agent (Agent): Agent that will interact with the environment
+            logger (ScheduledLogger): Logger object used to log metrics.
+            experiment_manager (Experiment): Experiment object that saves the state of
+                the training.
+            train_steps (int): How many steps to train for. If this is -1, there is no
+                limit for the number of training steps.
+            test_frequency (int): After how many training steps to run testing
+                episodes. If this is -1, testing is not run.
+            test_episodes (int): How many episodes to run testing for duing each test
+                phase.
+            stack_size (int): The number of frames in an observation sent to an agent.
+            max_steps_per_episode (int): The maximum number of steps to run an episode
+                for.
+        """
         super().__init__(
             environment,
-            agents,
+            agent,
             logger,
             experiment_manager,
             train_steps,
             test_frequency,
             test_episodes,
+            max_steps_per_episode,
         )
         self._transition_info = TransitionInfo(self._agents, stack_size)
 
@@ -38,8 +58,9 @@ class SingleAgentRunner(Runner):
         """Run one step of the training loop.
 
         Args:
-            observation: Current observation that the agent should create an action for.
-            episode_metrics: Metrics object keeping track of metrics for current episode.
+            observation: Current observation that the agent should create an action
+                for.
+            episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
         super().run_one_step(observation, 0, episode_metrics)
         agent = self._agents[0]
@@ -83,7 +104,12 @@ class SingleAgentRunner(Runner):
 
 
 def set_up_experiment(config):
-    """Returns a runner object based on the config."""
+    """Returns a :py:class:`SingleAgentRunner` object based on the config and any
+    command line arguments.
+
+    Args:
+        config: Configuration for experiment.
+    """
 
     args = get_parsed_args(
         {
@@ -103,7 +129,9 @@ def set_up_experiment(config):
     if "seed" in config:
         utils.seeder.set_global_seed(config["seed"])
 
-    environment, full_config["environment"] = envs.get_env(config["environment"], "env")
+    environment, full_config["environment"] = envs.get_env(
+        config["environment"], "environment"
+    )
     env_spec = environment.env_spec
 
     # Set up loggers
@@ -116,7 +144,7 @@ def set_up_experiment(config):
             "kwargs": {"logger_list": logger_config},
         }
 
-    logger, full_config["loggers"] = logging.get_logger(logger_config, "loggers")
+    logger, full_config["loggers"] = loggers.get_logger(logger_config, "loggers")
 
     # Set up agent
     if config.get("stack_size", 1) > 1:
@@ -155,6 +183,7 @@ def set_up_experiment(config):
         config.get("test_frequency", -1),
         config.get("test_episodes", 1),
         config.get("stack_size", 1),
+        config.get("max_steps_per_episode", 1e9),
     )
     if config.get("resume", False):
         runner.resume()
@@ -172,7 +201,13 @@ def main():
     args, _ = parser.parse_known_args()
     if args.config is None and args.preset_config is None:
         raise ValueError("Config needs to be provided")
-    config = load_config(args)
+    config = load_config(
+        args.config,
+        args.preset_config,
+        args.agent_config,
+        args.env_config,
+        args.logger_config,
+    )
     runner = set_up_experiment(config)
     runner.run_training()
 

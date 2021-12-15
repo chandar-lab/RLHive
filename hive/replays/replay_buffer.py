@@ -54,4 +54,7 @@ class BaseReplayBuffer(abc.ABC, Registrable):
 
     @classmethod
     def type_name(cls):
+        """
+        Returns: "replay"
+        """
         return "replay"
