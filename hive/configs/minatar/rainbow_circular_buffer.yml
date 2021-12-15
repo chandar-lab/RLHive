@@ -69,7 +69,7 @@ agent:
         end_value: 0.01
         steps: 250000
     test_epsilon: .01
-    min_replay_histroy: 5000
+    min_replay_histroy: 1000
     batch_size: 32
     device: 'cuda'
     log_frequency: 1000
