@@ -7,6 +7,11 @@ from hive.utils.utils import LossFn, OptimizerFn
 
 
 def numpify(t):
+    """Convert object to a numpy array.
+
+    Args:
+        t (np.ndarray | torch.Tensor | obj): Converts object to :py:class:`np.ndarray`.
+    """
     if isinstance(t, np.ndarray):
         return t
     elif isinstance(t, torch.Tensor):
@@ -16,17 +21,26 @@ def numpify(t):
 
 
 class RMSpropTF(optim.Optimizer):
-    """Implements RMSprop algorithm (TensorFlow style epsilon)
+    """
+    Direct cut-paste from rwhightman/pytorch-image-models.
+    https://github.com/rwightman/pytorch-image-models/blob/f7d210d759beb00a3d0834a3ce2d93f6e17f3d38/timm/optim/rmsprop_tf.py
+    Licensed under Apache 2.0, https://github.com/rwightman/pytorch-image-models/blob/master/LICENSE
+
+    Implements RMSprop algorithm (TensorFlow style epsilon)
+
     NOTE: This is a direct cut-and-paste of PyTorch RMSprop with eps applied before sqrt
     and a few other modifications to closer match Tensorflow for matching hyper-params.
     Noteworthy changes include:
+
     1. Epsilon applied inside square-root
     2. square_avg initialized to ones
     3. LR scaling of update accumulated in momentum buffer
+
     Proposed by G. Hinton in his
     `course <http://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf>`_.
     The centered version first appears in `Generating Sequences
     With Recurrent Neural Networks <https://arxiv.org/pdf/1308.0850v5.pdf>`_.
+
     Arguments:
         params (iterable): iterable of parameters to optimize or dicts defining
             parameter groups
@@ -41,6 +55,7 @@ class RMSpropTF(optim.Optimizer):
         decoupled_decay (bool, optional): decoupled weight decay as per https://arxiv.org/abs/1711.05101
         lr_in_momentum (bool, optional): learning rate scaling is included in the momentum buffer
             update as per defaults in Tensorflow
+
     """
 
     def __init__(
@@ -87,6 +102,7 @@ class RMSpropTF(optim.Optimizer):
     @torch.no_grad()
     def step(self, closure=None):
         """Performs a single optimization step.
+
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.

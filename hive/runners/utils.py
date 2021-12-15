@@ -8,26 +8,45 @@ import yaml
 from hive.utils.utils import PACKAGE_ROOT
 
 
-def load_config(args):
+def load_config(
+    config=None,
+    preset_config=None,
+    agent_config=None,
+    env_config=None,
+    logger_config=None,
+):
     """Used to load config for experiments. Agents, environment, and loggers components
     in main config file can be overrided based on other log files.
+
+    Args:
+        config (str): Path to configuration file. Either this or :obj:`preset_config`
+            must be passed.
+        preset_config (str): Path to a preset hive config. This path should be relative
+            to :obj:`hive/configs`. For example, the Atari DQN config would be
+            :obj:`atari/dqn.yml`.
+        agent_config (str): Path to agent configuration file. Overrides settings in
+            base config.
+        env_config (str): Path to environment configuration file. Overrides settings in
+            base config.
+        logger_config (str): Path to logger configuration file. Overrides settings in
+            base config.
     """
-    if args.config is not None:
-        with open(args.config) as f:
-            config = yaml.safe_load(f)
+    if config is not None:
+        with open(config) as f:
+            yaml_config = yaml.safe_load(f)
     else:
-        with open(os.path.join(PACKAGE_ROOT, "configs", args.preset_config)) as f:
-            config = yaml.safe_load(f)
-    if args.agent_config is not None:
-        with open(args.agent_config) as f:
-            config["agents"] = yaml.safe_load(f)
-    if args.env_config is not None:
-        with open(args.env_config) as f:
-            config["environment"] = yaml.safe_load(f)
-    if args.logger_config is not None:
-        with open(args.logger_config) as f:
-            config["loggers"] = yaml.safe_load(f)
-    return config
+        with open(os.path.join(PACKAGE_ROOT, "configs", preset_config)) as f:
+            yaml_config = yaml.safe_load(f)
+    if agent_config is not None:
+        with open(agent_config) as f:
+            yaml_config["agents"] = yaml.safe_load(f)
+    if env_config is not None:
+        with open(env_config) as f:
+            yaml_config["environment"] = yaml.safe_load(f)
+    if logger_config is not None:
+        with open(logger_config) as f:
+            yaml_config["loggers"] = yaml.safe_load(f)
+    return yaml_config
 
 
 class Metrics:
@@ -36,18 +55,18 @@ class Metrics:
     """
 
     def __init__(self, agents, agent_metrics, episode_metrics):
-        """Initialise Metrics object.
-
+        """
         Args:
-            agents: List of agents for which object will track metrics.
-            agent_metrics: List of metrics to track for each agent. Should be a list of
-                tuples (metric_name, metric_init) where metric_init is either the
-                initial value of the metric or a callable with no arguments that
-                creates the initial metric.
-            episode_metrics: List of non agent specific metrics to keep track of.
-                Should be a list of tuples (metric_name, metric_init) where metric_init
-                is either the initial value of the metric or a callable with no
-                arguments that creates the initial metric.
+            agents (list[Agent]): List of agents for which object will track metrics.
+            agent_metrics (list[(str, (callable | obj))]): List of metrics to track
+                for each agent. Should be a list of tuples (metric_name, metric_init)
+                where metric_init is either the initial value of the metric or a
+                callable that takes no arguments and creates the initial metric.
+            episode_metrics (list[(str, (callable | obj))]): List of non agent specific
+                metrics to keep track of. Should be a list of tuples
+                (metric_name, metric_init) where metric_init is either the initial
+                value of the metric or a callable with no arguments that creates the
+                initial metric.
         """
         self._metrics = {}
         self._agent_metrics = agent_metrics
@@ -98,13 +117,15 @@ class TransitionInfo:
     be completely reset between episodes. After any info is extracted, it is
     automatically removed from the object. Also keeps track of which agents have
     started their episodes.
+
+    This object also handles padding and stacking observations for agents.
     """
 
     def __init__(self, agents, stack_size):
-        """Constructor for TransitionInfo object.
-
+        """
         Args:
-            agents: list of agents that will be kept track of.
+            agents (list[Agent]): list of agents that will be kept track of.
+            stack_size (int): How many observations will be stacked.
         """
         self._agent_ids = [agent.id for agent in agents]
         self._num_agents = len(agents)
@@ -120,21 +141,39 @@ class TransitionInfo:
         }
 
     def is_started(self, agent):
-        """Check if agent has started its episode."""
+        """Check if agent has started its episode.
+
+        Args:
+            agent (Agent): Agent to check.
+        """
         return self._started[agent.id]
 
     def start_agent(self, agent):
-        """Set the agent's start flag to true."""
+        """Set the agent's start flag to true.
+
+        Args:
+            agent (Agent): Agent to start.
+        """
         self._started[agent.id] = True
 
     def record_info(self, agent, info):
-        """Update some information for the agent."""
+        """Update some information for the agent.
+
+        Args:
+            agent (Agent): Agent to update.
+            info (dict): Info to add to the agent's state.
+        """
         self._transitions[agent.id].update(info)
         if "observation" in info:
             self._previous_observations[agent.id].append(info["observation"])
 
     def update_reward(self, agent, reward):
-        """Add a reward to the agent."""
+        """Add a reward to the agent.
+
+        Args:
+            agent (Agent): Agent to update.
+            reward (float): Reward to add to agent.
+        """
         self._transitions[agent.id]["reward"] += reward
 
     def update_all_rewards(self, rewards):
@@ -143,6 +182,9 @@ class TransitionInfo:
         dict, the keys should be the agent ids for the agents and the values should be
         the rewards for those agents. If rewards is a float or int, every agent is
         updated with that reward.
+
+        Args:
+            rewards (float | list | np.ndarray | dict): Rewards to update agents with.
         """
         if isinstance(rewards, list) or isinstance(rewards, np.ndarray):
             for idx, agent_id in enumerate(self._agent_ids):
@@ -158,6 +200,10 @@ class TransitionInfo:
         """Get all the info for the agent, and reset the info for that agent. Also adds
         a done value to the info dictionary that is based on the done parameter to the
         function.
+
+        Args:
+            agent (Agent): Agent to get transition update info for.
+            done (bool): Whether this transition is terminal.
         """
         info = self._transitions[agent.id]
         info["done"] = done
@@ -165,6 +211,15 @@ class TransitionInfo:
         return info
 
     def get_stacked_state(self, agent, observation):
+        """Create a stacked state for the agent. The previous observations recorded
+        by this agent are stacked with the current observation. If not enough
+        observations have been recorded, zero arrays are appended.
+
+        Args:
+            agent (Agent): Agent to get stacked state for.
+            observation: Current observation.
+        """
+
         if self._stack_size == 1:
             return observation
         while len(self._previous_observations[agent.id]) < self._stack_size - 1:
@@ -186,6 +241,13 @@ class TransitionInfo:
 
 
 def zeros_like(x):
+    """Create a zero state like some state. This handles slightly more complex
+    objects such as lists and dictionaries of numpy arrays and torch Tensors.
+
+    Args:
+        x (np.ndarray | torch.Tensor | dict | list): State used to define
+            structure/state of zero state.
+    """
     if isinstance(x, np.ndarray):
         return np.zeros_like(x)
     elif isinstance(x, torch.Tensor):
@@ -199,6 +261,12 @@ def zeros_like(x):
 
 
 def concatenate(xs):
+    """Concatenates numpy arrays or dictionaries of numpy arrays.
+
+    Args:
+        xs (list): List of objects to concatenate.
+    """
+
     if len(xs) == 0:
         return np.array([])
 

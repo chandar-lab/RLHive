@@ -1,6 +1,5 @@
 import copy
 import os
-from typing import Tuple
 
 import numpy as np
 import torch
@@ -14,7 +13,7 @@ from hive.agents.qnets.utils import (
     create_init_weights_fn,
 )
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
-from hive.utils.logging import Logger, NullLogger
+from hive.utils.loggers import Logger, NullLogger
 from hive.utils.schedule import (
     LinearSchedule,
     PeriodicSchedule,
@@ -32,12 +31,12 @@ class DQNAgent(Agent):
     def __init__(
         self,
         representation_net: FunctionApproximator,
-        obs_dim: Tuple,
+        obs_dim,
         act_dim: int,
+        id=0,
         optimizer_fn: OptimizerFn = None,
         loss_fn: LossFn = None,
         init_fn: InitializationFn = None,
-        id: str = 0,
         replay_buffer: BaseReplayBuffer = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
@@ -49,55 +48,62 @@ class DQNAgent(Agent):
         target_net_update_schedule: Schedule = None,
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
-        learn_schedule: Schedule = None,
+        min_replay_history: int = 5000,
         batch_size: int = 32,
-        device: str = "cpu",
+        device="cpu",
         logger: Logger = None,
         log_frequency: int = 100,
     ):
         """
         Args:
-            qnet: A network that outputs the q-values of the different actions
-                for an input observation.
-            obs_dim: The dimension of the observations.
-            act_dim: The number of actions available to the agent.
-            optimizer_fn: A function that takes in a list of parameters to optimize
-                and returns the optimizer.
-            init_fn: initializes the weights of qnet using create_init_weights_fn.
-            id: ID used to create the timescale in the logger for the agent.
-            replay_buffer: The replay buffer that the agent will push observations
-                to and sample from during learning.
+            representation_net (FunctionApproximator): A network that outputs the
+                representations that will be used to compute Q-values (e.g.
+                everything except the final layer of the DQN).
+            obs_dim: The shape of the observations.
+            act_dim (int): The number of actions available to the agent.
+            id: Agent identifier.
+            optimizer_fn (OptimizerFn): A function that takes in a list of parameters
+                to optimize and returns the optimizer. If None, defaults to
+                :py:class:`~torch.optim.Adam`.
+            loss_fn (LossFn): Loss function used by the agent. If None, defaults to
+                :py:class:`~torch.nn.SmoothL1Loss`.
+            init_fn (InitializationFn): Initializes the weights of qnet using
+                create_init_weights_fn.
+            replay_buffer (BaseReplayBuffer): The replay buffer that the agent will
+                push observations to and sample from during learning. If None,
+                defaults to
+                :py:class:`~hive.replays.circular_replay.CircularReplayBuffer`.
             discount_rate (float): A number between 0 and 1 specifying how much
                 future rewards are discounted by the agent.
-            n_step (int): n used in n-step returns to compute TD(n) targets.
+            n_step (int): The horizon used in n-step returns to compute TD(n) targets.
             grad_clip (float): Gradients will be clipped to between
-                [-grad_clip, grad_clip]
+                [-grad_clip, grad_clip].
             reward_clip (float): Rewards will be clipped to between
-                [-reward_clip, reward_clip]
-            update_period_schedule: Schedule determining how frequently
-                the agent's net is updated.
+                [-reward_clip, reward_clip].
+            update_period_schedule (Schedule): Schedule determining how frequently
+                the agent's Q-network is updated.
             target_net_soft_update (bool): Whether the target net parameters are
                 replaced by the qnet parameters completely or using a weighted
                 average of the target net parameters and the qnet parameters.
             target_net_update_fraction (float): The weight given to the target
                 net parameters in a soft update.
-            target_net_update_schedule: Schedule determining how frequently the
-                target net is updated.
-            epsilon_schedule: Schedule determining the value of epsilon through
-                the course of training.
+            target_net_update_schedule (Schedule): Schedule determining how frequently
+                the target net is updated.
+            epsilon_schedule (Schedule): Schedule determining the value of epsilon
+                through the course of training.
             test_epsilon (float): epsilon (probability of choosing a random action)
                 to be used during testing phase.
-            learn_schedule: Schedule determining when the learning process actually
-                starts.
+            min_replay_history (int): How many observations to fill the replay buffer
+                with before starting to learn.
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
             device: Device on which all computations should be run.
-            logger: Logger used to log agent's metrics.
+            logger (ScheduledLogger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
         self._init_fn = create_init_weights_fn(init_fn)
-        self._device = torch.device(device)
+        self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
         self.create_q_networks(representation_net)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
@@ -105,15 +111,12 @@ class DQNAgent(Agent):
         self._rng = np.random.default_rng(seed=seeder.get_new_seed())
         self._replay_buffer = replay_buffer
         if self._replay_buffer is None:
-            self._replay_buffer = CircularReplayBuffer(seed=seeder.get_new_seed())
+            self._replay_buffer = CircularReplayBuffer()
         self._discount_rate = discount_rate ** n_step
         self._grad_clip = grad_clip
         self._reward_clip = reward_clip
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
-        self._device = torch.device(
-            "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
-        )
         if loss_fn is None:
             loss_fn = torch.nn.SmoothL1Loss
         self._loss_fn = loss_fn(reduction="none")
@@ -135,17 +138,20 @@ class DQNAgent(Agent):
         if self._epsilon_schedule is None:
             self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
         self._test_epsilon = test_epsilon
-
-        self._learn_schedule = learn_schedule
-        if self._learn_schedule is None:
-            self._learn_schedule = SwitchSchedule(False, True, 5000)
+        self._learn_schedule = SwitchSchedule(False, True, min_replay_history)
 
         self._state = {"episode_start": True}
         self._training = False
 
-    def create_q_networks(self, qnet):
-        """Creates the qnet and target qnet."""
-        network = qnet(self._obs_dim)
+    def create_q_networks(self, representation_net):
+        """Creates the Q-network and target Q-network.
+
+        Args:
+            representation_net: A network that outputs the representations that will
+                be used to compute Q-values (e.g. everything except the final layer
+                of the DQN).
+        """
+        network = representation_net(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
         self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(
             self._device
@@ -166,7 +172,13 @@ class DQNAgent(Agent):
         self._target_qnet.eval()
 
     def preprocess_update_info(self, update_info):
-        """Clips the reward in update_info."""
+        """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
+        Clips the reward in update_info.
+
+        Args:
+            update_info: Contains the information from the current timestep that the
+                agent should use to update itself.
+        """
         if self._reward_clip is not None:
             update_info["reward"] = np.clip(
                 update_info["reward"], -self._reward_clip, self._reward_clip
@@ -183,14 +195,29 @@ class DQNAgent(Agent):
         return preprocessed_update_info
 
     def preprocess_update_batch(self, batch):
+        """Preprocess the batch sampled from the replay buffer.
+
+        Args:
+            batch: Batch sampled from the replay buffer for the current update.
+
+        Returns:
+            (tuple):
+                - (tuple) Inputs used to calculate current state values.
+                - (tuple) Inputs used to calculate next state values
+                - Preprocessed batch.
+        """
         for key in batch:
-            batch[key] = torch.tensor(batch[key]).to(self._device)
-        return (batch["observation"],), (batch["next_observation"],)
+            batch[key] = torch.tensor(batch[key], device=self._device)
+        return (batch["observation"],), (batch["next_observation"],), batch
 
     @torch.no_grad()
     def act(self, observation):
         """Returns the action for the agent. If in training mode, follows an epsilon
-        greedy policy. Otherwise, returns the action with the highest q value."""
+        greedy policy. Otherwise, returns the action with the highest Q-value.
+
+        Args:
+            observation: The current observation.
+        """
 
         # Determine and log the value of epsilon
         if self._training:
@@ -205,9 +232,9 @@ class DQNAgent(Agent):
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
-        observation = (
-            torch.tensor(np.expand_dims(observation, axis=0)).to(self._device).float()
-        )
+        observation = torch.tensor(
+            np.expand_dims(observation, axis=0), device=self._device
+        ).float()
         qvals = self._qnet(observation)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
@@ -230,8 +257,8 @@ class DQNAgent(Agent):
 
         Args:
             update_info: dictionary containing all the necessary information to
-            update the agent. Should contain a full transition, with keys for
-            "observation", "action", "reward", and "done".
+                update the agent. Should contain a full transition, with keys for
+                "observation", "action", "reward", and "done".
         """
         if update_info["done"]:
             self._state["episode_start"] = True
@@ -251,16 +278,20 @@ class DQNAgent(Agent):
             and self._update_period_schedule.update()
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            qnet_inputs, target_qnet_inputs = self.preprocess_update_batch(batch)
+            (
+                current_state_inputs,
+                next_state_inputs,
+                batch,
+            ) = self.preprocess_update_batch(batch)
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(*qnet_inputs)
+            pred_qvals = self._qnet(*current_state_inputs)
             actions = batch["action"].long()
             pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
             # Compute 1-step Q targets
-            next_qvals = self._target_qnet(*target_qnet_inputs)
+            next_qvals = self._target_qnet(*next_state_inputs)
             next_qvals, _ = torch.max(next_qvals, dim=1)
 
             q_targets = batch["reward"] + self._discount_rate * next_qvals * (
@@ -284,6 +315,7 @@ class DQNAgent(Agent):
             self._update_target()
 
     def _update_target(self):
+        """Update the target network."""
         if self._target_net_soft_update:
             target_params = self._target_qnet.state_dict()
             current_params = self._qnet.state_dict()

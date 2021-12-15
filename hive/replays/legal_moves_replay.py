@@ -26,7 +26,6 @@ class LegalMovesBuffer(PrioritizedReplayBuffer):
         extra_storage_types: Dict = None,
         action_dim: int = None,
         num_players_sharing_buffer: int = None,
-        seed: int = 42,
     ):
         if extra_storage_types is None:
             extra_storage_types = {}
@@ -45,7 +44,6 @@ class LegalMovesBuffer(PrioritizedReplayBuffer):
             reward_dtype=reward_dtype,
             extra_storage_types=extra_storage_types,
             num_players_sharing_buffer=num_players_sharing_buffer,
-            seed=seed,
         )
 
     def sample(self, batch_size):

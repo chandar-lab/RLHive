@@ -4,12 +4,14 @@ from hive.utils.registry import Registrable
 
 
 class Agent(abc.ABC, Registrable):
-    """Base class for agents. Every implemented agent should be a subclass of this class."""
+    """Base class for agents. Every implemented agent should be a subclass of
+    this class.
+    """
 
     def __init__(self, obs_dim, act_dim, id=0):
-        """Constructor for Agent class.
+        """
         Args:
-            obs_dim: dimension of observations that agent will see.
+            obs_dim: Dimension of observations that agent will see.
             act_dim: Number of actions that the agent needs to chose from.
             id: Identifier for the agent.
         """
@@ -24,7 +26,13 @@ class Agent(abc.ABC, Registrable):
 
     @abc.abstractmethod
     def act(self, observation):
-        """Returns an action for the agent to perform based on the observation"""
+        """Returns an action for the agent to perform based on the observation.
+
+        Args:
+            observation: Current observation that agent should act on.
+        Returns:
+            Action for the current timestep.
+        """
         pass
 
     @abc.abstractmethod
@@ -33,7 +41,8 @@ class Agent(abc.ABC, Registrable):
         Updates the agent.
 
         Args:
-            update_info: dictionary containing information agent needs to update itself.
+            update_info (dict): Contains information agent needs to update
+                itself.
         """
         pass
 
@@ -51,7 +60,7 @@ class Agent(abc.ABC, Registrable):
         Saves agent checkpointing information to file for future loading.
 
         Args:
-            dname: directory where agent should save all relevant info.
+            dname (str): directory where agent should save all relevant info.
         """
         pass
 
@@ -61,13 +70,14 @@ class Agent(abc.ABC, Registrable):
         Loads agent information from file.
 
         Args:
-            dname: directory where agent checkpoint info is stored.
-
-        Returns:
-            True if successfully loaded agent. False otherwise.
+            dname (str): directory where agent checkpoint info is stored.
         """
         pass
 
     @classmethod
     def type_name(cls):
+        """
+        Returns:
+            "agent"
+        """
         return "agent"

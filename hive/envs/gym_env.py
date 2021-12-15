@@ -6,13 +6,18 @@ from hive.envs.env_spec import EnvSpec
 
 class GymEnv(BaseEnv):
     """
-    Class for loading gym built-in environments.
+    Class for loading gym environments.
     """
 
     def __init__(self, env_name, num_players=1, **kwargs):
         """
         Args:
-            env_name: Name of the environment (NOTE: make sure it is available at gym.envs.registry.all())
+            env_name (str): Name of the environment (NOTE: make sure it is available
+                in gym.envs.registry.all())
+            num_players (int): Number of players for the environment.
+            kwargs: Any arguments you want to pass to :py:meth:`create_env` or
+                :py:meth:`create_env_spec` can be passed as keyword arguments to this
+                constructor.
         """
         self.create_env(env_name, **kwargs)
         super().__init__(self.create_env_spec(env_name, **kwargs), num_players)
@@ -20,12 +25,18 @@ class GymEnv(BaseEnv):
     def create_env(self, env_name, **kwargs):
         """Function used to create the environment. Subclasses can override this method
         if they are using a gym style environment that needs special logic.
+
+        Args:
+            env_name (str): Name of the environment
         """
         self._env = gym.make(env_name)
 
     def create_env_spec(self, env_name, **kwargs):
         """Function used to create the specification. Subclasses can override this method
         if they are using a gym style environment that needs special logic.
+
+        Args:
+            env_name (str): Name of the environment
         """
         if isinstance(self._env.observation_space, gym.spaces.Tuple):
             obs_spaces = self._env.observation_space.spaces
@@ -46,7 +57,7 @@ class GymEnv(BaseEnv):
         observation = self._env.reset()
         return observation, self._turn
 
-    def step(self, action=None):
+    def step(self, action):
         observation, reward, done, info = self._env.step(action)
         self._turn = (self._turn + 1) % self._num_players
         return observation, reward, done, self._turn, info

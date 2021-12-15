@@ -4,7 +4,7 @@ import pickle
 import numpy as np
 
 from hive.replays.replay_buffer import BaseReplayBuffer
-from hive.utils.utils import create_folder
+from hive.utils.utils import create_folder, seeder
 
 
 class CircularReplayBuffer(BaseReplayBuffer):
@@ -14,10 +14,10 @@ class CircularReplayBuffer(BaseReplayBuffer):
 
     def __init__(
         self,
-        capacity=10000,
-        stack_size=1,
-        n_step=1,
-        gamma=0.99,
+        capacity: int = 10000,
+        stack_size: int = 1,
+        n_step: int = 1,
+        gamma: float = 0.99,
         observation_shape=(),
         observation_dtype=np.uint8,
         action_shape=(),
@@ -25,19 +25,17 @@ class CircularReplayBuffer(BaseReplayBuffer):
         reward_shape=(),
         reward_dtype=np.float32,
         extra_storage_types=None,
-        num_players_sharing_buffer=None,
-        seed=42,
+        num_players_sharing_buffer: int = None,
     ):
         """Constructor for CircularReplayBuffer.
+
         Args:
-            capacity: Total number of observations that can be stored in the buffer.
-                Note, this is not the same as the number of transitions that can be
-                stored in the buffer.
-            capacity: Total number of observations that are stacked in the states
-                sampled from the buffer.
-            stack_size: The number of frames to stack to create an observation.
-            n_step: Horizon used to compute n-step return reward
-            gamma: Discounting factor used to compute n-step return reward
+            capacity (int): Total number of observations that can be stored in the
+                buffer. Note, this is not the same as the number of transitions that
+                can be stored in the buffer.
+            stack_size (int): The number of frames to stack to create an observation.
+            n_step (int): Horizon used to compute n-step return reward
+            gamma (float): Discounting factor used to compute n-step return reward
             observation_shape: Shape of observations that will be stored in the buffer.
             observation_dtype: Type of observations that will be stored in the buffer.
                 This can either be the type itself or string representation of the
@@ -53,12 +51,11 @@ class CircularReplayBuffer(BaseReplayBuffer):
             reward_shape: Shape of rewards that will be stored in the buffer.
             reward_dtype: Type of rewards that will be stored in the buffer. Format is
                 described in the description of observation_dtype.
-            extra_storage_types: A dictionary describing extra items to store in the
-                buffer. The mapping should be from the name of the item to a
+            extra_storage_types (dict): A dictionary describing extra items to store
+                in the buffer. The mapping should be from the name of the item to a
                 (type, shape) tuple.
-            num_players_sharing_buffer: Number of agents that share their buffers.
-                It is used for self-play.
-            seed: Random seed of numpy random generator used when sampling transitions.
+            num_players_sharing_buffer (int): Number of agents that share their
+                buffers. It is used for self-play.
         """
         self._capacity = capacity
         self._specs = {
@@ -80,7 +77,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         self._episode_start = True
         self._cursor = 0
         self._num_added = 0
-        self._rng = np.random.default_rng(seed=seed)
+        self._rng = np.random.default_rng(seed=seeder.get_new_seed())
         self._num_players_sharing_buffer = num_players_sharing_buffer
         if num_players_sharing_buffer is not None:
             self._episode_storage = [[] for _ in range(num_players_sharing_buffer)]
@@ -232,6 +229,9 @@ class CircularReplayBuffer(BaseReplayBuffer):
         """Sample transitions from the buffer. For a given transition, if it's
         done is True, the next_observation value should not be taken to have any
         meaning.
+
+        Args:
+            batch_size (int): Number of transitions to sample.
         """
         if self._num_added < self._stack_size + self._n_step:
             raise ValueError("Not enough transitions added to the buffer to sample")
@@ -282,8 +282,10 @@ class CircularReplayBuffer(BaseReplayBuffer):
 
     def save(self, dname):
         """Save the replay buffer.
+
         Args:
-            dname: directory where to save buffer. Should already have been created.
+            dname (str): directory where to save buffer. Should already have been
+                created.
         """
         storage_path = os.path.join(dname, "storage")
         create_folder(storage_path)
@@ -304,8 +306,9 @@ class CircularReplayBuffer(BaseReplayBuffer):
 
     def load(self, dname):
         """Load the replay buffer.
+
         Args:
-            dname: directory where to load buffer from.
+            dname (str): directory where to load buffer from.
         """
         storage_path = os.path.join(dname, "storage")
         for key in self._specs:
@@ -325,7 +328,8 @@ class SimpleReplayBuffer(BaseReplayBuffer):
 
     Args:
             capacity (int): repaly buffer capacity
-            compress (bool): if False, convert data to float32 otherwise keep it as int8.
+            compress (bool): if False, convert data to float32 otherwise keep it as
+                int8.
             seed (int): Seed for a pseudo-random number generator.
     """
 
