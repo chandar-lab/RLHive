@@ -161,11 +161,11 @@ class RainbowDQNAgent(DQNAgent):
             logger=logger,
             log_frequency=log_frequency,
         )
-        
+
         self._supports = torch.linspace(
             self._v_min, self._v_max, self._atoms, device=device
         )
-        
+
         self._use_eps_greedy = use_eps_greedy
 
     def create_q_networks(self, representation_net):
