@@ -28,7 +28,7 @@ class NoisyLinear(nn.Module):
         self.bias_sigma = nn.Parameter(torch.empty(out_dim))
         self.register_buffer("bias_epsilon", torch.empty(out_dim))
         self._reset_parameters()
-        self.sample_noise()
+        self._sample_noise()
 
     def _reset_parameters(self):
         mu_range = 1.0 / math.sqrt(self.in_features)
