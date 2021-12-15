@@ -103,7 +103,7 @@ class DQNAgent(Agent):
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
         self._init_fn = create_init_weights_fn(init_fn)
-        self._device = torch.device(device)
+        self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
         self.create_q_networks(representation_net)
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
@@ -117,7 +117,6 @@ class DQNAgent(Agent):
         self._reward_clip = reward_clip
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
-        self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
         if loss_fn is None:
             loss_fn = torch.nn.SmoothL1Loss
         self._loss_fn = loss_fn(reduction="none")
