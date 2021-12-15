@@ -1,5 +1,5 @@
 # General training loop config
-run_name: &run_name 'pursuit-rainbow'
+run_name: &run_name 'marlgrid-rainbow'
 train_steps: 500000
 test_frequency: 1000
 test_num_episodes: 10
