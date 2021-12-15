@@ -1,4 +1,3 @@
-# General training loop config
 run_name: &run_name 'minigrid-empty-5x5-image-dqn'
 train_steps: 50000
 test_frequency: 200
@@ -32,9 +31,8 @@ agent:
       kwargs:
         lr: 0.001
     replay_buffer:
-      name: 'EfficientCircularBuffer'
+      name: 'CircularReplayBuffer'
       kwargs:
-        seed: 42
         capacity: 20000
     discount_rate: .9
     target_net_update_schedule:
@@ -49,13 +47,7 @@ agent:
         init_value: 1
         end_value: 0.05
         steps: 25000
-    learn_schedule:
-      name: 'SwitchSchedule'
-      kwargs:
-        off_value: False
-        on_value: True
-        steps: 1000
-    seed: 42
+    min_replay_history: 1000
     batch_size: 256
     device: 'cuda'
     log_frequency: 100
@@ -70,5 +62,3 @@ loggers:
       name: *run_name
       resume: "allow"
       start_method: "fork"
-
-
