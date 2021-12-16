@@ -21,10 +21,10 @@ def create_folder(folder):
 
 
 class Seeder:
-    """Class used to manage seeding in Hive. It sets the seed for all the frameworks
-    that Hive currently uses. It also deterministically provides new seeds based on the
-    global seed, in case any other objects in Hive (such as the agents) need their own
-    seed.
+    """Class used to manage seeding in RLHive. It sets the seed for all the frameworks
+    that RLHive currently uses. It also deterministically provides new seeds based on
+    the global seed, in case any other objects in RLHive (such as the agents) need
+    their own seed.
     """
 
     def __init__(self):
