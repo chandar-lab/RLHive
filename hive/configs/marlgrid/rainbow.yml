@@ -1,10 +1,10 @@
 # General training loop config
-run_name: &run_name 'pursuit-rainbow'
-train_steps: 30000
-test_frequency: 10
-test_num_episodes: 1
+run_name: &run_name 'marlgrid-rainbow'
+train_steps: 500000
+test_frequency: 1000
+test_num_episodes: 10
 self_play: False
-num_agents: 3
+num_agents: &num_agents 2
 stack_size: &stack_size 2
 saving_schedule:
   name: 'PeriodicSchedule'
@@ -19,7 +19,7 @@ environment:
   name: 'MarlGridEnv'
   kwargs:
     env_name: 'MarlGrid-2Agent1RandomPursuit8x8-v0'
-    num_players: 2
+    num_players: *num_agents
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
@@ -27,17 +27,14 @@ agents:
   -
     name: 'RainbowDQNAgent'
     kwargs:
-      qnet:
-        name: 'DistributionalConv'
+      representation_net:
+        name: 'ConvNetwork'
         kwargs:
           channels: [ 32, 64, 64 ]
           mlp_layers: [ 128, 128 ]
           kernel_sizes: [ 8, 4, 3 ]
           strides: [ 4, 2, 1 ]
           paddings: [ 0, 1, 1 ]
-          noisy: True
-          dueling: True
-          sigma_init: 0.5
       optimizer_fn:
         name: 'Adam'
         kwargs:
@@ -47,7 +44,6 @@ agents:
       replay_buffer:
         name: 'PrioritizedReplayBuffer'
         kwargs:
-          seed: 42
           capacity: 100000
           stack_size: *stack_size
       discount_rate: .9
@@ -61,38 +57,29 @@ agents:
         name: 'LinearSchedule'
         kwargs:
           init_value: 1
-          end_value: 0.1
-          steps: 100000
-      learn_schedule:
-        name: 'SwitchSchedule'
-        kwargs:
-          off_value: False
-          on_value: True
-          steps: 5000
-      seed: 42
+          end_value: 0.05
+          steps: 10000
+      min_replay_history: 500
       batch_size: 32
-      device: 'cpu'
-      log_frequency: 1000
-      double: True
+      double: False
       distributional: True
-      use_eps_greedy: False
+      dueling: False
+      noisy: False
+      use_eps_greedy: True
       v_min: -10.0
       v_max: 10.0
       atoms: 51
   -
     name: 'RainbowDQNAgent'
     kwargs:
-      qnet:
-        name: 'DistributionalConv'
+      representation_net:
+        name: 'ConvNetwork'
         kwargs:
           channels: [ 32, 64, 64 ]
           mlp_layers: [ 128, 128 ]
           kernel_sizes: [ 8, 4, 3 ]
           strides: [ 4, 2, 1 ]
           paddings: [ 0, 1, 1 ]
-          noisy: True
-          dueling: True
-          sigma_init: 0.5
       optimizer_fn:
         name: 'Adam'
         kwargs:
@@ -102,7 +89,6 @@ agents:
       replay_buffer:
         name: 'PrioritizedReplayBuffer'
         kwargs:
-          seed: 43
           capacity: 100000
           stack_size: *stack_size
       discount_rate: .9
@@ -116,21 +102,15 @@ agents:
         name: 'LinearSchedule'
         kwargs:
           init_value: 1
-          end_value: 0.1
-          steps: 100000
-      learn_schedule:
-        name: 'SwitchSchedule'
-        kwargs:
-          off_value: False
-          on_value: True
-          steps: 5000
-      seed: 43
+          end_value: 0.05
+          steps: 10000
+      min_replay_history: 500
       batch_size: 32
-      device: 'cpu'
-      log_frequency: 1000
-      double: True
+      double: False
       distributional: True
-      use_eps_greedy: False
+      dueling: False
+      noisy: False
+      use_eps_greedy: True
       v_min: -10.0
       v_max: 10.0
       atoms: 51
@@ -143,6 +123,8 @@ loggers:
   -
     name: WandbLogger
     kwargs:
-      project_name: Hive-v1
-      run_name: *run_name
+      project: Hive
+      name: *run_name
       mode: "online"
+      start_method: 'fork'
+

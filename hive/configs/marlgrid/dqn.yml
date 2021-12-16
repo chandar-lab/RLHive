@@ -1,10 +1,10 @@
 # General training loop config
-run_name: &run_name 'pursuit-dqn'
-train_steps: 30000
-test_frequency: 10
-test_num_episodes: 1
+run_name: &run_name 'marlgrid-dqn'
+train_steps: 500000
+test_frequency: 1000
+test_num_episodes: 10
 self_play: False
-num_agents: 3
+num_agents: &num_agents 2
 stack_size: &stack_size 2
 saving_schedule:
   name: 'PeriodicSchedule'
@@ -19,16 +19,16 @@ environment:
   name: 'MarlGridEnv'
   kwargs:
     env_name: 'MarlGrid-2Agent1RandomPursuit8x8-v0'
-    num_players: 2
+    num_players: *num_agents
 
 # List of agents for the experiment. In single agent, only the first agent in
 # the list is used.
-agents: 
-  - 
+agents:
+  -
     name: 'DQNAgent'
     kwargs:
-      qnet:
-        name: 'SimpleConvModel'
+      representation_net:
+        name: 'ConvNetwork'
         kwargs:
           channels: [ 32, 64, 64 ]
           kernel_sizes: [ 8, 4, 3 ]
@@ -40,12 +40,11 @@ agents:
         kwargs: {}
       id: 0
       replay_buffer:
-        name: 'EfficientCircularBuffer'
+        name: 'CircularReplayBuffer'
         kwargs:
-          seed: 42
           capacity: 10000
           stack_size: *stack_size
-      discount_rate: .99
+      discount_rate: .9
       target_net_update_schedule:
         name: 'PeriodicSchedule'
         kwargs:
@@ -53,24 +52,20 @@ agents:
           on_value: True
           period: 100
       epsilon_schedule:
-        name: 'ConstantSchedule'
+        name: 'LinearSchedule'
         kwargs:
-          value: .01
-      learn_schedule:
-        name: 'SwitchSchedule'
-        kwargs:
-          off_value: False
-          on_value: True
-          steps: 500
-      seed: 42
+          init_value: 1
+          end_value: .05
+          steps: 10000
+      min_replay_history: 500
       batch_size: 128
       device: 'cpu'
       log_frequency: 100
-  - 
+  -
     name: 'DQNAgent'
     kwargs:
-      qnet:
-        name: 'SimpleConvModel'
+      representation_net:
+        name: 'ConvNetwork'
         kwargs:
           channels: [ 32, 64, 64 ]
           kernel_sizes: [ 8, 4, 3 ]
@@ -82,12 +77,11 @@ agents:
         kwargs: {}
       id: 1
       replay_buffer:
-        name: 'EfficientCircularBuffer'
+        name: 'CircularReplayBuffer'
         kwargs:
-          seed: 42
           capacity: 10000
           stack_size: *stack_size
-      discount_rate: .99
+      discount_rate: .9
       target_net_update_schedule:
         name: 'PeriodicSchedule'
         kwargs:
@@ -95,16 +89,12 @@ agents:
           on_value: True
           period: 100
       epsilon_schedule:
-        name: 'ConstantSchedule'
+        name: 'LinearSchedule'
         kwargs:
-          value: .01
-      learn_schedule:
-        name: 'SwitchSchedule'
-        kwargs:
-          off_value: False
-          on_value: True
-          steps: 500
-      seed: 43
+          init_value: 1
+          end_value: .05
+          steps: 10000
+      min_replay_history: 500
       batch_size: 128
       device: 'cpu'
       log_frequency: 100
@@ -117,6 +107,8 @@ loggers:
   -
     name: WandbLogger
     kwargs:
-      project_name: Hive-v1
-      run_name: *run_name
+      project: Hive
+      name: *run_name
       mode: "online"
+      start_method: 'fork'
+
