@@ -163,7 +163,7 @@ class RainbowDQNAgent(DQNAgent):
         )
 
         self._supports = torch.linspace(
-            self._v_min, self._v_max, self._atoms, device=device
+            self._v_min, self._v_max, self._atoms, device=self._device
         )
 
         self._use_eps_greedy = use_eps_greedy
