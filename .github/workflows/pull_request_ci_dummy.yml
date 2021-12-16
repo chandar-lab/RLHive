@@ -7,7 +7,7 @@ on:
       - 'hive/**'
       - '!hive/configs/**'
       - 'tests/**'
-      - '!**requirements.txt'
+      - '**requirements.txt'
 
 
 jobs:
