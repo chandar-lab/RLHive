@@ -8,7 +8,7 @@ import yaml
 
 
 class Registrable:
-    """Class used to denote which types of objects can be registered in the Hive
+    """Class used to denote which types of objects can be registered in the RLHive
     Registry. These objects can also be configured directly from the command line, and
     recursively built from the config, assuming type annotations are present.
     """
@@ -22,7 +22,7 @@ class Registrable:
 
 
 class CallableType(Registrable):
-    """A wrapper that allows any callable to be registered in the Hive Registry.
+    """A wrapper that allows any callable to be registered in the RLHive Registry.
     Specifically, it maps the arguments and annotations of the wrapped function to the
     resulting callable, allowing any argument names and type annotations of the
     underlying function to be present for outer wrapper. When called with some
@@ -53,7 +53,7 @@ class CallableType(Registrable):
 
 
 class Registry:
-    """This is the Registry class for Hive. It allows you to register different types
+    """This is the Registry class for RLHive. It allows you to register different types
     of :py:class:`Registrable` classes and objects and generates constructors for those
     classes in the form of `get_{type_name}`.
 
@@ -89,7 +89,7 @@ class Registry:
         self._registry = {}
 
     def register(self, name, constructor, type):
-        """Register a Registrable class/object with Hive.
+        """Register a Registrable class/object with RLHive.
 
         Args:
             name (str): Name of the class/object being registered.
