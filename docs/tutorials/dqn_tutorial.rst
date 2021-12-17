@@ -76,6 +76,10 @@ components of rainbow are found in the API documentation of
 :py:class:`~hive.agents.rainbow.RainbowDQNAgent`.
 
 
-Using different types of observations
+Other Customizations
 -------------------------------------
+There are many other customizations that you can do to
+:py:class:`~hive.agents.rainbow.RainbowDQNAgent` or 
+:py:class:`~hive.agents.dqn.DQNAgent` by simply overriding some functions. 
+
 
