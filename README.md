@@ -100,12 +100,5 @@ python -m hive.runners.multi_agent_loop -c configs/marlgrid_dqn/config_empty.yml
 
 
 ## Contributing
-When contributing to RLHive, please follow these guidelines:
-
-- Create a new branch for each feature you are adding. When you are done writing the feature, create a pull request to the dev branch. Each pull request must pass all the unit tests and be approved by two other people before being merged into dev.
-- Run the [black](https://black.readthedocs.io/en/stable/editor_integration.html) formatter before committing code. That will ensure that we have a uniform code style for the repo. We will be adding linter style checks as a requirement for pull requests soon.
-- Make sure you document your code. Any class or semi-complicated function you write should have a docstring.
-- If you add new features, add unit tests to test the feature. To run unit tests locally, navigate to the root directory and run:
-```
-python -m pytest
-```    
+We'd love for you to contribute your own work to RLHive. Before doing so, please read our 
+[contributing guide](https://rlhive.readthedocs.io/en/stable/contributing.html).
