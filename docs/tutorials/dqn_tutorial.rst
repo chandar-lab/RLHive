@@ -58,7 +58,22 @@ in the input dimension as the first positional argument:
 
 Adding in different Rainbow components
 --------------------------------------
-The Rainbow architecture is composed of several 
+The Rainbow architecture is composed of several different components, namely:
+
+* Double Q-learning
+* Prioritized Replay
+* Dueling Networks
+* Multi-step Learning
+* Distributional RL
+* Noisy Networks
+
+Each of these components can be independently used by with our 
+:py:class:`~hive.agents.rainbow.RainbowDQNAgent` class. To use Prioritized Replay,
+you must pass a :py:class:`~hive.replays.prioritized_replay.PrioritizedReplayBuffer`
+to the :py:obj:`replay_buffer` parameter of 
+:py:class:`~hive.agents.rainbow.RainbowDQNAgent`. The details for how to use the other
+components of rainbow are found in the API documentation of 
+:py:class:`~hive.agents.rainbow.RainbowDQNAgent`.
 
 
 Using different types of observations

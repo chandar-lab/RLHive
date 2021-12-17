@@ -3,7 +3,7 @@ Hive API
 
 .. toctree::
    :maxdepth: 3
-   :caption: Hive API:
+   :caption: RLHive API:
    :glob:
 
    api/hive

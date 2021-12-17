@@ -18,8 +18,6 @@ Welcome to RLHive's documentation!
 
 
 
-Hive is 
-
 Indices and tables
 ==================
 

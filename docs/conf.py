@@ -19,14 +19,17 @@
 
 import sys
 import os
+import inspect
+import hive
 
 sys.path.insert(0, os.path.abspath("../"))
 project = "RLHive"
-copyright = "2021, Chandar Research Lab"
-author = "Chandar Research Lab"
+copyright = "2021, RLHive Authors"
+author = "RLHive Authors"
 
 # The full version, including alpha/beta/rc tags
-release = "0.1.0"
+with open("../version.txt") as f:
+    release = f.read().strip()
 
 
 # -- General configuration ---------------------------------------------------
@@ -60,7 +63,12 @@ html_theme_options = {
     "navigation_depth": -1,
     # 'includehidden': True,
     "titles_only": True,
+    # "display_github": True,
+    # "github_user": "chandar-lab",
+    # "github_repo": "RLHive",
+    # "github_version": "dev/docs/",
 }
+
 autosectionlabel_prefix_document = True
 autodoc_member_order = "bysource"
 # Add any paths that contain templates here, relative to this directory.
