@@ -31,7 +31,7 @@ To install Marlgrid, run
 - [Creating new agents](https://rlhive.readthedocs.io/en/stable/tutorials/agent_tutorial.html)
 - [Using DQN/Rainbow Agents](https://rlhive.readthedocs.io/en/stable/tutorials/dqn_tutorial.html)
 - [Using Environments/Creating new Environments](https://rlhive.readthedocs.io/en/stable/tutorials/env_tutorial.html)
-- [Configuring your experiments through YAML files and command line](https://rlhive.readthedocs.io/en/stable/tutorials/Configuration_tutorial.html)
+- [Configuring your experiments through YAML files and command line](https://rlhive.readthedocs.io/en/stable/tutorials/configuration_tutorial.html)
 - [Loggers and Scheduling](https://rlhive.readthedocs.io/en/stable/tutorials/logging_tutorial.html)
 - [Registering Custom RLHive Objects](https://rlhive.readthedocs.io/en/stable/tutorials/registration_tutorial.html)
 - [Using Replay Buffers](https://rlhive.readthedocs.io/en/stable/tutorials/replay_tutorial.html)
