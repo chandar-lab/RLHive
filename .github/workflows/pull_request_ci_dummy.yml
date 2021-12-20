@@ -1,0 +1,17 @@
+name: Dummy Python unit tests
+
+on:
+  pull_request:
+    branches: [ dev, main ]
+    paths-ignore:
+      - 'hive/**'
+      - '!hive/configs/**'
+      - 'tests/**'
+      - '**requirements.txt'
+
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No tests required" '

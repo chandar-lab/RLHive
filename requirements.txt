@@ -1,0 +1,9 @@
+gym==0.21.0
+matplotlib==3.5.1
+numpy>=1.18.5
+pandas==1.3.2
+pytest==6.2.2
+pytest-lazy-fixture==0.6.3
+PyYAML>=5.4
+torch==1.8.0
+wandb==0.10.30

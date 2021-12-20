@@ -1,0 +1,95 @@
+# General training loop config
+run_name: &run_name 'hanabi-rainbow'
+train_steps: 100000000
+test_frequency: 100000
+test_num_episodes: 10
+self_play: True
+num_agents: &num_agents 2
+stack_size: &stack_size 1
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 500000
+save_dir: 'experiment'
+
+# Environment config
+environment:
+  name: 'PettingZooEnv'
+  kwargs:
+    env_name: 'hanabi_v4'
+    env_family: 'classic'
+    num_players: *num_agents
+
+# List of agents for the experiment. In single agent, only the first agent in
+# the list is used.
+agents:
+  -
+    name: 'LegalMovesRainbowAgent'
+    kwargs:
+      representation_net:
+        name: 'MLPNetwork'
+        kwargs:
+          hidden_units: [512, 512]
+      optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr: 0.000025
+          eps: 0.00003125
+      init_fn:
+        name: 'variance_scaling'
+      id: 0
+      replay_buffer:
+        name: 'LegalMovesBuffer'
+        kwargs:
+          capacity: 1000000
+          stack_size: *stack_size
+          action_dim: 20
+          num_players_sharing_buffer: *num_agents
+          gamma: 0.99
+      discount_rate: .99
+      update_period_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 4
+      target_net_update_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 500
+      epsilon_schedule:
+        name: 'LinearSchedule'
+        kwargs:
+          init_value: 1
+          end_value: 0.0
+          steps: 1000
+      test_epsilon: 0
+      min_replay_history: 500
+      batch_size: 32
+      device: 'cuda'
+      log_frequency: 100
+      double: False
+      distributional: True
+      dueling: False
+      noisy: False
+      use_eps_greedy: True
+      v_min: -25.0
+      v_max: 25.0
+      atoms: 51
+
+# List of logger configs used.
+loggers:
+  -
+    name: ChompLogger
+    kwargs: {}
+  -
+    name: WandbLogger
+    kwargs:
+      project: Hive
+      name: *run_name
+      mode: "online"
+      start_method: 'fork'

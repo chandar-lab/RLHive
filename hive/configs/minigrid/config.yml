@@ -1,0 +1,64 @@
+run_name: &run_name 'minigrid-empty-5x5-image-dqn'
+train_steps: 50000
+test_frequency: 200
+test_episodes: 10
+max_steps_per_episode: 1000
+stack_size: &stack_size 1
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 10000
+save_dir: 'experiment'
+
+environment:
+  name: 'MiniGridEnv'
+  kwargs:
+    env_name: 'MiniGrid-Empty-5x5-v0'
+    rgb_obs: False
+    flattened_obs: True
+
+agent:
+  name: 'DQNAgent'
+  kwargs:
+    representation_net:
+      name: 'MLPNetwork'
+      kwargs:
+        hidden_units: [256, 256]
+    optimizer_fn:
+      name: 'Adam'
+      kwargs:
+        lr: 0.001
+    replay_buffer:
+      name: 'CircularReplayBuffer'
+      kwargs:
+        capacity: 20000
+    discount_rate: .9
+    target_net_update_schedule:
+      name: 'PeriodicSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        period: 5000
+    epsilon_schedule:
+      name: 'LinearSchedule'
+      kwargs:
+        init_value: 1
+        end_value: 0.05
+        steps: 25000
+    min_replay_history: 1000
+    batch_size: 256
+    device: 'cuda'
+    log_frequency: 100
+
+loggers:
+  -
+    name: ChompLogger
+  -
+    name: WandbLogger
+    kwargs:
+      project: Hive
+      name: *run_name
+      resume: "allow"
+      start_method: "fork"
