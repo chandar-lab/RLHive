@@ -42,8 +42,8 @@ configuration
 
 .. code-block:: bash
 
-    python -m hive.runners.single_agent_loop -p atari/dqn.yml
-    python -m hive.runners.multi_agent_loop -p hanabi/rainbow.yml
+    python -m hive_single_agent_loop -p atari/dqn.yml
+    python -m hive_multi_agent_loop -p hanabi/rainbow.yml
 
 If you want to run an experiment with components that are all available in RLHive,
 but not presets, you can create your own config file, and run that instead! Make
@@ -53,8 +53,8 @@ sure you look at the examples
 
 .. code-block:: bash
 
-    python -m hive.runners.single_agent_loop -c <config-file>
-    python -m hive.runners.multi_agent_loop -c <config-file>
+    python -m hive_single_agent_loop -c <config-file>
+    python -m hive_multi_agent_loop -c <config-file>
 
 Finally, if instead you want to use your own custom custom components you can
 simply register it with RLHive and run your config normally: 

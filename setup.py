@@ -51,4 +51,10 @@ setuptools.setup(
         "test": test,
         "all": atari + gym_minigrid + petting_zoo + test,
     },
+    entry_points={
+        "console_scripts": [
+            "hive_single_agent_loop = hive.runners.single_agent_loop:main",
+            "hive_multi_agent_loop = hive.runners.multi_agent_loop:main",
+        ]
+    },
 )
