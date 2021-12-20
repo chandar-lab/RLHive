@@ -1,3 +1,5 @@
+.. _contributing:
+
 Contributing
 ============
 
@@ -11,7 +13,7 @@ and create a pull request with your own feature/bug fix.
 
 Creating Issues
 ---------------
-We'd love to here from you on how we can improve RLHive! When creating issues, please
+We'd love to hear from you on how we can improve RLHive! When creating issues, please
 follow these guidelines:
 
 * Tag your issue with bug, feature request, or question to help us effectively 

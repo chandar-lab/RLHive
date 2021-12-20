@@ -5,7 +5,7 @@ Quickstart
 
 Installation
 ^^^^^^^^^^^^^
-RLHive is available through pip! For the basic hive package, simply run 
+RLHive is available through pip! For the basic RLHive package, simply run 
 ``pip install rlhive``.
 
 You can also install dependencies necessary for the environments that

@@ -1,4 +1,4 @@
-Hive API
+RLHive API
 ============
 
 .. toctree::
