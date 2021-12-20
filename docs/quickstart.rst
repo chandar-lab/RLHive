@@ -13,10 +13,18 @@ RLHive comes with by running ``pip install rlhive[<env_names>]`` where
 ``<env_names>`` is a comma separated list made up of the following: 
 
 * atari
-* minatar
-* minigrid
-* marlgrid
+* gym_minigrid
 * pettingzoo
+
+In addition to these environments, Minatar and Marlgrid are also supported, but
+need to be installed separately. 
+
+To install Minatar, run
+``pip install MinAtar@git+https://github.com/kenjyoung/MinAtar.git@8b39a18a60248ede15ce70142b557f3897c4e1eb``
+
+To install Marlgrid, run
+``pip install marlgrid@https://github.com/kandouss/marlgrid/archive/refs/heads/master.zip``
+
 
 Running an experiment
 ^^^^^^^^^^^^^^^^^^^^^
