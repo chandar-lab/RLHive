@@ -13,7 +13,8 @@ We support several environments in RLHive, namely:
 * Pettingzoo (multi-agent)
 
 While gym comes installed with the base package, you need
-to install the other environments. See :ref:`Installation <installation>`.
+to install the other environments. See :ref:`Installation <installation>`
+for more details.
 
 
 Creating an Environment
