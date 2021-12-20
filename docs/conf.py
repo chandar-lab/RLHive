@@ -19,14 +19,17 @@
 
 import sys
 import os
+import inspect
+import hive
 
 sys.path.insert(0, os.path.abspath("../"))
 project = "RLHive"
-copyright = "2021, Chandar Research Lab"
-author = "Chandar Research Lab"
+copyright = "2021, RLHive Authors"
+author = "RLHive Authors"
 
 # The full version, including alpha/beta/rc tags
-release = "0.1.0"
+with open("../version.txt") as f:
+    release = f.read().strip()
 
 
 # -- General configuration ---------------------------------------------------
@@ -46,21 +49,13 @@ extensions = [
 ]
 autoclass_content = "both"
 html_theme_options = {
-    # 'analytics_id': 'G-XXXXXXXXXX',  #  Provided by Google in your dashboard
-    # 'analytics_anonymize_ip': False,
-    # 'logo_only': False,
-    # 'display_version': True,
-    # 'prev_next_buttons_location': 'bottom',
-    # 'style_external_links': False,
-    # 'vcs_pageview_mode': '',
-    "style_nav_header_background": "goldenrod",
+    "style_nav_header_background": "#2b97c1",
     # Toc options
     "collapse_navigation": False,
-    # 'sticky_navigation': True,
     "navigation_depth": -1,
-    # 'includehidden': True,
     "titles_only": True,
 }
+
 autosectionlabel_prefix_document = True
 autodoc_member_order = "bysource"
 # Add any paths that contain templates here, relative to this directory.
@@ -79,7 +74,8 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "numpy": ("https://numpy.org/doc/stable", None),
 }
-
+html_logo = "hive.svg"
+html_favicon = "hive.svg"
 
 # -- Options for HTML output -------------------------------------------------
 

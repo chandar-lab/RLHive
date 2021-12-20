@@ -1,13 +1,15 @@
 Quickstart
 ===========
 
+.. _installation:
+
 Installation
 ^^^^^^^^^^^^^
-Hive is available through pip! For the basic hive package, simply run 
+RLHive is available through pip! For the basic RLHive package, simply run 
 ``pip install rlhive``.
 
 You can also install dependencies necessary for the environments that
-Hive comes with by running ``pip install rlhive[<env_names>]`` where 
+RLHive comes with by running ``pip install rlhive[<env_names>]`` where 
 ``<env_names>`` is a comma separated list made up of the following: 
 
 * atari
@@ -18,10 +20,36 @@ Hive comes with by running ``pip install rlhive[<env_names>]`` where
 
 Running an experiment
 ^^^^^^^^^^^^^^^^^^^^^
-To get started with running an experiment, simply load a config, use it to create a 
-runner, and run! This following code block trains a DQN on the Atari game Asterix
-according to the specification of 
-`Dopamine <https://github.com/google/dopamine/blob/master/dopamine/agents/dqn/configs/dqn.gin/>`_.
+There are several ways to run an experiment with RLHive. If you want to just run a
+preset config, you can directly run your experiment from the command line, with a config
+file path relative to the
+`hive/configs <https://github.com/chandar-lab/RLHive/hive/configs>`_ folder. These
+examples run a DQN on the Atari game Asterix according to the
+`Dopamine 
+<https://github.com/google/dopamine/blob/master/dopamine/agents/dqn/configs/dqn.gin/>`_
+configuration and a simplified Rainbow agent for Hanabi trained using self-play
+according to the `DeepMind's 
+<https://github.com/deepmind/hanabi-learning-environment/blob/master/hanabi_learning_environment/agents/rainbow/configs/hanabi_rainbow.gin>`_
+configuration
+
+.. code-block:: bash
+
+    python -m hive.runners.single_agent_loop -p atari/dqn.yml
+    python -m hive.runners.multi_agent_loop -p hanabi/rainbow.yml
+
+If you want to run an experiment with components that are all available in RLHive,
+but not presets, you can create your own config file, and run that instead! Make
+sure you look at the examples 
+`here <https://github.com/chandar-lab/RLHive/hive/configs>`_ and the tutorial
+:ref:`here <yaml-config>` to properly format it:
+
+.. code-block:: bash
+
+    python -m hive.runners.single_agent_loop -c <config-file>
+    python -m hive.runners.multi_agent_loop -c <config-file>
+
+Finally, if instead you want to use your own custom custom components you can
+simply register it with RLHive and run your config normally: 
 
 .. code-block:: python
     
@@ -29,28 +57,19 @@ according to the specification of
     from hive.runners.utils import load_config
     from hive.runners.single_agent_loop import set_up_experiment
     
-    config = load_config(preset_config='atari/dqn.yml')
+    class CustomAgent(hive.agents.Agent):
+        # Definition of Agent
+        pass
+        
+    hive.registry.register('CustomAgent', CustomAgent, CustomAgent)
+
+    # Either load your custom full config file with that includes CustomAgent
+    config = load_config(config='custom_full_config.yml')
     runner = set_up_experiment(config)
     runner.run_training()
 
-You can also run multi-agent experiments in a similar fashion. To replicate 
-`DeepMind's Rainbow experiments on Hanabi 
-<https://github.com/deepmind/hanabi-learning-environment/blob/master/hanabi_learning_environment/agents/rainbow/configs/hanabi_rainbow.gin>`_
-, simply run: 
-
-.. code-block:: python
-    
-    import hive
-    from hive.runners.utils import load_config
-    from hive.runners.multi_agent_loop import set_up_experiment
-    
-    config = load_config(preset_config='hanabi/self_play_rainbow.yml')
+    # Or load a preset config and just replace the agent config
+    config = load_config(preset_config='atari/dqn.yml', agent_config='custom_agent_config.yml')
     runner = set_up_experiment(config)
     runner.run_training()
 
-
-Hive comes with a number of preset configs that have been tested and shown to 
-reproduce the results of their orignal papers. To run your own experiments,
-simply :ref:`create your own config files <yaml-config>` or 
-:ref:`override the parameters of the preset configs <override-config>`
-from the command line.
