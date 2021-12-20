@@ -88,7 +88,7 @@ class Experiment(object):
         if self._config is not None:
             file_name = os.path.join(save_dir, "config.yml")
             with open(file_name, "w") as f:
-                yaml.dump(dict(self._config), f)
+                yaml.safe_dump(dict(self._config), f)
 
         if self._logger is not None:
             folder_name = os.path.join(save_dir, "logger")
@@ -136,8 +136,9 @@ class Experiment(object):
             logging.info("Loading the experiment from {}".format(save_dir))
 
             if self._config is not None:
-                file_name = os.path.join(save_dir, "config.p")
-                self._config.load(file_name)
+                file_name = os.path.join(save_dir, "config.yml")
+                with open(file_name) as f:
+                    self._config = Chomp(yaml.safe_load(f))
 
             if self._logger is not None:
                 folder_name = os.path.join(save_dir, "logger")
