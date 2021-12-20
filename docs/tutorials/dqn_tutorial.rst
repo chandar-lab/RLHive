@@ -67,7 +67,7 @@ The Rainbow architecture is composed of several different components, namely:
 * Distributional RL
 * Noisy Networks
 
-Each of these components can be independently used by with our 
+Each of these components can be independently used with our 
 :py:class:`~hive.agents.rainbow.RainbowDQNAgent` class. To use Prioritized Replay,
 you must pass a :py:class:`~hive.replays.prioritized_replay.PrioritizedReplayBuffer`
 to the :py:obj:`replay_buffer` parameter of 
