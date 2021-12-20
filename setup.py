@@ -1,3 +1,5 @@
+import os
+
 import setuptools
 
 with open("version.txt") as f:
@@ -29,6 +31,8 @@ setuptools.setup(
         "Bug Tracker": "https://github.com/chandar-lab/RLHive/issues",
     },
     packages=setuptools.find_packages(),
+    include_package_data=True,
+    package_data={"hive": ["configs/**.yml"]},
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
