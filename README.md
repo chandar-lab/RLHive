@@ -28,6 +28,7 @@ To install Marlgrid, run
 ``pip install marlgrid@https://github.com/kandouss/marlgrid/archive/refs/heads/master.zip``
 
 ## Tutorials
+- [Quickstart](https://rlhive.readthedocs.io/en/stable/quickstart.html)
 - [Creating new agents](https://rlhive.readthedocs.io/en/stable/tutorials/agent_tutorial.html)
 - [Using DQN/Rainbow Agents](https://rlhive.readthedocs.io/en/stable/tutorials/dqn_tutorial.html)
 - [Using Environments/Creating new Environments](https://rlhive.readthedocs.io/en/stable/tutorials/env_tutorial.html)
