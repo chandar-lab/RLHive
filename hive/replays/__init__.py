@@ -1,3 +1,4 @@
+import logging
 from hive.replays.circular_replay import CircularReplayBuffer, SimpleReplayBuffer
 from hive.replays.legal_moves_replay import LegalMovesBuffer
 from hive.replays.prioritized_replay import PrioritizedReplayBuffer
@@ -13,5 +14,7 @@ registry.register_all(
         "LegalMovesBuffer": LegalMovesBuffer,
     },
 )
+
+logging.info("Registered replays.")
 
 get_replay = getattr(registry, f"get_{BaseReplayBuffer.type_name()}")

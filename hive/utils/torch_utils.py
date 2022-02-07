@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import torch
 from torch import optim
@@ -193,6 +194,8 @@ registry.register_all(
     },
 )
 
+logging.info("Registered PyTorch optimizers.")
+
 registry.register_all(
     LossFn,
     {
@@ -217,6 +220,8 @@ registry.register_all(
         "TripletMarginLoss": LossFn(torch.nn.TripletMarginLoss),
     },
 )
+
+logging.info("Registered PyTorch losses.")
 
 get_optimizer_fn = getattr(registry, f"get_{OptimizerFn.type_name()}")
 get_loss_fn = getattr(registry, f"get_{LossFn.type_name()}")

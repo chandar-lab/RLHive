@@ -1,3 +1,5 @@
+import logging
+
 from hive.envs.base import BaseEnv, ParallelEnv
 from hive.envs.env_spec import EnvSpec
 from hive.envs.gym_env import GymEnv
@@ -40,5 +42,7 @@ registry.register_all(
         "PettingZooEnv": PettingZooEnv,
     },
 )
+
+logging.info('Registered environments.')
 
 get_env = getattr(registry, f"get_{BaseEnv.type_name()}")

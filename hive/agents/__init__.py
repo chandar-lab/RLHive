@@ -1,3 +1,5 @@
+import logging
+
 from hive.agents import qnets
 from hive.agents.agent import Agent
 from hive.agents.dqn import DQNAgent
@@ -15,5 +17,7 @@ registry.register_all(
         "RandomAgent": RandomAgent,
     },
 )
+
+logging.info("Registered agents.")
 
 get_agent = getattr(registry, f"get_{Agent.type_name()}")

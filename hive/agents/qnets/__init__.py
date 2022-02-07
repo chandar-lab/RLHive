@@ -1,3 +1,5 @@
+import logging
+
 from hive.utils.registry import registry
 from hive.agents.qnets.atari import NatureAtariDQNModel
 from hive.agents.qnets.base import FunctionApproximator
@@ -12,5 +14,7 @@ registry.register_all(
         "NatureAtariDQNModel": FunctionApproximator(NatureAtariDQNModel),
     },
 )
+
+logging.info("Registered function approximators.")
 
 get_qnet = getattr(registry, f"get_{FunctionApproximator.type_name()}")
