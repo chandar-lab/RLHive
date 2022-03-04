@@ -2,7 +2,7 @@
 run_name: &run_name 'marlgrid-dqn'
 train_steps: 500000
 test_frequency: 1000
-test_num_episodes: 10
+test_episodes: 10
 self_play: False
 num_agents: &num_agents 2
 stack_size: &stack_size 2
