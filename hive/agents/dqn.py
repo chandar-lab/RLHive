@@ -112,7 +112,7 @@ class DQNAgent(Agent):
         self._replay_buffer = replay_buffer
         if self._replay_buffer is None:
             self._replay_buffer = CircularReplayBuffer()
-        self._discount_rate = discount_rate ** n_step
+        self._discount_rate = discount_rate**n_step
         self._grad_clip = grad_clip
         self._reward_clip = reward_clip
         self._target_net_soft_update = target_net_soft_update
@@ -321,9 +321,12 @@ class DQNAgent(Agent):
             current_params = self._qnet.state_dict()
             for key in list(target_params.keys()):
                 target_params[key] = (
-                    (1 - self._target_net_update_fraction) * target_params[key]
-                    + self._target_net_update_fraction * current_params[key]
-                )
+                    1 - self._target_net_update_fraction
+                ) * target_params[
+                    key
+                ] + self._target_net_update_fraction * current_params[
+                    key
+                ]
             self._target_qnet.load_state_dict(target_params)
         else:
             self._target_qnet.load_state_dict(self._qnet.state_dict())

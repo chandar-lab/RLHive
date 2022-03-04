@@ -89,11 +89,19 @@ class MultiAgentRunner(Runner):
             action
         )
         self._transition_info.record_info(
-            agent, {"observation": observation, "action": action, "info": other_info,},
+            agent,
+            {
+                "observation": observation,
+                "action": action,
+                "info": other_info,
+            },
         )
         if self._self_play:
             self._transition_info.record_info(
-                agent, {"agent_id": agent.id,},
+                agent,
+                {
+                    "agent_id": agent.id,
+                },
             )
         self._transition_info.update_all_rewards(reward)
         return done, next_observation, turn
@@ -224,7 +232,9 @@ def set_up_experiment(config):
         config["run_name"], config["save_dir"], saving_schedule
     )
     experiment_manager.register_experiment(
-        config=full_config, logger=logger, agents=agents,
+        config=full_config,
+        logger=logger,
+        agents=agents,
     )
 
     # Set up runner

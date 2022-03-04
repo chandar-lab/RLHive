@@ -35,7 +35,10 @@ class RandomAgent(Agent):
 
     def save(self, dname):
         torch.save(
-            {"rng": self._rng,}, os.path.join(dname, "agent.pt"),
+            {
+                "rng": self._rng,
+            },
+            os.path.join(dname, "agent.pt"),
         )
 
     def load(self, dname):

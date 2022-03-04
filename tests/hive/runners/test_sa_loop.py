@@ -134,12 +134,16 @@ def test_resume(initial_runner):
     assert resumed_single_agent_runner._train_schedule._steps == 0
 
     resumed_single_agent_runner._experiment_manager.resume()
-    resumed_single_agent_runner._train_schedule = resumed_single_agent_runner._experiment_manager.experiment_state[
-        "train_schedule"
-    ]
-    resumed_single_agent_runner._test_schedule = resumed_single_agent_runner._experiment_manager.experiment_state[
-        "test_schedule"
-    ]
+    resumed_single_agent_runner._train_schedule = (
+        resumed_single_agent_runner._experiment_manager.experiment_state[
+            "train_schedule"
+        ]
+    )
+    resumed_single_agent_runner._test_schedule = (
+        resumed_single_agent_runner._experiment_manager.experiment_state[
+            "test_schedule"
+        ]
+    )
     episode_metrics = resumed_single_agent_runner.run_episode()
 
 
@@ -181,7 +185,10 @@ def test_run_training(initial_runner):
             " --agent.discount_rate .8 ",
             [[30, 30], 0.8, None, None, None],
         ),
-        ("single_agent_loop.py --seed 20", [None, None, 20, None, None],),
+        (
+            "single_agent_loop.py --seed 20",
+            [None, None, 20, None, None],
+        ),
     ],
 )
 @patch("hive.runners.single_agent_loop.utils.seeder")

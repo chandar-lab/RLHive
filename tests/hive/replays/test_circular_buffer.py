@@ -23,7 +23,9 @@ def efficient_buffer():
 @pytest.fixture()
 def prioritized_buffer():
     return PrioritizedReplayBuffer(
-        capacity=CAPACITY, observation_shape=OBS_SHAPE, observation_dtype=np.float32,
+        capacity=CAPACITY,
+        observation_shape=OBS_SHAPE,
+        observation_dtype=np.float32,
     )
 
 
@@ -196,7 +198,13 @@ def test_sample(full_buffer):
 
 @pytest.mark.xfail(raises=ValueError)
 @pytest.mark.parametrize(
-    "stack_size,n_step,num_added", [(1, 1, 1), (2, 1, 1), (2, 1, 2), (2, 2, 3),],
+    "stack_size,n_step,num_added",
+    [
+        (1, 1, 1),
+        (2, 1, 1),
+        (2, 1, 2),
+        (2, 2, 3),
+    ],
 )
 def test_sample_few_transitions(stack_size, n_step, num_added):
     buffer = CircularReplayBuffer(
@@ -293,7 +301,7 @@ def test_n_step_buffer(full_n_step_buffer):
         assert batch["observation"][i].shape == OBS_SHAPE
         expected_reward = 0
         for delta_t in range(N_STEP_HORIZON):
-            expected_reward += ((timestep + delta_t) % 10) * (GAMMA ** delta_t)
+            expected_reward += ((timestep + delta_t) % 10) * (GAMMA**delta_t)
             if (timestep + delta_t + 1) % 15 == 0:
                 break
         assert batch["reward"][i] == pytest.approx(expected_reward)

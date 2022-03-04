@@ -268,7 +268,12 @@ def test_train_step(agent_with_mock_optimizer):
         action = agent_with_mock_optimizer.act(observation)
         assert action < 2
         agent_with_mock_optimizer.update(
-            {"action": action, "observation": observation, "reward": 1, "done": False,}
+            {
+                "action": action,
+                "observation": observation,
+                "reward": 1,
+                "done": False,
+            }
         )
     assert agent_with_mock_optimizer._optimizer.step.call_count == 6
     assert agent_with_mock_optimizer._replay_buffer.size() == 7
@@ -282,7 +287,12 @@ def test_eval_step(agent_with_mock_optimizer):
         action = agent_with_mock_optimizer.act(observation)
         assert action < 2
         agent_with_mock_optimizer.update(
-            {"action": action, "observation": observation, "reward": 1, "done": False,}
+            {
+                "action": action,
+                "observation": observation,
+                "reward": 1,
+                "done": False,
+            }
         )
     assert agent_with_mock_optimizer._optimizer.step.call_count == 0
     assert agent_with_mock_optimizer._replay_buffer.size() == 0
@@ -309,7 +319,12 @@ def test_target_net_soft_update(agent_with_mock_optimizer):
         action = agent_with_mock_optimizer.act(observation)
         assert action < 2
         agent_with_mock_optimizer.update(
-            {"action": action, "observation": observation, "reward": 1, "done": False,}
+            {
+                "action": action,
+                "observation": observation,
+                "reward": 1,
+                "done": False,
+            }
         )
 
     # Assert that the target network was updated successfully
@@ -337,7 +352,12 @@ def test_target_net_hard_update(agent_with_mock_optimizer):
         action = agent_with_mock_optimizer.act(observation)
         assert action < 2
         agent_with_mock_optimizer.update(
-            {"action": action, "observation": observation, "reward": 1, "done": False,}
+            {
+                "action": action,
+                "observation": observation,
+                "reward": 1,
+                "done": False,
+            }
         )
 
     # Assert that the target network was updated successfully
@@ -355,7 +375,12 @@ def test_save_load(agent_with_optimizer, tmpdir):
         action = agent_1.act(observation)
         assert action < 2
         agent_1.update(
-            {"action": action, "observation": observation, "reward": 1, "done": False,}
+            {
+                "action": action,
+                "observation": observation,
+                "reward": 1,
+                "done": False,
+            }
         )
 
     # Make sure agent_1 and agent_2 have different internal states

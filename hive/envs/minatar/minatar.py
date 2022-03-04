@@ -12,7 +12,10 @@ class MinAtarEnv(BaseEnv):
     """
 
     def __init__(
-        self, env_name, sticky_action_prob=0.1, difficulty_ramping=True,
+        self,
+        env_name,
+        sticky_action_prob=0.1,
+        difficulty_ramping=True,
     ):
         """
         Args:
@@ -35,7 +38,11 @@ class MinAtarEnv(BaseEnv):
         obs_dim = tuple(self._env.state_shape())
         new_positions = [2, 0, 1]
         obs_dim = tuple(obs_dim[i] for i in new_positions)
-        return EnvSpec(env_name=env_name, obs_dim=[obs_dim], act_dim=[6],)
+        return EnvSpec(
+            env_name=env_name,
+            obs_dim=[obs_dim],
+            act_dim=[6],
+        )
 
     def reset(self):
         self._env.reset()

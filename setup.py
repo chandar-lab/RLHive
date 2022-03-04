@@ -21,7 +21,9 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/chandar-lab/RLHive",
-    project_urls={"Bug Tracker": "https://github.com/chandar-lab/RLHive/issues",},
+    project_urls={
+        "Bug Tracker": "https://github.com/chandar-lab/RLHive/issues",
+    },
     packages=setuptools.find_packages(),
     include_package_data=True,
     package_data={"hive": ["configs/**.yml"]},
