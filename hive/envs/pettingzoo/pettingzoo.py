@@ -14,11 +14,7 @@ class PettingZooEnv(BaseEnv):
     """
 
     def __init__(
-        self,
-        env_name,
-        env_family,
-        num_players,
-        **kwargs,
+        self, env_name, env_family, num_players, **kwargs,
     ):
         """
         Args:
@@ -53,11 +49,7 @@ class PettingZooEnv(BaseEnv):
                 f"Hive does not support {self._env_family} environments from PettingZoo yet."
             )
         act_dim = [space.n for space in self._env.action_spaces.values()]
-        return EnvSpec(
-            env_name=env_name,
-            obs_dim=obs_dim,
-            act_dim=act_dim,
-        )
+        return EnvSpec(env_name=env_name, obs_dim=obs_dim, act_dim=act_dim,)
 
     def reset(self):
         self._env.reset()

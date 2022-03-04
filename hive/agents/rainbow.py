@@ -318,9 +318,7 @@ class RainbowDQNAgent(DQNAgent):
 
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar(
-                    "train_loss",
-                    loss,
-                    self._timescale,
+                    "train_loss", loss, self._timescale,
                 )
             loss.backward()
             if self._grad_clip is not None:

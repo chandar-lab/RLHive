@@ -321,12 +321,9 @@ class DQNAgent(Agent):
             current_params = self._qnet.state_dict()
             for key in list(target_params.keys()):
                 target_params[key] = (
-                    1 - self._target_net_update_fraction
-                ) * target_params[
-                    key
-                ] + self._target_net_update_fraction * current_params[
-                    key
-                ]
+                    (1 - self._target_net_update_fraction) * target_params[key]
+                    + self._target_net_update_fraction * current_params[key]
+                )
             self._target_qnet.load_state_dict(target_params)
         else:
             self._target_qnet.load_state_dict(self._qnet.state_dict())

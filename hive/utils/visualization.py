@@ -106,11 +106,7 @@ def find_all_experiments_data(experiments_folder, runs_folders):
 
 
 def standardize_data(
-    experiment_data,
-    x_key,
-    y_key,
-    num_sampled_points=1000,
-    drop_last=True,
+    experiment_data, x_key, y_key, num_sampled_points=1000, drop_last=True,
 ):
     """Extracts given keys from data, and standardizes the data across runs by sampling
     equally spaced points along x data, and interpolating y data of each run.
@@ -233,12 +229,7 @@ def plot_results(
 ):
     """Plots results."""
     runs_folders, aggregated_xs, aggregated_ys = find_and_standardize_data(
-        experiments_folder,
-        runs_folders,
-        x_key,
-        y_key,
-        num_sampled_points,
-        drop_last,
+        experiments_folder, runs_folders, x_key, y_key, num_sampled_points, drop_last,
     )
     if run_names is None:
         run_names = runs_folders

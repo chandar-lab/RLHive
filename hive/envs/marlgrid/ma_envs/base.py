@@ -111,8 +111,9 @@ class MultiGridEnvHive(MultiGridEnv):
                     xlow, ylow, xhigh, yhigh = agent.get_view_exts()
 
                 dxlow, dylow = max(0, 0 - xlow), max(0, 0 - ylow)
-                dxhigh, dyhigh = max(0, xhigh - self.grid.width), max(
-                    0, yhigh - self.grid.height
+                dxhigh, dyhigh = (
+                    max(0, xhigh - self.grid.width),
+                    max(0, yhigh - self.grid.height),
                 )
                 if agent.see_through_walls:
                     highlight_mask[
