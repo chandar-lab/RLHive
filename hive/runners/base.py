@@ -156,7 +156,7 @@ class Runner(ABC):
         self.train_mode(False)
         aggregated_episode_metrics = self.create_episode_metrics().get_flat_dict()
         episodes = 0
-        while episodes <= self._test_episodes:
+        while episodes < self._test_episodes:
             episode_metrics = self.run_episode()
             episodes += 1
             for metric, value in episode_metrics.get_flat_dict().items():
