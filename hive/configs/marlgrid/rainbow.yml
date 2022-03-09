@@ -61,7 +61,7 @@ agents:
           steps: 10000
       min_replay_history: 500
       batch_size: 32
-      device: 'cpu'
+      device: 'cuda'
       double: False
       distributional: True
       dueling: False
@@ -107,7 +107,7 @@ agents:
           steps: 10000
       min_replay_history: 500
       batch_size: 32
-      device: 'cpu'
+      device: 'cuda'
       double: False
       distributional: True
       dueling: False

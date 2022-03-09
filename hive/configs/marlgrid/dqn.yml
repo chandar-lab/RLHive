@@ -59,7 +59,7 @@ agents:
           steps: 10000
       min_replay_history: 500
       batch_size: 128
-      device: 'cpu'
+      device: 'cuda'
       log_frequency: 100
   -
     name: 'DQNAgent'
@@ -96,7 +96,7 @@ agents:
           steps: 10000
       min_replay_history: 500
       batch_size: 128
-      device: 'cpu'
+      device: 'cuda'
       log_frequency: 100
 
 # List of logger configs used.
