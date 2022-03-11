@@ -20,10 +20,11 @@ from hive.utils.schedule import (
     Schedule,
     SwitchSchedule,
 )
+from hive.agents.dqn import DQNAgent
 from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder
 
 
-class DQNAgent(Agent):
+class DRQNAgent(DQNAgent):
     """An agent implementing the DQN algorithm. Uses an epsilon greedy
     exploration policy
     """
@@ -101,47 +102,31 @@ class DQNAgent(Agent):
             logger (ScheduledLogger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
         """
-        super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
-        self._init_fn = create_init_weights_fn(init_fn)
-        self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
-        self.create_q_networks(representation_net)
-        if optimizer_fn is None:
-            optimizer_fn = torch.optim.Adam
-        self._optimizer = optimizer_fn(self._qnet.parameters())
-        self._rng = np.random.default_rng(seed=seeder.get_new_seed())
-        self._replay_buffer = replay_buffer
-        if self._replay_buffer is None:
-            self._replay_buffer = CircularReplayBuffer()
-        self._discount_rate = discount_rate**n_step
-        self._grad_clip = grad_clip
-        self._reward_clip = reward_clip
-        self._target_net_soft_update = target_net_soft_update
-        self._target_net_update_fraction = target_net_update_fraction
-        if loss_fn is None:
-            loss_fn = torch.nn.SmoothL1Loss
-        self._loss_fn = loss_fn(reduction="none")
-        self._batch_size = batch_size
-        self._logger = logger
-        if self._logger is None:
-            self._logger = NullLogger([])
-        self._timescale = self.id
-        self._logger.register_timescale(
-            self._timescale, PeriodicSchedule(False, True, log_frequency)
+        super().__init__(
+            representation_net=representation_net,
+            obs_dim=obs_dim,
+            act_dim=act_dim,
+            id=0,
+            optimizer_fn=optimizer_fn,
+            loss_fn=loss_fn,
+            init_fn=init_fn,
+            replay_buffer=replay_buffer,
+            discount_rate=discount_rate,
+            n_step=n_step,
+            grad_clip=grad_clip,
+            reward_clip=reward_clip,
+            update_period_schedule=update_period_schedule,
+            target_net_soft_update=target_net_soft_update,
+            target_net_update_fraction=target_net_update_fraction,
+            target_net_update_schedule=target_net_update_schedule,
+            epsilon_schedule=epsilon_schedule,
+            test_epsilon=test_epsilon,
+            min_replay_history=min_replay_history,
+            batch_size=batch_size,
+            device=device,
+            logger=logger,
+            log_frequency=log_frequency,
         )
-        self._update_period_schedule = update_period_schedule
-        if self._update_period_schedule is None:
-            self._update_period_schedule = PeriodicSchedule(False, True, 1)
-        self._target_net_update_schedule = target_net_update_schedule
-        if self._target_net_update_schedule is None:
-            self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
-        self._epsilon_schedule = epsilon_schedule
-        if self._epsilon_schedule is None:
-            self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
-        self._test_epsilon = test_epsilon
-        self._learn_schedule = SwitchSchedule(False, True, min_replay_history)
-
-        self._state = {"episode_start": True}
-        self._training = False
 
     def create_q_networks(self, representation_net):
         """Creates the Q-network and target Q-network.
@@ -153,23 +138,11 @@ class DQNAgent(Agent):
         """
         network = representation_net(self._obs_dim)
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
-        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(
-            self._device
-        )
+        self._qnet = DQNNetwork(
+            network, network_output_dim, self._act_dim, use_rnn=True
+        ).to(self._device)
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
-
-    def train(self):
-        """Changes the agent to training mode."""
-        super().train()
-        self._qnet.train()
-        self._target_qnet.train()
-
-    def eval(self):
-        """Changes the agent to evaluation mode."""
-        super().eval()
-        self._qnet.eval()
-        self._target_qnet.eval()
 
     def preprocess_update_info(self, update_info):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
@@ -313,48 +286,3 @@ class DQNAgent(Agent):
         # Update target network
         if self._target_net_update_schedule.update():
             self._update_target()
-
-    def _update_target(self):
-        """Update the target network."""
-        if self._target_net_soft_update:
-            target_params = self._target_qnet.state_dict()
-            current_params = self._qnet.state_dict()
-            for key in list(target_params.keys()):
-                target_params[key] = (
-                    1 - self._target_net_update_fraction
-                ) * target_params[
-                    key
-                ] + self._target_net_update_fraction * current_params[
-                    key
-                ]
-            self._target_qnet.load_state_dict(target_params)
-        else:
-            self._target_qnet.load_state_dict(self._qnet.state_dict())
-
-    def save(self, dname):
-        torch.save(
-            {
-                "qnet": self._qnet.state_dict(),
-                "target_qnet": self._target_qnet.state_dict(),
-                "optimizer": self._optimizer.state_dict(),
-                "learn_schedule": self._learn_schedule,
-                "epsilon_schedule": self._epsilon_schedule,
-                "target_net_update_schedule": self._target_net_update_schedule,
-                "rng": self._rng,
-            },
-            os.path.join(dname, "agent.pt"),
-        )
-        replay_dir = os.path.join(dname, "replay")
-        create_folder(replay_dir)
-        self._replay_buffer.save(replay_dir)
-
-    def load(self, dname):
-        checkpoint = torch.load(os.path.join(dname, "agent.pt"))
-        self._qnet.load_state_dict(checkpoint["qnet"])
-        self._target_qnet.load_state_dict(checkpoint["target_qnet"])
-        self._optimizer.load_state_dict(checkpoint["optimizer"])
-        self._learn_schedule = checkpoint["learn_schedule"]
-        self._epsilon_schedule = checkpoint["epsilon_schedule"]
-        self._target_net_update_schedule = checkpoint["target_net_update_schedule"]
-        self._rng = checkpoint["rng"]
-        self._replay_buffer.load(os.path.join(dname, "replay"))

@@ -20,9 +20,13 @@ def calculate_output_dim(net, input_shape):
     """
     if isinstance(input_shape, int):
         input_shape = (input_shape,)
-    placeholder = torch.zeros((0,) + tuple(input_shape))
+    # placeholder = torch.zeros((0,) + tuple(input_shape))
+    placeholder = torch.zeros(tuple(input_shape))
     output = net(placeholder)
-    return output.size()[1:]
+    if isinstance(output, tuple):
+        return output[0].size()[1:]
+    else:
+        return output.size()[1:]
 
 
 def create_init_weights_fn(initialization_fn):
