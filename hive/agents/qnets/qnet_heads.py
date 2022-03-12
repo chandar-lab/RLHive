@@ -15,6 +15,7 @@ class DQNNetwork(nn.Module):
         hidden_dim: int,
         out_dim: int,
         linear_fn: nn.Module = None,
+        use_rnn: bool = False,
     ):
         """
         Args:
@@ -32,9 +33,13 @@ class DQNNetwork(nn.Module):
         self.base_network = base_network
         self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
         self.output_layer = self._linear_fn(hidden_dim, out_dim)
+        self._use_rnn = use_rnn
 
     def forward(self, x):
-        x = self.base_network(x)
+        if self._use_rnn:
+            x, hidden_state = self.base_network(x)
+        else:
+            x = self.base_network(x)
         x = x.flatten(start_dim=1)
         return self.output_layer(x)
 
@@ -52,6 +57,7 @@ class DuelingNetwork(nn.Module):
         out_dim: int,
         linear_fn: nn.Module = None,
         atoms: int = 1,
+        use_rnn: bool = False,
     ):
         """
         Args:
@@ -75,6 +81,7 @@ class DuelingNetwork(nn.Module):
         self._atoms = atoms
         self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
         self.init_networks()
+        self._use_rnn = use_rnn
 
     def init_networks(self):
         self.output_layer_adv = self._linear_fn(
@@ -84,7 +91,10 @@ class DuelingNetwork(nn.Module):
         self.output_layer_val = self._linear_fn(self._hidden_dim, 1 * self._atoms)
 
     def forward(self, x):
-        x = self.base_network(x)
+        if self._use_rnn:
+            x, hidden_state = self.base_network(x)
+        else:
+            x = self.base_network(x)
         x = x.flatten(start_dim=1)
         adv = self.output_layer_adv(x)
         val = self.output_layer_val(x)
@@ -111,6 +121,7 @@ class DistributionalNetwork(nn.Module):
         vmin: float = 0,
         vmax: float = 200,
         atoms: int = 51,
+        use_rnn: bool = False,
     ):
         """
         Args:
@@ -131,6 +142,7 @@ class DistributionalNetwork(nn.Module):
         self._supports = torch.nn.Parameter(torch.linspace(vmin, vmax, atoms))
         self._out_dim = out_dim
         self._atoms = atoms
+        self._use_rnn = use_rnn
 
     def forward(self, x):
         x = self.dist(x)
@@ -139,7 +151,10 @@ class DistributionalNetwork(nn.Module):
 
     def dist(self, x):
         """Computes a categorical distribution over values for each action."""
-        x = self.base_network(x)
+        if self._use_rnn:
+            x, hidden_state = self.base_network(x)
+        else:
+            x = self.base_network(x)
         x = x.view(-1, self._out_dim, self._atoms)
         x = F.softmax(x, dim=-1)
         return x

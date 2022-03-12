@@ -160,7 +160,7 @@ class SumTree:
     def __init__(self, capacity: int):
         self._capacity = capacity
         self._depth = int(np.ceil(np.log2(capacity))) + 1
-        self._tree = np.zeros(2 ** self._depth - 1)
+        self._tree = np.zeros(2**self._depth - 1)
         self._last_level_start = 2 ** (self._depth - 1) - 1
         self._priorities = self._tree[
             self._last_level_start : self._last_level_start + self._capacity
