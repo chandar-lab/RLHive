@@ -6,7 +6,7 @@ import torch
 
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
-from hive.agents.qnets.qnet_heads import DQNNetwork
+from hive.agents.qnets.qnet_heads import DRQNNetwork
 from hive.agents.qnets.utils import (
     InitializationFn,
     calculate_output_dim,
@@ -137,10 +137,14 @@ class DRQNAgent(DQNAgent):
                 of the DQN).
         """
         network = representation_net(self._obs_dim)
+        self._hidden_state = (
+            torch.zeros((network.lstm.num_layers, 1, network.lstm.hidden_size)).float(),
+            torch.zeros((network.lstm.num_layers, 1, network.lstm.hidden_size)).float(),
+        )
         network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
-        self._qnet = DQNNetwork(
-            network, network_output_dim, self._act_dim, use_rnn=True
-        ).to(self._device)
+        self._qnet = DRQNNetwork(network, network_output_dim, self._act_dim).to(
+            self._device
+        )
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
@@ -208,7 +212,7 @@ class DRQNAgent(DQNAgent):
         observation = torch.tensor(
             np.expand_dims(observation, axis=0), device=self._device
         ).float()
-        qvals = self._qnet(observation)
+        qvals, self._hidden_state = self._qnet(observation, self._hidden_state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
         else:
@@ -257,15 +261,29 @@ class DRQNAgent(DQNAgent):
                 batch,
             ) = self.preprocess_update_batch(batch)
 
+            hidden_state = self._qnet.base_network.init_hidden(
+                batch_size=self._batch_size
+            )
+            target_hidden_state = self._target_qnet.base_network.init_hidden(
+                batch_size=self._batch_size
+            )
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(*current_state_inputs)
+            pred_qvals, hidden_state = self._qnet(*current_state_inputs, hidden_state)
+            pred_qvals = pred_qvals.view(
+                self._batch_size, self._replay_buffer._max_seq_len, -1
+            )
             actions = batch["action"].long()
-            pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
+            pred_qvals = torch.gather(pred_qvals, -1, actions.unsqueeze(-1)).squeeze(-1)
 
             # Compute 1-step Q targets
-            next_qvals = self._target_qnet(*next_state_inputs)
-            next_qvals, _ = torch.max(next_qvals, dim=1)
+            next_qvals, target_hidden_state = self._target_qnet(
+                *next_state_inputs, target_hidden_state
+            )
+            next_qvals = next_qvals.view(
+                self._batch_size, self._replay_buffer._max_seq_len, -1
+            )
+            next_qvals, _ = torch.max(next_qvals, dim=-1)
 
             q_targets = batch["reward"] + self._discount_rate * next_qvals * (
                 1 - batch["done"]
