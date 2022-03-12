@@ -15,7 +15,6 @@ class DQNNetwork(nn.Module):
         hidden_dim: int,
         out_dim: int,
         linear_fn: nn.Module = None,
-        use_rnn: bool = False,
     ):
         """
         Args:
@@ -33,15 +32,48 @@ class DQNNetwork(nn.Module):
         self.base_network = base_network
         self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
         self.output_layer = self._linear_fn(hidden_dim, out_dim)
-        self._use_rnn = use_rnn
 
     def forward(self, x):
-        if self._use_rnn:
-            x, hidden_state = self.base_network(x)
-        else:
-            x = self.base_network(x)
+        x = self.base_network(x)
         x = x.flatten(start_dim=1)
         return self.output_layer(x)
+
+
+class DRQNNetwork(nn.Module):
+    """Implements the standard DQN value computation. Transforms output from
+    :obj:`base_network` with output dimension :obj:`hidden_dim` to dimension
+    :obj:`out_dim`, which should be equal to the number of actions.
+    """
+
+    def __init__(
+        self,
+        base_network: nn.Module,
+        hidden_dim: int,
+        out_dim: int,
+        linear_fn: nn.Module = None,
+    ):
+        """
+        Args:
+            base_network (torch.nn.Module): Backbone network that computes the
+                representations that are used to compute action values.
+            hidden_dim (int): Dimension of the output of the :obj:`network`.
+            out_dim (int): Output dimension of the DQN. Should be equal to the
+                number of actions that you are computing values for.
+            linear_fn (torch.nn.Module): Function that will create the
+                :py:class:`torch.nn.Module` that will take the output of
+                :obj:`network` and produce the final action values. If
+                :obj:`None`, a :py:class:`torch.nn.Linear` layer will be used.
+        """
+        super().__init__()
+        self.base_network = base_network
+        self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
+        self.output_layer = self._linear_fn(hidden_dim, out_dim)
+
+    def forward(self, x, hidden_state=None):
+        x, hidden_state = self.base_network(x, hidden_state)
+
+        x = x.flatten(start_dim=1)
+        return self.output_layer(x), hidden_state
 
 
 class DuelingNetwork(nn.Module):
@@ -57,7 +89,6 @@ class DuelingNetwork(nn.Module):
         out_dim: int,
         linear_fn: nn.Module = None,
         atoms: int = 1,
-        use_rnn: bool = False,
     ):
         """
         Args:
@@ -81,7 +112,6 @@ class DuelingNetwork(nn.Module):
         self._atoms = atoms
         self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
         self.init_networks()
-        self._use_rnn = use_rnn
 
     def init_networks(self):
         self.output_layer_adv = self._linear_fn(
@@ -91,10 +121,7 @@ class DuelingNetwork(nn.Module):
         self.output_layer_val = self._linear_fn(self._hidden_dim, 1 * self._atoms)
 
     def forward(self, x):
-        if self._use_rnn:
-            x, hidden_state = self.base_network(x)
-        else:
-            x = self.base_network(x)
+        x = self.base_network(x)
         x = x.flatten(start_dim=1)
         adv = self.output_layer_adv(x)
         val = self.output_layer_val(x)
@@ -121,7 +148,6 @@ class DistributionalNetwork(nn.Module):
         vmin: float = 0,
         vmax: float = 200,
         atoms: int = 51,
-        use_rnn: bool = False,
     ):
         """
         Args:
@@ -142,7 +168,6 @@ class DistributionalNetwork(nn.Module):
         self._supports = torch.nn.Parameter(torch.linspace(vmin, vmax, atoms))
         self._out_dim = out_dim
         self._atoms = atoms
-        self._use_rnn = use_rnn
 
     def forward(self, x):
         x = self.dist(x)
@@ -151,10 +176,7 @@ class DistributionalNetwork(nn.Module):
 
     def dist(self, x):
         """Computes a categorical distribution over values for each action."""
-        if self._use_rnn:
-            x, hidden_state = self.base_network(x)
-        else:
-            x = self.base_network(x)
+        x = self.base_network(x)
         x = x.view(-1, self._out_dim, self._atoms)
         x = F.softmax(x, dim=-1)
         return x

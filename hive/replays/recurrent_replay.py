@@ -9,6 +9,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
     """
     First implementation of recurrent buffer without storing hidden states
     """
+
     def __init__(
         self,
         capacity: int = 10000,
@@ -121,7 +122,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         """
         full_indices = np.indices((indices.shape[0], num_to_access))[1]
         full_indices = (full_indices + np.expand_dims(indices, axis=1)) % (
-                self.size() + self._max_seq_len + self._n_step - 1
+            self.size() + self._max_seq_len + self._n_step - 1
         )
         elements = array[full_indices]
         elements = elements.reshape(indices.shape[0], -1, *elements.shape[3:])
@@ -142,7 +143,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         elif num_to_access == 1:
             return self._storage[key][
                 indices % (self.size() + self._max_seq_len + self._n_step - 1)
-                ]
+            ]
         else:
             return self._get_from_array(
                 self._storage[key], indices, num_to_access=num_to_access
@@ -153,8 +154,8 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         indices = np.array([], dtype=np.int32)
         while len(indices) < batch_size:
             start_index = (
-                    self._rng.integers(self.size(), size=batch_size - len(indices))
-                    + self._cursor
+                self._rng.integers(self.size(), size=batch_size - len(indices))
+                + self._cursor
             )
             start_index = self._filter_transitions(start_index)
             indices = np.concatenate([indices, start_index])
@@ -185,7 +186,11 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         indices = self._sample_indices(batch_size)
         batch = {}
         batch["indices"] = indices
-        terminals = self._get_from_storage("done", indices, self._n_step)
+        terminals = self._get_from_storage(
+            "done",
+            indices - self._max_seq_len + 1,
+            num_to_access=self._max_seq_len + self._n_step - 1,
+        )
 
         if self._n_step == 1:
             is_terminal = terminals
@@ -193,8 +198,8 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         else:
             is_terminal = terminals.any(axis=1).astype(int)
             trajectory_lengths = (
-                                         np.argmax(terminals.astype(bool), axis=1) + 1
-                                 ) * is_terminal + self._n_step * (1 - is_terminal)
+                np.argmax(terminals.astype(bool), axis=1) + 1
+            ) * is_terminal + self._n_step * (1 - is_terminal)
         trajectory_lengths = trajectory_lengths.astype(np.int64)
 
         for key in self._specs:
@@ -213,8 +218,11 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
             elif key == "done":
                 batch["done"] = is_terminal
             elif key == "reward":
-                rewards = self._get_from_storage("reward", indices - self._max_seq_len + 1,
-                    num_to_access=self._max_seq_len + self._n_step - 1)
+                rewards = self._get_from_storage(
+                    "reward",
+                    indices - self._max_seq_len + 1,
+                    num_to_access=self._max_seq_len + self._n_step - 1,
+                )
                 if self._max_seq_len + self._n_step - 1 == 1:
                     rewards = np.expand_dims(rewards, 1)
                 rewards = rewards * np.expand_dims(self._discount, axis=0)
@@ -233,5 +241,3 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
             num_to_access=self._max_seq_len,
         )
         return batch
-
-

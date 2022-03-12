@@ -72,10 +72,10 @@ agent:
 loggers:
   -
     name: ChompLogger
-#  -
-#    name: WandbLogger
-#    kwargs:
-#      project: Hive
-#      name: *run_name
-#      resume: "allow"
-#      start_method: "fork"
+  -
+    name: WandbLogger
+    kwargs:
+      project: Hive
+      name: *run_name
+      resume: "allow"
+      start_method: "fork"
