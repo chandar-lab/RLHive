@@ -134,14 +134,14 @@ class ConvRNNNetwork(nn.Module):
         x = self.mlp(x.reshape((B * L, -1)))
         return x, hidden_state
 
-    def init_hidden(self, batch_size):
+    def init_hidden(self, batch_size, device):
         hidden_state = (
-            torch.zeros(
-                (self._num_lstm_layers, batch_size, self._lstm_hidden_size)
-            ).float(),
-            torch.zeros(
-                (self._num_lstm_layers, batch_size, self._lstm_hidden_size)
-            ).float(),
+            torch.zeros((self._num_lstm_layers, batch_size, self._lstm_hidden_size))
+            .float()
+            .to(device),
+            torch.zeros((self._num_lstm_layers, batch_size, self._lstm_hidden_size))
+            .float()
+            .to(device),
         )
 
         return hidden_state
