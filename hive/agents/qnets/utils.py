@@ -6,7 +6,7 @@ from hive.utils.registry import registry
 from hive.utils.utils import Registrable
 
 
-def calculate_output_dim(net, input_shape):
+def calculate_output_dim(net, input_shape, device="cpu"):
     """Calculates the resulting output shape for a given input shape and network.
 
     Args:
@@ -20,7 +20,7 @@ def calculate_output_dim(net, input_shape):
     """
     if isinstance(input_shape, int):
         input_shape = (input_shape,)
-    placeholder = torch.zeros((1,) + tuple(input_shape))
+    placeholder = torch.zeros((1,) + tuple(input_shape)).to(device)
     output = net(placeholder)
     if isinstance(output, tuple):
         return output[0].size()[1:]

@@ -138,10 +138,16 @@ class DRQNAgent(DQNAgent):
         """
         network = representation_net(self._obs_dim)
         self._hidden_state = (
-            torch.zeros((network.lstm.num_layers, 1, network.lstm.hidden_size)).float(),
-            torch.zeros((network.lstm.num_layers, 1, network.lstm.hidden_size)).float(),
+            torch.zeros((network.lstm.num_layers, 1, network.lstm.hidden_size))
+            .float()
+            .to(self._device),
+            torch.zeros((network.lstm.num_layers, 1, network.lstm.hidden_size))
+            .float()
+            .to(self._device),
         )
-        network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
+        network_output_dim = np.prod(
+            calculate_output_dim(network, self._obs_dim, self._device)
+        )
         self._qnet = DRQNNetwork(network, network_output_dim, self._act_dim).to(
             self._device
         )
@@ -262,10 +268,10 @@ class DRQNAgent(DQNAgent):
             ) = self.preprocess_update_batch(batch)
 
             hidden_state = self._qnet.base_network.init_hidden(
-                batch_size=self._batch_size
+                batch_size=self._batch_size, device=self._device
             )
             target_hidden_state = self._target_qnet.base_network.init_hidden(
-                batch_size=self._batch_size
+                batch_size=self._batch_size, device=self._device
             )
             # Compute predicted Q values
             self._optimizer.zero_grad()
