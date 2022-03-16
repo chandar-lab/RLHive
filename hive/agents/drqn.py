@@ -136,15 +136,8 @@ class DRQNAgent(DQNAgent):
                 be used to compute Q-values (e.g. everything except the final layer
                 of the DQN).
         """
-        network = representation_net(self._obs_dim)
-        self._hidden_state = (
-            torch.zeros((network.lstm.num_layers, 1, network.lstm.hidden_size))
-            .float()
-            .to(self._device),
-            torch.zeros((network.lstm.num_layers, 1, network.lstm.hidden_size))
-            .float()
-            .to(self._device),
-        )
+        network = representation_net(self._obs_dim, device=self._device)
+        self._hidden_state = network.init_hidden(batch_size=1, device=self._device)
         network_output_dim = np.prod(
             calculate_output_dim(network, self._obs_dim, self._device)
         )
