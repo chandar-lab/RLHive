@@ -33,6 +33,7 @@ class ConvRNNNetwork(nn.Module):
         num_lstm_layers=1,
         noisy=False,
         std_init=0.5,
+        device='cpu',
     ):
         """
         Args:
@@ -58,6 +59,7 @@ class ConvRNNNetwork(nn.Module):
         self._lstm_hidden_size = lstm_hidden_size
         self._num_lstm_layers = num_lstm_layers
         self._normalization_factor = normalization_factor
+        self._device = device
         if channels is not None:
             if isinstance(kernel_sizes, int):
                 kernel_sizes = [kernel_sizes] * len(channels)
@@ -108,40 +110,32 @@ class ConvRNNNetwork(nn.Module):
             self.mlp = nn.Identity()
 
     def forward(self, x, hidden_state=None):
-        if len(x.shape) == 3:
-            B, L, _ = x.size()
-            x = x.unsqueeze(0)
+        if len(x.shape) == 4:
+            # Act. Sequence length is 1.
+            B, C, H, W = x.size()
+            L = 1
         elif len(x.shape) == 5:
-            # x = x.reshape(x.size(0), -1, x.size(-2), x.size(-1))
-            B, L, _, _, _ = x.size()
-            x = x.reshape(B * L, -1, x.size(-2), x.size(-1))
-        elif len(x.shape) == 4:
-            B = x.size(0)
-            L = x.size(1)
-            x = x.reshape(B * L, -1, x.size(-2), x.size(-1))
+            # Update. Sequence length pre-defined.
+            B, L, C, H, W = x.size()
+        x = x.reshape(B * L, C, H, W)
+
         x = x.float()
         x = x / self._normalization_factor
         x = self.conv(x)
 
-        x = x.view(B, L, x.size(-3), x.size(-2), x.size(-1))
+        _, C, H, W = x.size()
+        x = x.view(B, L, C, H, W)
         if hidden_state is None:
-            hidden_state = (
-                torch.zeros((self._num_lstm_layers, B, self._lstm_hidden_size)).float(),
-                torch.zeros((self._num_lstm_layers, B, self._lstm_hidden_size)).float(),
-            )
-        x = torch.flatten(x, start_dim=2, end_dim=-1)
+            hidden_state = self.init_hidden(B, self._device)
+        x = torch.flatten(x, start_dim=2, end_dim=-1)   # (B, L, -1)
         x, hidden_state = self.lstm(x, hidden_state)
         x = self.mlp(x.reshape((B * L, -1)))
         return x, hidden_state
 
-    def init_hidden(self, batch_size, device):
+    def init_hidden(self, batch_size, device='cpu'):
         hidden_state = (
-            torch.zeros((self._num_lstm_layers, batch_size, self._lstm_hidden_size))
-            .float()
-            .to(device),
-            torch.zeros((self._num_lstm_layers, batch_size, self._lstm_hidden_size))
-            .float()
-            .to(device),
+            torch.zeros((self._num_lstm_layers, batch_size, self._lstm_hidden_size), dtype=torch.float32, device=device),
+            torch.zeros((self._num_lstm_layers, batch_size, self._lstm_hidden_size), dtype=torch.float32, device=device),
         )
 
         return hidden_state
