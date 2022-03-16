@@ -33,7 +33,7 @@ class ConvRNNNetwork(nn.Module):
         num_lstm_layers=1,
         noisy=False,
         std_init=0.5,
-        device='cpu',
+        device="cpu",
     ):
         """
         Args:
@@ -127,15 +127,23 @@ class ConvRNNNetwork(nn.Module):
         x = x.view(B, L, C, H, W)
         if hidden_state is None:
             hidden_state = self.init_hidden(B, self._device)
-        x = torch.flatten(x, start_dim=2, end_dim=-1)   # (B, L, -1)
+        x = torch.flatten(x, start_dim=2, end_dim=-1)  # (B, L, -1)
         x, hidden_state = self.lstm(x, hidden_state)
         x = self.mlp(x.reshape((B * L, -1)))
         return x, hidden_state
 
-    def init_hidden(self, batch_size, device='cpu'):
+    def init_hidden(self, batch_size, device="cpu"):
         hidden_state = (
-            torch.zeros((self._num_lstm_layers, batch_size, self._lstm_hidden_size), dtype=torch.float32, device=device),
-            torch.zeros((self._num_lstm_layers, batch_size, self._lstm_hidden_size), dtype=torch.float32, device=device),
+            torch.zeros(
+                (self._num_lstm_layers, batch_size, self._lstm_hidden_size),
+                dtype=torch.float32,
+                device=device,
+            ),
+            torch.zeros(
+                (self._num_lstm_layers, batch_size, self._lstm_hidden_size),
+                dtype=torch.float32,
+                device=device,
+            ),
         )
 
         return hidden_state
