@@ -200,7 +200,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
             trajectory_lengths = (
                 np.argmax(terminals.astype(bool), axis=1) + 1
             ) * is_terminal + self._n_step * (1 - is_terminal)
-            is_terminal = terminals[:,1:self._n_step-1]
+            is_terminal = terminals[:, 1 : self._n_step - 1]
         trajectory_lengths = trajectory_lengths.astype(np.int64)
 
         for key in self._specs:
@@ -226,17 +226,18 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                 )
                 if self._max_seq_len + self._n_step - 1 == 1:
                     rewards = np.expand_dims(rewards, 1)
-                
 
                 if self._n_step == 1:
                     rewards = rewards * np.expand_dims(self._discount, axis=0)
-                
+
                 if self._n_step > 1:
-                    idx = np.arange(rewards.shape[1]-self._n_step+1)[:,None] + np.arange(self._n_step)
-                    disc_rewards = np.einsum("ijk,k->ij",rewards[:,idx],self._discount)
+                    idx = np.arange(rewards.shape[1] - self._n_step + 1)[
+                        :, None
+                    ] + np.arange(self._n_step)
+                    disc_rewards = np.einsum(
+                        "ijk,k->ij", rewards[:, idx], self._discount
+                    )
                     rewards = disc_rewards
-
-
 
                 # Mask out rewards past trajectory length
                 # mask = np.expand_dims(trajectory_lengths, 1) > np.arange(self._n_step)
