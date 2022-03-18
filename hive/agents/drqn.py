@@ -136,7 +136,9 @@ class DRQNAgent(DQNAgent):
                 be used to compute Q-values (e.g. everything except the final layer
                 of the DQN).
         """
-        network = representation_net(self._obs_dim, device=self._device)
+        network = representation_net(self._obs_dim, device=self._device).to(
+            self._device
+        )
         self._hidden_state = network.init_hidden(batch_size=1, device=self._device)
         network_output_dim = np.prod(
             calculate_output_dim(network, self._obs_dim, self._device)
@@ -144,6 +146,7 @@ class DRQNAgent(DQNAgent):
         self._qnet = DRQNNetwork(network, network_output_dim, self._act_dim).to(
             self._device
         )
+
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 

@@ -71,6 +71,13 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         )
         self._max_seq_len = max_seq_len
 
+    def size(self):
+        """Returns the number of transitions stored in the buffer."""
+        return max(
+            min(self._num_added, self._capacity) - self._max_seq_len - self._n_step + 1,
+            0,
+        )
+
     def add(self, observation, action, reward, done, **kwargs):
         """Adds a transition to the buffer.
         The required components of a transition are given as positional arguments. The
