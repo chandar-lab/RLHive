@@ -33,7 +33,6 @@ class ConvRNNNetwork(nn.Module):
         num_lstm_layers=1,
         noisy=False,
         std_init=0.5,
-        device="cpu",
     ):
         """
         Args:
@@ -59,7 +58,6 @@ class ConvRNNNetwork(nn.Module):
         self._lstm_hidden_size = lstm_hidden_size
         self._num_lstm_layers = num_lstm_layers
         self._normalization_factor = normalization_factor
-        self._device = device
         if channels is not None:
             if isinstance(kernel_sizes, int):
                 kernel_sizes = [kernel_sizes] * len(channels)
@@ -102,7 +100,6 @@ class ConvRNNNetwork(nn.Module):
 
         if mlp_layers is not None:
             # MLP Layers
-            # conv_output_size = calculate_output_dim(self.conv, in_dim)
             self.mlp = MLPNetwork(
                 lstm_hidden_size, mlp_layers, noisy=noisy, std_init=std_init
             )
