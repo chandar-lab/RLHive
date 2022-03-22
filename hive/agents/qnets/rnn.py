@@ -126,7 +126,7 @@ class ConvRNNNetwork(nn.Module):
         _, C, H, W = x.size()
         x = x.view(B, L, C, H, W)
         if hidden_state is None:
-            hidden_state = self.init_hidden(B, self._device)
+            hidden_state = self.init_hidden(B)
         x = torch.flatten(x, start_dim=2, end_dim=-1)  # (B, L, -1)
         x, hidden_state = self.lstm(x, hidden_state)
         x = self.mlp(x.reshape((B * L, -1)))
