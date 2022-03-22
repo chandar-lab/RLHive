@@ -6,7 +6,7 @@ from hive.utils.registry import registry
 from hive.utils.utils import Registrable
 
 
-def calculate_output_dim(net, input_shape, device="cpu"):
+def calculate_output_dim(net, input_shape):
     """Calculates the resulting output shape for a given input shape and network.
 
     Args:

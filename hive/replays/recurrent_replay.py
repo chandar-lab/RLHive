@@ -241,14 +241,13 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                     idx = np.arange(rewards.shape[1] - self._n_step + 1)[
                         :, None
                     ] + np.arange(self._n_step)
+
+                    # Creating a vectorized sliding window to calculate discounted returns for every element in the sequence
                     disc_rewards = np.einsum(
                         "ijk,k->ij", rewards[:, idx], self._discount
                     )
                     rewards = disc_rewards
 
-                # Mask out rewards past trajectory length
-                # mask = np.expand_dims(trajectory_lengths, 1) > np.arange(self._n_step)
-                # rewards = np.sum(rewards * mask, axis=1)
                 batch["reward"] = rewards
             else:
                 batch[key] = self._get_from_storage(key, indices)

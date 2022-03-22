@@ -25,7 +25,7 @@ from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder
 
 
 class DRQNAgent(DQNAgent):
-    """An agent implementing the DQN algorithm. Uses an epsilon greedy
+    """An agent implementing the DRQN algorithm. Uses an epsilon greedy
     exploration policy
     """
 
@@ -59,7 +59,7 @@ class DRQNAgent(DQNAgent):
         Args:
             representation_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute Q-values (e.g.
-                everything except the final layer of the DQN).
+                everything except the final layer of the DRQN).
             obs_dim: The shape of the observations.
             act_dim (int): The number of actions available to the agent.
             id: Agent identifier.
@@ -136,10 +136,8 @@ class DRQNAgent(DQNAgent):
                 be used to compute Q-values (e.g. everything except the final layer
                 of the DQN).
         """
-        network = representation_net(self._obs_dim, device=self._device)
-        network_output_dim = np.prod(
-            calculate_output_dim(network, self._obs_dim, self._device)
-        )
+        network = representation_net(self._obs_dim)
+        network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
         self._qnet = DRQNNetwork(network, network_output_dim, self._act_dim).to(
             self._device
         )
@@ -239,6 +237,9 @@ class DRQNAgent(DQNAgent):
         """
         if update_info["done"]:
             self._state["episode_start"] = True
+            self._hidden_state = self._qnet.base_network.init_hidden(
+                batch_size=1, device=self._device
+            )
 
         if not self._training:
             return

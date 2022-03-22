@@ -40,7 +40,7 @@ class DQNNetwork(nn.Module):
 
 
 class DRQNNetwork(nn.Module):
-    """Implements the standard DQN value computation. Transforms output from
+    """Implements the standard DRQN value computation. Transforms output from
     :obj:`base_network` with output dimension :obj:`hidden_dim` to dimension
     :obj:`out_dim`, which should be equal to the number of actions.
     """
@@ -57,7 +57,7 @@ class DRQNNetwork(nn.Module):
             base_network (torch.nn.Module): Backbone network that computes the
                 representations that are used to compute action values.
             hidden_dim (int): Dimension of the output of the :obj:`network`.
-            out_dim (int): Output dimension of the DQN. Should be equal to the
+            out_dim (int): Output dimension of the DRQN. Should be equal to the
                 number of actions that you are computing values for.
             linear_fn (torch.nn.Module): Function that will create the
                 :py:class:`torch.nn.Module` that will take the output of
