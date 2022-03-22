@@ -20,7 +20,7 @@ def calculate_output_dim(net, input_shape, device="cpu"):
     """
     if isinstance(input_shape, int):
         input_shape = (input_shape,)
-    placeholder = torch.zeros((1,) + tuple(input_shape)).to(device)
+    placeholder = torch.zeros((1,) + tuple(input_shape))
     output = net(placeholder)
     if isinstance(output, tuple):
         return output[0].size()[1:]
