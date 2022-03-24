@@ -29,6 +29,7 @@ class RainbowDQNAgent(DQNAgent):
         representation_net: FunctionApproximator,
         obs_dim: Tuple,
         act_dim: int,
+        stack_size: int = 1,
         optimizer_fn: OptimizerFn = None,
         loss_fn: LossFn = None,
         init_fn: InitializationFn = None,
@@ -66,6 +67,8 @@ class RainbowDQNAgent(DQNAgent):
                 everything except the final layer of the DQN).
             obs_dim: The shape of the observations.
             act_dim (int): The number of actions available to the agent.
+            stack_size: Number of observations stacked to create the state fed to the
+                DQN.
             id: Agent identifier.
             optimizer_fn (OptimizerFn): A function that takes in a list of parameters
                 to optimize and returns the optimizer. If None, defaults to
@@ -134,12 +137,13 @@ class RainbowDQNAgent(DQNAgent):
             loss_fn = torch.nn.MSELoss
 
         if replay_buffer is None:
-            replay_buffer = PrioritizedReplayBuffer(seed=seeder.get_new_seed())
+            replay_buffer = PrioritizedReplayBuffer
 
         super().__init__(
             representation_net,
             obs_dim,
             act_dim,
+            stack_size=stack_size,
             optimizer_fn=optimizer_fn,
             init_fn=init_fn,
             loss_fn=loss_fn,
