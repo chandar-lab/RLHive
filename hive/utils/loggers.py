@@ -382,7 +382,7 @@ class CompositeLogger(Logger):
 
     def __init__(self, logger_list: List[Logger]):
         super().__init__([])
-        self._logger_list = logger_list
+        self._logger_list = [logger() for logger in logger_list]
 
     def register_timescale(self, timescale, schedule=None):
         for logger in self._logger_list:

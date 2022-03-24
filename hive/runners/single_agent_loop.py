@@ -126,12 +126,14 @@ def set_up_experiment(config):
     )
     config.update(args)
     full_config = utils.Chomp(copy.deepcopy(config))
+
     if "seed" in config:
         utils.seeder.set_global_seed(config["seed"])
 
     environment, full_config["environment"] = envs.get_env(
         config["environment"], "environment"
     )
+    environment = environment()
     env_spec = environment.env_spec
 
     # Set up loggers
@@ -145,28 +147,22 @@ def set_up_experiment(config):
         }
 
     logger, full_config["loggers"] = loggers.get_logger(logger_config, "loggers")
+    logger = logger()
 
-    # Set up agent
-    if config.get("stack_size", 1) > 1:
-        config["agent"]["kwargs"]["obs_dim"] = (
-            config["stack_size"] * env_spec.obs_dim[0][0],
-            *env_spec.obs_dim[0][1:],
-        )
-    else:
-        config["agent"]["kwargs"]["obs_dim"] = env_spec.obs_dim[0]
-    config["agent"]["kwargs"]["act_dim"] = env_spec.act_dim[0]
-    config["agent"]["kwargs"]["logger"] = logger
-    if "replay_buffer" in config["agent"]["kwargs"]:
-        replay_args = config["agent"]["kwargs"]["replay_buffer"]["kwargs"]
-        replay_args["observation_shape"] = env_spec.obs_dim[0]
     agent, full_config["agent"] = agent_lib.get_agent(config["agent"], "agent")
+    agent = agent(
+        obs_dim=env_spec.obs_dim[0],
+        act_dim=env_spec.act_dim[0],
+        stack_size=config.get("stack_size", 1),
+        logger=logger,
+    )
 
     # Set up experiment manager
     saving_schedule, full_config["saving_schedule"] = schedule.get_schedule(
         config["saving_schedule"], "saving_schedule"
     )
     experiment_manager = experiment.Experiment(
-        config["run_name"], config["save_dir"], saving_schedule
+        config["run_name"], config["save_dir"], saving_schedule()
     )
     experiment_manager.register_experiment(
         config=full_config,

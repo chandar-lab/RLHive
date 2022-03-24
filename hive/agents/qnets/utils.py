@@ -3,7 +3,7 @@ import math
 import torch
 
 from hive.utils.registry import registry
-from hive.utils.utils import CallableType
+from hive.utils.utils import Registrable
 
 
 def calculate_output_dim(net, input_shape):
@@ -102,7 +102,7 @@ def variance_scaling_(tensor, scale=1.0, mode="fan_in", distribution="uniform"):
         raise ValueError(f"Distribution {distribution} not supported")
 
 
-class InitializationFn(CallableType):
+class InitializationFn(Registrable):
     """A wrapper for callables that produce initialization functions.
 
     These wrapped callables can be partially initialized through configuration
@@ -121,20 +121,20 @@ class InitializationFn(CallableType):
 registry.register_all(
     InitializationFn,
     {
-        "uniform": InitializationFn(torch.nn.init.uniform_),
-        "normal": InitializationFn(torch.nn.init.normal_),
-        "constant": InitializationFn(torch.nn.init.constant_),
-        "ones": InitializationFn(torch.nn.init.ones_),
-        "zeros": InitializationFn(torch.nn.init.zeros_),
-        "eye": InitializationFn(torch.nn.init.eye_),
-        "dirac": InitializationFn(torch.nn.init.dirac_),
-        "xavier_uniform": InitializationFn(torch.nn.init.xavier_uniform_),
-        "xavier_normal": InitializationFn(torch.nn.init.xavier_normal_),
-        "kaiming_uniform": InitializationFn(torch.nn.init.kaiming_uniform_),
-        "kaiming_normal": InitializationFn(torch.nn.init.kaiming_normal_),
-        "orthogonal": InitializationFn(torch.nn.init.orthogonal_),
-        "sparse": InitializationFn(torch.nn.init.sparse_),
-        "variance_scaling": InitializationFn(variance_scaling_),
+        "uniform": torch.nn.init.uniform_,
+        "normal": torch.nn.init.normal_,
+        "constant": torch.nn.init.constant_,
+        "ones": torch.nn.init.ones_,
+        "zeros": torch.nn.init.zeros_,
+        "eye": torch.nn.init.eye_,
+        "dirac": torch.nn.init.dirac_,
+        "xavier_uniform": torch.nn.init.xavier_uniform_,
+        "xavier_normal": torch.nn.init.xavier_normal_,
+        "kaiming_uniform": torch.nn.init.kaiming_uniform_,
+        "kaiming_normal": torch.nn.init.kaiming_normal_,
+        "orthogonal": torch.nn.init.orthogonal_,
+        "sparse": torch.nn.init.sparse_,
+        "variance_scaling": variance_scaling_,
     },
 )
 
