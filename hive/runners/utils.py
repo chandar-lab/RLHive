@@ -1,9 +1,7 @@
 import os
 from collections import deque
-import sys
 
 import numpy as np
-from omegaconf import OmegaConf
 import torch
 import yaml
 
@@ -52,63 +50,6 @@ def load_config(
         with open(logger_config) as f:
             yaml_config["loggers"] = yaml.safe_load(f)
     return yaml_config
-
-
-HIVE_OBJECT_KEY = "__HIVE__"
-
-
-def hive(key):
-    return f"{HIVE_OBJECT_KEY}{key}"
-
-
-# For each key, add a kwargs between each parameter
-# For each key, if it is a name key, do nothing
-def update_cli_conf():
-    for idx, arg in enumerate(sys.argv[1:]):
-        parts = arg.split(".")
-        new_arg = [parts[0]]
-        for part in parts[1:]:
-            if not part.startswith("name=${hive:"):
-                new_arg.append("kwargs")
-            new_arg.append(part)
-        sys.argv[idx + 1] = ".".join(new_arg)
-
-
-# Create resolver that adds custom text to name
-# iterate through, if text is there, delete kwargs in corresponding
-# original config
-def merge_configs(original_config, overriding_config):
-
-    pass
-
-
-def load_full_config(
-    config=None,
-    preset_config=None,
-    agent_config=None,
-    env_config=None,
-    logger_config=None,
-):
-
-    if config is not None:
-        full_config = OmegaConf.load(config)
-    else:
-        full_config = OmegaConf.load(
-            os.path.join(PACKAGE_ROOT, "configs", preset_config)
-        )
-    if agent_config is not None:
-        sub_config = OmegaConf.load(agent_config)
-        full_config = merge_configs(full_config, sub_config)
-    if env_config is not None:
-        sub_config = OmegaConf.load(env_config)
-        full_config = merge_configs(full_config, sub_config)
-    if logger_config is not None:
-        sub_config = OmegaConf.load(logger_config)
-        full_config = merge_configs(full_config, sub_config)
-
-    update_cli_conf()
-    sub_config = OmegaConf.from_cli()
-    full_config = merge_configs(full_config, sub_config)
 
 
 class Metrics:
