@@ -25,6 +25,6 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
       - name: Pin version of Click to avoid issues with running Black
-        run: pip install click==8.04
+        run: pip install click==8.0.4
       - name: Black
         uses: psf/black@stable
