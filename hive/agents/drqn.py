@@ -34,7 +34,7 @@ class DRQNAgent(DQNAgent):
         representation_net: FunctionApproximator,
         obs_dim,
         act_dim: int,
-        id:int = 0,
+        id: int = 0,
         optimizer_fn: OptimizerFn = None,
         loss_fn: LossFn = None,
         init_fn: InitializationFn = None,
