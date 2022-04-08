@@ -3,7 +3,6 @@ from torch import nn
 
 from typing import Tuple, Union
 
-from dopamine.discrete_domains import atari_lib
 from flax import linen as nn
 import gin
 import jax
