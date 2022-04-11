@@ -1,7 +1,7 @@
 import argparse
 import inspect
 from copy import deepcopy
-from functools import partial, update_wrapper
+from functools import partial
 from typing import List, Mapping, Sequence, _GenericAlias
 
 import yaml
@@ -19,37 +19,6 @@ class Registrable:
         creating. For example, "logger", "agent", or "env".
         """
         raise ValueError
-
-
-class CallableType(Registrable):
-    """A wrapper that allows any callable to be registered in the RLHive Registry.
-    Specifically, it maps the arguments and annotations of the wrapped function to the
-    resulting callable, allowing any argument names and type annotations of the
-    underlying function to be present for outer wrapper. When called with some
-    arguments, this object returns a partial function with those arguments assigned.
-
-    By default, the type_name is "callable", but if you want to create specific types
-    of callables, you can simply create a subclass and override the type_name method.
-    See :py:class:`hive.utils.utils.OptimizerFn`.
-    """
-
-    def __init__(self, fn):
-        """
-        Args:
-            fn: callable to be wrapped.
-        """
-        self._fn = fn
-        update_wrapper(self, self._fn)
-
-    def __call__(self, *args, **kwargs):
-        return partial(self._fn, *args, **kwargs)
-
-    @classmethod
-    def type_name(cls):
-        return "callable"
-
-    def __repr__(self):
-        return f"<{type(self).__name__} {repr(self._fn)}>"
 
 
 class Registry:
@@ -120,7 +89,7 @@ class Registry:
                         object_class, kwargs, prefix
                     )
                     expanded_config["kwargs"] = kwargs_config
-                    return object_class(**kwargs), expanded_config
+                    return partial(object_class, **kwargs), expanded_config
                 else:
                     raise ValueError(f"{name} class not found")
 

@@ -301,7 +301,7 @@ def test_n_step_buffer(full_n_step_buffer):
         assert batch["observation"][i].shape == OBS_SHAPE
         expected_reward = 0
         for delta_t in range(N_STEP_HORIZON):
-            expected_reward += ((timestep + delta_t) % 10) * (GAMMA ** delta_t)
+            expected_reward += ((timestep + delta_t) % 10) * (GAMMA**delta_t)
             if (timestep + delta_t + 1) % 15 == 0:
                 break
         assert batch["reward"][i] == pytest.approx(expected_reward)

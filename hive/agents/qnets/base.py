@@ -1,7 +1,7 @@
-from hive.utils.registry import CallableType
+from hive.utils.registry import Registrable
 
 
-class FunctionApproximator(CallableType):
+class FunctionApproximator(Registrable):
     """A wrapper for callables that produce function approximators.
 
     For example, :obj:`FunctionApproximator(create_neural_network)` or
