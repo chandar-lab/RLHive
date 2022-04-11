@@ -29,8 +29,9 @@ class ConvRNNNetwork(nn.Module):
         strides=1,
         paddings=0,
         normalization_factor=255,
-        lstm_hidden_size=128,
-        num_lstm_layers=1,
+        rnn_type="lstm",
+        rnn_hidden_size=128,
+        num_rnn_layers=1,
         noisy=False,
         std_init=0.5,
     ):
@@ -55,8 +56,9 @@ class ConvRNNNetwork(nn.Module):
                 :py:class:`~hive.agents.qnets.noisy_linear.NoisyLinear`.
         """
         super().__init__()
-        self._lstm_hidden_size = lstm_hidden_size
-        self._num_lstm_layers = num_lstm_layers
+        self._rnn_type = rnn_type
+        self._rnn_hidden_size = rnn_hidden_size
+        self._num_rnn_layers = num_rnn_layers
         self._normalization_factor = normalization_factor
         if channels is not None:
             if isinstance(kernel_sizes, int):
@@ -91,17 +93,27 @@ class ConvRNNNetwork(nn.Module):
 
         # RNN Layers
         conv_output_size = calculate_output_dim(self.conv, in_dim)
-        self.lstm = nn.LSTM(
-            np.prod(conv_output_size),
-            lstm_hidden_size,
-            num_lstm_layers,
-            batch_first=True,
-        )
+        if self._rnn_type == "lstm":
+            self.rnn = nn.LSTM(
+                np.prod(conv_output_size),
+                rnn_hidden_size,
+                num_rnn_layers,
+                batch_first=True,
+            )
+        elif self._rnn_type == "gru":
+            self.rnn = nn.GRU(
+                np.prod(conv_output_size),
+                rnn_hidden_size,
+                num_rnn_layers,
+                batch_first=True,
+            )
+        else:
+            raise ValueError("Invalid rnn type: {}".format(self._rnn_type))
 
         if mlp_layers is not None:
             # MLP Layers
             self.mlp = MLPNetwork(
-                lstm_hidden_size, mlp_layers, noisy=noisy, std_init=std_init
+                rnn_hidden_size, mlp_layers, noisy=noisy, std_init=std_init
             )
         else:
             self.mlp = nn.Identity()
@@ -125,22 +137,29 @@ class ConvRNNNetwork(nn.Module):
         if hidden_state is None:
             hidden_state = self.init_hidden(B)
         x = torch.flatten(x, start_dim=2, end_dim=-1)  # (B, L, -1)
-        x, hidden_state = self.lstm(x, hidden_state)
+        x, hidden_state = self.rnn(x, hidden_state)
         x = self.mlp(x.reshape((B * L, -1)))
         return x, hidden_state
 
     def init_hidden(self, batch_size, device="cpu"):
-        hidden_state = (
-            torch.zeros(
-                (self._num_lstm_layers, batch_size, self._lstm_hidden_size),
+        if self._rnn_type == "lstm":
+            hidden_state = (
+                torch.zeros(
+                    (self._num_rnn_layers, batch_size, self._rnn_hidden_size),
+                    dtype=torch.float32,
+                    device=device,
+                ),
+                torch.zeros(
+                    (self._num_rnn_layers, batch_size, self._rnn_hidden_size),
+                    dtype=torch.float32,
+                    device=device,
+                ),
+            )
+        elif self._rnn_type == "gru":
+            hidden_state = torch.zeros(
+                (self._num_rnn_layers, batch_size, self._rnn_hidden_size),
                 dtype=torch.float32,
                 device=device,
-            ),
-            torch.zeros(
-                (self._num_lstm_layers, batch_size, self._lstm_hidden_size),
-                dtype=torch.float32,
-                device=device,
-            ),
-        )
+            )
 
         return hidden_state
