@@ -29,117 +29,16 @@ class DRQNAgent(DQNAgent):
     exploration policy
     """
 
-    def __init__(
-        self,
-        representation_net: FunctionApproximator,
-        obs_dim,
-        act_dim: int,
-        stack_size: int = 1,
-        id: int = 0,
-        optimizer_fn: OptimizerFn = None,
-        loss_fn: LossFn = None,
-        init_fn: InitializationFn = None,
-        replay_buffer: BaseReplayBuffer = None,
-        discount_rate: float = 0.99,
-        n_step: int = 1,
-        grad_clip: float = None,
-        reward_clip: float = None,
-        update_period_schedule: Schedule = None,
-        target_net_soft_update: bool = False,
-        target_net_update_fraction: float = 0.05,
-        target_net_update_schedule: Schedule = None,
-        epsilon_schedule: Schedule = None,
-        test_epsilon: float = 0.001,
-        min_replay_history: int = 5000,
-        batch_size: int = 32,
-        device="cpu",
-        logger: Logger = None,
-        log_frequency: int = 100,
-    ):
-        """
-        Args:
-            representation_net (FunctionApproximator): A network that outputs the
-                representations that will be used to compute Q-values (e.g.
-                everything except the final layer of the DRQN).
-            obs_dim: The shape of the observations.
-            act_dim (int): The number of actions available to the agent.
-            id: Agent identifier.
-            optimizer_fn (OptimizerFn): A function that takes in a list of parameters
-                to optimize and returns the optimizer. If None, defaults to
-                :py:class:`~torch.optim.Adam`.
-            loss_fn (LossFn): Loss function used by the agent. If None, defaults to
-                :py:class:`~torch.nn.SmoothL1Loss`.
-            init_fn (InitializationFn): Initializes the weights of qnet using
-                create_init_weights_fn.
-            replay_buffer (BaseReplayBuffer): The replay buffer that the agent will
-                push observations to and sample from during learning. If None,
-                defaults to
-                :py:class:`~hive.replays.circular_replay.CircularReplayBuffer`.
-            discount_rate (float): A number between 0 and 1 specifying how much
-                future rewards are discounted by the agent.
-            n_step (int): The horizon used in n-step returns to compute TD(n) targets.
-            grad_clip (float): Gradients will be clipped to between
-                [-grad_clip, grad_clip].
-            reward_clip (float): Rewards will be clipped to between
-                [-reward_clip, reward_clip].
-            update_period_schedule (Schedule): Schedule determining how frequently
-                the agent's Q-network is updated.
-            target_net_soft_update (bool): Whether the target net parameters are
-                replaced by the qnet parameters completely or using a weighted
-                average of the target net parameters and the qnet parameters.
-            target_net_update_fraction (float): The weight given to the target
-                net parameters in a soft update.
-            target_net_update_schedule (Schedule): Schedule determining how frequently
-                the target net is updated.
-            epsilon_schedule (Schedule): Schedule determining the value of epsilon
-                through the course of training.
-            test_epsilon (float): epsilon (probability of choosing a random action)
-                to be used during testing phase.
-            min_replay_history (int): How many observations to fill the replay buffer
-                with before starting to learn.
-            batch_size (int): The size of the batch sampled from the replay buffer
-                during learning.
-            device: Device on which all computations should be run.
-            logger (ScheduledLogger): Logger used to log agent's metrics.
-            log_frequency (int): How often to log the agent's metrics.
-        """
-        super().__init__(
-            representation_net=representation_net,
-            obs_dim=obs_dim,
-            act_dim=act_dim,
-            stack_size=stack_size,
-            id=id,
-            optimizer_fn=optimizer_fn,
-            loss_fn=loss_fn,
-            init_fn=init_fn,
-            replay_buffer=replay_buffer,
-            discount_rate=discount_rate,
-            n_step=n_step,
-            grad_clip=grad_clip,
-            reward_clip=reward_clip,
-            update_period_schedule=update_period_schedule,
-            target_net_soft_update=target_net_soft_update,
-            target_net_update_fraction=target_net_update_fraction,
-            target_net_update_schedule=target_net_update_schedule,
-            epsilon_schedule=epsilon_schedule,
-            test_epsilon=test_epsilon,
-            min_replay_history=min_replay_history,
-            batch_size=batch_size,
-            device=device,
-            logger=logger,
-            log_frequency=log_frequency,
-        )
-
     def create_q_networks(self, representation_net):
         """Creates the Q-network and target Q-network.
 
         Args:
             representation_net: A network that outputs the representations that will
                 be used to compute Q-values (e.g. everything except the final layer
-                of the DQN).
+                of the DRQN).
         """
         network = representation_net(self._obs_dim)
-        network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
+        network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim)[0])
         self._qnet = DRQNNetwork(network, network_output_dim, self._act_dim).to(
             self._device
         )

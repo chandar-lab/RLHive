@@ -25,7 +25,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         extra_storage_types=None,
         num_players_sharing_buffer: int = None,
     ):
-        """Constructor for CircularReplayBuffer.
+        """Constructor for RecurrentReplayBuffer.
 
         Args:
             capacity (int): Total number of observations that can be stored in the
@@ -237,15 +237,16 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                 if self._n_step == 1:
                     rewards = rewards * np.expand_dims(self._discount, axis=0)
 
-                if self._n_step > 1:
+                elif self._n_step > 1:
                     idx = np.arange(rewards.shape[1] - self._n_step + 1)[
                         :, None
-                    ] + np.arange(self._n_step)
-
+                    ] + np.arange(
+                        self._n_step
+                    )  # (S-N+1) x N
+                    rewards = rewards[:, idx]  # B x (S-N+1) x N
                     # Creating a vectorized sliding window to calculate discounted returns for every element in the sequence
-                    disc_rewards = np.einsum(
-                        "ijk,k->ij", rewards[:, idx], self._discount
-                    )
+                    # equivalent to np.sum(rewards * self._discount[None, None, :], axis=2)
+                    disc_rewards = np.einsum("ijk,k->ij", rewards, self._discount)
                     rewards = disc_rewards
 
                 batch["reward"] = rewards

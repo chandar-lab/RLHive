@@ -9,8 +9,8 @@ from hive.agents.qnets.utils import calculate_output_dim
 
 class ConvRNNNetwork(nn.Module):
     """
-    Basic convolutional neural network architecture. Applies a number of
-    convolutional layers (each followed by a ReLU activation), and then
+    Basic convolutional recurrent neural network architecture. Applies a number of
+    convolutional layers (each followed by a ReLU activation), recurrent layers, and then
     feeds the output into an :py:class:`hive.agents.qnets.mlp.MLPNetwork`.
 
     Note, if :obj:`channels` is :const:`None`, the network created for the
@@ -48,6 +48,9 @@ class ConvRNNNetwork(nn.Module):
                 layer.
             normalization_factor (float | int): What the input is divided by before
                 the forward pass of the network.
+            rnn_type (str): Type of the recurrent layer. For now, we support lstm and gru.
+            rnn_hidden_size (int):  The number of features in the hidden state h.
+            num_rnn_layers (int): Number of recurrent layers.
             noisy (bool): Whether the MLP part of the network will use
                 :py:class:`~hive.agents.qnets.noisy_linear.NoisyLinear` layers or
                 :py:class:`torch.nn.Linear` layers.
