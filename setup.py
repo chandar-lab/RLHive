@@ -10,6 +10,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 atari = ["gym[atari,accept-rom-license]~=0.21", "opencv-python~=4.0"]
 gym_minigrid = ["gym-minigrid~=1.0"]
+minatar = ["MinAtar>=1.0.10"]
 petting_zoo = ["pettingzoo[sisl,atari,classic]~=1.11"]
 test = ["pytest~=6.2", "pytest-lazy-fixture~=0.6"]
 
@@ -47,9 +48,10 @@ setuptools.setup(
     extras_require={
         "atari": atari,
         "gym_minigrid": gym_minigrid,
+        "minatar": minatar,
         "petting_zoo": petting_zoo,
         "test": test,
-        "all": atari + gym_minigrid + petting_zoo + test,
+        "all": atari + gym_minigrid + minatar + petting_zoo + test,
     },
     entry_points={
         "console_scripts": [

@@ -14,9 +14,9 @@ save_dir: 'experiment'
 
 # Environment config
 environment:
-  name: 'MinAtarEnv'
+  name: 'GymEnv'
   kwargs:
-    env_name: 'breakout'
+    env_name: 'Breakout-v0'
 
 # Agent config
 agent:
