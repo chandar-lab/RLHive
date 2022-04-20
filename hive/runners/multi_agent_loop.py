@@ -206,8 +206,8 @@ def set_up_experiment(config):
                 config["agent"][idx], f"agents.{idx}"
             )
             agent = agent_fn(
-                obs_dim=env_spec.obs_dim[idx],
-                act_dim=env_spec.act_dim[idx],
+                observation_space=env_spec.observation_space[idx],
+                action_space=env_spec.action_space[idx],
                 stack_size=config.get("stack_size", 1),
                 logger=logger,
             )
