@@ -1,5 +1,6 @@
 import ale_py
 import cv2
+import gym
 import numpy as np
 
 from hive.envs.env_spec import EnvSpec
@@ -49,18 +50,22 @@ class AtariEnv(GymEnv):
         super().__init__(full_env_name)
 
     def create_env_spec(self, env_name, **kwargs):
-        obs_spaces = self._env.observation_space.shape
+        observation_shape = self._env.observation_space.shape
         # Used for storing and pooling over two consecutive observations
         self.screen_buffer = [
-            np.empty((obs_spaces[0], obs_spaces[1]), dtype=np.uint8),
-            np.empty((obs_spaces[0], obs_spaces[1]), dtype=np.uint8),
+            np.empty((observation_shape[0], observation_shape[1]), dtype=np.uint8),
+            np.empty((observation_shape[0], observation_shape[1]), dtype=np.uint8),
         ]
-
-        act_spaces = [self._env.action_space]
+        observation_space = gym.spaces.Box(
+            low=0,
+            high=255,
+            dtype=np.uint8,
+            shape=(1, self.screen_size, self.screen_size),
+        )
         return EnvSpec(
             env_name=env_name,
-            obs_dim=[(1, self.screen_size, self.screen_size)],
-            act_dim=[space.n for space in act_spaces],
+            observation_space=[observation_space],
+            action_space=[self._env.action_space],
         )
 
     def reset(self):

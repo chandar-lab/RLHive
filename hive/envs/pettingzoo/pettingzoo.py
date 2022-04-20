@@ -39,24 +39,22 @@ class PettingZooEnv(BaseEnv):
     def create_env_spec(self, env_name, **kwargs):
         """
         Each family of environments have their own type of observations and actions.
-        You can add support for more families here by modifying obs_dim and act_dim.
+        You can add support for more families here by modifying observation_space and action_space.
         """
         if self._env_family in ["classic"]:
-            obs_dim = [
-                space["observation"].shape
-                for space in self._env.observation_spaces.values()
+            observation_space = [
+                space["observation"] for space in self._env.observation_spaces.values()
             ]
         elif self._env_family in ["sisl"]:
-            obs_dim = [space.shape for space in self._env.observation_spaces.values()]
+            observation_space = list(self._env.observation_spaces.values())
         else:
             raise ValueError(
                 f"Hive does not support {self._env_family} environments from PettingZoo yet."
             )
-        act_dim = [space.n for space in self._env.action_spaces.values()]
         return EnvSpec(
             env_name=env_name,
-            obs_dim=obs_dim,
-            act_dim=act_dim,
+            observation_space=observation_space,
+            action_space=list(self._env.action_spaces.values()),
         )
 
     def reset(self):
