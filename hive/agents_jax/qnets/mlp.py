@@ -9,7 +9,7 @@ import numpy as onp
 
 @gin.configurable
 class JaxMLPNetwork(nn.Module):
-    """Jax MLP network """
+    """Jax MLP network"""
 
     min_vals: Union[None, Tuple[float, ...]] = None
     max_vals: Union[None, Tuple[float, ...]] = None
