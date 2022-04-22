@@ -1,20 +1,15 @@
-import torch
-from torch import nn
-
 from typing import Tuple, Union
-
 from flax import linen as nn
 import gin
 import jax
 import jax.numpy as jnp
 import numpy as onp
 
-from hive.agents.qnets.mlp import MLPNetwork
-from hive.agents.qnets.utils import calculate_output_dim
-
+from hive.agents_jax.qnets.mlp import JaxMLPNetwork
+from hive.agents_jax.qnets.utils import calculate_output_dim
 
 @gin.configurable
-class ConvNetwork(nn.Module):
+class JaxConvNetwork(nn.Module):
     """
     Basic convolutional neural network architecture. Applies a number of
     convolutional layers (each followed by a ReLU activation), and then
@@ -61,7 +56,7 @@ class ConvNetwork(nn.Module):
         super().__init__()
         self._normalization_factor = normalization_factor
 
-        initializer = nn.initializers.xavier_uniform()
+        initializer = nn.initializers.xavier_uniform() ### TODO add noisy_linear layer
 
         if channels is not None:
             if isinstance(kernel_sizes, int):
@@ -81,30 +76,25 @@ class ConvNetwork(nn.Module):
             conv_seq = []
             for i in range(0, len(channels) - 1):
                 conv_seq.append(
-                    nn.Conv(
-                        features=channels[i + 1],
-                        kernel_size=kernel_sizes[i],
-                        strides=strides[i],
-                        padding=(
-                            (paddings[i][0], paddings[i][0]),
-                            (paddings[i][1], paddings[i][1]),
-                        ),
-                        kernel_init=initializer,
-                    )
+
+                    nn.Conv(features=channels[i + 1], kernel_size=kernel_sizes[i], strides=strides[i],
+                            padding=((paddings[i][0],paddings[i][0]) ,(paddings[i][1],paddings[i][1])),
+                            kernel_init=initializer)
+
                 )
                 conv_seq.append(nn.relu())
             self.conv = conv_seq
         else:
-            self.conv = nn.Identity()  ## TODO check identity in flax
+            self.conv = nn.Identity() ## TODO check identity in flax
 
         if mlp_layers is not None:
             # MLP Layers
             conv_output_size = calculate_output_dim(self.conv, in_dim)
-            self.mlp = MLPNetwork(
+            self.mlp = JaxMLPNetwork(
                 conv_output_size, mlp_layers, noisy=noisy, std_init=std_init
             )
         else:
-            self.mlp = nn.Identity()  ## TODO check identity in flax
+            self.mlp = nn.Identity() ## TODO check identity in flax
 
     def forward(self, x):
         if len(x.shape) == 3:
@@ -116,3 +106,4 @@ class ConvNetwork(nn.Module):
         x = self.conv(x)
         x = self.mlp(x)
         return x
+
