@@ -6,40 +6,44 @@ import jax
 import jax.numpy as jnp
 import numpy as onp
 
-# from hive.agents_jax.qnets.noisy_linear import NoisyLinear
-
 
 @gin.configurable
-class MLPNetwork(nn.Module):
-    """Jax MLP network"""
+class JaxMLPNetwork(nn.Module):
+  """Jax MLP network """
 
-    min_vals: Union[None, Tuple[float, ...]] = None
-    max_vals: Union[None, Tuple[float, ...]] = None
-    in_dim: Tuple[int]
-    hidden_units: Union[int, List[int]] = 256
-    noisy: bool = False
-    std_init: float = 0.5
+  min_vals: Union[None, Tuple[float, ...]] = None
+  max_vals: Union[None, Tuple[float, ...]] = None
+  in_dim: Tuple[int]
+  hidden_units: Union[int, List[int]] = 256
+  noisy: bool = False
+  std_init: float = 0.5
 
-    if isinstance(hidden_units, int):
-        hidden_units = [hidden_units]
 
-    def setup(self):
+  if isinstance(hidden_units, int):
+      hidden_units = [hidden_units]
 
-        initializer = nn.initializers.xavier_uniform()  ## TODO add NoisyLinear for Jax
+  def setup(self):
 
-        modules = [nn.Dense(features=self.in_dim, kernel_init=initializer)]
+    initializer = nn.initializers.xavier_uniform() ## TODO add NoisyLinear for Jax
 
-        for i in range(len(self.hidden_units) - 1):
-            modules.append(nn.relu())
-            modules.append(
-                nn.Dense(features=self.hidden_units[i], kernel_init=initializer)
-            )
+    modules = [nn.Dense(features=self.in_dim, kernel_init=initializer)]
 
-        self.network = modules
+    for i in range(len(self.hidden_units) - 1):
+      modules.append(nn.relu())
+      modules.append(nn.Dense(features=self.hidden_units[i], kernel_init=initializer))
 
-    def forward(self, x):
-        x = x.astype(jnp.float32)
-        x = x.reshape((-1))  # flatten
-        for layer in self.network:
-            x = layer(x)
-        return x
+    self.network = modules
+
+
+  def forward(self, x):
+      x = x.astype(jnp.float32)
+      x = x.reshape((-1))  # flatten
+      for layer in self.network:
+          x = layer(x)
+      return x
+
+
+
+
+
+
