@@ -223,6 +223,18 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                     indices - self._max_seq_len + 1,
                     num_to_access=self._max_seq_len,
                 )
+            elif key == "hidden_state":
+                batch[key] = self._get_from_storage(
+                    "hidden_state",
+                    indices - self._max_seq_len + 1,
+                    num_to_access=self._max_seq_len,
+                )
+            elif key == "cell_state":
+                batch[key] = self._get_from_storage(
+                    "cell_state",
+                    indices - self._max_seq_len + 1,
+                    num_to_access=self._max_seq_len,
+                )
             elif key == "done":
                 batch["done"] = is_terminal
             elif key == "reward":
