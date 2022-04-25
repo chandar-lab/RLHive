@@ -1,9 +1,10 @@
-run_name: &run_name 'atari-dqn'
+run_name: &run_name 'atari-drqn'
 train_steps: 50000000
 test_frequency: 250000
 test_episodes: 10
 max_steps_per_episode: 27000
 max_seq_len: &max_seq_len 10
+stack_size: &stack_size 1
 save_dir: 'experiment'
 saving_schedule:
   name: 'PeriodicSchedule'
@@ -34,7 +35,7 @@ agent:
         alpha: .95
         eps: 0.00001
         centered: True
-    init_fn: 
+    init_fn:
       name: 'xavier_uniform'
     loss_fn:
       name: 'SmoothL1Loss'

@@ -33,6 +33,7 @@ class DQNAgent(Agent):
         representation_net: FunctionApproximator,
         obs_dim,
         act_dim: int,
+        stack_size: int = 1,
         id=0,
         optimizer_fn: OptimizerFn = None,
         loss_fn: LossFn = None,
@@ -61,6 +62,8 @@ class DQNAgent(Agent):
                 everything except the final layer of the DQN).
             obs_dim: The shape of the observations.
             act_dim (int): The number of actions available to the agent.
+            stack_size: Number of observations stacked to create the state fed to the
+                DQN.
             id: Agent identifier.
             optimizer_fn (OptimizerFn): A function that takes in a list of parameters
                 to optimize and returns the optimizer. If None, defaults to
@@ -102,6 +105,7 @@ class DQNAgent(Agent):
             log_frequency (int): How often to log the agent's metrics.
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
+        self._state_size = (stack_size * obs_dim[0], *obs_dim[1:])
         self._init_fn = create_init_weights_fn(init_fn)
         self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
         self.create_q_networks(representation_net)
@@ -109,9 +113,9 @@ class DQNAgent(Agent):
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
         self._rng = np.random.default_rng(seed=seeder.get_new_seed())
-        self._replay_buffer = replay_buffer
-        if self._replay_buffer is None:
-            self._replay_buffer = CircularReplayBuffer()
+        if replay_buffer is None:
+            replay_buffer = CircularReplayBuffer
+        self._replay_buffer = replay_buffer(observation_shape=self._obs_dim)
         self._discount_rate = discount_rate**n_step
         self._grad_clip = grad_clip
         self._reward_clip = reward_clip
@@ -128,15 +132,21 @@ class DQNAgent(Agent):
         self._logger.register_timescale(
             self._timescale, PeriodicSchedule(False, True, log_frequency)
         )
-        self._update_period_schedule = update_period_schedule
-        if self._update_period_schedule is None:
+        if update_period_schedule is None:
             self._update_period_schedule = PeriodicSchedule(False, True, 1)
-        self._target_net_update_schedule = target_net_update_schedule
-        if self._target_net_update_schedule is None:
+        else:
+            self._update_period_schedule = update_period_schedule()
+
+        if target_net_update_schedule is None:
             self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
-        self._epsilon_schedule = epsilon_schedule
-        if self._epsilon_schedule is None:
+        else:
+            self._target_net_update_schedule = target_net_update_schedule()
+
+        if epsilon_schedule is None:
             self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
+        else:
+            self._epsilon_schedule = epsilon_schedule()
+
         self._test_epsilon = test_epsilon
         self._learn_schedule = SwitchSchedule(False, True, min_replay_history)
 
@@ -151,8 +161,8 @@ class DQNAgent(Agent):
                 be used to compute Q-values (e.g. everything except the final layer
                 of the DQN).
         """
-        network = representation_net(self._obs_dim)
-        network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
+        network = representation_net(self._state_size)
+        network_output_dim = np.prod(calculate_output_dim(network, self._state_size))
         self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(
             self._device
         )

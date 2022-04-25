@@ -41,8 +41,8 @@ class DQNNetwork(nn.Module):
 
 class DRQNNetwork(nn.Module):
     """Implements the standard DRQN value computation. Transforms output from
-    :obj:`base_network` with output dimension :obj:`hidden_dim` to dimension
-    :obj:`out_dim`, which should be equal to the number of actions.
+    :obj:`base_network` with output dimension :obj:`hidden_dim` and previous hidden_state to dimension
+    :obj:`out_dim`, which should be equal to the number of actions and next hidden_state which will be used as initial hidden_state later.
     """
 
     def __init__(

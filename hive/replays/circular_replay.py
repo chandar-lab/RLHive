@@ -448,7 +448,7 @@ def str_to_dtype(dtype):
     if isinstance(dtype, type):
         return dtype
     elif dtype.startswith("np.") or dtype.startswith("numpy."):
-        return np.typeDict[dtype.split(".")[1]]
+        return np.sctypeDict[dtype.split(".")[1]]
     else:
         type_dict = {
             "int": int,
