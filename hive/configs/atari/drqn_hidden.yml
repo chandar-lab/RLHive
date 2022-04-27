@@ -1,4 +1,4 @@
-run_name: &run_name 'atari-drqn'
+run_name: &run_name 'atari-drqn-hidden-burn-frames'
 train_steps: 50000000
 test_frequency: 250000
 test_episodes: 10
@@ -21,7 +21,7 @@ environment:
 
 
 agent:
-  name: 'DRQNhiddenAgent'
+  name: 'DRQNAgent'
   kwargs:
     representation_net:
       name: 'ConvRNNNetwork'
@@ -31,6 +31,8 @@ agent:
         strides: [4, 2, 1]
         paddings: [2, 2, 1]
         mlp_layers: [512]
+        rnn_type: &rnn_type "lstm"
+        rnn_hidden_size: &rnn_hidden_size 128
     optimizer_fn:
       name: 'RMSpropTF'
       kwargs:
@@ -43,11 +45,14 @@ agent:
     loss_fn:
       name: 'SmoothL1Loss'
     replay_buffer:
-      name: 'RecurrentHiddenReplayBuffer'
+      name: 'RecurrentReplayBuffer'
       kwargs:
         capacity: 1000000
         max_seq_len: *max_seq_len
         gamma: &gamma .99
+        rnn_type: *rnn_type
+        store_hidden: &store_hidden True 
+        rnn_hidden_size: *rnn_hidden_size
     discount_rate: *gamma
     reward_clip: 1
     update_period_schedule:
@@ -72,6 +77,8 @@ agent:
     min_replay_history: 200
     device: 'cuda'
     log_frequency: 1000
+    store_hidden: *store_hidden
+    burn_frames: 0
 # List of logger configs used.
 loggers:
   -

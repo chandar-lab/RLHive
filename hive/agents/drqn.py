@@ -29,6 +29,64 @@ class DRQNAgent(DQNAgent):
     exploration policy
     """
 
+    def __init__(
+        self,
+        representation_net: FunctionApproximator,
+        obs_dim,
+        act_dim: int,
+        stack_size: int = 1,
+        id: int = 0,
+        optimizer_fn: OptimizerFn = None,
+        loss_fn: LossFn = None,
+        init_fn: InitializationFn = None,
+        replay_buffer: BaseReplayBuffer = None,
+        discount_rate: float = 0.99,
+        n_step: int = 1,
+        grad_clip: float = None,
+        reward_clip: float = None,
+        update_period_schedule: Schedule = None,
+        target_net_soft_update: bool = False,
+        target_net_update_fraction: float = 0.05,
+        target_net_update_schedule: Schedule = None,
+        epsilon_schedule: Schedule = None,
+        test_epsilon: float = 0.001,
+        min_replay_history: int = 5000,
+        batch_size: int = 32,
+        device="cpu",
+        logger: Logger = None,
+        log_frequency: int = 100,
+        store_hidden: bool = True,
+        burn_frames: int = 0,
+    ):
+        super().__init__(
+            representation_net,
+            obs_dim,
+            act_dim,
+            stack_size,
+            id,
+            optimizer_fn,
+            loss_fn,
+            init_fn,
+            replay_buffer,
+            discount_rate,
+            n_step,
+            grad_clip,
+            reward_clip,
+            update_period_schedule,
+            target_net_soft_update,
+            target_net_update_fraction,
+            target_net_update_schedule,
+            epsilon_schedule,
+            test_epsilon,
+            min_replay_history,
+            batch_size,
+            device,
+            logger,
+            log_frequency,
+        )
+        self._store_hidden = store_hidden
+        self._burn_frames = burn_frames
+
     def create_q_networks(self, representation_net):
         """Creates the Q-network and target Q-network.
 
@@ -46,6 +104,7 @@ class DRQNAgent(DQNAgent):
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         self._hidden_state = network.init_hidden(batch_size=1, device=self._device)
+        self._rnn_type = self._qnet._rnn_type
 
     def preprocess_update_info(self, update_info):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
@@ -59,12 +118,34 @@ class DRQNAgent(DQNAgent):
             update_info["reward"] = np.clip(
                 update_info["reward"], -self._reward_clip, self._reward_clip
             )
-        preprocessed_update_info = {
-            "observation": update_info["observation"],
-            "action": update_info["action"],
-            "reward": update_info["reward"],
-            "done": update_info["done"],
-        }
+
+        if self._rnn_type == "lstm" and self._store_hidden == True:
+            preprocessed_update_info = {
+                "observation": update_info["observation"],
+                "action": update_info["action"],
+                "reward": update_info["reward"],
+                "done": update_info["done"],
+                "hidden_state": self._prev_hidden_state,
+                "cell_state": self._prev_cell_state,
+            }
+
+        elif self._rnn_type == "gru" and self._store_hidden == True:
+            preprocessed_update_info = {
+                "observation": update_info["observation"],
+                "action": update_info["action"],
+                "reward": update_info["reward"],
+                "done": update_info["done"],
+                "hidden_state": self._prev_hidden_state,
+            }
+
+        else:
+            preprocessed_update_info = {
+                "observation": update_info["observation"],
+                "action": update_info["action"],
+                "reward": update_info["reward"],
+                "done": update_info["done"],
+            }
+
         if "agent_id" in update_info:
             preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
 
@@ -111,6 +192,11 @@ class DRQNAgent(DQNAgent):
         observation = torch.tensor(
             np.expand_dims(observation, axis=0), device=self._device
         ).float()
+
+        # import pdb;pdb.set_trace()
+        self._prev_hidden_state = self._hidden_state[0].detach().cpu().numpy()
+        self._prev_cell_state = self._hidden_state[1].detach().cpu().numpy()
+
         qvals, self._hidden_state = self._qnet(observation, self._hidden_state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._act_dim)
@@ -163,12 +249,57 @@ class DRQNAgent(DQNAgent):
                 batch,
             ) = self.preprocess_update_batch(batch)
 
-            hidden_state = self._qnet.base_network.init_hidden(
-                batch_size=self._batch_size, device=self._device
-            )
-            target_hidden_state = self._target_qnet.base_network.init_hidden(
-                batch_size=self._batch_size, device=self._device
-            )
+            if self._rnn_type == "lstm" and self._store_hidden == True:
+
+                hidden_state = (
+                    torch.tensor(
+                        batch["hidden_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
+                        device=self._device,
+                    ).float(),
+                    torch.tensor(
+                        batch["cell_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
+                        device=self._device,
+                    ).float(),
+                )
+
+                target_hidden_state = (
+                    torch.tensor(
+                        batch["next_hidden_state"][:, 0]
+                        .squeeze(1)
+                        .squeeze(1)
+                        .unsqueeze(0),
+                        device=self._device,
+                    ).float(),
+                    torch.tensor(
+                        batch["next_cell_state"][:, 0]
+                        .squeeze(1)
+                        .squeeze(1)
+                        .unsqueeze(0),
+                        device=self._device,
+                    ).float(),
+                )
+
+            if self._rnn_type == "gru" and self._store_hidden == True:
+                hidden_state = torch.tensor(
+                    batch["hidden_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
+                    device=self._device,
+                ).float()
+
+                target_hidden_state = torch.tensor(
+                    batch["next_hidden_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
+                    device=self._device,
+                ).float()
+
+            else:
+
+                hidden_state = self._qnet.base_network.init_hidden(
+                    batch_size=self._batch_size, device=self._device
+                )
+
+                target_hidden_state = self._target_qnet.base_network.init_hidden(
+                    batch_size=self._batch_size, device=self._device
+                )
+
             # Compute predicted Q values
             self._optimizer.zero_grad()
             pred_qvals, hidden_state = self._qnet(*current_state_inputs, hidden_state)
@@ -191,7 +322,18 @@ class DRQNAgent(DQNAgent):
                 1 - batch["done"]
             )
 
-            loss = self._loss_fn(pred_qvals, q_targets).mean()
+            interm_loss = self._loss_fn(pred_qvals, q_targets)
+            split = self._replay_buffer._max_seq_len * (self._burn_frames/self._replay_buffer._max_seq_len)
+            mask = torch.zeros(self._replay_buffer._max_seq_len, device=self._device, dtype=torch.float)
+            mask[split:] = 1.0
+            mask = mask.view(1, -1)
+            interm_loss *= mask
+            
+            loss = interm_loss.mean()
+            
+                        
+            
+            # loss = self._loss_fn(pred_qvals, q_targets).mean()
 
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar("train_loss", loss, self._timescale)
@@ -201,6 +343,7 @@ class DRQNAgent(DQNAgent):
                 torch.nn.utils.clip_grad_value_(
                     self._qnet.parameters(), self._grad_clip
                 )
+
             self._optimizer.step()
 
         # Update target network

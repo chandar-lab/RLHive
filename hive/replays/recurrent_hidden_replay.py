@@ -1,13 +1,15 @@
+import string
+from tokenize import String
 from typing import Dict, Tuple
 
 import numpy as np
-import torch 
+import torch
 
 from hive.replays.recurrent_replay import RecurrentReplayBuffer
 
 
 class RecurrentHiddenReplayBuffer(RecurrentReplayBuffer):
-    """ 
+    """
     Storing hidden state and cell state in the buffer for DRQN
     """
 
@@ -25,12 +27,18 @@ class RecurrentHiddenReplayBuffer(RecurrentReplayBuffer):
         reward_dtype: type = np.float32,
         extra_storage_types: Dict = None,
         num_players_sharing_buffer: int = None,
-        
+        rnn_type: string = "",
+        rnn_hidden_size: int = 0,
+        store_hidden: bool = False,
     ):
         if extra_storage_types is None:
             extra_storage_types = {}
-        extra_storage_types["hidden_state"] =   (np.float32, (1,1,128) )
-        extra_storage_types["cell_state"]   =   (np.float32, (1,1,128) )
+        if rnn_type == "lstm" and store_hidden == True:
+            extra_storage_types["hidden_state"] = (np.float32, (1, 1, rnn_hidden_size))
+            extra_storage_types["cell_state"] = (np.float32, (1, 1, rnn_hidden_size))
+        if rnn_type == "gru" and store_hidden == True:
+            extra_storage_types["hidden_state"] = (np.float32, (1, 1, rnn_hidden_size))
+
         super().__init__(
             capacity=capacity,
             max_seq_len=max_seq_len,
@@ -44,8 +52,14 @@ class RecurrentHiddenReplayBuffer(RecurrentReplayBuffer):
             reward_dtype=reward_dtype,
             extra_storage_types=extra_storage_types,
             num_players_sharing_buffer=num_players_sharing_buffer,
+            rnn_type=rnn_type,
+            rnn_hidden_size=rnn_hidden_size,
+            store_hidden=store_hidden,
         )
-    
+        self._rnn_type = rnn_type
+        self._rnn_hidden_size = rnn_hidden_size
+        self._store_hidden = store_hidden
+
     def sample(self, batch_size):
         """Sample transitions from the buffer.
         Adding next_action_mask to the batch for environments with legal moves.
@@ -55,7 +69,10 @@ class RecurrentHiddenReplayBuffer(RecurrentReplayBuffer):
 
         batch["next_hidden_state"] = self._get_from_storage(
             "hidden_state",
-            batch["indices"] + batch["trajectory_lengths"] - self._max_seq_len + 1, #just return batch["indices"]
+            batch["indices"]
+            + batch["trajectory_lengths"]
+            - self._max_seq_len
+            + 1,  # just return batch["indices"]
             num_to_access=self._max_seq_len,
         )
 

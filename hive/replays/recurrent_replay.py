@@ -1,5 +1,6 @@
 import os
 import pickle
+import string
 
 import numpy as np
 from hive.replays.circular_replay import CircularReplayBuffer
@@ -24,6 +25,9 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         reward_dtype=np.float32,
         extra_storage_types=None,
         num_players_sharing_buffer: int = None,
+        rnn_type: string = "",
+        rnn_hidden_size: int = 0,
+        store_hidden: bool = False,
     ):
         """Constructor for RecurrentReplayBuffer.
 
@@ -54,7 +58,17 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                 (type, shape) tuple.
             num_players_sharing_buffer (int): Number of agents that share their
                 buffers. It is used for self-play.
+            rnn_type (string): Type of rnn used. could be LSTM, GRU.
+            rnn_hidden_size (int): Size of the rnn hidden size.
+            store_hidden (bool): whether to store the hidden state or not.
         """
+        if extra_storage_types is None:
+            extra_storage_types = {}
+        if rnn_type == "lstm" and store_hidden == True:
+            extra_storage_types["hidden_state"] = (np.float32, (1, 1, rnn_hidden_size))
+            extra_storage_types["cell_state"] = (np.float32, (1, 1, rnn_hidden_size))
+        if rnn_type == "gru" and store_hidden == True:
+            extra_storage_types["hidden_state"] = (np.float32, (1, 1, rnn_hidden_size))
         super().__init__(
             capacity=capacity,
             stack_size=1,
@@ -70,6 +84,9 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
             num_players_sharing_buffer=num_players_sharing_buffer,
         )
         self._max_seq_len = max_seq_len
+        self._rnn_type = rnn_type
+        self._rnn_hidden_size = rnn_hidden_size
+        self._store_hidden = store_hidden
 
     def size(self):
         """Returns the number of transitions stored in the buffer."""
@@ -271,4 +288,37 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
             indices + trajectory_lengths - self._max_seq_len + 1,
             num_to_access=self._max_seq_len,
         )
+
+        if self._rnn_type == "lstm" and self._store_hidden == True:
+            batch["next_hidden_state"] = self._get_from_storage(
+                "hidden_state",
+                batch["indices"]
+                + batch["trajectory_lengths"]
+                - self._max_seq_len
+                + 1,  # just return batch["indices"]
+                num_to_access=self._max_seq_len,
+            )
+
+            batch["next_cell_state"] = self._get_from_storage(
+                "cell_state",
+                batch["indices"] + batch["trajectory_lengths"] - self._max_seq_len + 1,
+                num_to_access=self._max_seq_len,
+            )
+
+        if self._rnn_type == "gru" and self._store_hidden == True:
+            batch["next_hidden_state"] = self._get_from_storage(
+                "hidden_state",
+                batch["indices"]
+                + batch["trajectory_lengths"]
+                - self._max_seq_len
+                + 1,  # just return batch["indices"]
+                num_to_access=self._max_seq_len,
+            )
+
+            batch["next_cell_state"] = self._get_from_storage(
+                "cell_state",
+                batch["indices"] + batch["trajectory_lengths"] - self._max_seq_len + 1,
+                num_to_access=self._max_seq_len,
+            )
+
         return batch
