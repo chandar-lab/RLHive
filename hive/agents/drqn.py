@@ -104,7 +104,8 @@ class DRQNAgent(DQNAgent):
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         self._hidden_state = network.init_hidden(batch_size=1, device=self._device)
-        self._rnn_type = self._qnet._rnn_type
+        self._rnn_type = network._rnn_type
+        print(self._rnn_type)
 
     def preprocess_update_info(self, update_info):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
@@ -193,9 +194,12 @@ class DRQNAgent(DQNAgent):
             np.expand_dims(observation, axis=0), device=self._device
         ).float()
 
-        # import pdb;pdb.set_trace()
-        self._prev_hidden_state = self._hidden_state[0].detach().cpu().numpy()
-        self._prev_cell_state = self._hidden_state[1].detach().cpu().numpy()
+        if self._rnn_type == "lstm" and self._store_hidden == True:
+            self._prev_hidden_state = self._hidden_state[0].detach().cpu().numpy()
+            self._prev_cell_state = self._hidden_state[1].detach().cpu().numpy()
+
+        elif self._rnn_type == "gru" and self._store_hidden == True:
+            self._prev_hidden_state = self._hidden_state[0].detach().cpu().numpy()
 
         qvals, self._hidden_state = self._qnet(observation, self._hidden_state)
         if self._rng.random() < epsilon:
@@ -250,7 +254,7 @@ class DRQNAgent(DQNAgent):
             ) = self.preprocess_update_batch(batch)
 
             if self._rnn_type == "lstm" and self._store_hidden == True:
-
+                print("lstm and store hidden")
                 hidden_state = (
                     torch.tensor(
                         batch["hidden_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
@@ -279,7 +283,8 @@ class DRQNAgent(DQNAgent):
                     ).float(),
                 )
 
-            if self._rnn_type == "gru" and self._store_hidden == True:
+            elif self._rnn_type == "gru" and self._store_hidden == True:
+
                 hidden_state = torch.tensor(
                     batch["hidden_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
                     device=self._device,
@@ -322,18 +327,20 @@ class DRQNAgent(DQNAgent):
                 1 - batch["done"]
             )
 
-            interm_loss = self._loss_fn(pred_qvals, q_targets)
-            split = self._replay_buffer._max_seq_len * (self._burn_frames/self._replay_buffer._max_seq_len)
-            mask = torch.zeros(self._replay_buffer._max_seq_len, device=self._device, dtype=torch.float)
-            mask[split:] = 1.0
-            mask = mask.view(1, -1)
-            interm_loss *= mask
-            
-            loss = interm_loss.mean()
-            
-                        
-            
-            # loss = self._loss_fn(pred_qvals, q_targets).mean()
+            if self._burn_frames > 0:
+                interm_loss = self._loss_fn(pred_qvals, q_targets)
+                mask = torch.zeros(
+                    self._replay_buffer._max_seq_len,
+                    device=self._device,
+                    dtype=torch.float,
+                )
+                mask[self._burn_frames :] = 1.0
+                mask = mask.view(1, -1)
+                interm_loss *= mask
+                loss = interm_loss.mean()
+
+            else:
+                loss = self._loss_fn(pred_qvals, q_targets).mean()
 
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar("train_loss", loss, self._timescale)

@@ -315,10 +315,4 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                 num_to_access=self._max_seq_len,
             )
 
-            batch["next_cell_state"] = self._get_from_storage(
-                "cell_state",
-                batch["indices"] + batch["trajectory_lengths"] - self._max_seq_len + 1,
-                num_to_access=self._max_seq_len,
-            )
-
         return batch
