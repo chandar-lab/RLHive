@@ -60,15 +60,30 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                 buffers. It is used for self-play.
             rnn_type (string): Type of rnn used. could be LSTM, GRU.
             rnn_hidden_size (int): Size of the rnn hidden size.
-            store_hidden (bool): whether to store the hidden state or not.
+            store_hidden (bool): Whether to store the hidden state or not.
         """
         if extra_storage_types is None:
             extra_storage_types = {}
-        if rnn_type == "lstm" and store_hidden == True:
-            extra_storage_types["hidden_state"] = (np.float32, (1, 1, rnn_hidden_size))
-            extra_storage_types["cell_state"] = (np.float32, (1, 1, rnn_hidden_size))
-        if rnn_type == "gru" and store_hidden == True:
-            extra_storage_types["hidden_state"] = (np.float32, (1, 1, rnn_hidden_size))
+        if store_hidden == True:
+            if rnn_type == "lstm":
+                extra_storage_types["hidden_state"] = (
+                    np.float32,
+                    (1, 1, rnn_hidden_size),
+                )
+                extra_storage_types["cell_state"] = (
+                    np.float32,
+                    (1, 1, rnn_hidden_size),
+                )
+            elif rnn_type == "gru":
+                extra_storage_types["hidden_state"] = (
+                    np.float32,
+                    (1, 1, rnn_hidden_size),
+                )
+            else:
+                raise ValueError(
+                    f"rnn_type is wrong. Expected either lstm or gru,"
+                    f"received {rnn_type}."
+                )
         super().__init__(
             capacity=capacity,
             stack_size=1,
@@ -289,30 +304,40 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
             num_to_access=self._max_seq_len,
         )
 
-        if self._rnn_type == "lstm" and self._store_hidden == True:
-            batch["next_hidden_state"] = self._get_from_storage(
-                "hidden_state",
-                batch["indices"]
-                + batch["trajectory_lengths"]
-                - self._max_seq_len
-                + 1,  # just return batch["indices"]
-                num_to_access=self._max_seq_len,
-            )
+        if self._store_hidden == True:
+            if self._rnn_type == "lstm":
+                batch["next_hidden_state"] = self._get_from_storage(
+                    "hidden_state",
+                    batch["indices"]
+                    + batch["trajectory_lengths"]
+                    - self._max_seq_len
+                    + 1,  # just return batch["indices"]
+                    num_to_access=self._max_seq_len,
+                )
 
-            batch["next_cell_state"] = self._get_from_storage(
-                "cell_state",
-                batch["indices"] + batch["trajectory_lengths"] - self._max_seq_len + 1,
-                num_to_access=self._max_seq_len,
-            )
+                batch["next_cell_state"] = self._get_from_storage(
+                    "cell_state",
+                    batch["indices"]
+                    + batch["trajectory_lengths"]
+                    - self._max_seq_len
+                    + 1,
+                    num_to_access=self._max_seq_len,
+                )
 
-        if self._rnn_type == "gru" and self._store_hidden == True:
-            batch["next_hidden_state"] = self._get_from_storage(
-                "hidden_state",
-                batch["indices"]
-                + batch["trajectory_lengths"]
-                - self._max_seq_len
-                + 1,  # just return batch["indices"]
-                num_to_access=self._max_seq_len,
-            )
+            elif self._rnn_type == "gru":
+                batch["next_hidden_state"] = self._get_from_storage(
+                    "hidden_state",
+                    batch["indices"]
+                    + batch["trajectory_lengths"]
+                    - self._max_seq_len
+                    + 1,  # just return batch["indices"]
+                    num_to_access=self._max_seq_len,
+                )
+
+            else:
+                raise ValueError(
+                    f"rnn_type is wrong. Expected either lstm or gru,"
+                    f"received {self._rnn_type}."
+                )
 
         return batch

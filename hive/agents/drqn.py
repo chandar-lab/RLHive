@@ -105,7 +105,7 @@ class DRQNAgent(DQNAgent):
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         self._hidden_state = network.init_hidden(batch_size=1, device=self._device)
         self._rnn_type = network._rnn_type
-        print(self._rnn_type)
+
 
     def preprocess_update_info(self, update_info):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
@@ -120,24 +120,31 @@ class DRQNAgent(DQNAgent):
                 update_info["reward"], -self._reward_clip, self._reward_clip
             )
 
-        if self._rnn_type == "lstm" and self._store_hidden == True:
-            preprocessed_update_info = {
-                "observation": update_info["observation"],
-                "action": update_info["action"],
-                "reward": update_info["reward"],
-                "done": update_info["done"],
-                "hidden_state": self._prev_hidden_state,
-                "cell_state": self._prev_cell_state,
-            }
+        if self._store_hidden == True:
+            if self._rnn_type == "lstm":
+                preprocessed_update_info = {
+                    "observation": update_info["observation"],
+                    "action": update_info["action"],
+                    "reward": update_info["reward"],
+                    "done": update_info["done"],
+                    "hidden_state": self._prev_hidden_state,
+                    "cell_state": self._prev_cell_state,
+                }
 
-        elif self._rnn_type == "gru" and self._store_hidden == True:
-            preprocessed_update_info = {
-                "observation": update_info["observation"],
-                "action": update_info["action"],
-                "reward": update_info["reward"],
-                "done": update_info["done"],
-                "hidden_state": self._prev_hidden_state,
-            }
+            elif self._rnn_type == "gru":
+                preprocessed_update_info = {
+                    "observation": update_info["observation"],
+                    "action": update_info["action"],
+                    "reward": update_info["reward"],
+                    "done": update_info["done"],
+                    "hidden_state": self._prev_hidden_state,
+                }
+
+            else:
+                raise ValueError(
+                    f"rnn_type is wrong. Expected either lstm or gru,"
+                    f"received {self._rnn_type}."
+                )
 
         else:
             preprocessed_update_info = {
@@ -194,12 +201,19 @@ class DRQNAgent(DQNAgent):
             np.expand_dims(observation, axis=0), device=self._device
         ).float()
 
-        if self._rnn_type == "lstm" and self._store_hidden == True:
-            self._prev_hidden_state = self._hidden_state[0].detach().cpu().numpy()
-            self._prev_cell_state = self._hidden_state[1].detach().cpu().numpy()
+        if self._store_hidden == True:
+            if self._rnn_type == "lstm":
+                self._prev_hidden_state = self._hidden_state[0].detach().cpu().numpy()
+                self._prev_cell_state = self._hidden_state[1].detach().cpu().numpy()
 
-        elif self._rnn_type == "gru" and self._store_hidden == True:
-            self._prev_hidden_state = self._hidden_state[0].detach().cpu().numpy()
+            elif self._rnn_type == "gru":
+                self._prev_hidden_state = self._hidden_state[0].detach().cpu().numpy()
+
+            else:
+                raise ValueError(
+                    f"rnn_type is wrong. Expected either lstm or gru,"
+                    f"received {self._rnn_type}."
+                )
 
         qvals, self._hidden_state = self._qnet(observation, self._hidden_state)
         if self._rng.random() < epsilon:
@@ -253,47 +267,62 @@ class DRQNAgent(DQNAgent):
                 batch,
             ) = self.preprocess_update_batch(batch)
 
-            if self._rnn_type == "lstm" and self._store_hidden == True:
-                print("lstm and store hidden")
-                hidden_state = (
-                    torch.tensor(
+            if self._store_hidden == True:
+                if self._rnn_type == "lstm":
+                    hidden_state = (
+                        torch.tensor(
+                            batch["hidden_state"][:, 0]
+                            .squeeze(1)
+                            .squeeze(1)
+                            .unsqueeze(0),
+                            device=self._device,
+                        ).float(),
+                        torch.tensor(
+                            batch["cell_state"][:, 0]
+                            .squeeze(1)
+                            .squeeze(1)
+                            .unsqueeze(0),
+                            device=self._device,
+                        ).float(),
+                    )
+
+                    target_hidden_state = (
+                        torch.tensor(
+                            batch["next_hidden_state"][:, 0]
+                            .squeeze(1)
+                            .squeeze(1)
+                            .unsqueeze(0),
+                            device=self._device,
+                        ).float(),
+                        torch.tensor(
+                            batch["next_cell_state"][:, 0]
+                            .squeeze(1)
+                            .squeeze(1)
+                            .unsqueeze(0),
+                            device=self._device,
+                        ).float(),
+                    )
+
+                elif self._rnn_type == "gru":
+
+                    hidden_state = torch.tensor(
                         batch["hidden_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
                         device=self._device,
-                    ).float(),
-                    torch.tensor(
-                        batch["cell_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
-                        device=self._device,
-                    ).float(),
-                )
+                    ).float()
 
-                target_hidden_state = (
-                    torch.tensor(
+                    target_hidden_state = torch.tensor(
                         batch["next_hidden_state"][:, 0]
                         .squeeze(1)
                         .squeeze(1)
                         .unsqueeze(0),
                         device=self._device,
-                    ).float(),
-                    torch.tensor(
-                        batch["next_cell_state"][:, 0]
-                        .squeeze(1)
-                        .squeeze(1)
-                        .unsqueeze(0),
-                        device=self._device,
-                    ).float(),
-                )
+                    ).float()
 
-            elif self._rnn_type == "gru" and self._store_hidden == True:
-
-                hidden_state = torch.tensor(
-                    batch["hidden_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
-                    device=self._device,
-                ).float()
-
-                target_hidden_state = torch.tensor(
-                    batch["next_hidden_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
-                    device=self._device,
-                ).float()
+                else:
+                    raise ValueError(
+                        f"rnn_type is wrong. Expected either lstm or gru,"
+                        f"received {self._rnn_type}."
+                    )
 
             else:
 
