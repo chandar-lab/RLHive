@@ -106,7 +106,6 @@ class DRQNAgent(DQNAgent):
         self._hidden_state = network.init_hidden(batch_size=1, device=self._device)
         self._rnn_type = network._rnn_type
 
-
     def preprocess_update_info(self, update_info):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
         Clips the reward in update_info.
