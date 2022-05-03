@@ -1,0 +1,61 @@
+run_name: &run_name 'gym-dqn'
+train_steps: 50000
+test_frequency: 200
+test_episodes: 10
+max_steps_per_episode: 1000
+stack_size: &stack_size 1
+save_dir: 'experiment'
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 10000
+
+environment:
+  name: 'GymEnv'
+  kwargs:
+    env_name: 'CartPole-v0'
+
+agent:
+  name: 'PPOAgent'
+  kwargs:
+    representation_net:
+      name: 'MLPNetwork'
+      kwargs:
+        hidden_units: [256, 256]
+    actor_net:
+      name: 'MLPNetwork'
+      kwargs: 
+        hidden_units: [256, 256]
+    critic_net:
+      name: 'MLPNetwork'
+      kwargs: 
+        hidden_units: [256, 256]
+    optimizer_fn:
+      name: 'Adam'
+      kwargs: {}
+    transitions_per_update:
+    transitions_per_update: 100
+    replay_buffer:
+      name: 'PPOReplayBuffer'
+      kwargs:
+        observation_dtype: np.float64
+        capacity: 100
+        stack_size: *stack_size
+        gamma: &gamma .99
+    discount_rate: *gamma
+    device: 'cuda'
+    batch_size: 128
+    log_frequency: 100
+
+loggers:
+  -
+    name: ChompLogger
+  -
+    name: WandbLogger
+    kwargs:
+      project: Hive
+      name: *run_name
+      resume: "allow"
+      start_method: "fork"

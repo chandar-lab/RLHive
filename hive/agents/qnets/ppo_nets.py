@@ -10,7 +10,7 @@ class PPOActorCriticNetwork(torch.nn.Module):
         self, representation_network, actor_net, critic_net, network_output_dim, action_space
     ) -> None:
         super().__init__()
-        self.network = (representation_network,)
+        self.network = representation_network
         if actor_net is None:
             actor_network = torch.nn.Identity()
         else:
@@ -20,7 +20,7 @@ class PPOActorCriticNetwork(torch.nn.Module):
         self.actor = torch.nn.Sequential(
             actor_network,
             torch.nn.Flatten(),
-            torch.nn.Linear(feature_dim, action_space),
+            torch.nn.Linear(feature_dim, action_space.n),
         )
 
         if critic_net is None:
