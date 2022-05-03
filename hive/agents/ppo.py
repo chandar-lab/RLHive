@@ -40,10 +40,10 @@ class PPOAgent(Agent):
         discount_rate: float = 0.99,
         n_step: int = 1,
         transitions_per_update = 100, 
-        grad_norm_clip: float = None,
-        clip_coef: float = None,
-        ent_coef: float = None,
-        vf_coef: float = None,
+        grad_norm_clip: float = 0.5,
+        clip_coef: float = 0.2,
+        ent_coef: float = 0.01,
+        vf_coef: float = 0.5,
         clip_vloss: bool = True,
         normalize_advantages: bool = True,
         gae_lambda: float = None,
@@ -77,24 +77,29 @@ class PPOAgent(Agent):
         if replay_buffer is None:
             replay_buffer = PPOReplayBuffer
 
-        self._replay_buffer = PPOReplayBuffer(
+        extra_storage_types = {
+            "value": (np.float32, ()), 
+            "return": (np.float32, ()),
+            "advantage": (np.float32, ()),
+            "logprob": (np.float32, self._action_space.shape),
+        }
+        self._replay_buffer = replay_buffer(
             observation_shape=self._observation_space.shape,
             observation_dtype=self._observation_space.dtype,
             action_shape=self._action_space.shape,
             action_dtype=self._action_space.dtype,
             gamma=discount_rate,
             gae_lambda=gae_lambda,
+            extra_storage_types=extra_storage_types
         )
         
         self._discount_rate = discount_rate**n_step
         
         self._transitions_per_update = transitions_per_update
         
-        if loss_fn is None:
-            loss_fn = torch.nn.SmoothL1Loss
-        self._loss_fn = loss_fn(reduction="none")
-
-        #self._critic_loss_fn = critic_loss_fn(reduction="none")
+        # if loss_fn is None:
+        #     loss_fn = torch.nn.SmoothL1Loss
+        # self._loss_fn = loss_fn(reduction="none")
         
         self._batch_size = batch_size
 
@@ -138,7 +143,7 @@ class PPOAgent(Agent):
             network, actor_net, critic_net, network_output_dim, self._action_space
         )
 
-        self._actor_critic.apply(self._init_fn)
+        #self._actor_critic.apply(self._init_fn)
 
     def train(self):
         """Changes the agent to training mode."""
@@ -193,7 +198,7 @@ class PPOAgent(Agent):
         observation = torch.tensor(
             np.expand_dims(observation, axis=0), device=self._device
         ).float()
-        action, logprob, _, value = self.self._actor_critic.get_action_and_value()
+        action, logprob, _, value = self._actor_critic.get_action_value(observation)
         
         if (
             self._training
@@ -227,12 +232,11 @@ class PPOAgent(Agent):
         # Inspired  by https://github.com/vwxyzjn/ppo-implementation-details/blob/main/ppo_shared.py
         # Check if the buffer is already full, if it is use current observation to bootstrap value estimate
         if (self._replay_buffer.size() >= self._transitions_per_update): #We need next observation
-            self.compute_advantages(self._actor_critic.get_value(update_info["observation"]), update_info["done"])
+            self._replay_buffer.compute_advantages(self._actor_critic.get_value(update_info["observation"]), update_info["done"])
             for epoch_i in range(self._num_epochs):
-
+                valid_ind_size = self._replay_buffer._find_valid_random()
                 #Start sampling again from scratch TODO
-                for mini_i in range(self._transitions_per_update/self._batch_size):
-                    
+                for mini_i in range(valid_ind_size/self._batch_size):
                     # Check if it samples without replacement and samples copmletely? TODO
                     batch = self._replay_buffer.sample(batch_size=self._batch_size)
                     batch = self.preprocess_update_batch(batch)
