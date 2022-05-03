@@ -177,9 +177,10 @@ def set_up_experiment(config):
         utils.seeder.set_global_seed(config["seed"])
 
     # Set up environment
-    environment, full_config["environment"] = envs.get_env(
+    environment_fn, full_config["environment"] = envs.get_env(
         config["environment"], "environment"
     )
+    environment = environment_fn()
     env_spec = environment.env_spec
 
     # Set up loggers
@@ -193,43 +194,35 @@ def set_up_experiment(config):
         }
 
     logger, full_config["loggers"] = loggers.get_logger(logger_config, "loggers")
+    logger = logger()
 
     # Set up agents
     agents = []
     full_config["agents"] = []
     num_agents = config["num_agents"] if config["self_play"] else len(config["agents"])
     for idx in range(num_agents):
-
         if not config["self_play"] or idx == 0:
-            agent_config = config["agents"][idx]
-            if config.get("stack_size", 1) > 1:
-                agent_config["kwargs"]["obs_dim"] = (
-                    config["stack_size"] * env_spec.obs_dim[idx][0],
-                    *env_spec.obs_dim[idx][1:],
-                )
-            else:
-                agent_config["kwargs"]["obs_dim"] = env_spec.obs_dim[idx]
-            agent_config["kwargs"]["act_dim"] = env_spec.act_dim[idx]
-            agent_config["kwargs"]["logger"] = logger
-
-            if "replay_buffer" in agent_config["kwargs"]:
-                replay_args = agent_config["kwargs"]["replay_buffer"]["kwargs"]
-                replay_args["observation_shape"] = env_spec.obs_dim[idx]
-            agent, full_agent_config = agent_lib.get_agent(
-                agent_config, f"agents.{idx}"
+            agent_fn, full_agent_config = agent_lib.get_agent(
+                config["agent"][idx], f"agents.{idx}"
+            )
+            agent = agent_fn(
+                obs_dim=env_spec.obs_dim[idx],
+                act_dim=env_spec.act_dim[idx],
+                stack_size=config.get("stack_size", 1),
+                logger=logger,
             )
             agents.append(agent)
             full_config["agents"].append(full_agent_config)
         else:
             agents.append(copy.copy(agents[0]))
-            agents[-1]._id = idx
+            agents[-1]._id = f"{agents[0].id}_{idx}"
 
     # Set up experiment manager
-    saving_schedule, full_config["saving_schedule"] = schedule.get_schedule(
+    saving_schedule_fn, full_config["saving_schedule"] = schedule.get_schedule(
         config["saving_schedule"], "saving_schedule"
     )
     experiment_manager = experiment.Experiment(
-        config["run_name"], config["save_dir"], saving_schedule
+        config["run_name"], config["save_dir"], saving_schedule_fn()
     )
     experiment_manager.register_experiment(
         config=full_config,

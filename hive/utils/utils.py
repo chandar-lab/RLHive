@@ -5,7 +5,7 @@ import random
 import numpy as np
 import torch
 
-from hive.utils.registry import CallableType
+from hive.utils.registry import Registrable
 
 PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -88,7 +88,7 @@ class Chomp(dict):
         self.update(pickle.load(open(filename, "rb")))
 
 
-class OptimizerFn(CallableType):
+class OptimizerFn(Registrable):
     """A wrapper for callables that produce optimizer functions.
 
     These wrapped callables can be partially initialized through configuration
@@ -104,7 +104,7 @@ class OptimizerFn(CallableType):
         return "optimizer_fn"
 
 
-class LossFn(CallableType):
+class LossFn(Registrable):
     """A wrapper for callables that produce loss functions.
 
     These wrapped callables can be partially initialized through configuration
