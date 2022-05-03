@@ -1,4 +1,5 @@
 import os
+from turtle import update
 
 import gym
 import numpy as np
@@ -60,6 +61,8 @@ class PPOAgent(Agent):
             stack_size * self._observation_space.shape[0],
             *self._observation_space.shape[1:],
         )
+
+        self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
         
         # self._action_min = torch.tensor(self._action_space.low)
         # self._action_max = torch.tensor(self._action_space.high)
@@ -68,7 +71,6 @@ class PPOAgent(Agent):
         self.create_networks(representation_net, actor_net, critic_net)
         
         self._init_fn = create_init_weights_fn(init_fn)
-        self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
         
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
@@ -141,7 +143,7 @@ class PPOAgent(Agent):
         )
         self._actor_critic = PPOActorCriticNetwork(
             network, actor_net, critic_net, network_output_dim, self._action_space
-        )
+        ).to(self._device)
 
         #self._actor_critic.apply(self._init_fn)
 
@@ -199,13 +201,13 @@ class PPOAgent(Agent):
             np.expand_dims(observation, axis=0), device=self._device
         ).float()
         action, logprob, _, value = self._actor_critic.get_action_value(observation)
-        
+        action = action.item()
         if (
             self._training
             and self._logger.should_log(self._timescale)
             and self._state["episode_start"]
         ):
-            self._logger.log_scalar("train_qval", value[action], self._timescale)
+            self._logger.log_scalar("train_qval", value, self._timescale)
             self._state["episode_start"] = False
         
         
@@ -288,14 +290,21 @@ class PPOAgent(Agent):
             
             self._replay_buffer.reset()
         
+        processed_update_info = self.preprocess_update_info(update_info)
+        processed_update_info.update({
+            'logprob':self._logprob.cpu().numpy(),
+            'value':self._cur_value.cpu().numpy(),
+            'return':np.zeros(self._cur_value.shape),
+            'advantage':np.zeros(self._cur_value.shape),
+        })
         # Add the most recent transition to the replay buffer.
-        self._replay_buffer.add(logprob=self._logprob, value=self._cur_value, **self.preprocess_update_info(update_info))
+        self._replay_buffer.add(**processed_update_info)
         
 
     def save(self, dname):
         torch.save(
             {
-                "ac_model": self._ac_model.state_dict(),
+                "ac_model": self._actor_critic.state_dict(),
                 "optimizer": self._optimizer.state_dict(),
             },
             os.path.join(dname, "agent.pt"),
