@@ -1,6 +1,7 @@
 import copy
 import os
 
+import gym
 import numpy as np
 import torch
 
@@ -30,9 +31,9 @@ class DQNAgent(Agent):
 
     def __init__(
         self,
+        observation_space: gym.spaces.Box,
+        action_space: gym.spaces.Discrete,
         representation_net: FunctionApproximator,
-        obs_dim,
-        act_dim: int,
         stack_size: int = 1,
         id=0,
         optimizer_fn: OptimizerFn = None,
@@ -57,11 +58,11 @@ class DQNAgent(Agent):
     ):
         """
         Args:
+            observation_space (gym.spaces.Box): Observation space for the agent.
+            action_space (gym.spaces.Discrete): Action space for the agent.
             representation_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute Q-values (e.g.
                 everything except the final layer of the DQN).
-            obs_dim: The shape of the observations.
-            act_dim (int): The number of actions available to the agent.
             stack_size: Number of observations stacked to create the state fed to the
                 DQN.
             id: Agent identifier.
@@ -104,8 +105,13 @@ class DQNAgent(Agent):
             logger (ScheduledLogger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
         """
-        super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
-        self._state_size = (stack_size * obs_dim[0], *obs_dim[1:])
+        super().__init__(
+            observation_space=observation_space, action_space=action_space, id=id
+        )
+        self._state_size = (
+            stack_size * self._observation_space.shape[0],
+            *self._observation_space.shape[1:],
+        )
         self._init_fn = create_init_weights_fn(init_fn)
         self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
         self.create_q_networks(representation_net)
@@ -115,7 +121,10 @@ class DQNAgent(Agent):
         self._rng = np.random.default_rng(seed=seeder.get_new_seed())
         if replay_buffer is None:
             replay_buffer = CircularReplayBuffer
-        self._replay_buffer = replay_buffer(observation_shape=self._obs_dim)
+        self._replay_buffer = replay_buffer(
+            observation_shape=self._observation_space.shape,
+            observation_dtype=self._observation_space.dtype,
+        )
         self._discount_rate = discount_rate**n_step
         self._grad_clip = grad_clip
         self._reward_clip = reward_clip
@@ -163,7 +172,7 @@ class DQNAgent(Agent):
         """
         network = representation_net(self._state_size)
         network_output_dim = np.prod(calculate_output_dim(network, self._state_size))
-        self._qnet = DQNNetwork(network, network_output_dim, self._act_dim).to(
+        self._qnet = DQNNetwork(network, network_output_dim, self._action_space.n).to(
             self._device
         )
         self._qnet.apply(self._init_fn)
@@ -247,7 +256,7 @@ class DQNAgent(Agent):
         ).float()
         qvals = self._qnet(observation)
         if self._rng.random() < epsilon:
-            action = self._rng.integers(self._act_dim)
+            action = self._rng.integers(self._action_space.n)
         else:
             # Note: not explicitly handling the ties
             action = torch.argmax(qvals).item()
