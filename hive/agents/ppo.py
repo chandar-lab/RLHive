@@ -47,8 +47,8 @@ class PPOAgent(Agent):
         vf_coef: float = 0.5,
         clip_vloss: bool = True,
         normalize_advantages: bool = True,
-        gae_lambda: float = None,
-        num_updates: int = 2,
+        gae_lambda: float = 0.95,
+        num_updates: int = 4,
         batch_size: int = 32,
         device="cpu",
         logger: Logger = None,
@@ -145,7 +145,7 @@ class PPOAgent(Agent):
             network, actor_net, critic_net, network_output_dim, self._action_space
         ).to(self._device)
 
-        #self._actor_critic.apply(self._init_fn)
+        # self._actor_critic.apply(self._init_fn)
 
     def train(self):
         """Changes the agent to training mode."""
@@ -233,28 +233,36 @@ class PPOAgent(Agent):
         
         # Inspired  by https://github.com/vwxyzjn/ppo-implementation-details/blob/main/ppo_shared.py
         # Check if the buffer is already full, if it is use current observation to bootstrap value estimate
-        if (self._replay_buffer.size() >= self._transitions_per_update): #We need next observation
-            self._replay_buffer.compute_advantages(self._actor_critic.get_value(update_info["observation"]), update_info["done"])
-            for epoch_i in range(self._num_epochs):
+        if (self._replay_buffer.size()+1 >= self._replay_buffer._capacity): #We need next observation
+
+            observation = torch.tensor(
+                    np.expand_dims(update_info["observation"], axis=0), device=self._device
+                ).float()
+            with torch.no_grad():
+                values = self._actor_critic.get_value(observation)
+            self._replay_buffer.compute_advantages(values.cpu().numpy(), update_info["done"])
+
+            for _ in range(self._num_epochs):
                 valid_ind_size = self._replay_buffer._find_valid_random()
+
                 #Start sampling again from scratch TODO
-                for mini_i in range(valid_ind_size/self._batch_size):
+                for _ in range(valid_ind_size//self._batch_size):
                     # Check if it samples without replacement and samples copmletely? TODO
                     batch = self._replay_buffer.sample(batch_size=self._batch_size)
                     batch = self.preprocess_update_batch(batch)
                     self._optimizer.zero_grad()
 
-                    _, newlogprob, entropy, newvalue = self._actor_critic.get_action_and_value(batch["observation"], batch["action"])
+                    _, newlogprob, entropy, newvalue = self._actor_critic.get_action_value(batch["observation"], batch["action"])
                     logratio = newlogprob - batch["logprob"]
                     ratio = logratio.exp()
                     
                     advantages = batch["advantage"]
-                    if self.norm_adv:
+                    if self._norm_adv:
                         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
                     # Policy loss
                     pg_loss1 = -advantages * ratio
-                    pg_loss2 = -advantages * torch.clamp(ratio, 1 - self.clip_coef, 1 + self.clip_coef)
+                    pg_loss2 = -advantages * torch.clamp(ratio, 1 - self._clip_coef, 1 + self._clip_coef)
                     pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                     # Value loss
@@ -274,15 +282,22 @@ class PPOAgent(Agent):
 
                     # Entropy Loss
                     entropy_loss = entropy.mean()
+                    approxkl = (-logratio).mean()
                     loss = pg_loss - self._ent_coef * entropy_loss + v_loss * self._vf_coef
 
 
                     if self._logger.should_log(self._timescale):
                         self._logger.log_scalar("train_loss", loss, self._timescale)
+
+                        #added for debugging
+                        self._logger.log_scalar("policy_loss", pg_loss, self._timescale)
+                        self._logger.log_scalar("value_loss", v_loss, self._timescale)
+                        self._logger.log_scalar("entropy_loss", entropy_loss, self._timescale)
+                        self._logger.log_scalar("clip_frac", (torch.abs(ratio-1.0) > self._clip_coef).float().mean(), self._timescale)
+                        self._logger.log_scalar("approxkl", approxkl, self._timescale)
                     
-                    self._optimizer.zero_grad()
                     loss.backward()
-                    if self._grad_clip is not None:
+                    if self._grad_norm_clip is not None:
                         torch.nn.utils.clip_grad_norm_(
                             self._actor_critic.parameters(), self._grad_norm_clip
                         )
@@ -294,8 +309,8 @@ class PPOAgent(Agent):
         processed_update_info.update({
             'logprob':self._logprob.cpu().numpy(),
             'value':self._cur_value.cpu().numpy(),
-            'return':np.zeros(self._cur_value.shape),
-            'advantage':np.zeros(self._cur_value.shape),
+            'return':np.empty(self._cur_value.shape),
+            'advantage':np.empty(self._cur_value.shape),
         })
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(**processed_update_info)

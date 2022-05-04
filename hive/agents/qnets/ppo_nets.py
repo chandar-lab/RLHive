@@ -24,7 +24,7 @@ class PPOActorCriticNetwork(torch.nn.Module):
         )
 
         if critic_net is None:
-            critic_net = lambda x: torch.nn.Identity()
+            critic_network = torch.nn.Identity()
         else:
             critic_network  = critic_net(network_output_dim)
         feature_dim = np.prod(calculate_output_dim(critic_network, network_output_dim))

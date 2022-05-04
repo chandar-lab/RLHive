@@ -39,8 +39,8 @@ class PPOReplayBuffer(CircularReplayBuffer):
                 nextnonterminal = 1.0 - self._storage["done"][t + 1]
                 nextvalues = self._storage["value"][t + 1]
             delta = self._storage["reward"][t] + self._gamma * nextvalues * nextnonterminal - self._storage["value"][t]
-            self._storage["advantage"] = lastgaelam = delta + self._gamma * self._gae_lambda * nextnonterminal * lastgaelam
-            self._storage["return"] = self._storage["advantage"] + self._storage["value"][t]
+            self._storage["advantage"][t] = lastgaelam = delta + self._gamma * self._gae_lambda * nextnonterminal * lastgaelam
+        self._storage["return"] = self._storage["advantage"] + self._storage["value"]
 
     
     def reset(self):
