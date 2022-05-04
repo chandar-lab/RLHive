@@ -46,6 +46,7 @@ class RainbowDQNAgent(DQNAgent):
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
         min_replay_history: int = 5000,
+        num_updates_per_train_step: int = 1,
         batch_size: int = 32,
         device="cpu",
         logger: Logger = None,
@@ -103,6 +104,8 @@ class RainbowDQNAgent(DQNAgent):
                 to be used during testing phase.
             min_replay_history (int): How many observations to fill the replay buffer
                 with before starting to learn.
+            num_updates_per_train_step (int): indicates the number of consecutive times the agent needs to
+                do the backprop in each update step
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
             device: Device on which all computations should be run.
@@ -160,6 +163,7 @@ class RainbowDQNAgent(DQNAgent):
             epsilon_schedule=epsilon_schedule,
             test_epsilon=test_epsilon,
             min_replay_history=min_replay_history,
+            num_updates_per_train_step=num_updates_per_train_step,
             batch_size=batch_size,
             device=device,
             logger=logger,
@@ -272,66 +276,67 @@ class RainbowDQNAgent(DQNAgent):
             and self._replay_buffer.size() > 0
             and self._update_period_schedule.update()
         ):
-            batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            (
-                current_state_inputs,
-                next_state_inputs,
-                batch,
-            ) = self.preprocess_update_batch(batch)
+            for _ in range(self._num_updates_per_train_step):
+                batch = self._replay_buffer.sample(batch_size=self._batch_size)
+                (
+                    current_state_inputs,
+                    next_state_inputs,
+                    batch,
+                ) = self.preprocess_update_batch(batch)
 
-            # Compute predicted Q values
-            self._optimizer.zero_grad()
-            pred_qvals = self._qnet(*current_state_inputs)
-            actions = batch["action"].long()
+                # Compute predicted Q values
+                self._optimizer.zero_grad()
+                pred_qvals = self._qnet(*current_state_inputs)
+                actions = batch["action"].long()
 
-            if self._double:
-                next_action = self._qnet(*next_state_inputs)
-            else:
-                next_action = self._target_qnet(*next_state_inputs)
-            next_action = next_action.argmax(1)
+                if self._double:
+                    next_action = self._qnet(*next_state_inputs)
+                else:
+                    next_action = self._target_qnet(*next_state_inputs)
+                next_action = next_action.argmax(1)
 
-            if self._distributional:
-                current_dist = self._qnet.dist(*current_state_inputs)
-                probs = current_dist[torch.arange(actions.size(0)), actions]
-                probs = torch.clamp(probs, 1e-6, 1)  # NaN-guard
-                log_p = torch.log(probs)
-                with torch.no_grad():
-                    target_prob = self.target_projection(
-                        next_state_inputs, next_action, batch["reward"], batch["done"]
+                if self._distributional:
+                    current_dist = self._qnet.dist(*current_state_inputs)
+                    probs = current_dist[torch.arange(actions.size(0)), actions]
+                    probs = torch.clamp(probs, 1e-6, 1)  # NaN-guard
+                    log_p = torch.log(probs)
+                    with torch.no_grad():
+                        target_prob = self.target_projection(
+                            next_state_inputs, next_action, batch["reward"], batch["done"]
+                        )
+
+                    loss = -(target_prob * log_p).sum(-1)
+
+                else:
+                    pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
+
+                    next_qvals = self._target_qnet(*next_state_inputs)
+                    next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
+
+                    q_targets = batch["reward"] + self._discount_rate * next_qvals * (
+                        1 - batch["done"]
                     )
 
-                loss = -(target_prob * log_p).sum(-1)
+                    loss = self._loss_fn(pred_qvals, q_targets)
 
-            else:
-                pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
+                if isinstance(self._replay_buffer, PrioritizedReplayBuffer):
+                    td_errors = loss.sqrt().detach().cpu().numpy()
+                    self._replay_buffer.update_priorities(batch["indices"], td_errors)
+                    loss *= batch["weights"]
+                loss = loss.mean()
 
-                next_qvals = self._target_qnet(*next_state_inputs)
-                next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
-
-                q_targets = batch["reward"] + self._discount_rate * next_qvals * (
-                    1 - batch["done"]
-                )
-
-                loss = self._loss_fn(pred_qvals, q_targets)
-
-            if isinstance(self._replay_buffer, PrioritizedReplayBuffer):
-                td_errors = loss.sqrt().detach().cpu().numpy()
-                self._replay_buffer.update_priorities(batch["indices"], td_errors)
-                loss *= batch["weights"]
-            loss = loss.mean()
-
-            if self._logger.should_log(self._timescale):
-                self._logger.log_scalar(
-                    "train_loss",
-                    loss,
-                    self._timescale,
-                )
-            loss.backward()
-            if self._grad_clip is not None:
-                torch.nn.utils.clip_grad_value_(
-                    self._qnet.parameters(), self._grad_clip
-                )
-            self._optimizer.step()
+                if self._logger.should_log(self._timescale):
+                    self._logger.log_scalar(
+                        "train_loss",
+                        loss,
+                        self._timescale,
+                    )
+                loss.backward()
+                if self._grad_clip is not None:
+                    torch.nn.utils.clip_grad_value_(
+                        self._qnet.parameters(), self._grad_clip
+                    )
+                self._optimizer.step()
 
         # Update target network
         if self._target_net_update_schedule.update():
