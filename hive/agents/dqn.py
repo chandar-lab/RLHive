@@ -119,7 +119,7 @@ class DQNAgent(Agent):
         if replay_buffer is None:
             replay_buffer = CircularReplayBuffer
         self._replay_buffer = replay_buffer(observation_shape=self._obs_dim)
-        self._discount_rate = discount_rate ** n_step
+        self._discount_rate = discount_rate**n_step
         self._grad_clip = grad_clip
         self._reward_clip = reward_clip
         self._target_net_soft_update = target_net_soft_update
