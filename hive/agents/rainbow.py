@@ -302,7 +302,10 @@ class RainbowDQNAgent(DQNAgent):
                     log_p = torch.log(probs)
                     with torch.no_grad():
                         target_prob = self.target_projection(
-                            next_state_inputs, next_action, batch["reward"], batch["done"]
+                            next_state_inputs,
+                            next_action,
+                            batch["reward"],
+                            batch["done"],
                         )
 
                     loss = -(target_prob * log_p).sum(-1)
@@ -311,7 +314,9 @@ class RainbowDQNAgent(DQNAgent):
                     pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
                     next_qvals = self._target_qnet(*next_state_inputs)
-                    next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
+                    next_qvals = next_qvals[
+                        torch.arange(next_qvals.size(0)), next_action
+                    ]
 
                     q_targets = batch["reward"] + self._discount_rate * next_qvals * (
                         1 - batch["done"]
