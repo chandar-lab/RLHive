@@ -1,8 +1,8 @@
 run_name: &run_name 'gym-dqn'
 train_steps: 500000
-test_frequency: 200
+test_frequency: 2000
 test_episodes: 10
-max_steps_per_episode: 1000
+max_steps_per_episode: 500
 stack_size: &stack_size 1
 save_dir: 'experiment'
 saving_schedule:
@@ -15,7 +15,7 @@ saving_schedule:
 environment:
   name: 'GymEnv'
   kwargs:
-    env_name: 'CartPole-v0'
+    env_name: 'CartPole-v1'
 
 agent:
   name: 'PPOAgent'
@@ -35,12 +35,12 @@ agent:
     optimizer_fn:
       name: 'Adam'
       kwargs: {lr: 0.001}
-    transitions_per_update: 10000
+    transitions_per_update: 2000
     replay_buffer:
       name: 'PPOReplayBuffer'
       kwargs:
         observation_dtype: np.float64
-        capacity: 10000
+        capacity: 2000
         stack_size: *stack_size
         gamma: &gamma .99
     discount_rate: *gamma
