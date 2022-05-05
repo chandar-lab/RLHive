@@ -36,6 +36,7 @@ class TD3(Agent):
         replay_buffer: BaseReplayBuffer = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
+        grad_clip: float = None,
         reward_clip: float = None,
         soft_update_fraction: float = 0.005,
         batch_size: int = 64,
@@ -79,6 +80,7 @@ class TD3(Agent):
             gamma=discount_rate,
         )
         self._discount_rate = discount_rate**n_step
+        self._grad_clip = grad_clip
         self._reward_clip = reward_clip
         self._soft_update_fraction = soft_update_fraction
         if critic_loss_fn is None:
@@ -272,6 +274,10 @@ class TD3(Agent):
             )
             self._critic_optimizer.zero_grad()
             critic_loss.backward()
+            if self._grad_clip is not None:
+                torch.nn.utils.clip_grad_norm_(
+                    self._critic.parameters(), self._grad_clip
+                )
             self._critic_optimizer.step()
             if self._logger.update_step(self._timescale):
                 self._logger.log_scalar("critic_loss", critic_loss, self._timescale)
@@ -285,6 +291,10 @@ class TD3(Agent):
                 )
                 self._actor_optimizer.zero_grad()
                 actor_loss.backward()
+                if self._grad_clip is not None:
+                    torch.nn.utils.clip_grad_norm_(
+                        self._actor.parameters(), self._grad_clip
+                    )
                 self._actor_optimizer.step()
                 self._update_target()
                 if self._logger.should_log(self._timescale):
