@@ -1,5 +1,5 @@
 run_name: &run_name 'ddpg'
-train_steps: 1000000
+train_steps: 2000000
 test_frequency: 5000
 test_episodes: 10
 max_steps_per_episode: 1000000
@@ -33,16 +33,21 @@ agent:
         capacity: 1000000
     actor_optimizer_fn:
       name: 'Adam'
+      kwargs:
+        lr: .0003
     critic_optimizer_fn:
       name: 'Adam'
+      kwargs:
+        lr: .0003
     discount_rate: .99
+    grad_clip: .5
     soft_update_fraction: .005
-    batch_size: 100
+    batch_size: 256
     update_frequency: 1
     action_noise: .1
-    min_replay_history: 1
+    min_replay_history: 25000
     device: 'cuda'
-    id: 'ddpg'
+    id: 'agent'
 # List of logger configs used.
 loggers:
   -
@@ -50,8 +55,7 @@ loggers:
   -
     name: WandbLogger
     kwargs:
-      project: Hive-v2
-      entity: dapatil211
+      project: Hive
       name: *run_name
       resume: "allow"
       start_method: "fork"
