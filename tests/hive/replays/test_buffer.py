@@ -10,12 +10,11 @@ from hive import envs, replays
 def initial_buffer():
     environment = envs.GymEnv("CartPole-v1")
     seed = 100
-    rng = np.random.default_rng(seed)
     buffer = replays.SimpleReplayBuffer(capacity=500, compress=True, seed=seed)
 
     observation, _ = environment.reset()
     for i in range(400):
-        action = rng.integers(environment._env_spec.act_dim[0])
+        action = environment._env_spec.action_space[0].sample()
         next_observation, reward, done, turn, info = environment.step(action)
         buffer.add(observation=observation, action=action, reward=reward, done=done)
         observation = next_observation
@@ -32,7 +31,7 @@ def test_add_to_buffer(initial_buffer):
     buffer, environment, seed = initial_buffer
     rng = np.random.default_rng(seed)
     observation, _ = environment.reset()
-    action = rng.integers(environment._env_spec.act_dim[0])
+    action = environment._env_spec.action_space[0].sample()
     next_observation, reward, done, turn, info = environment.step(action)
     buffer.add(observation=observation, action=action, reward=reward, done=done)
     assert buffer.size() == 400

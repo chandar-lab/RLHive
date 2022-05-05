@@ -151,8 +151,8 @@ def set_up_experiment(config):
 
     agent_fn, full_config["agent"] = agent_lib.get_agent(config["agent"], "agent")
     agent = agent_fn(
-        obs_dim=env_spec.obs_dim[0],
-        act_dim=env_spec.act_dim[0],
+        observation_space=env_spec.observation_space[0],
+        action_space=env_spec.action_space[0],
         stack_size=config.get("stack_size", 1),
         logger=logger,
     )
