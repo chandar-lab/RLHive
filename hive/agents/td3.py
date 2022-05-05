@@ -1,6 +1,7 @@
 import copy
 import os
 
+import gym
 import numpy as np
 import torch
 from torch.nn.functional import mse_loss
@@ -20,10 +21,12 @@ from hive.utils.utils import LossFn, OptimizerFn, create_folder
 
 
 class TD3(Agent):
+    """An agent implementing the TD3 algorithm."""
+
     def __init__(
         self,
-        observation_space,
-        action_space,
+        observation_space: gym.spaces.Box,
+        action_space: gym.spaces.Box,
         representation_net: FunctionApproximator = None,
         actor_net: FunctionApproximator = None,
         critic_net: FunctionApproximator = None,
@@ -51,6 +54,70 @@ class TD3(Agent):
         device="cpu",
         id=0,
     ):
+        """
+        Args:
+            observation_space (gym.spaces.Box): Observation space for the agent.
+            action_space (gym.spaces.Box): Action space for the agent.
+            representation_net (FunctionApproximator): The network that encodes the
+                observations that are then fed into the actor_net and critic_net. If
+                None, defaults to :py:class:`~torch.nn.Identity`.
+            actor_net (FunctionApproximator): The network that takes the encoded
+                observations from representation_net and outputs the representations
+                used to compute the actions (ie everything except the last layer).
+            critic_net (FunctionApproximator): The network that takes two inputs: the
+                encoded observations from representation_net and actions. It outputs
+                the representations used to compute the values of the actions (ie
+                everything except the last layer).
+            init_fn (InitializationFn): Initializes the weights of agent networks using
+                create_init_weights_fn.
+            actor_optimizer_fn (OptimizerFn): A function that takes in the list of
+                parameters of the actor returns the optimizer for the actor. If None,
+                defaults to :py:class:`~torch.optim.Adam`.
+            critic_optimizer_fn (OptimizerFn): A function that takes in the list of
+                parameters of the critic returns the optimizer for the critic. If None,
+                defaults to :py:class:`~torch.optim.Adam`.
+            critic_loss_fn (LossFn): The loss function used to optimize the critic. If
+                None, defaults to :py:class:`~torch.nn.MSELoss`.
+            n_critics (int): The number of critics used by the agent to estimate
+                Q-values. The minimum Q-value is used as the value for the next state
+                when calculating target Q-values for the critic. The output of the
+                first critic is used when computing the loss for the actor. For TD3,
+                the default value is 2. For DDPG, this parameter is 1.
+            stack_size (int): Number of observations stacked to create the state fed
+                to the agent.
+            replay_buffer (BaseReplayBuffer): The replay buffer that the agent will
+                push observations to and sample from during learning. If None,
+                defaults to
+                :py:class:`~hive.replays.circular_replay.CircularReplayBuffer`.
+            discount_rate (float): A number between 0 and 1 specifying how much
+                future rewards are discounted by the agent.
+            n_step (int): The horizon used in n-step returns to compute TD(n) targets.
+            grad_clip (float): Gradients will be clipped to between
+                [-grad_clip, grad_clip].
+            reward_clip (float): Rewards will be clipped to between
+                [-reward_clip, reward_clip].
+            soft_update_fraction (float): The weight given to the target
+                net parameters in a soft (polyak) update. Also known as tau.
+            batch_size (int): The size of the batch sampled from the replay buffer
+                during learning.
+            logger (Logger): Logger used to log agent's metrics.
+            log_frequency (int): How often to log the agent's metrics.
+            update_frequency (int): How frequently to update the agent. A value of 1
+                means the agent will be updated every time update is called.
+            policy_update_frequency (int): Relative update frequency of the actor
+                compared to the critic. The actor will be updated every
+                policy_update_frequency times the critic is updated.
+            action_noise (float): The standard deviation for the noise added to the
+                action taken by the agent during training.
+            target_noise (float): The standard deviation of the noise added to the
+                target policy for smoothing.
+            target_noise_clip (float): The sampled target_noise is clipped to
+                [-target_noise_clip, target_noise_clip].
+            min_replay_history (int): How many observations to fill the replay buffer
+                with before starting to learn.
+            device: Device on which all computations should be run.
+            id: Agent identifier.
+        """
         super().__init__(observation_space, action_space, id)
         self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
         self._state_size = (
@@ -111,19 +178,22 @@ class TD3(Agent):
         Args:
             representation_net: A network that outputs the shared representations that
                 will be used by the actor and critic networks to process observations.
+            actor_net: The network that will be used to compute actions.
+            critic_net: The network that will be used to compute values of state action
+                pairs.
         """
         if representation_net is None:
             network = torch.nn.Identity()
         else:
             network = representation_net(self._state_size)
-        network_output_dim = calculate_output_dim(network, self._state_size)
+        network_output_shape = calculate_output_dim(network, self._state_size)
         self._actor = TD3ActorNetwork(
-            network, actor_net, network_output_dim, self._action_space.shape
+            network, actor_net, network_output_shape, self._action_space.shape
         ).to(self._device)
         self._critic = TD3CriticNetwork(
             network,
             critic_net,
-            network_output_dim,
+            network_output_shape,
             self._n_critics,
             self._action_space.shape,
         ).to(self._device)
@@ -150,12 +220,14 @@ class TD3(Agent):
         self._target_critic.eval()
 
     def scale_action(self, actions):
+        """Scales actions to [-1, 1]."""
         if self._scale_actions:
             return ((actions - self._action_min) / self._action_scaling) - 1.0
         else:
             return actions
 
     def unscale_actions(self, actions):
+        """Unscales actions from [-1, 1] to expected scale."""
         if self._scale_actions:
             return ((actions + 1.0) * self._action_scaling) + self._action_min
         else:

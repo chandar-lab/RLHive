@@ -11,11 +11,11 @@ from hive.utils.registry import registry
 registry.register_all(
     Agent,
     {
+        "DDPG": DDPG,
         "DQNAgent": DQNAgent,
         "LegalMovesRainbowAgent": LegalMovesRainbowAgent,
         "RainbowDQNAgent": RainbowDQNAgent,
         "RandomAgent": RandomAgent,
-        "DDPG": DDPG,
         "TD3": TD3,
     },
 )
