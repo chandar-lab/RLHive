@@ -61,7 +61,7 @@ class PPOReplayBuffer(CircularReplayBuffer):
         self._sample_cursor = 0
     
     # Taken from https://github.com/vwxyzjn/ppo-implementation-details/blob/main/ppo_shared.py
-    def compute_advantages(self, next_value, next_done):
+    def compute_advantages(self):
         """ Compute advantages using rewards and value estimates.
 
         Args:
@@ -70,28 +70,21 @@ class PPOReplayBuffer(CircularReplayBuffer):
         """
         if self._gae:
             lastgaelam = 0
-            for t in reversed(range(self._capacity)):
-                if t == self._capacity - 1:
-                    nextnonterminal = 1.0 - next_done
-                    nextvalues = next_value
-                else:
-                    nextnonterminal = 1.0 - self._storage["done"][t + 1]
-                    nextvalues = self._storage["values"][t + 1]
+            for t in reversed(range(self.size())):
+                nextvalues = self._storage["values"][t + 1]
+                nextnonterminal = 1.0 - self._storage["done"][t]
                 delta = self._storage["reward"][t] + self._gamma * nextvalues * nextnonterminal - self._storage["values"][t]
                 self._storage["advantages"][t] = lastgaelam = delta + self._gamma * self._gae_lambda * nextnonterminal * lastgaelam
             self._storage["returns"] = self._storage["advantages"] + self._storage["values"]
         else:
-            for t in reversed(range(self._capacity)):
-                if t == self._capacity - 1:
-                    nextnonterminal = 1.0 - next_done
-                    next_return = next_value
-                else:
-                    nextnonterminal = 1.0 - self._storage["done"][t + 1]
-                    next_return = self._storage["returns"][t + 1]
+            for t in reversed(range(self.size())):
+                next_return = self._storage["returns"][t + 1]
+                nextnonterminal = 1.0 - self._storage["done"][t]
                 self._storage["returns"][t] = self._storage["reward"][t] + self._gamma * nextnonterminal * next_return
             self._storage["advantages"] = self._storage["returns"] - self._storage["values"]
     
     def reset(self):
+        """Resets the storage."""
         self._create_storage(self._capacity, self._specs)
         self._episode_start = True
         self._cursor = 0
@@ -100,7 +93,7 @@ class PPOReplayBuffer(CircularReplayBuffer):
     def _find_valid_indices(self):
         """Filters invalid indices."""
         self._sample_cursor = 0
-        self._valid_indices = self._filter_transitions(np.arange(self._capacity))
+        self._valid_indices = self._filter_transitions(np.arange(self.size()))
         self._valid_indices = self._rng.permutation(self._valid_indices)
         return len(self._valid_indices)
 
