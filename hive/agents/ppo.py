@@ -176,7 +176,7 @@ class PPOAgent(Agent):
         self._vf_coef = vf_coef
         self._num_epochs_per_update = num_epochs_per_update
         self._normalize_advantages = normalize_advantages
-        self._target_kl = None
+        self._target_kl = target_kl
 
         self._training = False
     
