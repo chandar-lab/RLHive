@@ -24,7 +24,7 @@ def calculate_output_dim(net, input_shape):
     _rng = jax.random.PRNGKey(1)
     _, rng = jax.random.split(_rng)
     params = net.init(rng)
-    output = net.apply(params, placeholder) ## does not work
+    output = net.apply(params, placeholder)  ## does not work
     return output.size()[1:]
 
 
