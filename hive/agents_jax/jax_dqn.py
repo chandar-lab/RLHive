@@ -4,16 +4,17 @@ import os
 import numpy as np
 import torch
 from flax import core
-from flax.training import checkpoints
-import gin
+# from flax.training import checkpoints
 import jax
 import jax.numpy as jnp
 import rlax
 import optax
 import time
+import pickle
+from jax.experimental import optimizers
 
 from hive.agents.agent import Agent
-from hive.agents_jax.qnets.base import FunctionApproximator
+from hive.agents.qnets.base import FunctionApproximator
 from hive.agents_jax.qnets.qnet_heads import JaxDQNNetwork
 from hive.agents_jax.qnets.utils import (
     InitializationFn,
@@ -64,7 +65,7 @@ class jax_Seeder:
         return self._current_seed
 
 
-class DQNAgent(Agent):
+class JaxDQNAgent(Agent):
     """An agent implementing the DQN algorithm. Uses an epsilon greedy
     exploration policy
     """
@@ -147,19 +148,28 @@ class DQNAgent(Agent):
         """
         super().__init__(obs_dim=obs_dim, act_dim=act_dim, id=id)
         self._init_fn = create_init_weights_fn(init_fn)
+        self.act_dim = act_dim ## add this
+        if seed == None:
+            seed = 1
+        self._rng = jax.random.PRNGKey(seed=seed)
+
+        self.stack_size = stack_size
+        state_shape = obs_dim + (stack_size,)  ## check stack size
+        self.sample_network_input = jnp.zeros(state_shape)
+
         self.create_q_networks(representation_net)
         if optimizer_fn is None:
             optimizer_fn = optax.adam()
-        self.optimizer = optimizer_fn
-        self.optimizer_state = self.optimizer.init(self.online_params)
+        self._optimizer = optimizer_fn
+        self.optimizer_state = self._optimizer.init(self.online_params)
 
         # seed = int(time.time() * 1e6) if seed is None else seed
-        self._rng = jax.random.PRNGKey(seed=jax_Seeder.get_new_seed())
+
 
         self._replay_buffer = replay_buffer
         if self._replay_buffer is None:
             self._replay_buffer = CircularReplayBuffer()
-        self._discount_rate = discount_rate**n_step
+        self._discount_rate = discount_rate ** n_step
         self._grad_clip = grad_clip
         self._reward_clip = reward_clip
         self._target_net_soft_update = target_net_soft_update
@@ -202,10 +212,10 @@ class DQNAgent(Agent):
 
         self._state = {"episode_start": True}
         self._training = False
-        self.stack_size = stack_size
 
-        state_shape = obs_dim + (stack_size,)  ## check stack size
-        self.sample_network_input = jnp.zeros(state_shape)
+
+
+
         self.batch_q_learning = jax.vmap(rlax.q_learning)
 
     def create_q_networks(self, representation_net):
@@ -216,7 +226,7 @@ class DQNAgent(Agent):
                 of the DQN).
         """
         network = representation_net(self._obs_dim)
-        network_output_dim = jnp.prod(calculate_output_dim(network, self._obs_dim))
+        network_output_dim = jnp.prod(self.act_dim) # jnp.prod(calculate_output_dim(network, self._obs_dim))
         self._qnet = JaxDQNNetwork(network, network_output_dim, self._act_dim)
         self._rng, rng = jax.random.split(self._rng)
         self.online_params = self._qnet.init(rng, x=self.sample_network_input)
@@ -324,9 +334,7 @@ class DQNAgent(Agent):
 
         def loss_fn(batch):
             q_tm1 = self._qnet.apply(self.online_params, batch["observation"]).q_values
-            q_target_t = self._qnet.apply(
-                self._target_qnet_params, batch["next_observation"]
-            ).q_values
+            q_target_t = self._qnet.apply(self._target_qnet_params , batch["next_observation"]).q_values
             td_errors = self.batch_q_learning(
                 q_tm1,
                 batch["action"],
@@ -336,9 +344,7 @@ class DQNAgent(Agent):
                 q_target_t,
             )
             if self._grad_clip is not None:
-                td_errors = rlax.clip_gradient(
-                    td_errors, -self._grad_clip, self._grad_clip
-                )
+                td_errors = rlax.clip_gradient(td_errors, -self._grad_clip, self._grad_clip)
             else:
                 td_errors = rlax.clip_gradient(td_errors)
 
@@ -347,6 +353,7 @@ class DQNAgent(Agent):
 
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(**self.preprocess_update_info(update_info))
+
 
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
@@ -364,12 +371,66 @@ class DQNAgent(Agent):
             ) = self.preprocess_update_batch(batch)
 
             batch_gard = jax.grad(loss_fn)(batch)
-            updates, self.optimizer_state = self.optimizer.update(
-                batch_gard, self.optimizer_state
-            )
+            updates, self.optimizer_state = self._optimizer.update(batch_gard, self.optimizer_state)
             self.online_params = optax.apply_updates(self.online_params, updates)
+
+        # Update target network
+        if self._target_net_update_schedule.update():
+            self._update_target()
+
+
+    def _update_target(self):
+        """Update the target network."""
+        if self._target_net_soft_update:
+            target_params = self._target_qnet_params
+            current_params = self.online_params
+            for key in list(target_params.keys()):
+                target_params[key] = (
+                    (1 - self._target_net_update_fraction) * target_params[key]
+                    + self._target_net_update_fraction * current_params[key]
+                )
+            self._target_qnet_params = self.online_params
+        else:
             self._target_qnet_params = self.online_params
 
-    ### TODO work on def save(self, dname):
 
-    ### TODO work on def load(self, dname):
+    def save(self, dname):
+        pickle.dump(
+            {
+                "qnet": self._qnet.state_dict(), ## check if it works
+                "target_qnet": self._target_qnet_params,
+                "optimizer": self.optimizer_state,
+                "learn_schedule": self._learn_schedule,
+                "epsilon_schedule": self._epsilon_schedule,
+                "target_net_update_schedule": self._target_net_update_schedule,
+                "rng": self._rng,
+            },
+            open(os.path.join(dname, "agent.pkl"), "wb"),
+        )
+        replay_dir = os.path.join(dname, "replay")
+        create_folder(replay_dir)
+        self._replay_buffer.save(replay_dir)
+
+    def load(self, dname):
+
+        checkpoint = pickle.load(open(os.path.join(dname, "agent.pkl"), "rb"))
+
+        self._qnet.load_state_dict(checkpoint["qnet"]) ## check if it works
+        self._target_qnet_params = checkpoint["target_qnet"]
+        self.optimizer_state = checkpoint["optimizer"]
+        self._learn_schedule = checkpoint["learn_schedule"]
+        self._epsilon_schedule = checkpoint["epsilon_schedule"]
+        self._target_net_update_schedule = checkpoint["target_net_update_schedule"]
+        self._rng = checkpoint["rng"]
+        self._replay_buffer.load(os.path.join(dname, "replay"))
+
+
+    # trained_params = optimizers.unpack_optimizer_state(opt_state)
+    # pickle.dump(trained_params, open(os.path.join(config["ckpt_path"], "best_ckpt.pkl"), "wb"))
+    #
+    # best_params = pickle.load(open(os.path.join(config["ckpt_path"], "best_ckpt.pkl"), "rb"))
+    # best_opt_state = optimizers.pack_optimizer_state(best_params)
+
+
+
+

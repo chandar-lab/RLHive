@@ -1,6 +1,5 @@
 from typing import Tuple, Union
 from flax import linen as nn
-import gin
 import jax
 import jax.numpy as jnp
 import numpy as onp
@@ -9,7 +8,6 @@ from hive.agents_jax.qnets.mlp import JaxMLPNetwork
 from hive.agents_jax.qnets.utils import calculate_output_dim
 
 
-@gin.configurable
 class JaxConvNetwork(nn.Module):
     """
     Basic convolutional neural network architecture. Applies a number of
@@ -102,7 +100,7 @@ class JaxConvNetwork(nn.Module):
         else:
             self.mlp = nn.Identity()  ## TODO check identity in flax
 
-    def forward(self, x):
+    def __call__(self, x):
         if len(x.shape) == 3:
             x = x.unsqueeze(0)
         elif len(x.shape) == 5:

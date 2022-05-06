@@ -21,7 +21,10 @@ def calculate_output_dim(net, input_shape):
     if isinstance(input_shape, int):
         input_shape = (input_shape,)
     placeholder = jnp.zeros((0,) + tuple(input_shape))
-    output = net(placeholder)
+    _rng = jax.random.PRNGKey(1)
+    _, rng = jax.random.split(_rng)
+    params = net.init(rng)
+    output = net.apply(params, placeholder) ## does not work
     return output.size()[1:]
 
 
