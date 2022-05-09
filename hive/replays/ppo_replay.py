@@ -7,7 +7,7 @@ class PPOReplayBuffer(CircularReplayBuffer):
 
     def __init__(
         self,
-        capacity: int = 10000,
+        transitions_per_update: int = 10000,
         stack_size: int = 1,
         n_step: int = 1,
         gamma: float = 0.99,
@@ -25,7 +25,7 @@ class PPOReplayBuffer(CircularReplayBuffer):
         """Constructor for CircularReplayBuffer.
 
         Args:
-            capacity (int): Total number of observations that can be stored in the
+            transitions_per_update (int): Total number of observations that can be stored in the
                 buffer. Note, this is not the same as the number of transitions that
                 can be stored in the buffer.
             stack_size (int): The number of frames to stack to create an observation.
@@ -54,31 +54,28 @@ class PPOReplayBuffer(CircularReplayBuffer):
             num_players_sharing_buffer (int): Number of agents that share their
                 buffers. It is used for self-play.
         """
-        
-        super().__init__(capacity, stack_size, n_step, gamma, observation_shape, observation_dtype, action_shape, action_dtype, reward_shape, reward_dtype, extra_storage_types, num_players_sharing_buffer)
+        #TODO: remove this
+        super().__init__(transitions_per_update+1, stack_size, n_step, gamma, observation_shape, observation_dtype, action_shape, action_dtype, reward_shape, reward_dtype, extra_storage_types, num_players_sharing_buffer)
         self._use_gae = use_gae
         self._gae_lambda = gae_lambda
         self._sample_cursor = 0
+        self._transitions_per_update = transitions_per_update
     
     # Taken from https://github.com/vwxyzjn/ppo-implementation-details/blob/main/ppo_shared.py
-    def compute_advantages(self):
+    def compute_advantages(self, values):
         """ Compute advantages using rewards and value estimates.
-
-        Args:
-            next_value (float): The value of the next observation to be used for bootstrapping
-            next_done  (bool): If next observation is the last observation in the episode
         """
-        if self._gae:
+        if self._use_gae:
             lastgaelam = 0
             for t in reversed(range(self.size())):
-                nextvalues = self._storage["values"][t + 1]
+                nextvalues = values if self.size()-1 else self._storage["values"][t + 1]
                 nextnonterminal = 1.0 - self._storage["done"][t]
                 delta = self._storage["reward"][t] + self._gamma * nextvalues * nextnonterminal - self._storage["values"][t]
                 self._storage["advantages"][t] = lastgaelam = delta + self._gamma * self._gae_lambda * nextnonterminal * lastgaelam
             self._storage["returns"] = self._storage["advantages"] + self._storage["values"]
         else:
             for t in reversed(range(self.size())):
-                next_return = self._storage["returns"][t + 1]
+                next_return = values if self.size()-1 else self._storage["return"][t + 1]
                 nextnonterminal = 1.0 - self._storage["done"][t]
                 self._storage["returns"][t] = self._storage["reward"][t] + self._gamma * nextnonterminal * next_return
             self._storage["advantages"] = self._storage["returns"] - self._storage["values"]
@@ -102,3 +99,6 @@ class PPOReplayBuffer(CircularReplayBuffer):
         indices = self._valid_indices[self._sample_cursor*batch_size:(self._sample_cursor+1)*batch_size]
         self._sample_cursor +=1
         return indices + self._stack_size - 1
+    
+    def ready(self):
+        return self.size() == self._transitions_per_update

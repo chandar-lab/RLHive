@@ -3,7 +3,6 @@ import os
 import gym
 import numpy as np
 import torch
-from torch.nn.functional import mse_loss
 
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
@@ -18,9 +17,7 @@ from hive.utils.schedule import (
     PeriodicSchedule,
 )
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
-from hive.agents.qnets.ppo_nets import PPOActorCriticNetwork, PPOActorNetwork, PPOCriticNetwork
-
-
+from hive.agents.qnets.ppo_nets import PPOActorNetwork, PPOCriticNetwork
 #TODO: lr annealing, orthogonal initialization
 
 class PPOAgent(Agent):
@@ -128,16 +125,19 @@ class PPOAgent(Agent):
             *self._observation_space.shape[1:],
         )
         self._continuous_action = isinstance(self._action_space, gym.spaces.Box)
-        if self._continuous_action:
+        self._scale_actions = self._continuous_action
+        if self._scale_actions:
             self._action_min = self._action_space.low
             self._action_max = self._action_space.high
             self._action_scaling = 0.5 * (self._action_max - self._action_min)
-            self._scale_actions = np.isfinite(self._action_scaling).all()
+            self._scale_actions  = self._scale_actions and np.isfinite(self._action_scaling).all()
         self._init_fn = create_init_weights_fn(init_fn)
         self.create_networks(representation_net, actor_net, critic_net)
-        if optimizer_fn is None:
-            optimizer_fn = torch.optim.Adam
+        if actor_optimizer_fn is None:
+            actor_optimizer_fn = torch.optim.Adam
         self._actor_optimizer = actor_optimizer_fn(self._actor.parameters())
+        if critic_optimizer_fn is None:
+            critic_optimizer_fn = torch.optim.Adam
         self._critic_optimizer = critic_optimizer_fn(self._critic.parameters())
         if replay_buffer is None:
             replay_buffer = PPOReplayBuffer
@@ -174,7 +174,7 @@ class PPOAgent(Agent):
         self._ent_coef = ent_coef
         self._clip_vloss = clip_vloss
         self._vf_coef = vf_coef
-        self._num_epochs_per_update = num_epochs_per_update
+        self._num_epochs = num_epochs_per_update
         self._normalize_advantages = normalize_advantages
         self._target_kl = target_kl
 
@@ -193,19 +193,13 @@ class PPOAgent(Agent):
             network = torch.nn.Identity()
         else:
             network = representation_net(self._observation_space.shape)
-        network_output_dim = calculate_output_dim(
-            network, self._observation_space.shape
-        )
-        self._actor_critic = PPOActorCriticNetwork(
-            network, actor_net, critic_net, network_output_dim, self._action_space
-        ).to(self._device)
 
         network_output_shape = calculate_output_dim(network, self._state_size)
         self._actor = PPOActorNetwork(
             network,
             actor_net,
             network_output_shape,
-            self._action_space.shape,
+            self._action_space,
             self._continuous_action
         ).to(self._device)
         self._critic = PPOCriticNetwork(
@@ -294,9 +288,13 @@ class PPOAgent(Agent):
         action, logprob, _ = self._actor(observation)
         value = self._critic(observation)
         action = action.cpu().numpy()
-        action = self.unscale_actions(np.expand_dims(action, axis=0))
-        action = np.clip(action, self._action_min, self._action_max)
-        
+        if self._continuous_action:
+            action = self.unscale_actions(action)
+            action = np.clip(action, self._action_min, self._action_max)
+
+        #TODO: remove if vectorized environments
+        action = np.squeeze(action)
+
         self._logprob = logprob.cpu().numpy()
         self._value = value.cpu().numpy()
         return action
@@ -313,30 +311,17 @@ class PPOAgent(Agent):
         if not self._training:
             return
         
-        processed_update_info = self.preprocess_update_info(update_info)
-        processed_update_info.update({
-            'logprob':self._logprob,
-            'values':self._value,
-            'returns':np.empty(self._value.shape),
-            'advantages':np.empty(self._value.shape),
-        })
-        self._replay_buffer.add(**processed_update_info)
-        
         # Inspired  by https://github.com/vwxyzjn/ppo-implementation-details/blob/main/ppo_shared.py
-        if (self._replay_buffer.size()+1 >= self._replay_buffer._capacity):
-            observation = torch.tensor(
-                np.expand_dims(observation, axis=0), device=self._device
-            ).float()
-            with torch.no_grad():
-                values = self._critic(observation).cpu().detach().numpy()
-            self._replay_buffer.compute_advantages(values)
-
+        if (self._replay_buffer.ready()):
+            self._replay_buffer.compute_advantages(self._value)
             #TODO: recheck sampling
             for _ in range(self._num_epochs):
                 valid_ind_size = self._replay_buffer._find_valid_indices()
                 for _ in range(valid_ind_size//self._batch_size):
                     batch = self._replay_buffer.sample(batch_size=self._batch_size)
                     batch = self.preprocess_update_batch(batch)
+                    self._actor_optimizer.zero_grad()
+                    self._critic_optimizer.zero_grad()
 
                     _, _logprob, entropy = self._actor(batch['observation'], batch["action"])
                     values = self._critic(batch['observation'])
@@ -346,12 +331,11 @@ class PPOAgent(Agent):
                     if self._normalize_advantages:
                         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
                     # Actor loss
-                    loss1 = advantages * ratios
-                    loss2 = advantages * torch.clamp(ratios, 1 - self._clip_coef, 1 + self._clip_coef)
-                    loss = -torch.min(loss1, loss2).mean()
+                    loss1 = -advantages * ratios
+                    loss2 = -advantages * torch.clamp(ratios, 1 - self._clip_coef, 1 + self._clip_coef)
+                    loss = torch.max(loss1, loss2).mean()
                     entr_loss = entropy.mean()
                     actor_loss = loss - self._ent_coef * entr_loss
-                    self._actor_optimizer.zero_grad()
                     actor_loss.backward()
                     if self._grad_clip is not None:
                         torch.nn.utils.clip_grad_norm_(
@@ -372,8 +356,7 @@ class PPOAgent(Agent):
                         critic_loss = 0.5 * v_loss_max.mean()
                     else:
                         critic_loss = 0.5 * self._critic_loss_fn(values, batch["returns"]).mean()
-
-                    self._critic_optimizer.zero_grad()
+                    critic_loss = self._vf_coef * critic_loss
                     critic_loss.backward()
                     if self._grad_clip is not None:
                         torch.nn.utils.clip_grad_norm_(
@@ -384,19 +367,26 @@ class PPOAgent(Agent):
                     with torch.no_grad():
                         # calculate approx_kl http://joschu.net/blog/kl-approx.html
                         approx_kl = ((ratios - 1) - logratios).mean()
-                        clipfracs += [((ratios - 1.0).abs() > self._clip_coef).float().mean().item()]
 
-                    if self._logger.update_step(self._timescale):
+                    if self._logger.should_log(self._timescale):
                         self._logger.log_scalar("actor_loss", actor_loss, self._timescale)
                         self._logger.log_scalar("critic_loss", critic_loss, self._timescale)
                         self._logger.log_scalar("entropy_loss", entr_loss, self._timescale)
-                        self._logger.log_scalar("clip_frac", clipfracs, self._timescale)
                         self._logger.log_scalar("approxkl", approx_kl, self._timescale)
                 
                 if self._target_kl is not None:
                     if approx_kl > self._target_kl:
                         break
             self._replay_buffer.reset()
+
+        processed_update_info = self.preprocess_update_info(update_info)
+        processed_update_info.update({
+            'logprob':self._logprob,
+            'values':self._value,
+            'returns':np.empty(self._value.shape),
+            'advantages':np.empty(self._value.shape),
+        })
+        self._replay_buffer.add(**processed_update_info)
 
     def save(self, dname):
         torch.save(
