@@ -55,7 +55,7 @@ class PPOReplayBuffer(CircularReplayBuffer):
                 buffers. It is used for self-play.
         """
         #TODO: remove this
-        super().__init__(transitions_per_update+1, stack_size, n_step, gamma, observation_shape, observation_dtype, action_shape, action_dtype, reward_shape, reward_dtype, extra_storage_types, num_players_sharing_buffer)
+        super().__init__(transitions_per_update, stack_size, n_step, gamma, observation_shape, observation_dtype, action_shape, action_dtype, reward_shape, reward_dtype, extra_storage_types, num_players_sharing_buffer)
         self._use_gae = use_gae
         self._gae_lambda = gae_lambda
         self._sample_cursor = 0
@@ -67,15 +67,15 @@ class PPOReplayBuffer(CircularReplayBuffer):
         """
         if self._use_gae:
             lastgaelam = 0
-            for t in reversed(range(self.size())):
-                nextvalues = values if self.size()-1 else self._storage["values"][t + 1]
+            for t in reversed(range(self._capacity)):
+                nextvalues = values if t == self._capacity-1 else self._storage["values"][t + 1]
                 nextnonterminal = 1.0 - self._storage["done"][t]
                 delta = self._storage["reward"][t] + self._gamma * nextvalues * nextnonterminal - self._storage["values"][t]
                 self._storage["advantages"][t] = lastgaelam = delta + self._gamma * self._gae_lambda * nextnonterminal * lastgaelam
             self._storage["returns"] = self._storage["advantages"] + self._storage["values"]
         else:
-            for t in reversed(range(self.size())):
-                next_return = values if self.size()-1 else self._storage["return"][t + 1]
+            for t in reversed(range(self._capacity)):
+                next_return = values if t == self._capacity-1 else self._storage["return"][t + 1]
                 nextnonterminal = 1.0 - self._storage["done"][t]
                 self._storage["returns"][t] = self._storage["reward"][t] + self._gamma * nextnonterminal * next_return
             self._storage["advantages"] = self._storage["returns"] - self._storage["values"]
@@ -90,7 +90,7 @@ class PPOReplayBuffer(CircularReplayBuffer):
     def _find_valid_indices(self):
         """Filters invalid indices."""
         self._sample_cursor = 0
-        self._valid_indices = self._filter_transitions(np.arange(self.size()))
+        self._valid_indices = self._filter_transitions(np.arange(self._capacity))
         self._valid_indices = self._rng.permutation(self._valid_indices)
         return len(self._valid_indices)
 
@@ -101,4 +101,4 @@ class PPOReplayBuffer(CircularReplayBuffer):
         return indices + self._stack_size - 1
     
     def ready(self):
-        return self.size() == self._transitions_per_update
+        return self.size()+1 == self._transitions_per_update

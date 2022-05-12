@@ -293,7 +293,7 @@ class PPOAgent(Agent):
             action = np.clip(action, self._action_min, self._action_max)
 
         #TODO: remove if vectorized environments
-        action = np.squeeze(action)
+        action = action[0] # np.squeeze(action)
 
         self._logprob = logprob.cpu().numpy()
         self._value = value.cpu().numpy()
@@ -333,15 +333,8 @@ class PPOAgent(Agent):
                     # Actor loss
                     loss1 = -advantages * ratios
                     loss2 = -advantages * torch.clamp(ratios, 1 - self._clip_coef, 1 + self._clip_coef)
-                    loss = torch.max(loss1, loss2).mean()
+                    actor_loss = torch.max(loss1, loss2).mean()
                     entr_loss = entropy.mean()
-                    actor_loss = loss - self._ent_coef * entr_loss
-                    actor_loss.backward()
-                    if self._grad_clip is not None:
-                        torch.nn.utils.clip_grad_norm_(
-                            self._actor.parameters(), self._grad_clip
-                        )
-                    self._actor_optimizer.step()
 
                     # Critic loss
                     values = values.view(-1)
@@ -356,12 +349,19 @@ class PPOAgent(Agent):
                         critic_loss = 0.5 * v_loss_max.mean()
                     else:
                         critic_loss = 0.5 * self._critic_loss_fn(values, batch["returns"]).mean()
-                    critic_loss = self._vf_coef * critic_loss
-                    critic_loss.backward()
+
+                    loss = actor_loss - self._ent_coef * entr_loss + self._vf_coef * critic_loss
+                    loss.backward()
+
                     if self._grad_clip is not None:
                         torch.nn.utils.clip_grad_norm_(
                             self._critic.parameters(), self._grad_clip
                         )
+                        torch.nn.utils.clip_grad_norm_(
+                            self._actor.parameters(), self._grad_clip
+                        )
+                    
+                    self._actor_optimizer.step()
                     self._critic_optimizer.step()
 
                     with torch.no_grad():
