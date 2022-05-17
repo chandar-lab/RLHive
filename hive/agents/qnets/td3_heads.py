@@ -16,6 +16,7 @@ class TD3ActorNetwork(torch.nn.Module):
         actor_net: FunctionApproximator,
         network_output_shape,
         action_shape,
+        use_tanh=True,
     ) -> None:
         """
         Args:
@@ -42,8 +43,9 @@ class TD3ActorNetwork(torch.nn.Module):
             actor_network,
             torch.nn.Flatten(),
             torch.nn.Linear(feature_dim, np.prod(action_shape)),
-            torch.nn.Tanh(),
         )
+        if use_tanh:
+            self.actor.append(torch.nn.Tanh())
 
     def forward(self, x):
         x = self.actor(x)

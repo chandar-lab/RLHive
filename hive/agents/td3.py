@@ -188,7 +188,11 @@ class TD3(Agent):
             network = representation_net(self._state_size)
         network_output_shape = calculate_output_dim(network, self._state_size)
         self._actor = TD3ActorNetwork(
-            network, actor_net, network_output_shape, self._action_space.shape
+            network,
+            actor_net,
+            network_output_shape,
+            self._action_space.shape,
+            self._scale_actions,
         ).to(self._device)
         self._critic = TD3CriticNetwork(
             network,
@@ -290,8 +294,9 @@ class TD3(Agent):
             noise = torch.randn_like(action, requires_grad=False) * self._action_noise
             action = action + noise
         action = action.cpu().detach().numpy()
-        action = self.unscale_actions(np.expand_dims(action, axis=0))
-        action = np.clip(action, self._action_min, self._action_max)
+        if self._scale_actions:
+            action = self.unscale_actions(np.expand_dims(action, axis=0))
+            action = np.clip(action, self._action_min, self._action_max)
         return action
 
     def update(self, update_info):
