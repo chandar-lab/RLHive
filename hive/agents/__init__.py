@@ -4,6 +4,7 @@ from hive.agents.dqn import DQNAgent
 from hive.agents.legal_moves_rainbow import LegalMovesRainbowAgent
 from hive.agents.rainbow import RainbowDQNAgent
 from hive.agents.random import RandomAgent
+from hive.agents.nonlinear_dyna_q import NonlinearDynaQ
 from hive.utils.registry import registry
 
 registry.register_all(
@@ -13,6 +14,7 @@ registry.register_all(
         "LegalMovesRainbowAgent": LegalMovesRainbowAgent,
         "RainbowDQNAgent": RainbowDQNAgent,
         "RandomAgent": RandomAgent,
+        "NonlinearDynaQ": NonlinearDynaQ,
     },
 )
 

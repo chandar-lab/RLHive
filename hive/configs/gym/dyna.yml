@@ -1,0 +1,106 @@
+run_name: &run_name 'gym-nonlinear-dyna-q'
+train_steps: 1000000
+test_frequency: 10000
+test_episodes: 5
+max_steps_per_episode: 1000000
+stack_size: &stack_size 1
+save_dir: 'experiment'
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 10000
+
+environment:
+  name: 'GymEnv'
+  kwargs:
+    env_name: 'MountainCar-v0'
+
+agent:
+  name: 'NonlinearDynaQ'
+  kwargs:
+    dyna_model:
+      name: 'ActionInMiddleDynaQModel'
+      kwargs:
+        observation_encoder_net:
+          name: 'MLPNetwork'
+          kwargs:
+            hidden_units: [64, 64]
+        observation_predictor_net:
+          name: 'MLPNetwork'
+          kwargs:
+            hidden_units: [64, 64]
+        reward_encoder_net:
+          name: 'MLPNetwork'
+          kwargs:
+            hidden_units: [64, 64]
+        reward_predictor_net:
+          name: 'MLPNetwork'
+          kwargs:
+            hidden_units: [64, 64]
+        done_encoder_net:
+          name: 'MLPNetwork'
+          kwargs:
+            hidden_units: [64, 64]
+        done_predictor_net:
+          name: 'MLPNetwork'
+          kwargs:
+            hidden_units: [64, 64]
+    value_representation_net:
+      name: 'MLPNetwork'
+      kwargs:
+        hidden_units: [64, 64, 64, 64]
+    init_fn:
+      name: 'kaiming_uniform'
+      kwargs:
+        mode: 'fan_in'
+    learning_buffer:
+      name: 'CircularReplayBuffer'
+      kwargs:
+        capacity: 1000000
+    planning_buffer:
+      name: 'CircularReplayBuffer'
+      kwargs:
+        capacity: 1000000
+    model_optimizer_fn:
+      name: 'Adam'
+      kwargs:
+        lr: .00005
+    value_optimizer_fn:
+      name: 'Adam'
+      kwargs:
+        lr: .000005
+    discount_rate: .99
+    target_net_update_schedule:
+      name: 'PeriodicSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        period: 500
+    update_period_schedule:
+      name: 'PeriodicSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        period: 1
+    epsilon_schedule:
+      name: 'ConstantSchedule'
+      kwargs:
+        value: .5
+    min_replay_history: 500
+    num_learning_steps: 5
+    num_planning_steps: 5
+    device: 'cuda'
+    id: 'agent'
+# List of logger configs used.
+loggers:
+  -
+    name: ChompLogger
+  -
+    name: WandbLogger
+    kwargs:
+      project: Hive
+      name: *run_name
+      resume: "allow"
+      start_method: "fork"
