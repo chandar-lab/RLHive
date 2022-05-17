@@ -99,10 +99,7 @@ class TD3CriticNetwork(torch.nn.Module):
         obs = torch.flatten(obs, start_dim=1)
         actions = torch.flatten(actions, start_dim=1)
         x = torch.cat([obs, actions], dim=1)
-        if self._n_critics == 1:
-            return [self._critics[0](x)]
-        else:
-            return [critic(x) for critic in self._critics]
+        return [critic(x) for critic in self._critics]
 
     def q1(self, obs, actions):
         """Returns the value according to only the first critic."""
