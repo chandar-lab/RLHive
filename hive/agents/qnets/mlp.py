@@ -37,10 +37,10 @@ class MLPNetwork(nn.Module):
         if isinstance(hidden_units, int):
             hidden_units = [hidden_units]
         linear_fn = partial(NoisyLinear, std_init=std_init) if noisy else nn.Linear
-        modules = [linear_fn(np.prod(in_dim), hidden_units[0]), torch.nn.ReLU()]
+        modules = [linear_fn(np.prod(in_dim), hidden_units[0]), torch.nn.Tanh()]
         for i in range(len(hidden_units) - 1):
             modules.append(linear_fn(hidden_units[i], hidden_units[i + 1]))
-            modules.append(torch.nn.ReLU())
+            modules.append(torch.nn.Tanh())
         self.network = torch.nn.Sequential(*modules)
 
     def forward(self, x):

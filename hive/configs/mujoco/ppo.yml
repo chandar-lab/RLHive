@@ -1,6 +1,6 @@
 run_name: &run_name 'ppo'
 train_steps: 2000000
-test_frequency: 5000
+test_frequency: 10000
 test_episodes: 10
 max_steps_per_episode: 1000000
 stack_size: &stack_size 1
@@ -22,15 +22,15 @@ agent:
     actor_net:
       name: 'MLPNetwork'
       kwargs: 
-        hidden_units: [256, 256]
+        hidden_units: [64, 64]
     critic_net:
       name: 'MLPNetwork'
       kwargs: 
-        hidden_units: [256, 256]
+        hidden_units: [64, 64]
     replay_buffer:
       name: 'PPOReplayBuffer'
       kwargs:
-        transitions_per_update: 4096
+        transitions_per_update: 2048
         use_gae: True
         gae_lambda: .95
     actor_optimizer_fn:
@@ -52,6 +52,9 @@ agent:
     batch_size: 128
     device: 'cuda'
     id: 'agent'
+    init_fn: 
+      name: 'orthogonal'
+
 # List of logger configs used.
 loggers:
   -
@@ -59,7 +62,7 @@ loggers:
   -
     name: WandbLogger
     kwargs:
-      project: Hive
+      project: Hive-PPO1
       name: *run_name
       resume: "allow"
       start_method: "fork"

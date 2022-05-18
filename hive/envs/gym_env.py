@@ -1,5 +1,5 @@
 import gym
-
+import numpy as np
 from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
 
@@ -29,7 +29,13 @@ class GymEnv(BaseEnv):
         Args:
             env_name (str): Name of the environment
         """
-        self._env = gym.make(env_name)
+        env = gym.make(env_name)
+        env = gym.wrappers.ClipAction(env)
+        env = gym.wrappers.NormalizeObservation(env)
+        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
+#        env = gym.wrappers.NormalizeReward(env)
+ #       env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+        self._env = env
 
     def create_env_spec(self, env_name, **kwargs):
         """Function used to create the specification. Subclasses can override this method

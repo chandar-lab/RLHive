@@ -130,7 +130,7 @@ class PPOAgent(Agent):
             self._action_min = self._action_space.low
             self._action_max = self._action_space.high
             self._action_scaling = 0.5 * (self._action_max - self._action_min)
-            self._scale_actions  = self._scale_actions and np.isfinite(self._action_scaling).all()
+            self._scale_actions  = False#self._scale_actions and np.isfinite(self._action_scaling).all()
         self._init_fn = create_init_weights_fn(init_fn)
         self.create_networks(representation_net, actor_net, critic_net)
         if actor_optimizer_fn is None:
@@ -288,9 +288,10 @@ class PPOAgent(Agent):
         action, logprob, _ = self._actor(observation)
         value = self._critic(observation)
         action = action.cpu().numpy()
+        self._action = action
         if self._continuous_action:
             action = self.unscale_actions(action)
-            action = np.clip(action, self._action_min, self._action_max)
+            # action = np.clip(action, self._action_min, self._action_max)
 
         #TODO: remove if vectorized environments
         action = action[0] # np.squeeze(action)
@@ -310,7 +311,7 @@ class PPOAgent(Agent):
         """
         if not self._training:
             return
-        
+        update_info["action"] = self._action
         # Inspired  by https://github.com/vwxyzjn/ppo-implementation-details/blob/main/ppo_shared.py
         if (self._replay_buffer.ready()):
             self._replay_buffer.compute_advantages(self._value)
