@@ -251,7 +251,7 @@ registry.register_all(
         "Softmax2d": torch.nn.Softmax2d,
         "LogSoftmax": torch.nn.LogSoftmax,
         "AdaptiveLogSoftmaxWithLoss": torch.nn.AdaptiveLogSoftmaxWithLoss,
-    }
+    },
 )
 
 get_optimizer_fn = getattr(registry, f"get_{OptimizerFn.type_name()}")

@@ -119,6 +119,7 @@ class LossFn(Registrable):
         """
         return "loss_fn"
 
+
 class ActivationFn(Registrable):
     """A wrapper for callables that produce activation functions.
 
