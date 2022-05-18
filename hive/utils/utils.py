@@ -118,3 +118,18 @@ class LossFn(Registrable):
             "loss_fn"
         """
         return "loss_fn"
+
+class ActivationFn(Registrable):
+    """A wrapper for callables that produce activation functions.
+
+    These wrapped callables can be partially initialized through configuration
+    files or command line arguments.
+    """
+
+    @classmethod
+    def type_name(cls):
+        """
+        Returns:
+            "activation_fn"
+        """
+        return "activation_fn"

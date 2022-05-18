@@ -1,5 +1,6 @@
 from functools import partial
 from typing import List, Tuple, Union
+from hive.utils.utils import ActivationFn
 
 import numpy as np
 import torch
@@ -20,6 +21,7 @@ class MLPNetwork(nn.Module):
         self,
         in_dim: Tuple[int],
         hidden_units: Union[int, List[int]] = 256,
+        activation_fn: ActivationFn = None,
         noisy: bool = False,
         std_init: float = 0.5,
     ):
@@ -36,11 +38,14 @@ class MLPNetwork(nn.Module):
         super().__init__()
         if isinstance(hidden_units, int):
             hidden_units = [hidden_units]
+        if activation_fn is None:
+            activation_fn = torch.nn.ReLU
+
         linear_fn = partial(NoisyLinear, std_init=std_init) if noisy else nn.Linear
-        modules = [linear_fn(np.prod(in_dim), hidden_units[0]), torch.nn.ReLU()]
+        modules = [linear_fn(np.prod(in_dim), hidden_units[0]), activation_fn()]
         for i in range(len(hidden_units) - 1):
             modules.append(linear_fn(hidden_units[i], hidden_units[i + 1]))
-            modules.append(torch.nn.ReLU())
+            modules.append(activation_fn())
         self.network = torch.nn.Sequential(*modules)
 
     def forward(self, x):
