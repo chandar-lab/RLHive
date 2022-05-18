@@ -49,7 +49,7 @@ agent:
     vf_coef: .5
     num_epochs_per_update: 10
     normalize_advantages: True
-    batch_size: 128
+    batch_size: 64
     device: 'cuda'
     id: 'agent'
     init_fn: 
@@ -62,7 +62,7 @@ loggers:
   -
     name: WandbLogger
     kwargs:
-      project: Hive-PPO1
+      project: Hive-PPO-final
       name: *run_name
       resume: "allow"
       start_method: "fork"

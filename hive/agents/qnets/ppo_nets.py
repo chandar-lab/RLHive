@@ -5,6 +5,11 @@ import torch
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.utils import calculate_output_dim
 
+
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
 class PPOCriticNetwork(torch.nn.Module):
     """A module that implements the PPO critic computation. It puts together the
     :obj:`representation_network` and :obj:`critic_net`, and adds a final
@@ -32,11 +37,19 @@ class PPOCriticNetwork(torch.nn.Module):
         else:
             critic_network = critic_net(network_output_shape)
         feature_dim = np.prod(calculate_output_dim(critic_network, network_output_shape))
+        # self.critic = torch.nn.Sequential(
+        #     representation_network,
+        #     critic_network,
+        #     torch.nn.Flatten(),
+        #     torch.nn.Linear(feature_dim, 1),
+        # )
         self.critic = torch.nn.Sequential(
             representation_network,
-            critic_network,
-            torch.nn.Flatten(),
-            torch.nn.Linear(feature_dim, 1),
+            layer_init(torch.nn.Linear(feature_dim, 64)),
+            torch.nn.Tanh(),
+            layer_init(torch.nn.Linear(64, 64)),
+            torch.nn.Tanh(),
+            layer_init(torch.nn.Linear(64, 1), std=1.0),
         )
 
     def forward(self, obs):
@@ -75,8 +88,7 @@ class GaussianPolicyHead(torch.nn.Module):
         super().__init__()
         self._action_shape = action_space.shape
         self.policy_mean = torch.nn.Sequential(
-            torch.nn.Linear(feature_dim, np.prod(self._action_shape)),
-            torch.nn.Tanh()
+            layer_init(torch.nn.Linear(feature_dim, np.prod(self._action_shape)), std=0.01)
         )
         self.policy_logstd = torch.nn.Parameter(torch.zeros(1, np.prod(action_space.shape)))
         self.distribution = torch.distributions.normal.Normal
@@ -105,9 +117,17 @@ class PPOActorNetwork(torch.nn.Module):
             actor_network = actor_net(network_output_dim)
         feature_dim = np.prod(calculate_output_dim(actor_network, network_output_dim))
         actor_head = GaussianPolicyHead if self._continuous_action else CategoricalHead
+        # self.actor = torch.nn.Sequential(
+        #     representation_network,
+        #     actor_network,
+        #     torch.nn.Flatten(),
+        #     actor_head(feature_dim, action_space)
+        # )
         self.actor = torch.nn.Sequential(
-            representation_network,
-            actor_network,
+            layer_init(torch.nn.Linear(feature_dim, 64)),
+            torch.nn.Tanh(),
+            layer_init(torch.nn.Linear(64, 64)),
+            torch.nn.Tanh(),
             torch.nn.Flatten(),
             actor_head(feature_dim, action_space)
         )
@@ -119,5 +139,5 @@ class PPOActorNetwork(torch.nn.Module):
         
         logprob, entropy = distribution.log_prob(action), distribution.entropy()
         if self._continuous_action:
-            logprob, entropy = logprob.sum(dim=-1), entropy.mean(dim=-1)
+            logprob, entropy = logprob.sum(dim=-1), entropy.sum(dim=-1)
         return action, logprob, entropy

@@ -9,6 +9,12 @@ from hive.utils import experiment, loggers, schedule, utils
 from hive.utils.registry import get_parsed_args
 
 
+import pandas as pd
+from collections.abc import MutableMapping
+def flatten_dict(d: MutableMapping, sep: str= '.') -> MutableMapping:
+    [flat_dict] = pd.json_normalize(d, sep=sep).to_dict(orient='records')
+    return flat_dict
+
 class SingleAgentRunner(Runner):
     """Runner class used to implement a sinle-agent training loop."""
 
@@ -83,6 +89,8 @@ class SingleAgentRunner(Runner):
         self._transition_info.record_info(agent, info)
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1
+        temp_info = {agent.id:{"info":info["other_info"]}}
+        episode_metrics.update(flatten_dict(temp_info))
         episode_metrics["full_episode_length"] += 1
 
         return done, next_observation
