@@ -7,6 +7,111 @@ from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.utils import calculate_output_dim
 
 
+class NetPerActionDynaQModel(nn.Module):
+    """Implements the model used in nonlinear Dyna Q algorithm.
+    In this implementation there are multiple neural networks
+        per each action for determining the next observations,
+        actions, and done (termination signals).
+    """
+
+    def __init__(
+        self,
+        in_dim: Tuple[int],
+        act_dim: int,
+        observation_encoder_net: FunctionApproximator,
+        reward_encoder_net: FunctionApproximator,
+        done_encoder_net: FunctionApproximator,
+    ):
+        """
+        Args:
+            in_dim (tuple[int]): The shape of input observations.
+            act_dim (int): The number of various possible actions.
+            observation_encoder_net (FunctionApproximator): A network that outputs the
+                representations that will be used to compute next observations.
+            reward_encoder_net (FunctionApproximator): A network that outputs the
+                representations that will be used to compute rewards.
+            done_encoder_net (FunctionApproximator): A network that outputs the
+                representations that will be used to compute episode terminations (done).
+        """
+        super().__init__()
+
+        self._act_dim = act_dim
+        # Observations
+        self._obs_predictor = observation_encoder_net(in_dim)
+        obs_predictor_out_dim = np.prod(
+            calculate_output_dim(self._obs_predictor, in_dim)
+        )
+        self._obs_predictor = nn.ModuleList(
+            [
+                nn.Sequential(
+                    self._obs_predictor,
+                    nn.Linear(obs_predictor_out_dim, np.prod(in_dim)),
+                )
+                for _ in range(self._act_dim)
+            ]
+        )
+
+        # Rewards
+        self._reward_predictor = reward_encoder_net(in_dim)
+        reward_predictor_out_dim = np.prod(
+            calculate_output_dim(self._reward_predictor, in_dim)
+        )
+        self._reward_predictor = nn.ModuleList(
+            [
+                nn.Sequential(
+                    self._reward_predictor, nn.Linear(reward_predictor_out_dim, 1)
+                )
+                for _ in range(self._act_dim)
+            ]
+        )
+
+        # Episode Terminations
+        self._done_predictor = done_encoder_net(in_dim)
+        done_predictor_out_dim = np.prod(
+            calculate_output_dim(self._done_predictor, in_dim)
+        )
+        self._done_predictor = nn.ModuleList(
+            [
+                nn.Sequential(
+                    self._done_predictor,
+                    nn.Linear(done_predictor_out_dim, 1),
+                    nn.Sigmoid(),
+                )
+                for _ in range(self._act_dim)
+            ]
+        )
+
+    def forward(self, obs, actions):
+        batch_size = obs.shape[0]
+
+        # Observations
+        obs_pred_list = []
+        for a in range(self._act_dim):
+            obs_pred_list.append(self._obs_predictor[a](obs))
+        obs_pred = torch.stack(obs_pred_list, dim=len(obs_pred_list[0].shape))[
+            range(batch_size), :, actions
+        ]
+        obs_pred = obs_pred + obs
+
+        # Rewards
+        reward_pred_list = []
+        for a in range(self._act_dim):
+            reward_pred_list.append(self._reward_predictor[a](obs))
+        reward_pred = torch.stack(reward_pred_list, dim=len(reward_pred_list[0].shape))[
+            range(batch_size), :, actions
+        ]
+
+        # Episode Terminations
+        done_pred_list = []
+        for a in range(self._act_dim):
+            done_pred_list.append(self._done_predictor[a](obs))
+        done_pred = torch.stack(done_pred_list, dim=len(done_pred_list[0].shape))[
+            range(batch_size), :, actions
+        ]
+
+        return obs_pred.squeeze(), reward_pred.squeeze(), done_pred.squeeze()
+
+
 class ActionInMiddleDynaQModel(nn.Module):
     """Implements the model used in nonlinear Dyna Q algorithm.
     In this implementation the action is added to the representations
@@ -42,8 +147,6 @@ class ActionInMiddleDynaQModel(nn.Module):
         """
         super().__init__()
 
-        # TODO Fix the issue with the predictors, they should be output size agnostic
-
         # Observations
         self._obs_encoder = observation_encoder_net(in_dim)
         obs_predictor_in_dim = (
@@ -51,7 +154,7 @@ class ActionInMiddleDynaQModel(nn.Module):
         )
         self._obs_predictor = observation_predictor_net(obs_predictor_in_dim)
         obs_predictor_out_dim = np.prod(
-            calculate_output_dim(self._obs_predictor, (obs_predictor_in_dim, ))
+            calculate_output_dim(self._obs_predictor, (obs_predictor_in_dim,))
         )
         self._obs_predictor = nn.Sequential(
             self._obs_predictor, nn.Linear(obs_predictor_out_dim, np.prod(in_dim))
@@ -64,7 +167,7 @@ class ActionInMiddleDynaQModel(nn.Module):
         )
         self._reward_predictor = reward_predictor_net(reward_predictor_in_dim)
         reward_predictor_out_dim = np.prod(
-            calculate_output_dim(self._reward_predictor, (reward_predictor_in_dim, ))
+            calculate_output_dim(self._reward_predictor, (reward_predictor_in_dim,))
         )
         self._reward_predictor = nn.Sequential(
             self._reward_predictor, nn.Linear(reward_predictor_out_dim, 1)
@@ -77,7 +180,7 @@ class ActionInMiddleDynaQModel(nn.Module):
         )
         self._done_predictor = done_predictor_net(done_predictor_in_dim)
         done_predictor_out_dim = np.prod(
-            calculate_output_dim(self._done_predictor, (done_predictor_in_dim, ))
+            calculate_output_dim(self._done_predictor, (done_predictor_in_dim,))
         )
         self._done_predictor = nn.Sequential(
             self._done_predictor, nn.Linear(done_predictor_out_dim, 1), nn.Sigmoid()
