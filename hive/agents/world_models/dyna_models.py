@@ -21,6 +21,8 @@ class NetPerActionDynaQModel(nn.Module):
         observation_encoder_net: FunctionApproximator,
         reward_encoder_net: FunctionApproximator,
         done_encoder_net: FunctionApproximator,
+        add_obs: bool = True,
+        obs_linear_layer: bool = False,
     ):
         """
         Args:
@@ -32,24 +34,32 @@ class NetPerActionDynaQModel(nn.Module):
                 representations that will be used to compute rewards.
             done_encoder_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute episode terminations (done).
+            add_obs (bool): Whether to sum up the observation predictions to the
+                current observations or not.
+            obs_linear_layer (bool): Whether to use a linear layer at the end of the
+                observation predictor.
         """
         super().__init__()
 
         self._act_dim = act_dim
+        self._add_obs = add_obs
+        self._obs_linear_layer = obs_linear_layer
+
         # Observations
         self._obs_predictor = observation_encoder_net(in_dim)
-        obs_predictor_out_dim = np.prod(
-            calculate_output_dim(self._obs_predictor, in_dim)
-        )
-        self._obs_predictor = nn.ModuleList(
-            [
-                nn.Sequential(
-                    self._obs_predictor,
-                    nn.Linear(obs_predictor_out_dim, np.prod(in_dim)),
-                )
-                for _ in range(self._act_dim)
-            ]
-        )
+        if self._obs_linear_layer:
+            obs_predictor_out_dim = np.prod(
+                calculate_output_dim(self._obs_predictor, in_dim)
+            )
+            self._obs_predictor = nn.ModuleList(
+                [
+                    nn.Sequential(
+                        self._obs_predictor,
+                        nn.Linear(obs_predictor_out_dim, np.prod(in_dim)),
+                    )
+                    for _ in range(self._act_dim)
+                ]
+            )
 
         # Rewards
         self._reward_predictor = reward_encoder_net(in_dim)
@@ -91,7 +101,8 @@ class NetPerActionDynaQModel(nn.Module):
         obs_pred = torch.stack(obs_pred_list, dim=len(obs_pred_list[0].shape))[
             range(batch_size), :, actions
         ]
-        obs_pred = obs_pred + obs
+        if self._add_obs:
+            obs_pred = obs_pred + obs
 
         # Rewards
         reward_pred_list = []
@@ -122,16 +133,20 @@ class ActionInMiddleDynaQModel(nn.Module):
     def __init__(
         self,
         in_dim: Tuple[int],
+        act_dim: int,
         observation_encoder_net: FunctionApproximator,
         observation_predictor_net: FunctionApproximator,
         reward_encoder_net: FunctionApproximator,
         reward_predictor_net: FunctionApproximator,
         done_encoder_net: FunctionApproximator,
         done_predictor_net: FunctionApproximator,
+        add_obs: bool = True,
+        obs_linear_layer: bool = False,
     ):
         """
         Args:
             in_dim (tuple[int]): The shape of input observations.
+            act_dim (int): The number of various possible actions.
             observation_encoder_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute next observations.
             observation_predictor_net (FunctionApproximator): A network that takes in
@@ -144,8 +159,16 @@ class ActionInMiddleDynaQModel(nn.Module):
                 representations that will be used to compute episode terminations (done).
             done_predictor_net (FunctionApproximator): A network that takes in
                 the representations and outputs the predictions for the episode terminations (done).
+            add_obs (bool): Whether to sum up the observation predictions to the
+                current observations or not.
+            obs_linear_layer (bool): Whether to use a linear layer at the end of the
+                observation predictor.
         """
         super().__init__()
+
+        self._act_dim = act_dim
+        self._add_obs = add_obs
+        self._obs_linear_layer = obs_linear_layer
 
         # Observations
         self._obs_encoder = observation_encoder_net(in_dim)
@@ -153,12 +176,13 @@ class ActionInMiddleDynaQModel(nn.Module):
             np.prod(calculate_output_dim(self._obs_encoder, in_dim)) + 1
         )
         self._obs_predictor = observation_predictor_net(obs_predictor_in_dim)
-        obs_predictor_out_dim = np.prod(
-            calculate_output_dim(self._obs_predictor, (obs_predictor_in_dim,))
-        )
-        self._obs_predictor = nn.Sequential(
-            self._obs_predictor, nn.Linear(obs_predictor_out_dim, np.prod(in_dim))
-        )
+        if self._obs_linear_layer:
+            obs_predictor_out_dim = np.prod(
+                calculate_output_dim(self._obs_predictor, (obs_predictor_in_dim,))
+            )
+            self._obs_predictor = nn.Sequential(
+                self._obs_predictor, nn.Linear(obs_predictor_out_dim, np.prod(in_dim))
+            )
 
         # Rewards
         self._reward_encoder = reward_encoder_net(in_dim)
@@ -193,6 +217,8 @@ class ActionInMiddleDynaQModel(nn.Module):
         obs_pred = self._obs_encoder(obs)
         obs_pred = torch.cat((obs_pred.flatten(start_dim=1), actions), dim=1)
         obs_pred = self._obs_predictor(obs_pred)
+        if self._add_obs:
+            obs_pred = obs_pred + obs
 
         # Rewards
         reward_pred = self._reward_encoder(obs)

@@ -226,7 +226,9 @@ class NonlinearDynaQ(Agent):
                     be used to compute Q-values (e.g. everything except the final layer).
         """
         # Model
-        self._model_network = dyna_model(self._state_size).to(self._device)
+        self._model_network = dyna_model(self._state_size, self._action_space.n).to(
+            self._device
+        )
         self._model_network.apply(self._init_fn)
         self._target_model_network = copy.deepcopy(self._model_network).requires_grad_(
             False

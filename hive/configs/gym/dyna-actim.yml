@@ -1,4 +1,4 @@
-run_name: &run_name 'gym-nonlinear-dyna-q-netpa'
+run_name: &run_name 'gym-nonlinear-dyna-q-actim'
 train_steps: 1000000
 test_frequency: 10000
 test_episodes: 5
@@ -15,27 +15,39 @@ saving_schedule:
 environment:
   name: 'GymEnv'
   kwargs:
-    env_name: 'MountainCar-v0'
+    env_name: 'CartPole-v0'
 
 agent:
   name: 'NonlinearDynaQ'
   kwargs:
     dyna_model:
-      name: 'NetPerActionDynaQModel'
+      name: 'ActionInMiddleDynaQModel'
       kwargs:
-        act_dim: 3
+        obs_linear_layer: True
         observation_encoder_net:
           name: 'MLPNetwork'
           kwargs:
-            hidden_units: [64, 64, 64, 64]
+            hidden_units: [64, 64]
+        observation_predictor_net:
+          name: 'MLPNetwork'
+          kwargs:
+            hidden_units: [64, 64]
         reward_encoder_net:
           name: 'MLPNetwork'
           kwargs:
-            hidden_units: [64, 64, 64, 64]
+            hidden_units: [64, 64]
+        reward_predictor_net:
+          name: 'MLPNetwork'
+          kwargs:
+            hidden_units: [64, 64]
         done_encoder_net:
           name: 'MLPNetwork'
           kwargs:
-            hidden_units: [64, 64, 64, 64]
+            hidden_units: [64, 64]
+        done_predictor_net:
+          name: 'MLPNetwork'
+          kwargs:
+            hidden_units: [64, 64]
     value_representation_net:
       name: 'MLPNetwork'
       kwargs:
