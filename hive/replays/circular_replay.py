@@ -445,7 +445,7 @@ class SimpleReplayBuffer(BaseReplayBuffer):
 
 
 def str_to_dtype(dtype):
-    if isinstance(dtype, type):
+    if isinstance(dtype, type) or isinstance(dtype, np.dtype):
         return dtype
     elif dtype.startswith("np.") or dtype.startswith("numpy."):
         return np.sctypeDict[dtype.split(".")[1]]

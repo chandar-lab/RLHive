@@ -40,7 +40,7 @@ setuptools.setup(
         "gym~=0.21",
         "numpy~=1.18",
         "PyYAML~=5.4",
-        "torch~=1.6",
+        "torch>=1.8",
         "wandb>=0.10.30",
         "matplotlib~=3.0",
         "pandas~=1.0",

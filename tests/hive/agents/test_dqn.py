@@ -1,6 +1,7 @@
 from copy import deepcopy
 from functools import partial
 from unittest.mock import Mock
+import gym
 
 import numpy as np
 import pytest
@@ -17,12 +18,7 @@ from hive.utils import schedule
 
 @pytest.fixture
 def env_spec():
-    return EnvSpec("test_env", (2,), 2)
-
-
-@pytest.fixture
-def env_spec():
-    return EnvSpec("test_env", (2,), 2)
+    return EnvSpec("test_env", gym.spaces.Box(0, 1, (2,)), gym.spaces.Discrete(2))
 
 
 """
@@ -44,9 +40,9 @@ def agent_with_mock_optimizer(request):
 @pytest.fixture
 def ddnd_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
+        observation_space=env_spec.observation_space,
+        action_space=env_spec.action_space,
         representation_net=partial(MLPNetwork, hidden_units=5, noisy=True),
-        obs_dim=env_spec.obs_dim,
-        act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
         replay_buffer=partial(SimpleReplayBuffer, capacity=10),
         target_net_update_fraction=0.25,
@@ -71,9 +67,9 @@ def ddnd_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def dxxx_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
+        observation_space=env_spec.observation_space,
+        action_space=env_spec.action_space,
         representation_net=partial(MLPNetwork, hidden_units=5),
-        obs_dim=env_spec.obs_dim,
-        act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
         replay_buffer=partial(SimpleReplayBuffer, capacity=10),
         target_net_update_fraction=0.25,
@@ -95,9 +91,9 @@ def dxxx_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def xdxx_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
+        observation_space=env_spec.observation_space,
+        action_space=env_spec.action_space,
         representation_net=partial(MLPNetwork, hidden_units=5),
-        obs_dim=env_spec.obs_dim,
-        act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
         replay_buffer=partial(SimpleReplayBuffer, capacity=10),
         target_net_update_fraction=0.25,
@@ -119,9 +115,9 @@ def xdxx_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def xxnx_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
+        observation_space=env_spec.observation_space,
+        action_space=env_spec.action_space,
         representation_net=partial(MLPNetwork, hidden_units=5, noisy=True),
-        obs_dim=env_spec.obs_dim,
-        act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
         replay_buffer=partial(SimpleReplayBuffer, capacity=10),
         target_net_update_fraction=0.25,
@@ -142,11 +138,10 @@ def xxnx_agent_with_mock_optimizer(env_spec):
 
 @pytest.fixture
 def xxxd_agent_with_mock_optimizer(env_spec):
-    supports = torch.linspace(0, 200, 51).to("cpu")
     agent = RainbowDQNAgent(
+        observation_space=env_spec.observation_space,
+        action_space=env_spec.action_space,
         representation_net=partial(MLPNetwork, hidden_units=5),
-        obs_dim=env_spec.obs_dim,
-        act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
         replay_buffer=partial(SimpleReplayBuffer, capacity=10),
         target_net_update_fraction=0.25,
@@ -171,9 +166,9 @@ def xxxd_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def xxxx_agent_with_mock_optimizer(env_spec):
     agent = DQNAgent(
+        observation_space=env_spec.observation_space,
+        action_space=env_spec.action_space,
         representation_net=partial(MLPNetwork, hidden_units=5),
-        obs_dim=env_spec.obs_dim,
-        act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
         replay_buffer=partial(SimpleReplayBuffer, capacity=10),
         target_net_update_fraction=0.25,
@@ -190,9 +185,9 @@ def xxxx_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def xxxx_rainbow_agent_with_mock_optimizer(env_spec):
     agent = RainbowDQNAgent(
+        observation_space=env_spec.observation_space,
+        action_space=env_spec.action_space,
         representation_net=partial(MLPNetwork, hidden_units=5),
-        obs_dim=env_spec.obs_dim,
-        act_dim=env_spec.act_dim,
         optimizer_fn=Mock(),
         replay_buffer=partial(SimpleReplayBuffer, capacity=10),
         target_net_update_fraction=0.25,
@@ -214,9 +209,9 @@ def xxxx_rainbow_agent_with_mock_optimizer(env_spec):
 @pytest.fixture
 def agent_with_optimizer(env_spec):
     agent = DQNAgent(
+        observation_space=env_spec.observation_space,
+        action_space=env_spec.action_space,
         representation_net=partial(MLPNetwork, hidden_units=5),
-        obs_dim=env_spec.obs_dim,
-        act_dim=env_spec.act_dim,
         optimizer_fn=Adam,
         replay_buffer=partial(SimpleReplayBuffer, capacity=10),
         target_net_update_fraction=0.25,
@@ -234,12 +229,12 @@ def test_create_agent_with_configs(env_spec):
     agent_config = {
         "name": "DQNAgent",
         "kwargs": {
+            "observation_space": env_spec.observation_space,
+            "action_space": env_spec.action_space,
             "representation_net": {
                 "name": "MLPNetwork",
                 "kwargs": {"hidden_units": 5},
             },
-            "obs_dim": env_spec.obs_dim,
-            "act_dim": env_spec.act_dim,
             "optimizer_fn": {"name": "Adam", "kwargs": {"lr": 0.01}},
             "replay_buffer": {
                 "name": "SimpleReplayBuffer",
