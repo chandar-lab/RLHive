@@ -39,18 +39,18 @@ class GymEnv(BaseEnv):
             env_name (str): Name of the environment
         """
         if isinstance(self._env.observation_space, gym.spaces.Tuple):
-            obs_spaces = self._env.observation_space.spaces
+            observation_spaces = self._env.observation_space.spaces
         else:
-            obs_spaces = [self._env.observation_space]
+            observation_spaces = [self._env.observation_space]
         if isinstance(self._env.action_space, gym.spaces.Tuple):
-            act_spaces = self._env.action_space.spaces
+            action_spaces = self._env.action_space.spaces
         else:
-            act_spaces = [self._env.action_space]
+            action_spaces = [self._env.action_space]
 
         return EnvSpec(
             env_name=env_name,
-            obs_dim=[space.shape for space in obs_spaces],
-            act_dim=[space.n for space in act_spaces],
+            observation_space=observation_spaces,
+            action_space=action_spaces,
         )
 
     def reset(self):

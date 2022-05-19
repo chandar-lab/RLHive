@@ -35,13 +35,13 @@ class MinAtarEnv(BaseEnv):
         super().__init__(self.create_env_spec(env_name), num_players=1)
 
     def create_env_spec(self, env_name):
-        obs_dim = tuple(self._env.state_shape())
+        observation_space = tuple(self._env.state_shape())
         new_positions = [2, 0, 1]
-        obs_dim = tuple(obs_dim[i] for i in new_positions)
+        observation_space = tuple(observation_space[i] for i in new_positions)
         return EnvSpec(
             env_name=env_name,
-            obs_dim=[obs_dim],
-            act_dim=[6],
+            observation_space=[observation_space],
+            action_space=[6],
         )
 
     def reset(self):

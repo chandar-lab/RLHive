@@ -7,9 +7,9 @@ from hive.agents.qnets.mlp import MLPNetwork
 registry.register_all(
     FunctionApproximator,
     {
-        "MLPNetwork": FunctionApproximator(MLPNetwork),
-        "ConvNetwork": FunctionApproximator(ConvNetwork),
-        "NatureAtariDQNModel": FunctionApproximator(NatureAtariDQNModel),
+        "MLPNetwork": MLPNetwork,
+        "ConvNetwork": ConvNetwork,
+        "NatureAtariDQNModel": NatureAtariDQNModel,
     },
 )
 

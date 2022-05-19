@@ -126,12 +126,14 @@ def set_up_experiment(config):
     )
     config.update(args)
     full_config = utils.Chomp(copy.deepcopy(config))
+
     if "seed" in config:
         utils.seeder.set_global_seed(config["seed"])
 
-    environment, full_config["environment"] = envs.get_env(
+    environment_fn, full_config["environment"] = envs.get_env(
         config["environment"], "environment"
     )
+    environment = environment_fn()
     env_spec = environment.env_spec
 
     # Set up loggers
@@ -144,29 +146,23 @@ def set_up_experiment(config):
             "kwargs": {"logger_list": logger_config},
         }
 
-    logger, full_config["loggers"] = loggers.get_logger(logger_config, "loggers")
+    logger_fn, full_config["loggers"] = loggers.get_logger(logger_config, "loggers")
+    logger = logger_fn()
 
-    # Set up agent
-    if config.get("stack_size", 1) > 1:
-        config["agent"]["kwargs"]["obs_dim"] = (
-            config["stack_size"] * env_spec.obs_dim[0][0],
-            *env_spec.obs_dim[0][1:],
-        )
-    else:
-        config["agent"]["kwargs"]["obs_dim"] = env_spec.obs_dim[0]
-    config["agent"]["kwargs"]["act_dim"] = env_spec.act_dim[0]
-    config["agent"]["kwargs"]["logger"] = logger
-    if "replay_buffer" in config["agent"]["kwargs"]:
-        replay_args = config["agent"]["kwargs"]["replay_buffer"]["kwargs"]
-        replay_args["observation_shape"] = env_spec.obs_dim[0]
-    agent, full_config["agent"] = agent_lib.get_agent(config["agent"], "agent")
+    agent_fn, full_config["agent"] = agent_lib.get_agent(config["agent"], "agent")
+    agent = agent_fn(
+        observation_space=env_spec.observation_space[0],
+        action_space=env_spec.action_space[0],
+        stack_size=config.get("stack_size", 1),
+        logger=logger,
+    )
 
     # Set up experiment manager
-    saving_schedule, full_config["saving_schedule"] = schedule.get_schedule(
+    saving_schedule_fn, full_config["saving_schedule"] = schedule.get_schedule(
         config["saving_schedule"], "saving_schedule"
     )
     experiment_manager = experiment.Experiment(
-        config["run_name"], config["save_dir"], saving_schedule
+        config["run_name"], config["save_dir"], saving_schedule_fn()
     )
     experiment_manager.register_experiment(
         config=full_config,

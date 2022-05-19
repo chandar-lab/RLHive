@@ -1,7 +1,7 @@
 import copy
 from functools import partial
-from typing import Tuple
 
+import gym
 import numpy as np
 import torch
 
@@ -18,7 +18,7 @@ from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.loggers import Logger
 from hive.utils.schedule import Schedule
-from hive.utils.utils import LossFn, OptimizerFn, seeder
+from hive.utils.utils import LossFn, OptimizerFn
 
 
 class RainbowDQNAgent(DQNAgent):
@@ -26,9 +26,10 @@ class RainbowDQNAgent(DQNAgent):
 
     def __init__(
         self,
+        observation_space: gym.spaces.Box,
+        action_space: gym.spaces.Discrete,
         representation_net: FunctionApproximator,
-        obs_dim: Tuple,
-        act_dim: int,
+        stack_size: int = 1,
         optimizer_fn: OptimizerFn = None,
         loss_fn: LossFn = None,
         init_fn: InitializationFn = None,
@@ -61,11 +62,13 @@ class RainbowDQNAgent(DQNAgent):
     ):
         """
         Args:
+            observation_space (gym.spaces.Box): Observation space for the agent.
+            action_space (gym.spaces.Discrete): Action space for the agent.
             representation_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute Q-values (e.g.
                 everything except the final layer of the DQN).
-            obs_dim: The shape of the observations.
-            act_dim (int): The number of actions available to the agent.
+            stack_size: Number of observations stacked to create the state fed to the
+                DQN.
             id: Agent identifier.
             optimizer_fn (OptimizerFn): A function that takes in a list of parameters
                 to optimize and returns the optimizer. If None, defaults to
@@ -134,12 +137,13 @@ class RainbowDQNAgent(DQNAgent):
             loss_fn = torch.nn.MSELoss
 
         if replay_buffer is None:
-            replay_buffer = PrioritizedReplayBuffer(seed=seeder.get_new_seed())
+            replay_buffer = PrioritizedReplayBuffer
 
         super().__init__(
-            representation_net,
-            obs_dim,
-            act_dim,
+            observation_space=observation_space,
+            action_space=action_space,
+            representation_net=representation_net,
+            stack_size=stack_size,
             optimizer_fn=optimizer_fn,
             init_fn=init_fn,
             loss_fn=loss_fn,
@@ -177,8 +181,8 @@ class RainbowDQNAgent(DQNAgent):
                 be used to compute Q-values (e.g. everything except the final layer
                 of the DQN).
         """
-        network = representation_net(self._obs_dim)
-        network_output_dim = np.prod(calculate_output_dim(network, self._obs_dim))
+        network = representation_net(self._state_size)
+        network_output_dim = np.prod(calculate_output_dim(network, self._state_size))
 
         # Use NoisyLinear when creating output heads if noisy is true
         linear_fn = (
@@ -190,17 +194,24 @@ class RainbowDQNAgent(DQNAgent):
         # Set up Dueling heads
         if self._dueling:
             network = DuelingNetwork(
-                network, network_output_dim, self._act_dim, linear_fn, self._atoms
+                network,
+                network_output_dim,
+                self._action_space.n,
+                linear_fn,
+                self._atoms,
             )
         else:
             network = DQNNetwork(
-                network, network_output_dim, self._act_dim * self._atoms, linear_fn
+                network,
+                network_output_dim,
+                self._action_space.n * self._atoms,
+                linear_fn,
             )
 
         # Set up DistributionalNetwork wrapper if distributional is true
         if self._distributional:
             self._qnet = DistributionalNetwork(
-                network, self._act_dim, self._v_min, self._v_max, self._atoms
+                network, self._action_space.n, self._v_min, self._v_max, self._atoms
             )
         else:
             self._qnet = network
@@ -229,7 +240,7 @@ class RainbowDQNAgent(DQNAgent):
         qvals = self._qnet(observation)
 
         if self._rng.random() < epsilon:
-            action = self._rng.integers(self._act_dim)
+            action = self._rng.integers(self._action_space.n)
         else:
             action = torch.argmax(qvals).item()
 
