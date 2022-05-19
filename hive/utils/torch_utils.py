@@ -238,7 +238,6 @@ registry.register_all(
         "GELU": torch.nn.GELU,
         "Sigmoid": torch.nn.Sigmoid,
         "SiLU": torch.nn.SiLU,
-        "Mish": torch.nn.Mish,
         "Softplus": torch.nn.Softplus,
         "Softshrink": torch.nn.Softshrink,
         "Softsign": torch.nn.Softsign,
