@@ -155,7 +155,7 @@ class Runner(ABC):
         """Run a testing phase."""
         self.train_mode(False)
         aggregated_episode_metrics = self.create_episode_metrics().get_flat_dict()
-        for _ in range(slef._test_episodes):
+        for _ in range(self._test_episodes):
             episode_metrics = self.run_episode()
             for metric, value in episode_metrics.get_flat_dict().items():
                 aggregated_episode_metrics[metric] += value / self._test_episodes
