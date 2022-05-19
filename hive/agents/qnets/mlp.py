@@ -1,11 +1,11 @@
 from functools import partial
 from typing import List, Tuple, Union
-from hive.utils.utils import ActivationFn
 
 import numpy as np
 import torch
 from torch import nn
 
+from hive.utils.utils import ActivationFn
 from hive.agents.qnets.noisy_linear import NoisyLinear
 
 
