@@ -5,8 +5,8 @@ import numpy as np
 import torch
 from torch import nn
 
-from hive.utils.utils import ActivationFn
 from hive.agents.qnets.noisy_linear import NoisyLinear
+from hive.utils.utils import ActivationFn
 
 
 class MLPNetwork(nn.Module):
