@@ -3,7 +3,7 @@ import torch
 from torch import optim
 
 from hive.utils.registry import registry
-from hive.utils.utils import LossFn, OptimizerFn
+from hive.utils.utils import LossFn, OptimizerFn, ActivationFn
 
 
 def numpify(t):
@@ -218,5 +218,41 @@ registry.register_all(
     },
 )
 
+registry.register_all(
+    ActivationFn,
+    {
+        "ELU": torch.nn.ELU,
+        "Hardshrink": torch.nn.Hardshrink,
+        "Hardsigmoid": torch.nn.Hardsigmoid,
+        "Hardtanh": torch.nn.Hardtanh,
+        "Hardswish": torch.nn.Hardswish,
+        "LeakyReLU": torch.nn.LeakyReLU,
+        "LogSigmoid": torch.nn.LogSigmoid,
+        "MultiheadAttention": torch.nn.MultiheadAttention,
+        "PReLU": torch.nn.PReLU,
+        "ReLU": torch.nn.ReLU,
+        "ReLU6": torch.nn.ReLU6,
+        "RReLU": torch.nn.RReLU,
+        "SELU": torch.nn.SELU,
+        "CELU": torch.nn.CELU,
+        "GELU": torch.nn.GELU,
+        "Sigmoid": torch.nn.Sigmoid,
+        "SiLU": torch.nn.SiLU,
+        "Softplus": torch.nn.Softplus,
+        "Softshrink": torch.nn.Softshrink,
+        "Softsign": torch.nn.Softsign,
+        "Tanh": torch.nn.Tanh,
+        "Tanhshrink": torch.nn.Tanhshrink,
+        "Threshold": torch.nn.Threshold,
+        "GLU": torch.nn.GLU,
+        "Softmin": torch.nn.Softmin,
+        "Softmax": torch.nn.Softmax,
+        "Softmax2d": torch.nn.Softmax2d,
+        "LogSoftmax": torch.nn.LogSoftmax,
+        "AdaptiveLogSoftmaxWithLoss": torch.nn.AdaptiveLogSoftmaxWithLoss,
+    },
+)
+
 get_optimizer_fn = getattr(registry, f"get_{OptimizerFn.type_name()}")
 get_loss_fn = getattr(registry, f"get_{LossFn.type_name()}")
+get_activation_fn = getattr(registry, f"get_{ActivationFn.type_name()}")
