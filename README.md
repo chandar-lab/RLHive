@@ -27,6 +27,10 @@ To install Minatar, run
 To install Marlgrid, run
 ``pip install marlgrid@https://github.com/kandouss/marlgrid/archive/refs/heads/master.zip``
 
+## Implemented Agents
+- [DQN](https://github.com/chandar-lab/RLHive/blob/main/hive/agents/dqn.py)
+- [Full Rainbow Agent](https://github.com/chandar-lab/RLHive/blob/main/hive/agents/rainbow.py)
+
 ## Tutorials
 - [Quickstart](https://rlhive.readthedocs.io/en/stable/quickstart.html)
 - [Creating new agents](https://rlhive.readthedocs.io/en/stable/tutorials/agent_tutorial.html)
