@@ -38,14 +38,15 @@ class TD3ActorNetwork(torch.nn.Module):
         else:
             actor_network = actor_net(network_output_shape)
         feature_dim = np.prod(calculate_output_dim(actor_network, network_output_shape))
-        self.actor = torch.nn.Sequential(
+        actor_modules = [
             representation_network,
             actor_network,
             torch.nn.Flatten(),
             torch.nn.Linear(feature_dim, np.prod(action_shape)),
-        )
+        ]
         if use_tanh:
-            self.actor.append(torch.nn.Tanh())
+            actor_modules.append(torch.nn.Tanh())
+        self.actor = torch.nn.Sequential(*actor_modules)
 
     def forward(self, x):
         x = self.actor(x)
