@@ -3,9 +3,11 @@ import os
 import gym
 import numpy as np
 import torch
+from typing import Union
 
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
+from hive.agents.qnets.ppo_nets import PPOActorNetwork, PPOCriticNetwork
 from hive.agents.qnets.utils import (
     InitializationFn,
     calculate_output_dim,
@@ -17,8 +19,6 @@ from hive.utils.schedule import (
     PeriodicSchedule,
 )
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
-from hive.agents.qnets.ppo_nets import PPOActorNetwork, PPOCriticNetwork
-#TODO: lr annealing, orthogonal initialization
 
 class PPOAgent(Agent):
     """An agent implementing the PPO algorithm.
@@ -27,7 +27,7 @@ class PPOAgent(Agent):
     def __init__(
         self,
         observation_space: gym.spaces.Box,
-        action_space: gym.spaces.Discrete,
+        action_space: Union[gym.spaces.Discrete, gym.spaces.Box],
         representation_net: FunctionApproximator = None,
         actor_net: FunctionApproximator = None,
         critic_net: FunctionApproximator = None,
@@ -125,12 +125,6 @@ class PPOAgent(Agent):
             *self._observation_space.shape[1:],
         )
         self._continuous_action = isinstance(self._action_space, gym.spaces.Box)
-        self._scale_actions = self._continuous_action
-        if self._scale_actions:
-            self._action_min = self._action_space.low
-            self._action_max = self._action_space.high
-            self._action_scaling = 0.5 * (self._action_max - self._action_min)
-            self._scale_actions  = False#self._scale_actions and np.isfinite(self._action_scaling).all()
         self._init_fn = create_init_weights_fn(init_fn)
         self.create_networks(representation_net, actor_net, critic_net)
         if actor_optimizer_fn is None:
@@ -169,7 +163,6 @@ class PPOAgent(Agent):
         self._logger.register_timescale(
             self._timescale, PeriodicSchedule(False, True, log_frequency)
         )
-        # self._state = {"episode_start": True}
         self._clip_coef = clip_coef
         self._ent_coef = ent_coef
         self._clip_vloss = clip_vloss
@@ -222,24 +215,9 @@ class PPOAgent(Agent):
         super().eval()
         self._actor.eval()
         self._critic.eval()
-    
-    def scale_action(self, actions):
-        """Scales actions to [-1, 1]."""
-        if self._scale_actions:
-            return ((actions - self._action_min) / self._action_scaling) - 1.0
-        else:
-            return actions
-
-    def unscale_actions(self, actions):
-        """Unscales actions from [-1, 1] to expected scale."""
-        if self._scale_actions:
-            return ((actions + 1.0) * self._action_scaling) + self._action_min
-        else:
-            return actions
 
     def preprocess_update_info(self, update_info):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
-        Scales the action to [-1, 1].
 
         Args:
             update_info: Contains the information from the current timestep that the
@@ -251,7 +229,7 @@ class PPOAgent(Agent):
             )
         preprocessed_update_info = {
             "observation": update_info["observation"],
-            "action": self.scale_action(update_info["action"]),
+            "action": update_info["action"],
             "reward": update_info["reward"],
             "done": update_info["done"],
         }
@@ -284,17 +262,10 @@ class PPOAgent(Agent):
         observation = torch.tensor(
             np.expand_dims(observation, axis=0), device=self._device
         ).float()
-        #TODO: can add random exploration
         action, logprob, _ = self._actor(observation)
         value = self._critic(observation)
-        action = action.cpu().numpy()
-        self._action = action
-        if self._continuous_action:
-            action = self.unscale_actions(action)
-            # action = np.clip(action, self._action_min, self._action_max)
-
-        #TODO: remove if vectorized environments
-        action = action[0] # np.squeeze(action)
+        action = action.cpu().detach().numpy()
+        action = action[0]
 
         self._logprob = logprob.cpu().numpy()
         self._value = value.cpu().numpy()
@@ -311,11 +282,8 @@ class PPOAgent(Agent):
         """
         if not self._training:
             return
-        update_info["action"] = self._action
-        # Inspired  by https://github.com/vwxyzjn/ppo-implementation-details/blob/main/ppo_shared.py
         if (self._replay_buffer.ready()):
             self._replay_buffer.compute_advantages(self._value)
-            #TODO: recheck sampling
             for _ in range(self._num_epochs):
                 valid_ind_size = self._replay_buffer._find_valid_indices()
                 for _ in range(valid_ind_size//self._batch_size):
