@@ -22,12 +22,11 @@ class PPOReplayBuffer(CircularReplayBuffer):
         extra_storage_types=None,
         num_players_sharing_buffer: int = None,
     ):
-        """Constructor for CircularReplayBuffer.
+        """Constructor for PPOReplayBuffer.
 
         Args:
-            transitions_per_update (int): Total number of observations that can be stored in the
-                buffer. Note, this is not the same as the number of transitions that
-                can be stored in the buffer.
+            transitions_per_update (int): Total number of observations that are stored before the
+            update
             stack_size (int): The number of frames to stack to create an observation.
             n_step (int): Horizon used to compute n-step return reward
             gamma (float): Discounting factor used to compute n-step return reward
@@ -55,7 +54,7 @@ class PPOReplayBuffer(CircularReplayBuffer):
                 buffers. It is used for self-play.
         """
         #TODO: remove this
-        super().__init__(transitions_per_update, stack_size, n_step, gamma, observation_shape, observation_dtype, action_shape, action_dtype, reward_shape, reward_dtype, extra_storage_types, num_players_sharing_buffer)
+        super().__init__(transitions_per_update+stack_size-1, stack_size, n_step, gamma, observation_shape, observation_dtype, action_shape, action_dtype, reward_shape, reward_dtype, extra_storage_types, num_players_sharing_buffer)
         self._use_gae = use_gae
         self._gae_lambda = gae_lambda
         self._sample_cursor = 0
