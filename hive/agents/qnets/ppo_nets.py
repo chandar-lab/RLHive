@@ -62,7 +62,7 @@ class CategoricalHead(torch.nn.Module):
         return self.distribution(logits=logits)
 
 class GaussianPolicyHead(torch.nn.Module):
-    """A module that implements a continuous actor head. It uses the ouput from the
+    """A module that implements a continuous actor head. It uses the output from the
     :obj:`actor_net` and state independent learnable parameter :obj:`policy_logstd` to 
     create a :py:class:`~torch.distributions.normal.Normal`  object to compute 
     the action distribution."""
@@ -75,8 +75,7 @@ class GaussianPolicyHead(torch.nn.Module):
         super().__init__()
         self._action_shape = action_space.shape
         self.policy_mean = torch.nn.Sequential(
-            torch.nn.Linear(feature_dim, np.prod(self._action_shape)),
-            torch.nn.Tanh()
+            torch.nn.Linear(feature_dim, np.prod(self._action_shape))
         )
         self.policy_logstd = torch.nn.Parameter(torch.zeros(1, np.prod(action_space.shape)))
         self.distribution = torch.distributions.normal.Normal
@@ -119,5 +118,5 @@ class PPOActorNetwork(torch.nn.Module):
         
         logprob, entropy = distribution.log_prob(action), distribution.entropy()
         if self._continuous_action:
-            logprob, entropy = logprob.sum(dim=-1), entropy.mean(dim=-1)
+            logprob, entropy = logprob.sum(dim=-1), entropy.sum(dim=-1)
         return action, logprob, entropy
