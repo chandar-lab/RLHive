@@ -192,7 +192,7 @@ class PPOAgent(Agent):
         if representation_net is None:
             network = torch.nn.Identity()
         else:
-            network = representation_net(self._observation_space.shape)
+            network = representation_net(self._state_size)
 
         network_output_shape = calculate_output_dim(network, self._state_size)
         self._actor = PPOActorNetwork(
