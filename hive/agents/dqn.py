@@ -51,6 +51,7 @@ class DQNAgent(Agent):
         epsilon_schedule: Schedule = None,
         test_epsilon: float = 0.001,
         min_replay_history: int = 5000,
+        num_updates_per_train_step: int = 1,
         batch_size: int = 32,
         device="cpu",
         logger: Logger = None,
@@ -99,6 +100,8 @@ class DQNAgent(Agent):
                 to be used during testing phase.
             min_replay_history (int): How many observations to fill the replay buffer
                 with before starting to learn.
+            num_updates_per_train_step (int): Indicates the number of times to sample
+                from the buffer and do the backprop in each train step.
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
             device: Device on which all computations should be run.
@@ -158,6 +161,7 @@ class DQNAgent(Agent):
 
         self._test_epsilon = test_epsilon
         self._learn_schedule = SwitchSchedule(False, True, min_replay_history)
+        self._num_updates_per_train_step = num_updates_per_train_step
 
         self._state = {"episode_start": True}
         self._training = False
@@ -296,39 +300,44 @@ class DQNAgent(Agent):
             and self._replay_buffer.size() > 0
             and self._update_period_schedule.update()
         ):
-            batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            (
-                current_state_inputs,
-                next_state_inputs,
-                batch,
-            ) = self.preprocess_update_batch(batch)
+            losses = []
+            for _ in range(self._num_updates_per_train_step):
+                batch = self._replay_buffer.sample(batch_size=self._batch_size)
+                (
+                    current_state_inputs,
+                    next_state_inputs,
+                    batch,
+                ) = self.preprocess_update_batch(batch)
 
-            # Compute predicted Q values
-            self._optimizer.zero_grad()
-            pred_qvals = self._qnet(*current_state_inputs)
-            actions = batch["action"].long()
-            pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
+                # Compute predicted Q values
+                self._optimizer.zero_grad()
+                pred_qvals = self._qnet(*current_state_inputs)
+                actions = batch["action"].long()
+                pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
-            # Compute 1-step Q targets
-            next_qvals = self._target_qnet(*next_state_inputs)
-            next_qvals, _ = torch.max(next_qvals, dim=1)
+                # Compute 1-step Q targets
+                next_qvals = self._target_qnet(*next_state_inputs)
+                next_qvals, _ = torch.max(next_qvals, dim=1)
 
-            q_targets = batch["reward"] + self._discount_rate * next_qvals * (
-                1 - batch["done"]
-            )
+                q_targets = batch["reward"] + self._discount_rate * next_qvals * (
+                    1 - batch["done"]
+                )
 
-            loss = self._loss_fn(pred_qvals, q_targets).mean()
+                loss = self._loss_fn(pred_qvals, q_targets).mean()
+
+                loss.backward()
+                if self._grad_clip is not None:
+                    torch.nn.utils.clip_grad_value_(
+                        self._qnet.parameters(), self._grad_clip
+                    )
+                self._optimizer.step()
+
+                losses.append(loss.item())
 
             if self._logger.should_log(self._timescale):
-                self._logger.log_scalar("train_loss", loss, self._timescale)
-
-            loss.backward()
-            if self._grad_clip is not None:
-                torch.nn.utils.clip_grad_value_(
-                    self._qnet.parameters(), self._grad_clip
+                self._logger.log_scalar(
+                    "average_train_loss", np.mean(losses), self._timescale
                 )
-            self._optimizer.step()
-
         # Update target network
         if self._target_net_update_schedule.update():
             self._update_target()
