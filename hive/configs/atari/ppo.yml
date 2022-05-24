@@ -1,4 +1,4 @@
-run_name: &run_name 'atari-dqn'
+run_name: &run_name 'atari-ppo'
 train_steps: 100000000
 test_frequency: 250000
 test_episodes: 10
@@ -15,6 +15,7 @@ environment:
   name: 'AtariEnv'
   kwargs:
     env_name: 'Breakout'
+    atari_wrapper: True
 
 agent:
   name: 'PPOAgent'
@@ -36,7 +37,7 @@ agent:
       kwargs:
         lr: .00025
     init_fn: 
-      name: 'xavier_uniform'
+      name: 'orthogonal'
     replay_buffer:
       name: 'PPOReplayBuffer'
       kwargs:
@@ -62,7 +63,7 @@ loggers:
   -
     name: WandbLogger
     kwargs:
-      project: Hive-Atari
+      project: Hive
       name: *run_name
       resume: "allow"
       start_method: "fork"

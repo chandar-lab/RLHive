@@ -53,6 +53,8 @@ agent:
     batch_size: 128
     device: 'cuda'
     id: 'agent'
+    init_fn: 
+      name: 'orthogonal'
 # List of logger configs used.
 loggers:
   -

@@ -15,6 +15,7 @@ environment:
   name: 'GymEnv'
   kwargs:
     env_name: 'Hopper-v3'
+    mujoco_wrapper: True
     
 agent:
   name: 'PPOAgent'
@@ -62,7 +63,7 @@ loggers:
   -
     name: WandbLogger
     kwargs:
-      project: Hive-PPO1
+      project: Hive
       name: *run_name
       resume: "allow"
       start_method: "fork"
