@@ -1,9 +1,9 @@
 import numpy as np
 from hive.replays.circular_replay import CircularReplayBuffer
 
+
 class PPOReplayBuffer(CircularReplayBuffer):
-    """ An extension of the CircularReplayBuffer for on-policy learning algorithms
-    """
+    """An extension of the CircularReplayBuffer for on-policy learning algorithms"""
 
     def __init__(
         self,
@@ -53,45 +53,82 @@ class PPOReplayBuffer(CircularReplayBuffer):
             num_players_sharing_buffer (int): Number of agents that share their
                 buffers. It is used for self-play.
         """
-        #TODO: remove this
-        super().__init__(transitions_per_update+stack_size-1, stack_size, n_step, gamma, observation_shape, observation_dtype, action_shape, action_dtype, reward_shape, reward_dtype, extra_storage_types, num_players_sharing_buffer)
+        # TODO: remove this
+        super().__init__(
+            transitions_per_update + stack_size - 1,
+            stack_size,
+            n_step,
+            gamma,
+            observation_shape,
+            observation_dtype,
+            action_shape,
+            action_dtype,
+            reward_shape,
+            reward_dtype,
+            extra_storage_types,
+            num_players_sharing_buffer,
+        )
         self._use_gae = use_gae
         self._gae_lambda = gae_lambda
         self._sample_cursor = 0
         self._transitions_per_update = transitions_per_update
-    
+
     # Taken from https://github.com/vwxyzjn/ppo-implementation-details/blob/main/ppo_shared.py
     def compute_advantages(self, values):
-        """ Compute advantages using rewards and value estimates.
-        """
+        """Compute advantages using rewards and value estimates."""
         if self._use_gae:
             lastgaelam = 0
             for t in reversed(range(self._capacity)):
-                nextvalues = values if t == self._capacity-1 else self._storage["values"][t + 1]
+                nextvalues = (
+                    values
+                    if t == self._capacity - 1
+                    else self._storage["values"][t + 1]
+                )
                 nextnonterminal = 1.0 - self._storage["done"][t]
-                delta = self._storage["reward"][t] + self._gamma * nextvalues * nextnonterminal - self._storage["values"][t]
-                self._storage["advantages"][t] = lastgaelam = delta + self._gamma * self._gae_lambda * nextnonterminal * lastgaelam
-            self._storage["returns"] = self._storage["advantages"] + self._storage["values"]
+                delta = (
+                    self._storage["reward"][t]
+                    + self._gamma * nextvalues * nextnonterminal
+                    - self._storage["values"][t]
+                )
+                self._storage["advantages"][t] = lastgaelam = (
+                    delta
+                    + self._gamma * self._gae_lambda * nextnonterminal * lastgaelam
+                )
+            self._storage["returns"] = (
+                self._storage["advantages"] + self._storage["values"]
+            )
         else:
             for t in reversed(range(self._capacity)):
-                next_return = values if t == self._capacity-1 else self._storage["return"][t + 1]
+                next_return = (
+                    values
+                    if t == self._capacity - 1
+                    else self._storage["return"][t + 1]
+                )
                 nextnonterminal = 1.0 - self._storage["done"][t]
-                self._storage["returns"][t] = self._storage["reward"][t] + self._gamma * nextnonterminal * next_return
-            self._storage["advantages"] = self._storage["returns"] - self._storage["values"]
-    
+                self._storage["returns"][t] = (
+                    self._storage["reward"][t]
+                    + self._gamma * nextnonterminal * next_return
+                )
+            self._storage["advantages"] = (
+                self._storage["returns"] - self._storage["values"]
+            )
+
     def reset(self):
         """Resets the storage."""
         if self._stack_size > 1:
-            transitions = {k:self._storage[k][-(self._stack_size-1):] for k in self._storage.keys()}
+            transitions = {
+                k: self._storage[k][-(self._stack_size - 1) :]
+                for k in self._storage.keys()
+            }
             self._create_storage(self._capacity, self._specs)
             for k in self._storage.keys():
-                self._storage[k][:(self._stack_size-1)] = transitions[k]
-            self._episode_start = transitions['done'][-1]
+                self._storage[k][: (self._stack_size - 1)] = transitions[k]
+            self._episode_start = transitions["done"][-1]
         else:
             self._create_storage(self._capacity, self._specs)
             self._episode_start = True
-        self._cursor = self._stack_size-1
-        self._num_added = self._stack_size-1
+        self._cursor = self._stack_size - 1
+        self._num_added = self._stack_size - 1
 
     def _find_valid_indices(self):
         """Filters invalid indices."""
@@ -102,9 +139,11 @@ class PPOReplayBuffer(CircularReplayBuffer):
 
     def _sample_indices(self, batch_size):
         """Samples valid indices that can be used by the replay."""
-        indices = self._valid_indices[self._sample_cursor*batch_size:(self._sample_cursor+1)*batch_size]
-        self._sample_cursor +=1
+        indices = self._valid_indices[
+            self._sample_cursor * batch_size : (self._sample_cursor + 1) * batch_size
+        ]
+        self._sample_cursor += 1
         return indices + self._stack_size - 1
-    
+
     def ready(self):
-        return self.size()+1 == self._transitions_per_update
+        return self.size() + 1 == self._transitions_per_update

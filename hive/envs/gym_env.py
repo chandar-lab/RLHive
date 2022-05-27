@@ -30,11 +30,13 @@ class GymEnv(BaseEnv):
             env_name (str): Name of the environment
         """
         env = gym.make(env_name)
-        if kwargs.get('mujoco_wrapper', False):
+        if kwargs.get("mujoco_wrapper", False):
             env = gym.wrappers.ClipAction(env)
             env = gym.wrappers.NormalizeObservation(env)
-            env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
-        elif kwargs.get('atari_wrapper', False):
+            env = gym.wrappers.TransformObservation(
+                env, lambda obs: np.clip(obs, -10, 10)
+            )
+        elif kwargs.get("atari_wrapper", False):
             env = gym.wrappers.NoopResetEnv(env, noop_max=30)
             env = gym.wrappers.EpisodicLifeEnv(env)
             if "FIRE" in env.unwrapped.get_action_meanings():

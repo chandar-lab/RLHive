@@ -20,9 +20,9 @@ from hive.utils.schedule import (
 )
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
 
+
 class PPOAgent(Agent):
-    """An agent implementing the PPO algorithm.
-    """
+    """An agent implementing the PPO algorithm."""
 
     def __init__(
         self,
@@ -50,9 +50,9 @@ class PPOAgent(Agent):
         vf_coef: float = 0.5,
         num_epochs_per_update: int = 4,
         normalize_advantages: bool = True,
-        target_kl = None,
+        target_kl=None,
         device="cpu",
-        id=0
+        id=0,
     ):
         """
         Args:
@@ -136,7 +136,7 @@ class PPOAgent(Agent):
         if replay_buffer is None:
             replay_buffer = PPOReplayBuffer
         extra_storage_types = {
-            "values": (np.float32, ()), 
+            "values": (np.float32, ()),
             "returns": (np.float32, ()),
             "advantages": (np.float32, ()),
             "logprob": (np.float32, ()),
@@ -147,7 +147,7 @@ class PPOAgent(Agent):
             action_shape=self._action_space.shape,
             action_dtype=self._action_space.dtype,
             gamma=discount_rate,
-            extra_storage_types=extra_storage_types
+            extra_storage_types=extra_storage_types,
         )
         self._discount_rate = discount_rate**n_step
         self._grad_clip = grad_clip
@@ -172,7 +172,7 @@ class PPOAgent(Agent):
         self._target_kl = target_kl
 
         self._training = False
-    
+
     def create_networks(self, representation_net, actor_net, critic_net):
         """Creates the actor and critic networks.
 
@@ -193,7 +193,7 @@ class PPOAgent(Agent):
             actor_net,
             network_output_shape,
             self._action_space,
-            self._continuous_action
+            self._continuous_action,
         ).to(self._device)
         self._critic = PPOCriticNetwork(
             network,
@@ -253,7 +253,7 @@ class PPOAgent(Agent):
 
     @torch.no_grad()
     def act(self, observation):
-        """Returns the action for the agent. 
+        """Returns the action for the agent.
 
         Args:
             observation: The current observation.
@@ -282,44 +282,61 @@ class PPOAgent(Agent):
         """
         if not self._training:
             return
-        if (self._replay_buffer.ready()):
+        if self._replay_buffer.ready():
             self._replay_buffer.compute_advantages(self._value)
             for _ in range(self._num_epochs):
                 valid_ind_size = self._replay_buffer._find_valid_indices()
-                for _ in range(valid_ind_size//self._batch_size):
+                for _ in range(valid_ind_size // self._batch_size):
                     batch = self._replay_buffer.sample(batch_size=self._batch_size)
                     batch = self.preprocess_update_batch(batch)
                     self._actor_optimizer.zero_grad()
                     self._critic_optimizer.zero_grad()
 
-                    _, _logprob, entropy = self._actor(batch['observation'], batch["action"])
-                    values = self._critic(batch['observation'])
+                    _, _logprob, entropy = self._actor(
+                        batch["observation"], batch["action"]
+                    )
+                    values = self._critic(batch["observation"])
                     logratios = _logprob - batch["logprob"]
-                    ratios = torch.exp(logratios) 
+                    ratios = torch.exp(logratios)
                     advantages = batch["advantages"]
                     if self._normalize_advantages:
-                        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+                        advantages = (advantages - advantages.mean()) / (
+                            advantages.std() + 1e-8
+                        )
                     # Actor loss
                     loss1 = -advantages * ratios
-                    loss2 = -advantages * torch.clamp(ratios, 1 - self._clip_coef, 1 + self._clip_coef)
+                    loss2 = -advantages * torch.clamp(
+                        ratios, 1 - self._clip_coef, 1 + self._clip_coef
+                    )
                     actor_loss = torch.max(loss1, loss2).mean()
                     entr_loss = entropy.mean()
 
                     # Critic loss
                     values = values.view(-1)
                     if self._clip_vloss:
-                        v_loss_unclipped = self._critic_loss_fn(values, batch["returns"])
-                        v_clipped = batch["values"] + torch.clamp(values - batch["values"], 
+                        v_loss_unclipped = self._critic_loss_fn(
+                            values, batch["returns"]
+                        )
+                        v_clipped = batch["values"] + torch.clamp(
+                            values - batch["values"],
                             -self._clip_coef,
                             self._clip_coef,
                         )
-                        v_loss_clipped = self._critic_loss_fn(v_clipped, batch["returns"])
+                        v_loss_clipped = self._critic_loss_fn(
+                            v_clipped, batch["returns"]
+                        )
                         v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
                         critic_loss = 0.5 * v_loss_max.mean()
                     else:
-                        critic_loss = 0.5 * self._critic_loss_fn(values, batch["returns"]).mean()
+                        critic_loss = (
+                            0.5 * self._critic_loss_fn(values, batch["returns"]).mean()
+                        )
 
-                    loss = actor_loss - self._ent_coef * entr_loss + self._vf_coef * critic_loss
+                    loss = (
+                        actor_loss
+                        - self._ent_coef * entr_loss
+                        + self._vf_coef * critic_loss
+                    )
                     loss.backward()
 
                     if self._grad_clip is not None:
@@ -329,7 +346,7 @@ class PPOAgent(Agent):
                         torch.nn.utils.clip_grad_norm_(
                             self._actor.parameters(), self._grad_clip
                         )
-                    
+
                     self._actor_optimizer.step()
                     self._critic_optimizer.step()
 
@@ -338,23 +355,31 @@ class PPOAgent(Agent):
                         approx_kl = ((ratios - 1) - logratios).mean()
 
                     if self._logger.should_log(self._timescale):
-                        self._logger.log_scalar("actor_loss", actor_loss, self._timescale)
-                        self._logger.log_scalar("critic_loss", critic_loss, self._timescale)
-                        self._logger.log_scalar("entropy_loss", entr_loss, self._timescale)
+                        self._logger.log_scalar(
+                            "actor_loss", actor_loss, self._timescale
+                        )
+                        self._logger.log_scalar(
+                            "critic_loss", critic_loss, self._timescale
+                        )
+                        self._logger.log_scalar(
+                            "entropy_loss", entr_loss, self._timescale
+                        )
                         self._logger.log_scalar("approxkl", approx_kl, self._timescale)
-                
+
                 if self._target_kl is not None:
                     if approx_kl > self._target_kl:
                         break
             self._replay_buffer.reset()
 
         processed_update_info = self.preprocess_update_info(update_info)
-        processed_update_info.update({
-            'logprob':self._logprob,
-            'values':self._value,
-            'returns':np.empty(self._value.shape),
-            'advantages':np.empty(self._value.shape),
-        })
+        processed_update_info.update(
+            {
+                "logprob": self._logprob,
+                "values": self._value,
+                "returns": np.empty(self._value.shape),
+                "advantages": np.empty(self._value.shape),
+            }
+        )
         self._replay_buffer.add(**processed_update_info)
 
     def save(self, dname):
