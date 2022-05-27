@@ -15,7 +15,6 @@ environment:
   name: 'AtariEnv'
   kwargs:
     env_name: 'Breakout'
-    atari_wrapper: True
 
 agent:
   name: 'PPOAgent'

@@ -81,10 +81,17 @@ class PPOReplayBuffer(CircularReplayBuffer):
     
     def reset(self):
         """Resets the storage."""
-        self._create_storage(self._capacity, self._specs)
-        self._episode_start = True
-        self._cursor = 0
-        self._num_added = 0
+        if self._stack_size > 1:
+            transitions = {k:self._storage[k][-(self._stack_size-1):] for k in self._storage.keys()}
+            self._create_storage(self._capacity, self._specs)
+            for k in self._storage.keys():
+                self._storage[k][:(self._stack_size-1)] = transitions[k]
+            self._episode_start = transitions['done'][-1]
+        else:
+            self._create_storage(self._capacity, self._specs)
+            self._episode_start = True
+        self._cursor = self._stack_size-1
+        self._num_added = self._stack_size-1
 
     def _find_valid_indices(self):
         """Filters invalid indices."""
