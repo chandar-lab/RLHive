@@ -34,28 +34,15 @@ def load_and_read_rewards(
                 i for i in os.listdir(os.path.join(path_temp, seed)) if i[0] != "."
             ]
             for job_file in job_files:
-                logger_files = [
-                    i
-                    for i in os.listdir(
-                        os.path.join(path_temp, seed, job_file, "logger")
-                    )
-                    if i[0] != "."
-                ]
-                for logger_file in logger_files:
-                    pkl_file = open(
-                        os.path.join(
-                            path_temp,
-                            seed,
-                            job_file,
-                            "logger",
-                            logger_file,
-                            "log_data.p",
-                        ),
-                        "rb",
-                    )
-                    data_file = pkl.load(pkl_file)
-                    pkl_file.close()
-                    score_.extend(data_file["test/agent_reward"][0])
+                pkl_file = open(
+                    os.path.join(
+                        path_temp, seed, job_file, "logger/logger_0/log_data.p"
+                    ),
+                    "rb",
+                )
+                data_file = pkl.load(pkl_file)
+                pkl_file.close()
+                score_.extend(data_file["test/agent_reward"][0])
         score_ = np.array(score_)
         if normalization:
             score_dict[env_name] = score_normalization(
