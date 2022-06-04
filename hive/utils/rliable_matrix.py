@@ -35,10 +35,13 @@ def load_and_read_rewards(
             ]
             for job_file in job_files:
                 pkl_file = open(
-                    os.path.join(
-                        path_temp, seed, job_file, "logger/logger_0/log_data.p"
-                    ),
-                    "rb",
+                        os.path.join(
+                            path_temp,
+                            seed,
+                            job_file,
+                            "logger/logger_0/log_data.p",
+                        ),
+                        "rb",
                 )
                 data_file = pkl.load(pkl_file)
                 pkl_file.close()
