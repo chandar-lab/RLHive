@@ -48,7 +48,7 @@ configuration
 If you want to run an experiment with components that are all available in RLHive,
 but not presets, you can create your own config file, and run that instead! Make
 sure you look at the examples 
-`here <https://github.com/chandar-lab/RLHive/hive/configs>`_ and the tutorial
+`here <https://github.com/chandar-lab/RLHive/tree/main/hive/configs>`_ and the tutorial
 :ref:`here <yaml-config>` to properly format it:
 
 .. code-block:: bash
