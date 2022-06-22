@@ -11,6 +11,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 atari = ["gym[atari,accept-rom-license]~=0.21", "opencv-python~=4.0"]
 gym_minigrid = ["gym-minigrid~=1.0"]
 petting_zoo = ["pettingzoo[sisl,atari,classic]~=1.11"]
+visualization = ["pandas~=1.0"]
 test = ["pytest~=6.2", "pytest-lazy-fixture~=0.6"]
 
 
@@ -40,15 +41,15 @@ setuptools.setup(
         "numpy~=1.18",
         "PyYAML~=5.4",
         "torch>=1.8",
-        "wandb>=0.10.30",
+        "wandb>=0.12.18",
         "matplotlib~=3.0",
-        "pandas~=1.0",
     ],
     extras_require={
         "atari": atari,
         "gym_minigrid": gym_minigrid,
         "petting_zoo": petting_zoo,
         "test": test,
+        "visualization": visualization,
         "all": atari + gym_minigrid + petting_zoo + test,
     },
     entry_points={
