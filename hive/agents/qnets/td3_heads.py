@@ -1,3 +1,4 @@
+from typing import Tuple, Union
 import numpy as np
 import torch
 
@@ -14,8 +15,8 @@ class TD3ActorNetwork(torch.nn.Module):
         self,
         representation_network: torch.nn.Module,
         actor_net: FunctionApproximator,
-        network_output_shape,
-        action_shape,
+        network_output_shape: Union[int, Tuple[int]],
+        action_shape: Tuple[int],
         use_tanh=True,
     ) -> None:
         """
@@ -58,9 +59,9 @@ class TD3CriticNetwork(torch.nn.Module):
         self,
         representation_network: torch.nn.Module,
         critic_net: FunctionApproximator,
-        network_output_shape,
+        network_output_shape: Union[int, Tuple[int]],
         n_critics: int,
-        action_shape,
+        action_shape: Tuple[int],
     ) -> None:
         """
         Args:

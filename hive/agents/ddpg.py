@@ -1,3 +1,4 @@
+import gym
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.utils import InitializationFn
 from hive.agents.td3 import TD3
@@ -15,8 +16,8 @@ class DDPG(TD3):
 
     def __init__(
         self,
-        observation_space,
-        action_space,
+        observation_space: gym.spaces.Box,
+        action_space: gym.spaces.Box,
         representation_net: FunctionApproximator = None,
         actor_net: FunctionApproximator = None,
         critic_net: FunctionApproximator = None,
