@@ -12,7 +12,12 @@ class RandomAgent(Agent):
     """An agent that takes random steps at each timestep."""
 
     def __init__(
-        self, observation_space: gym.Space, action_space: gym.Space, id=0, logger=None
+        self,
+        observation_space: gym.Space,
+        action_space: gym.Space,
+        id=0,
+        logger=None,
+        **kwargs
     ):
         """
         Args:
