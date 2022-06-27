@@ -1,6 +1,6 @@
 # General training loop config
 # Based on https://arxiv.org/pdf/2011.14826.pdf
-run_name: &run_name 'breakout-rainbow'
+run_name: &run_name 'rainbow-prioritized'
 train_steps: 10000000
 test_frequency: 1000000
 max_steps_per_episode: 10000000
@@ -17,7 +17,7 @@ save_dir: 'experiment'
 environment:
   name: 'GymEnv'
   kwargs:
-    env_name: 'Breakout-v0'
+    env_name: 'MinAtar/Breakout-v0'
 
 # Agent config
 agent:
