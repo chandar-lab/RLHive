@@ -286,7 +286,8 @@ class PPOAgent(Agent):
             self._replay_buffer.compute_advantages(self._value)
             for _ in range(self._num_epochs):
                 valid_ind_size = self._replay_buffer._find_valid_indices()
-                for _ in range(valid_ind_size // self._batch_size):
+                num_batches = int(np.ceil(valid_ind_size / self._batch_size))
+                for _ in range(num_batches):
                     batch = self._replay_buffer.sample(batch_size=self._batch_size)
                     batch = self.preprocess_update_batch(batch)
                     self._actor_optimizer.zero_grad()

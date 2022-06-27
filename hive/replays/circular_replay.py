@@ -242,7 +242,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
 
         if self._n_step == 1:
             is_terminal = terminals
-            trajectory_lengths = np.ones(batch_size)
+            trajectory_lengths = np.ones(terminals.shape[0])
         else:
             is_terminal = terminals.any(axis=1).astype(int)
             trajectory_lengths = (

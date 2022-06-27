@@ -139,9 +139,9 @@ class PPOReplayBuffer(CircularReplayBuffer):
 
     def _sample_indices(self, batch_size):
         """Samples valid indices that can be used by the replay."""
-        indices = self._valid_indices[
-            self._sample_cursor * batch_size : (self._sample_cursor + 1) * batch_size
-        ]
+        start = self._sample_cursor * batch_size
+        end = min(len(self._valid_indices), (self._sample_cursor + 1) * batch_size)
+        indices = self._valid_indices[start:end]
         self._sample_cursor += 1
         return indices + self._stack_size - 1
 
