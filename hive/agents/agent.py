@@ -1,20 +1,24 @@
 import abc
 
+import gym
+
 from hive.utils.registry import Registrable
 
 
 class Agent(abc.ABC, Registrable):
-    """Base class for agents. Every implemented agent should be a subclass of this class."""
+    """Base class for agents. Every implemented agent should be a subclass of
+    this class.
+    """
 
-    def __init__(self, obs_dim, act_dim, id=0):
-        """Constructor for Agent class.
+    def __init__(self, observation_space: gym.Space, action_space: gym.Space, id=0):
+        """
         Args:
-            obs_dim: dimension of observations that agent will see.
-            act_dim: Number of actions that the agent needs to chose from.
+            observation_space (gym.Space): Observation space for agent.
+            action_space (gym.Space): Action space for agent.
             id: Identifier for the agent.
         """
-        self._obs_dim = obs_dim
-        self._act_dim = act_dim
+        self._observation_space = observation_space
+        self._action_space = action_space
         self._training = True
         self._id = str(id)
 
@@ -24,7 +28,13 @@ class Agent(abc.ABC, Registrable):
 
     @abc.abstractmethod
     def act(self, observation):
-        """Returns an action for the agent to perform based on the observation"""
+        """Returns an action for the agent to perform based on the observation.
+
+        Args:
+            observation: Current observation that agent should act on.
+        Returns:
+            Action for the current timestep.
+        """
         pass
 
     @abc.abstractmethod
@@ -33,7 +43,8 @@ class Agent(abc.ABC, Registrable):
         Updates the agent.
 
         Args:
-            update_info: dictionary containing information agent needs to update itself.
+            update_info (dict): Contains information agent needs to update
+                itself.
         """
         pass
 
@@ -51,7 +62,7 @@ class Agent(abc.ABC, Registrable):
         Saves agent checkpointing information to file for future loading.
 
         Args:
-            dname: directory where agent should save all relevant info.
+            dname (str): directory where agent should save all relevant info.
         """
         pass
 
@@ -61,13 +72,14 @@ class Agent(abc.ABC, Registrable):
         Loads agent information from file.
 
         Args:
-            dname: directory where agent checkpoint info is stored.
-
-        Returns:
-            True if successfully loaded agent. False otherwise.
+            dname (str): directory where agent checkpoint info is stored.
         """
         pass
 
     @classmethod
     def type_name(cls):
+        """
+        Returns:
+            "agent"
+        """
         return "agent"

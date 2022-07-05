@@ -1,0 +1,130 @@
+# General training loop config
+run_name: &run_name 'marlgrid-rainbow'
+train_steps: 500000
+test_frequency: 1000
+test_num_episodes: 10
+self_play: False
+num_agents: &num_agents 2
+stack_size: &stack_size 2
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 15000
+save_dir: 'experiment'
+
+# Environment config
+environment:
+  name: 'MarlGridEnv'
+  kwargs:
+    env_name: 'MarlGrid-2Agent1RandomPursuit8x8-v0'
+    num_players: *num_agents
+
+# List of agents for the experiment. In single agent, only the first agent in
+# the list is used.
+agents:
+  -
+    name: 'RainbowDQNAgent'
+    kwargs:
+      representation_net:
+        name: 'ConvNetwork'
+        kwargs:
+          channels: [ 32, 64, 64 ]
+          mlp_layers: [ 128, 128 ]
+          kernel_sizes: [ 8, 4, 3 ]
+          strides: [ 4, 2, 1 ]
+          paddings: [ 0, 1, 1 ]
+      optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr: 0.00025
+          eps: 0.0003125
+      id: 0
+      replay_buffer:
+        name: 'PrioritizedReplayBuffer'
+        kwargs:
+          capacity: 100000
+          stack_size: *stack_size
+      discount_rate: .9
+      target_net_update_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 1000
+      epsilon_schedule:
+        name: 'LinearSchedule'
+        kwargs:
+          init_value: 1
+          end_value: 0.05
+          steps: 10000
+      min_replay_history: 500
+      batch_size: 32
+      double: False
+      distributional: True
+      dueling: False
+      noisy: False
+      use_eps_greedy: True
+      v_min: -10.0
+      v_max: 10.0
+      atoms: 51
+  -
+    name: 'RainbowDQNAgent'
+    kwargs:
+      representation_net:
+        name: 'ConvNetwork'
+        kwargs:
+          channels: [ 32, 64, 64 ]
+          mlp_layers: [ 128, 128 ]
+          kernel_sizes: [ 8, 4, 3 ]
+          strides: [ 4, 2, 1 ]
+          paddings: [ 0, 1, 1 ]
+      optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr: 0.00025
+          eps: 0.0003125
+      id: 1
+      replay_buffer:
+        name: 'PrioritizedReplayBuffer'
+        kwargs:
+          capacity: 100000
+          stack_size: *stack_size
+      discount_rate: .9
+      target_net_update_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 1000
+      epsilon_schedule:
+        name: 'LinearSchedule'
+        kwargs:
+          init_value: 1
+          end_value: 0.05
+          steps: 10000
+      min_replay_history: 500
+      batch_size: 32
+      double: False
+      distributional: True
+      dueling: False
+      noisy: False
+      use_eps_greedy: True
+      v_min: -10.0
+      v_max: 10.0
+      atoms: 51
+
+# List of logger configs used.
+loggers:
+  -
+    name: ChompLogger
+    kwargs: {}
+  -
+    name: WandbLogger
+    kwargs:
+      project: Hive
+      name: *run_name
+      mode: "online"
+      start_method: 'fork'
+

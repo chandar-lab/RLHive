@@ -1,5 +1,6 @@
 import ale_py
 import cv2
+import gym
 import numpy as np
 
 from hive.envs.env_spec import EnvSpec
@@ -9,6 +10,10 @@ from hive.envs.gym_env import GymEnv
 class AtariEnv(GymEnv):
     """
     Class for loading Atari environments.
+
+    Adapted from the Dopamine's Atari preprocessing code:
+    https://github.com/google/dopamine/blob/6fbb58ad9bc1340f42897e8a551f85a01fb142ce/dopamine/discrete_domains/atari_lib.py
+    Licensed under Apache 2.0, https://github.com/google/dopamine/blob/master/LICENSE
     """
 
     def __init__(
@@ -21,7 +26,7 @@ class AtariEnv(GymEnv):
         """
         Args:
             env_name (str): Name of the environment
-            sticky_actions (boolean): Whether to use sticky_actions as per Machado et al.
+            sticky_actions (bool): Whether to use sticky_actions as per Machado et al.
             frame_skip (int): Number of times the agent takes the same action in the environment
             screen_size (int): Size of the resized frames from the environment
         """
@@ -45,18 +50,22 @@ class AtariEnv(GymEnv):
         super().__init__(full_env_name)
 
     def create_env_spec(self, env_name, **kwargs):
-        obs_spaces = self._env.observation_space.shape
+        observation_shape = self._env.observation_space.shape
         # Used for storing and pooling over two consecutive observations
         self.screen_buffer = [
-            np.empty((obs_spaces[0], obs_spaces[1]), dtype=np.uint8),
-            np.empty((obs_spaces[0], obs_spaces[1]), dtype=np.uint8),
+            np.empty((observation_shape[0], observation_shape[1]), dtype=np.uint8),
+            np.empty((observation_shape[0], observation_shape[1]), dtype=np.uint8),
         ]
-
-        act_spaces = [self._env.action_space]
+        observation_space = gym.spaces.Box(
+            low=0,
+            high=255,
+            dtype=np.uint8,
+            shape=(1, self.screen_size, self.screen_size),
+        )
         return EnvSpec(
             env_name=env_name,
-            obs_dim=[(1, self.screen_size, self.screen_size)],
-            act_dim=[space.n for space in act_spaces],
+            observation_space=[observation_space],
+            action_space=[self._env.action_space],
         )
 
     def reset(self):
@@ -68,9 +77,11 @@ class AtariEnv(GymEnv):
     def step(self, action=None):
         """
         Remarks:
-            * Execute self.frame_skips steps taking the action in the the environment.
-            * This may execute fewer than self.frame_skip steps in the environment, if the done state is reached.
-            * Furthermore, in this case the returned observation should be ignored.
+            * Executes the action for :attr:`self.frame_skips` steps in the the
+              environment.
+            * This may execute fewer than self.frame_skip steps in the environment, if
+              the done state is reached.
+            * In this case the returned observation should be ignored.
         """
         assert action is not None
 
@@ -96,10 +107,10 @@ class AtariEnv(GymEnv):
         """Get the screen input of the current observation given empty numpy array in grayscale.
 
         Args:
-          output (numpy array): screen buffer to hold the returned observation.
+          output (np.ndarray): screen buffer to hold the returned observation.
 
         Returns:
-          observation (numpy array): the current observation in grayscale.
+          observation (np.ndarray): the current observation in grayscale.
         """
         self._env.ale.getScreenGrayscale(output)
         return output
@@ -108,7 +119,7 @@ class AtariEnv(GymEnv):
         """Transforms two frames into a Nature DQN observation.
 
         Returns:
-          transformed_screen (numpy array): pooled, resized screen.
+          transformed_screen (np.ndarray): pooled, resized screen.
         """
         # Pool if there are enough screens to do so.
         if self.frame_skip > 1:

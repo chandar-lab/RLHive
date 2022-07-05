@@ -3,10 +3,15 @@ import torch
 from torch import optim
 
 from hive.utils.registry import registry
-from hive.utils.utils import LossFn, OptimizerFn
+from hive.utils.utils import LossFn, OptimizerFn, ActivationFn
 
 
 def numpify(t):
+    """Convert object to a numpy array.
+
+    Args:
+        t (np.ndarray | torch.Tensor | obj): Converts object to :py:class:`np.ndarray`.
+    """
     if isinstance(t, np.ndarray):
         return t
     elif isinstance(t, torch.Tensor):
@@ -16,17 +21,26 @@ def numpify(t):
 
 
 class RMSpropTF(optim.Optimizer):
-    """Implements RMSprop algorithm (TensorFlow style epsilon)
+    """
+    Direct cut-paste from rwhightman/pytorch-image-models.
+    https://github.com/rwightman/pytorch-image-models/blob/f7d210d759beb00a3d0834a3ce2d93f6e17f3d38/timm/optim/rmsprop_tf.py
+    Licensed under Apache 2.0, https://github.com/rwightman/pytorch-image-models/blob/master/LICENSE
+
+    Implements RMSprop algorithm (TensorFlow style epsilon)
+
     NOTE: This is a direct cut-and-paste of PyTorch RMSprop with eps applied before sqrt
     and a few other modifications to closer match Tensorflow for matching hyper-params.
     Noteworthy changes include:
+
     1. Epsilon applied inside square-root
     2. square_avg initialized to ones
     3. LR scaling of update accumulated in momentum buffer
+
     Proposed by G. Hinton in his
     `course <http://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf>`_.
     The centered version first appears in `Generating Sequences
     With Recurrent Neural Networks <https://arxiv.org/pdf/1308.0850v5.pdf>`_.
+
     Arguments:
         params (iterable): iterable of parameters to optimize or dicts defining
             parameter groups
@@ -41,6 +55,7 @@ class RMSpropTF(optim.Optimizer):
         decoupled_decay (bool, optional): decoupled weight decay as per https://arxiv.org/abs/1711.05101
         lr_in_momentum (bool, optional): learning rate scaling is included in the momentum buffer
             update as per defaults in Tensorflow
+
     """
 
     def __init__(
@@ -87,6 +102,7 @@ class RMSpropTF(optim.Optimizer):
     @torch.no_grad()
     def step(self, closure=None):
         """Performs a single optimization step.
+
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
@@ -162,45 +178,81 @@ class RMSpropTF(optim.Optimizer):
 registry.register_all(
     OptimizerFn,
     {
-        "Adadelta": OptimizerFn(optim.Adadelta),
-        "Adagrad": OptimizerFn(optim.Adagrad),
-        "Adam": OptimizerFn(optim.Adam),
-        "Adamax": OptimizerFn(optim.Adamax),
-        "AdamW": OptimizerFn(optim.AdamW),
-        "ASGD": OptimizerFn(optim.ASGD),
-        "LBFGS": OptimizerFn(optim.LBFGS),
-        "RMSprop": OptimizerFn(optim.RMSprop),
-        "RMSpropTF": OptimizerFn(RMSpropTF),
-        "Rprop": OptimizerFn(optim.Rprop),
-        "SGD": OptimizerFn(optim.SGD),
-        "SparseAdam": OptimizerFn(optim.SparseAdam),
+        "Adadelta": optim.Adadelta,
+        "Adagrad": optim.Adagrad,
+        "Adam": optim.Adam,
+        "Adamax": optim.Adamax,
+        "AdamW": optim.AdamW,
+        "ASGD": optim.ASGD,
+        "LBFGS": optim.LBFGS,
+        "RMSprop": optim.RMSprop,
+        "RMSpropTF": RMSpropTF,
+        "Rprop": optim.Rprop,
+        "SGD": optim.SGD,
+        "SparseAdam": optim.SparseAdam,
     },
 )
 
 registry.register_all(
     LossFn,
     {
-        "BCELoss": LossFn(torch.nn.BCELoss),
-        "BCEWithLogitsLoss": LossFn(torch.nn.BCEWithLogitsLoss),
-        "CosineEmbeddingLoss": LossFn(torch.nn.CosineEmbeddingLoss),
-        "CrossEntropyLoss": LossFn(torch.nn.CrossEntropyLoss),
-        "CTCLoss": LossFn(torch.nn.CTCLoss),
-        "HingeEmbeddingLoss": LossFn(torch.nn.HingeEmbeddingLoss),
-        "KLDivLoss": LossFn(torch.nn.KLDivLoss),
-        "L1Loss": LossFn(torch.nn.L1Loss),
-        "MarginRankingLoss": LossFn(torch.nn.MarginRankingLoss),
-        "MSELoss": LossFn(torch.nn.MSELoss),
-        "MultiLabelMarginLoss": LossFn(torch.nn.MultiLabelMarginLoss),
-        "MultiLabelSoftMarginLoss": LossFn(torch.nn.MultiLabelSoftMarginLoss),
-        "MultiMarginLoss": LossFn(torch.nn.MultiMarginLoss),
-        "NLLLoss": LossFn(torch.nn.NLLLoss),
-        "NLLLoss2d": LossFn(torch.nn.NLLLoss2d),
-        "PoissonNLLLoss": LossFn(torch.nn.PoissonNLLLoss),
-        "SmoothL1Loss": LossFn(torch.nn.SmoothL1Loss),
-        "SoftMarginLoss": LossFn(torch.nn.SoftMarginLoss),
-        "TripletMarginLoss": LossFn(torch.nn.TripletMarginLoss),
+        "BCELoss": torch.nn.BCELoss,
+        "BCEWithLogitsLoss": torch.nn.BCEWithLogitsLoss,
+        "CosineEmbeddingLoss": torch.nn.CosineEmbeddingLoss,
+        "CrossEntropyLoss": torch.nn.CrossEntropyLoss,
+        "CTCLoss": torch.nn.CTCLoss,
+        "HingeEmbeddingLoss": torch.nn.HingeEmbeddingLoss,
+        "KLDivLoss": torch.nn.KLDivLoss,
+        "L1Loss": torch.nn.L1Loss,
+        "MarginRankingLoss": torch.nn.MarginRankingLoss,
+        "MSELoss": torch.nn.MSELoss,
+        "MultiLabelMarginLoss": torch.nn.MultiLabelMarginLoss,
+        "MultiLabelSoftMarginLoss": torch.nn.MultiLabelSoftMarginLoss,
+        "MultiMarginLoss": torch.nn.MultiMarginLoss,
+        "NLLLoss": torch.nn.NLLLoss,
+        "NLLLoss2d": torch.nn.NLLLoss2d,
+        "PoissonNLLLoss": torch.nn.PoissonNLLLoss,
+        "SmoothL1Loss": torch.nn.SmoothL1Loss,
+        "SoftMarginLoss": torch.nn.SoftMarginLoss,
+        "TripletMarginLoss": torch.nn.TripletMarginLoss,
+    },
+)
+
+registry.register_all(
+    ActivationFn,
+    {
+        "ELU": torch.nn.ELU,
+        "Hardshrink": torch.nn.Hardshrink,
+        "Hardsigmoid": torch.nn.Hardsigmoid,
+        "Hardtanh": torch.nn.Hardtanh,
+        "Hardswish": torch.nn.Hardswish,
+        "LeakyReLU": torch.nn.LeakyReLU,
+        "LogSigmoid": torch.nn.LogSigmoid,
+        "MultiheadAttention": torch.nn.MultiheadAttention,
+        "PReLU": torch.nn.PReLU,
+        "ReLU": torch.nn.ReLU,
+        "ReLU6": torch.nn.ReLU6,
+        "RReLU": torch.nn.RReLU,
+        "SELU": torch.nn.SELU,
+        "CELU": torch.nn.CELU,
+        "GELU": torch.nn.GELU,
+        "Sigmoid": torch.nn.Sigmoid,
+        "SiLU": torch.nn.SiLU,
+        "Softplus": torch.nn.Softplus,
+        "Softshrink": torch.nn.Softshrink,
+        "Softsign": torch.nn.Softsign,
+        "Tanh": torch.nn.Tanh,
+        "Tanhshrink": torch.nn.Tanhshrink,
+        "Threshold": torch.nn.Threshold,
+        "GLU": torch.nn.GLU,
+        "Softmin": torch.nn.Softmin,
+        "Softmax": torch.nn.Softmax,
+        "Softmax2d": torch.nn.Softmax2d,
+        "LogSoftmax": torch.nn.LogSoftmax,
+        "AdaptiveLogSoftmaxWithLoss": torch.nn.AdaptiveLogSoftmaxWithLoss,
     },
 )
 
 get_optimizer_fn = getattr(registry, f"get_{OptimizerFn.type_name()}")
 get_loss_fn = getattr(registry, f"get_{LossFn.type_name()}")
+get_activation_fn = getattr(registry, f"get_{ActivationFn.type_name()}")

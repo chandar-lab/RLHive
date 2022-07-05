@@ -1,7 +1,6 @@
 gym==0.21.0
+matplotlib==3.5.1
 numpy>=1.18.5
-pytest==6.2.2
-PyYAML==5.3.1
-torch==1.8.0
-wandb==0.10.30
-pytest-lazy-fixture
+PyYAML>=5.4
+torch==1.9.0
+wandb==0.12.18

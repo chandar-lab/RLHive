@@ -14,6 +14,15 @@ logging.basicConfig()
 
 
 def find_single_run_data(run_folder):
+    """Looks for a chomp logger data file in `run_folder` and it's subdirectories.
+    Once it finds one, it loads the file and returns the data.
+
+    Args:
+        run_folder (str): Which folder to search for the chomp logger data.
+
+    Returns:
+        The Chomp object containing the logger data.
+    """
     run_data_file = None
     for path, _, filenames in os.walk(run_folder):
         if "log_data.p" in filenames:
@@ -31,15 +40,64 @@ def find_single_run_data(run_folder):
 
 
 def find_all_runs_data(runs_folder):
+    """Iterates through each directory in runs_folder, finds one chomp logger
+    data file in each directory, and concatenates the data together under each
+    key present in the data.
+
+    Args:
+        runs_folder (str): Folder which contains subfolders, each of from which one
+            chomp logger data file is loaded.
+
+    Returns:
+        Dictionary with each key corresponding to a key in the chomp logger data files.
+        The values are the folder
+    """
     all_runs_data = defaultdict(lambda: [])
     for run_folder in os.listdir(runs_folder):
-        run_data = find_single_run_data(os.path.join(runs_folder, run_folder))
-        for key in run_data:
-            all_runs_data[key].append(run_data[key])
+        full_run_folder = os.path.join(runs_folder, run_folder)
+        if os.path.isdir(full_run_folder):
+            run_data = find_single_run_data(full_run_folder)
+            for key in run_data:
+                all_runs_data[key].append(run_data[key])
     return all_runs_data
 
 
 def find_all_experiments_data(experiments_folder, runs_folders):
+    """Finds and loads all log data in a folder.
+
+    Assuming the directory structure is as follows:
+
+    ::
+
+        experiment
+        ├── config_1_runs
+        |   ├──seed0/
+        |   ├──seed1/
+        |       .
+        |       .
+        |   └──seedn/
+        ├── config_2_runs
+        |   ├──seed0/
+        |   ├──seed1/
+        |       .
+        |       .
+        |   └──seedn/
+        ├── config_3_runs
+        |   ├──seed0/
+        |   ├──seed1/
+        |       .
+        |       .
+        |   └──seedn/
+
+    Where there is some chomp logger data file under each seed directory, then
+    passing "experiment" and the list of config folders ("config_1_runs",
+    "config_2_runs", "config_3_runs"), will load all the data.
+
+    Args:
+        experiments_folder (str): Root folder with all experiments data.
+        runs_folders (list[str]): List of folders under root folder to load data
+            from.
+    """
     data = {}
     for runs_folder in runs_folders:
         full_runs_folderpath = os.path.join(experiments_folder, runs_folder)
@@ -47,13 +105,24 @@ def find_all_experiments_data(experiments_folder, runs_folders):
     return data
 
 
-def aggregate_data(
+def standardize_data(
     experiment_data,
     x_key,
     y_key,
     num_sampled_points=1000,
     drop_last=True,
 ):
+    """Extracts given keys from data, and standardizes the data across runs by sampling
+    equally spaced points along x data, and interpolating y data of each run.
+
+    Args:
+        experiment_data: Data object in the format of
+            :py:meth:`find_all_experiments_data`.
+        x_key (str): Key for x axis.
+        y_key (str): Key for y axis.
+        num_sampled_points (int): How many points to sample along x axis.
+        drop_last (bool): Whether to drop the last point in the data.
+    """
     if drop_last:
         y_data = [data[0][:-1] for data in experiment_data[y_key]]
         x_data = [
@@ -75,6 +144,42 @@ def aggregate_data(
     return full_xs, interpolated_ys
 
 
+def find_and_standardize_data(
+    experiments_folder, runs_folders, x_key, y_key, num_sampled_points, drop_last
+):
+    """Finds and standardizes the data in `experiments_folder`.
+
+    Args:
+        experiments_folder (str): Root folder with all experiments data.
+        runs_folders (list[str]): List of folders under root folder to load data
+            from.
+        x_key (str): Key for x axis.
+        y_key (str): Key for y axis.
+        num_sampled_points (int): How many points to sample along x axis.
+        drop_last (bool): Whether to drop the last point in the data.
+    """
+    if runs_folders is None:
+        runs_folders = os.listdir(experiments_folder)
+    data = find_all_experiments_data(experiments_folder, runs_folders)
+
+    aggregated_xs, aggregated_ys = list(
+        zip(
+            *[
+                standardize_data(
+                    data[run_folder],
+                    x_key,
+                    y_key,
+                    num_sampled_points=num_sampled_points,
+                    drop_last=drop_last,
+                )
+                for run_folder in runs_folders
+            ]
+        )
+    )
+
+    return runs_folders, aggregated_xs, aggregated_ys
+
+
 def generate_lineplot(
     x_datas,
     y_datas,
@@ -86,6 +191,8 @@ def generate_lineplot(
     rc_params=rc_params,
     output_file="output.png",
 ):
+    """Aggregates data and generates lineplot."""
+
     plt.figure()
     if cmap_name is None:
         cmap_name = "tab10" if len(x_datas) <= 10 else "tab20"
@@ -117,6 +224,7 @@ def plot_results(
     x_key,
     y_key,
     runs_folders=None,
+    drop_last=True,
     run_names=None,
     x_label=None,
     y_label=None,
@@ -126,25 +234,17 @@ def plot_results(
     rc_params={},
     output_file="output.png",
 ):
-    if runs_folders is None:
-        runs_folders = os.listdir(experiments_folder)
+    """Plots results."""
+    runs_folders, aggregated_xs, aggregated_ys = find_and_standardize_data(
+        experiments_folder,
+        runs_folders,
+        x_key,
+        y_key,
+        num_sampled_points,
+        drop_last,
+    )
     if run_names is None:
         run_names = runs_folders
-    data = find_all_experiments_data(experiments_folder, runs_folders)
-
-    aggregated_xs, aggregated_ys = list(
-        zip(
-            *[
-                aggregate_data(
-                    data[run_folder],
-                    x_key,
-                    y_key,
-                    num_sampled_points=num_sampled_points,
-                )
-                for run_folder in runs_folders
-            ]
-        )
-    )
     generate_lineplot(
         aggregated_xs,
         aggregated_ys,
@@ -197,6 +297,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_sampled_points", type=int, default=100)
     parser.add_argument("--rc_params", default=None)
     parser.add_argument("--output_file", default="output.png")
+    parser.add_argument("--drop_last", action="store_true")
 
     args = parser.parse_args()
     if args.smoothing_fn is not None:
@@ -215,6 +316,7 @@ if __name__ == "__main__":
         x_key=args.x_key,
         y_key=args.y_key,
         runs_folders=args.runs_folders,
+        drop_last=args.drop_last,
         run_names=args.run_names,
         x_label=args.x_label,
         y_label=args.y_label,

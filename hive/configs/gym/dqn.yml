@@ -1,0 +1,72 @@
+run_name: &run_name 'gym-dqn'
+train_steps: 50000
+test_frequency: 200
+test_episodes: 10
+max_steps_per_episode: 1000
+stack_size: &stack_size 1
+save_dir: 'experiment'
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 10000
+
+environment:
+  name: 'GymEnv'
+  kwargs:
+    env_name: 'CartPole-v0'
+
+agent:
+  name: 'DQNAgent'
+  kwargs:
+    representation_net:
+      name: 'MLPNetwork'
+      kwargs:
+        hidden_units: [256, 256]
+    optimizer_fn:
+      name: 'Adam'
+      kwargs: {}
+    loss_fn:
+      name: 'SmoothL1Loss'
+    replay_buffer:
+      name: 'CircularReplayBuffer'
+      kwargs:
+        observation_dtype: np.float64
+        capacity: 1000
+        stack_size: *stack_size
+        gamma: &gamma .99
+    discount_rate: *gamma
+    reward_clip: 1
+    target_net_update_schedule:
+      name: 'PeriodicSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        period: 100
+    update_period_schedule:
+      name: 'PeriodicSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        period: 1
+    epsilon_schedule:
+      name: 'ConstantSchedule'
+      kwargs:
+        value: .1
+    test_epsilon: .001
+    min_replay_history: 500
+    device: 'cuda'
+    batch_size: 128
+    log_frequency: 100
+
+loggers:
+  -
+    name: ChompLogger
+  -
+    name: WandbLogger
+    kwargs:
+      project: Hive
+      name: *run_name
+      resume: "allow"
+      start_method: "fork"

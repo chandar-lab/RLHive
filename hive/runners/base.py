@@ -1,7 +1,12 @@
 from abc import ABC
+from typing import List
+from hive.agents.agent import Agent
+from hive.envs.base import BaseEnv
 
 from hive.runners.utils import Metrics
 from hive.utils import schedule
+from hive.utils.experiment import Experiment
+from hive.utils.loggers import ScheduledLogger
 
 
 class Runner(ABC):
@@ -13,27 +18,27 @@ class Runner(ABC):
 
     def __init__(
         self,
-        environment,
-        agents,
-        logger,
-        experiment_manager,
-        train_steps=1000000,
-        test_frequency=10000,
-        test_episodes=1,
-        max_steps_per_episode=27000,
+        environment: BaseEnv,
+        agents: List[Agent],
+        logger: ScheduledLogger,
+        experiment_manager: Experiment,
+        train_steps: int = 1000000,
+        test_frequency: int = 10000,
+        test_episodes: int = 1,
+        max_steps_per_episode: int = 27000,
     ):
-        """Initializes the Runner object.
+        """
         Args:
-            environment: Environment used in the training loop.
-            agents: List of agents that interact with the environment
-            logger: Logger object used to log metrics.
-            experiment_manager: ExperimentManager object that saves the state of the
-                training.
-            train_steps: How many steps to train for. If this is -1, there is no limit
-                for the number of training steps.
-            test_frequency: After how many training steps to run testing episodes.
+            environment (BaseEnv): Environment used in the training loop.
+            agents (list[Agent]): List of agents that interact with the environment.
+            logger (ScheduledLogger): Logger object used to log metrics.
+            experiment_manager (Experiment): Experiment object that saves the state of
+                the training.
+            train_steps (int): How many steps to train for. If this is -1, there is no
+                limit for the number of training steps.
+            test_frequency (int): After how many training steps to run testing episodes.
                 If this is -1, testing is not run.
-            test_episodes: How many episodes to run testing for.
+            test_episodes (int): How many episodes to run testing for.
         """
         self._environment = environment
         if isinstance(agents, list):
@@ -68,6 +73,9 @@ class Runner(ABC):
     def train_mode(self, training):
         """If training is true, sets all agents to training mode. If training is false,
         sets all agents to eval mode.
+
+        Args:
+            training (bool): Whether to be in training mode.
         """
         self._training = training
         for agent in self._agents:
@@ -84,14 +92,11 @@ class Runner(ABC):
     def run_one_step(self, observation, turn, episode_metrics):
         """Run one step of the training loop.
 
-        If it is the agent's first turn during the episode, do not run an update step.
-        Otherwise, run an update step based on the previous action and accumulated
-        reward since then.
-
         Args:
-            observation: Current observation that the agent should create an action for.
-            turn: Agent whose turn it is.
-            episode_metrics: Metrics object keeping track of metrics for current episode.
+            observation: Current observation that the agent should create an action
+                for.
+            turn (int): Agent whose turn it is.
+            episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
         if self._training:
             self._train_schedule.update()
@@ -104,11 +109,9 @@ class Runner(ABC):
     def run_end_step(self, episode_metrics, done):
         """Run the final step of an episode.
 
-        After an episode ends, iterate through agents and update then with the final
-        step in the episode.
-
         Args:
-            episode_metrics: Metrics object keeping track of metrics for current episode.
+            episode_metrics (Metrics): Keeps track of metrics for current episode.
+            done (bool): Whether this step was terminal.
 
         """
         return NotImplementedError
@@ -149,12 +152,11 @@ class Runner(ABC):
         self._experiment_manager.save()
 
     def run_testing(self):
+        """Run a testing phase."""
         self.train_mode(False)
         aggregated_episode_metrics = self.create_episode_metrics().get_flat_dict()
-        episodes = 0
-        while episodes <= self._test_episodes:
+        for _ in range(self._test_episodes):
             episode_metrics = self.run_episode()
-            episodes += 1
             for metric, value in episode_metrics.get_flat_dict().items():
                 aggregated_episode_metrics[metric] += value / self._test_episodes
 

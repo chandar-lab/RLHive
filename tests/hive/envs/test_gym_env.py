@@ -18,8 +18,8 @@ def gym_env(env_name):
 @pytest.mark.parametrize("env_name", test_environments)
 def test_env_spec(env_name, gym_env):
     hive_env = GymEnv(env_name)
-    assert hive_env.env_spec.obs_dim[0] == gym_env.observation_space.shape
-    assert hive_env.env_spec.act_dim[0] == gym_env.action_space.n
+    assert hive_env.env_spec.observation_space[0] == gym_env.observation_space
+    assert hive_env.env_spec.action_space[0] == gym_env.action_space
 
 
 @pytest.mark.parametrize("env_name", test_environments)
@@ -30,13 +30,13 @@ def test_reset_func(env_name):
     assert isinstance(hive_observation, np.ndarray)
     assert isinstance(hive_turn, int)
     assert hive_turn == 0
-    assert hive_observation.shape == hive_env.env_spec.obs_dim[0]
+    assert hive_observation.shape == hive_env.env_spec.observation_space[0].shape
 
 
 @pytest.mark.parametrize("env_name", test_environments)
 def test_step_func(env_name):
     hive_env = GymEnv(env_name)
-    for action in range(hive_env.env_spec.act_dim[0]):
+    for action in range(hive_env.env_spec.action_space[0].n):
         hive_env.reset()
         hive_observation, hive_reward, hive_done, hive_turn, hive_info = hive_env.step(
             action
@@ -48,4 +48,4 @@ def test_step_func(env_name):
         assert isinstance(hive_info, dict)
         assert isinstance(hive_turn, int)
         assert hive_turn == 0
-        assert hive_observation.shape == hive_env.env_spec.obs_dim[0]
+        assert hive_observation.shape == hive_env.env_spec.observation_space[0].shape

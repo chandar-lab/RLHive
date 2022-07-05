@@ -5,7 +5,7 @@ from hive import agents as agent_lib
 from hive import envs
 from hive.runners.base import Runner
 from hive.runners.utils import TransitionInfo, load_config
-from hive.utils import experiment, logging, schedule, utils
+from hive.utils import experiment, loggers, schedule, utils
 from hive.utils.registry import get_parsed_args
 
 
@@ -15,22 +15,42 @@ class SingleAgentRunner(Runner):
     def __init__(
         self,
         environment,
-        agents,
+        agent,
         logger,
         experiment_manager,
         train_steps,
         test_frequency,
         test_episodes,
         stack_size,
+        max_steps_per_episode=27000,
     ):
+        """Initializes the Runner object.
+
+        Args:
+            environment (BaseEnv): Environment used in the training loop.
+            agent (Agent): Agent that will interact with the environment
+            logger (ScheduledLogger): Logger object used to log metrics.
+            experiment_manager (Experiment): Experiment object that saves the state of
+                the training.
+            train_steps (int): How many steps to train for. If this is -1, there is no
+                limit for the number of training steps.
+            test_frequency (int): After how many training steps to run testing
+                episodes. If this is -1, testing is not run.
+            test_episodes (int): How many episodes to run testing for duing each test
+                phase.
+            stack_size (int): The number of frames in an observation sent to an agent.
+            max_steps_per_episode (int): The maximum number of steps to run an episode
+                for.
+        """
         super().__init__(
             environment,
-            agents,
+            agent,
             logger,
             experiment_manager,
             train_steps,
             test_frequency,
             test_episodes,
+            max_steps_per_episode,
         )
         self._transition_info = TransitionInfo(self._agents, stack_size)
 
@@ -38,8 +58,9 @@ class SingleAgentRunner(Runner):
         """Run one step of the training loop.
 
         Args:
-            observation: Current observation that the agent should create an action for.
-            episode_metrics: Metrics object keeping track of metrics for current episode.
+            observation: Current observation that the agent should create an action
+                for.
+            episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
         super().run_one_step(observation, 0, episode_metrics)
         agent = self._agents[0]
@@ -83,7 +104,12 @@ class SingleAgentRunner(Runner):
 
 
 def set_up_experiment(config):
-    """Returns a runner object based on the config."""
+    """Returns a :py:class:`SingleAgentRunner` object based on the config and any
+    command line arguments.
+
+    Args:
+        config: Configuration for experiment.
+    """
 
     args = get_parsed_args(
         {
@@ -100,12 +126,14 @@ def set_up_experiment(config):
     )
     config.update(args)
     full_config = utils.Chomp(copy.deepcopy(config))
+
     if "seed" in config:
         utils.seeder.set_global_seed(config["seed"])
 
-    environment, full_config["environment"] = envs.get_env(
+    environment_fn, full_config["environment"] = envs.get_env(
         config["environment"], "environment"
     )
+    environment = environment_fn()
     env_spec = environment.env_spec
 
     # Set up loggers
@@ -118,29 +146,23 @@ def set_up_experiment(config):
             "kwargs": {"logger_list": logger_config},
         }
 
-    logger, full_config["loggers"] = logging.get_logger(logger_config, "loggers")
+    logger_fn, full_config["loggers"] = loggers.get_logger(logger_config, "loggers")
+    logger = logger_fn()
 
-    # Set up agent
-    if config.get("stack_size", 1) > 1:
-        config["agent"]["kwargs"]["obs_dim"] = (
-            config["stack_size"] * env_spec.obs_dim[0][0],
-            *env_spec.obs_dim[0][1:],
-        )
-    else:
-        config["agent"]["kwargs"]["obs_dim"] = env_spec.obs_dim[0]
-    config["agent"]["kwargs"]["act_dim"] = env_spec.act_dim[0]
-    config["agent"]["kwargs"]["logger"] = logger
-    if "replay_buffer" in config["agent"]["kwargs"]:
-        replay_args = config["agent"]["kwargs"]["replay_buffer"]["kwargs"]
-        replay_args["observation_shape"] = env_spec.obs_dim[0]
-    agent, full_config["agent"] = agent_lib.get_agent(config["agent"], "agent")
+    agent_fn, full_config["agent"] = agent_lib.get_agent(config["agent"], "agent")
+    agent = agent_fn(
+        observation_space=env_spec.observation_space[0],
+        action_space=env_spec.action_space[0],
+        stack_size=config.get("stack_size", 1),
+        logger=logger,
+    )
 
     # Set up experiment manager
-    saving_schedule, full_config["saving_schedule"] = schedule.get_schedule(
+    saving_schedule_fn, full_config["saving_schedule"] = schedule.get_schedule(
         config["saving_schedule"], "saving_schedule"
     )
     experiment_manager = experiment.Experiment(
-        config["run_name"], config["save_dir"], saving_schedule
+        config["run_name"], config["save_dir"], saving_schedule_fn()
     )
     experiment_manager.register_experiment(
         config=full_config,
@@ -157,6 +179,7 @@ def set_up_experiment(config):
         config.get("test_frequency", -1),
         config.get("test_episodes", 1),
         config.get("stack_size", 1),
+        config.get("max_steps_per_episode", 1e9),
     )
     if config.get("resume", False):
         runner.resume()

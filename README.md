@@ -1,111 +1,48 @@
 [![Python unit tests for Hive](https://github.com/chandar-lab/RLHive/actions/workflows/pull_request_ci.yml/badge.svg)](https://github.com/chandar-lab/RLHive/actions/workflows/pull_request_ci.yml) [![Black Linter](https://github.com/chandar-lab/RLHive/actions/workflows/linter.yml/badge.svg)](https://github.com/chandar-lab/RLHive/actions/workflows/linter.yml)
 
-[**Installing**](#installing) | [**Configuring**](#creating-an-experiment) | [**Running**](#running) | [**Contributing**](#contributing)
+[**Installing**](#installing) | [**Tutorials**](#tutorials) | [**Contributing**](#contributing)
+
+[![te](docs/hive.svg)](docs/hive.svg) 
 # RLHive
-RLHive is a library of reinforcement learning agents and all the other components needed to create a reinforcement learning experiment. We provide support for both single agent and multi agent environments. 
+RLHive is a framework designed to facilitate research in reinforcement learning. It provides the components necessary to run a full RL experiment, for both single agent and multi agent environments. It is designed to be readable and easily extensible, to allow users to quickly run and experiment with their own ideas.
+
+The full documentation and tutorials are available at https://rlhive.readthedocs.io/.
 ## Installing
-To install the necessary dependencies for RLHive, simply run
-```
-pip install -r requirements.txt
-```  
-from the root directory of the repository. We strongly recommend that you do this inside of a conda or virtualenv environment, so that you don't get conflicting dependencies.   
-## Creating an experiment
-Experiments are specified using config yaml files. For examples, please see the [configs](configs/) directory. The general structure of each is as follows:
-```
-run_name: ...
-# Other training loop arguments
-environment:
-    name: ... # Name of Environment class
-    kwargs:
-        # Arguments used to create environment
-        ...
-agents:
-    - 
-        name: ... # Name of Agent 1 class
-        kwargs:
-            # Agent 1 arguments
-            ...
-    -
-        name: ... # Name of Agent 1 class
-        kwargs:
-            # Agent 2 arguments
-            ...
-    ...
-loggers:
-    - 
-        name: ... # Name of Logger 1 class
-        kwargs:
-            # Logger 1 arguments
-            ...
-    -
-        name: ... # Name of Logger 1 class
-        kwargs:
-            # Logger 2 arguments
-            ...
-    ...
-```
-All of the registered class names are located in the `__init__.py` files of the relevant folders.
+RLHive is available through pip! For the basic RLHive package, simply run 
+``pip install rlhive``.
 
-The configurations for environment, agents, and loggers can also be put into separate files if needed. 
-Certain arguments can be overriden from the command line as well. Specifically, arguments listed in the runner file, and any arguments of registered Hive objects.
+You can also install dependencies necessary for the environments that
+RLHive comes with by running ``pip install rlhive[<env_names>]`` where 
+``<env_names>`` is a comma separated list made up of the following: 
+- atari
+- gym_minigrid
+- pettingzoo
 
-## Hive Registry
-The `Registrable` class denotes which types of objects can be registered in the Hive
-Registry. These objects can be configured directly from the command line. To use this
-functionality, simply subclass `Registrable`, and define a function `type_name()` that
-returns a string denoting the class's type name. You only need to do this for base
-classes. For example, the `Agent` class has a `type_name()` function that returns the
-string `'agent'`, and all derived classes simply inherit that `type_name()`.
+In addition to these environments, Minatar and Marlgrid are also supported, but
+need to be installed separately. 
 
-The Hive registry allows you to register different types
-of (`Registrable`) classes and objects and generates wrapper constructors for those
-classes in the form of `get_{type_name}`.
+To install Minatar, run
+``pip install MinAtar@git+https://github.com/kenjyoung/MinAtar.git@8b39a18a60248ede15ce70142b557f3897c4e1eb``
 
-These wrapper constructors allow you
-to specify/override arguments for object constructors directly from the
-command line. These parameters are specified in dot notation. They also are able
-to handle lists and dictionaries of Registrable objects.
+To install Marlgrid, run
+``pip install marlgrid@https://github.com/kandouss/marlgrid/archive/refs/heads/master.zip``
 
-For example, let's consider the following scenario:
-Your agent class has an argument `arg1` which is annotated to be `List[Class1]`,
-`Class1` is `Registrable`, and the `Class1` constructor takes an argument `arg2`.
-In the passed yaml config, there are two different Class1 object configs listed.
-the constructor will check to see if both `--agent.arg1.0.arg2` and
-`--agent.arg1.1.arg2` have been passed to the command line. If so, that value
-will override whatever was in the config.
+## Implemented Agents
+- [DQN](https://github.com/chandar-lab/RLHive/blob/main/hive/agents/dqn.py)
+- [Full Rainbow Agent](https://github.com/chandar-lab/RLHive/blob/main/hive/agents/rainbow.py)
 
-The parameters passed in the command line will be parsed according to the type
-annotation of the corresponding low level constructor. If it is not one of
-`int`, `float`, `str`, or `bool`, it simply loads the string into python using a
-yaml loader.
-
-## Running
-Once the config has been created, running an experiment is simple. For a single agent CartPole experiment, navigate to the root directory, and simply run:
-```
-python -m hive.runners.single_agent_loop -c configs/cartpole_dqn/config.yml
-```
-
-For multiagent experiments, such as independent DQNs with Marlgrid, navigate to the root directory and run:
-```
-python -m hive.runners.multi_agent_loop -c configs/marlgrid_dqn/config_empty.yml
-```
-This will run an experiment with two independent agents.
-
-
-Now suppose you want to change the replay buffer capacity of the second agent to 5000 from the command line as
-described in the previous section. Simply run:
-```
-python -m hive.runners.multi_agent_loop -c configs/marlgrid_dqn/config_empty.yml --agents.0.replay_buffer.capacity 5000
-```
+## Tutorials
+- [Quickstart](https://rlhive.readthedocs.io/en/stable/quickstart.html)
+- [Creating new agents](https://rlhive.readthedocs.io/en/stable/tutorials/agent_tutorial.html)
+- [Using DQN/Rainbow Agents](https://rlhive.readthedocs.io/en/stable/tutorials/dqn_tutorial.html)
+- [Using Environments/Creating new Environments](https://rlhive.readthedocs.io/en/stable/tutorials/env_tutorial.html)
+- [Configuring your experiments through YAML files and command line](https://rlhive.readthedocs.io/en/stable/tutorials/configuration_tutorial.html)
+- [Loggers and Scheduling](https://rlhive.readthedocs.io/en/stable/tutorials/logging_tutorial.html)
+- [Registering Custom RLHive Objects](https://rlhive.readthedocs.io/en/stable/tutorials/registration_tutorial.html)
+- [Using Replay Buffers](https://rlhive.readthedocs.io/en/stable/tutorials/replay_tutorial.html)
+- [Single/Multi-Agent Runners](https://rlhive.readthedocs.io/en/stable/tutorials/runner_tutorial.html)
 
 
 ## Contributing
-When contributing to RLHive, please follow these guidelines:
-
-- Create a new branch for each feature you are adding. When you are done writing the feature, create a pull request to the dev branch. Each pull request must pass all the unit tests and be approved by two other people before being merged into dev.
-- Run the [black](https://black.readthedocs.io/en/stable/editor_integration.html) formatter before committing code. That will ensure that we have a uniform code style for the repo. We will be adding linter style checks as a requirement for pull requests soon.
-- Make sure you document your code. Any class or semi-complicated function you write should have a docstring.
-- If you add new features, add unit tests to test the feature. To run unit tests locally, navigate to the root directory and run:
-```
-python -m pytest
-```    
+We'd love for you to contribute your own work to RLHive. Before doing so, please read our 
+[contributing guide](https://rlhive.readthedocs.io/en/stable/contributing.html).

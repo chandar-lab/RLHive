@@ -2,11 +2,15 @@ name: Python unit tests for Hive
 
 on:
   pull_request:
-    branches:
-      - dev 
-
+    branches: [ dev, main ]
+    paths:
+      - 'hive/**'
+      - '!hive/configs/**'
+      - 'tests/**'
+      - '**requirements.txt'
+      
 jobs:
-  build-linux:
+  tests:
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 5
@@ -24,7 +28,8 @@ jobs:
         key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
     - name: Install dependencies
       run: |
-        find . -name "requirements.txt" -type f -exec pip install --upgrade --upgrade-strategy eager -r '{}' ';'
+        pip install -r requirements.txt
+        pip install -r test_requirements.txt
     - name: Test with pytest
       env:
         GITHUB_CI: True

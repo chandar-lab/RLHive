@@ -26,13 +26,15 @@ class MiniGridEnv(GymEnv):
     ):
         """
         Args:
-            env_name: Name of the environment
-            rgb_obs: True if observations should be rgb-like images
-            flattened_obs: True for flattening the observation into one dimensional vector
-            fully_observable: True if fully observable
-            use_mission: True if mission should be in the observation, in which case:
-             if using non-flattened grid, the observation is a dict of keys, image and mission.
-             if using flattened observations, then the observation has the mission encoded in it.
+            env_name (str): Name of the environment.
+            rgb_obs (bool): True if observations should be rgb-like images
+            flattened_obs (bool): True for flattening the observation into one
+                dimensional vector.
+            fully_observable (bool): Whether to make the environment fully observable.
+            use_mission (bool): Whether mission should be in the observation, in which
+                case if using non-flattened grid, the observation is a dict of keys,
+                image and mission. If using flattened observations, then the
+                observation has the mission encoded in it.
         """
 
         super().create_env(env_name)
