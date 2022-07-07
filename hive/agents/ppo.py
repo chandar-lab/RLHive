@@ -7,7 +7,7 @@ from typing import Union
 
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
-from hive.agents.qnets.ppo_nets import PPOActorNetwork, PPOCriticNetwork
+from hive.agents.qnets.ppo_nets import PPOActorCriticNetwork
 from hive.agents.qnets.utils import (
     InitializationFn,
     calculate_output_dim,
@@ -32,8 +32,7 @@ class PPOAgent(Agent):
         actor_net: FunctionApproximator = None,
         critic_net: FunctionApproximator = None,
         init_fn: InitializationFn = None,
-        actor_optimizer_fn: OptimizerFn = None,
-        critic_optimizer_fn: OptimizerFn = None,
+        optimizer_fn: OptimizerFn = None,
         critic_loss_fn: LossFn = None,
         stack_size: int = 1,
         replay_buffer: PPOReplayBuffer = None,
@@ -127,12 +126,9 @@ class PPOAgent(Agent):
         self._continuous_action = isinstance(self._action_space, gym.spaces.Box)
         self._init_fn = create_init_weights_fn(init_fn)
         self.create_networks(representation_net, actor_net, critic_net)
-        if actor_optimizer_fn is None:
-            actor_optimizer_fn = torch.optim.Adam
-        self._actor_optimizer = actor_optimizer_fn(self._actor.parameters())
-        if critic_optimizer_fn is None:
-            critic_optimizer_fn = torch.optim.Adam
-        self._critic_optimizer = critic_optimizer_fn(self._critic.parameters())
+        if optimizer_fn is None:
+            optimizer_fn = torch.optim.Adam
+        self._optimizer = optimizer_fn(self._actor_critic.parameters())
         if replay_buffer is None:
             replay_buffer = PPOReplayBuffer
         extra_storage_types = {
@@ -188,33 +184,26 @@ class PPOAgent(Agent):
             network = representation_net(self._state_size)
 
         network_output_shape = calculate_output_dim(network, self._state_size)
-        self._actor = PPOActorNetwork(
+        self._actor_critic = PPOActorCriticNetwork(
             network,
             actor_net,
+            critic_net,
             network_output_shape,
             self._action_space,
             self._continuous_action,
         ).to(self._device)
-        self._critic = PPOCriticNetwork(
-            network,
-            critic_net,
-            network_output_shape,
-        ).to(self._device)
 
-        self._actor.apply(self._init_fn)
-        self._critic.apply(self._init_fn)
+        self._actor_critic.apply(self._init_fn)
 
     def train(self):
         """Changes the agent to training mode."""
         super().train()
-        self._actor.train()
-        self._critic.train()
+        self._actor_critic.train()
 
     def eval(self):
         """Changes the agent to evaluation mode."""
         super().eval()
-        self._actor.eval()
-        self._critic.eval()
+        self._actor_critic.eval()
 
     def preprocess_update_info(self, update_info):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
@@ -262,8 +251,7 @@ class PPOAgent(Agent):
         observation = torch.tensor(
             np.expand_dims(observation, axis=0), device=self._device
         ).float()
-        action, logprob, _ = self._actor(observation)
-        value = self._critic(observation)
+        action, logprob, _, value = self._actor_critic(observation)
         action = action.cpu().detach().numpy()
         action = action[0]
 
@@ -290,13 +278,11 @@ class PPOAgent(Agent):
                 for _ in range(num_batches):
                     batch = self._replay_buffer.sample(batch_size=self._batch_size)
                     batch = self.preprocess_update_batch(batch)
-                    self._actor_optimizer.zero_grad()
-                    self._critic_optimizer.zero_grad()
+                    self._optimizer.zero_grad()
 
-                    _, _logprob, entropy = self._actor(
+                    _, _logprob, entropy, values = self._actor_critic(
                         batch["observation"], batch["action"]
                     )
-                    values = self._critic(batch["observation"])
                     logratios = _logprob - batch["logprob"]
                     ratios = torch.exp(logratios)
                     advantages = batch["advantages"]
@@ -342,14 +328,10 @@ class PPOAgent(Agent):
 
                     if self._grad_clip is not None:
                         torch.nn.utils.clip_grad_norm_(
-                            self._critic.parameters(), self._grad_clip
-                        )
-                        torch.nn.utils.clip_grad_norm_(
-                            self._actor.parameters(), self._grad_clip
+                            self._actor_critic.parameters(), self._grad_clip
                         )
 
-                    self._actor_optimizer.step()
-                    self._critic_optimizer.step()
+                    self._optimizer.step()
 
                     with torch.no_grad():
                         # calculate approx_kl http://joschu.net/blog/kl-approx.html
@@ -386,10 +368,8 @@ class PPOAgent(Agent):
     def save(self, dname):
         torch.save(
             {
-                "critic": self._critic.state_dict(),
-                "actor_optimizer": self._actor_optimizer.state_dict(),
-                "actor": self._actor.state_dict(),
-                "critic_optimizer": self._critic_optimizer.state_dict(),
+                "actor_critic": self._actor_critic.state_dict(),
+                "optimizer": self._optimizer.state_dict(),
             },
             os.path.join(dname, "agent.pt"),
         )
@@ -399,8 +379,6 @@ class PPOAgent(Agent):
 
     def load(self, dname):
         checkpoint = torch.load(os.path.join(dname, "agent.pt"))
-        self._actor.load_state_dict(checkpoint["actor"])
-        self._critic.load_state_dict(checkpoint["critic"])
-        self._actor_optimizer.load_state_dict(checkpoint["actor_optimizer"])
-        self._critic_optimizer.load_state_dict(checkpoint["critic_optimizer"])
+        self._actor_critic.load_state_dict(checkpoint["actor_critic"])
+        self._optimizer.load_state_dict(checkpoint["optimizer"])
         self._replay_buffer.load(os.path.join(dname, "replay"))

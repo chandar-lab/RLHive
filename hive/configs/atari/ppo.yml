@@ -27,11 +27,7 @@ agent:
         strides: [4, 2, 1]
         paddings: [2, 2, 1]
         mlp_layers: [512]
-    actor_optimizer_fn:
-      name: 'Adam'
-      kwargs:
-        lr: .00025
-    critic_optimizer_fn:
+    optimizer_fn:
       name: 'Adam'
       kwargs:
         lr: .00025

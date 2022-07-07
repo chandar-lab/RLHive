@@ -34,11 +34,7 @@ agent:
         transitions_per_update: 2048
         use_gae: True
         gae_lambda: .95
-    actor_optimizer_fn:
-      name: 'Adam'
-      kwargs:
-        lr: .0003
-    critic_optimizer_fn:
+    optimizer_fn:
       name: 'Adam'
       kwargs:
         lr: .0003
