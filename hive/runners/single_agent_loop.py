@@ -84,6 +84,9 @@ class SingleAgentRunner(Runner):
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1
         episode_metrics["full_episode_length"] += 1
+        if "episode" in other_info.keys():
+            episode_metrics["episodic_return"] += other_info['episode']['r']
+            episode_metrics["episodic_length"] += other_info['episode']['l']
 
         return done, next_observation
 

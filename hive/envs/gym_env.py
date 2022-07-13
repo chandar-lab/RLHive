@@ -31,11 +31,15 @@ class GymEnv(BaseEnv):
         """
         env = gym.make(env_name)
         if kwargs.get("mujoco_wrapper", False):
+            env = gym.wrappers.RecordEpisodeStatistics(env)
             env = gym.wrappers.ClipAction(env)
             env = gym.wrappers.NormalizeObservation(env)
             env = gym.wrappers.TransformObservation(
                 env, lambda obs: np.clip(obs, -10, 10)
             )
+            env = gym.wrappers.NormalizeReward(env)
+            env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+
         elif kwargs.get("atari_wrapper", False):
             env = gym.wrappers.NoopResetEnv(env, noop_max=30)
             env = gym.wrappers.EpisodicLifeEnv(env)

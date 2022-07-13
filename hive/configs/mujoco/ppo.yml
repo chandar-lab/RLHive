@@ -2,7 +2,7 @@ run_name: &run_name 'ppo'
 train_steps: 2000000
 test_frequency: 20000
 test_episodes: 5
-max_steps_per_episode: 1000
+max_steps_per_episode: 100000
 stack_size: &stack_size 1
 save_dir: 'experiment'
 saving_schedule:
