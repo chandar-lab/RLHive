@@ -16,10 +16,12 @@ Submodules
    :maxdepth: 3
 
    hive.agents.agent
+   hive.agents.ddpg
    hive.agents.dqn
    hive.agents.legal_moves_rainbow
    hive.agents.rainbow
    hive.agents.random
+   hive.agents.td3
 
 Module contents
 ---------------
