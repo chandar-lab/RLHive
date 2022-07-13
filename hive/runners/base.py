@@ -86,7 +86,11 @@ class Runner(ABC):
         return Metrics(
             self._agents,
             [("reward", 0), ("episode_length", 0)],
-            [("full_episode_length", 0), ("episodic_length", 0), ("episodic_return", 0)],
+            [
+                ("full_episode_length", 0),
+                ("episodic_length", 0),
+                ("episodic_return", 0),
+            ],
         )
 
     def run_one_step(self, observation, turn, episode_metrics):

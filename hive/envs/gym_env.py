@@ -38,7 +38,9 @@ class GymEnv(BaseEnv):
                 env, lambda obs: np.clip(obs, -10, 10)
             )
             env = gym.wrappers.NormalizeReward(env)
-            env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+            env = gym.wrappers.TransformReward(
+                env, lambda reward: np.clip(reward, -10, 10)
+            )
 
         elif kwargs.get("atari_wrapper", False):
             env = gym.wrappers.NoopResetEnv(env, noop_max=30)
