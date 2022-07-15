@@ -9,7 +9,6 @@ Subpackages
 
    hive.envs.atari
    hive.envs.marlgrid
-   hive.envs.minatar
    hive.envs.minigrid
    hive.envs.pettingzoo
    hive.envs.wrappers

@@ -1,5 +1,7 @@
 import abc
 
+import gym
+
 from hive.utils.registry import Registrable
 
 
@@ -8,15 +10,15 @@ class Agent(abc.ABC, Registrable):
     this class.
     """
 
-    def __init__(self, obs_dim, act_dim, id=0):
+    def __init__(self, observation_space: gym.Space, action_space: gym.Space, id=0):
         """
         Args:
-            obs_dim: Dimension of observations that agent will see.
-            act_dim: Number of actions that the agent needs to chose from.
+            observation_space (gym.Space): Observation space for agent.
+            action_space (gym.Space): Action space for agent.
             id: Identifier for the agent.
         """
-        self._obs_dim = obs_dim
-        self._act_dim = act_dim
+        self._observation_space = observation_space
+        self._action_space = action_space
         self._training = True
         self._id = str(id)
 

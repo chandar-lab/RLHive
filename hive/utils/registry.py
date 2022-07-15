@@ -202,7 +202,7 @@ def get_parsed_args(arguments, prefix=None):
     """Helper function that takes a dictionary mapping argument names to types, and
     extracts command line arguments for those arguments. If the dictionary contains
     a key-value pair "bar": int, and the prefix passed is "foo", this function will
-    look for a command line argument "\-\-foo.bar". If present, it will cast it to an
+    look for a command line argument "--foo.bar". If present, it will cast it to an
     int.
 
     If the type for a given argument is not one of `int`, `float`, `str`, or `bool`,
