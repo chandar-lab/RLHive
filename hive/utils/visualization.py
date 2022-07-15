@@ -188,6 +188,7 @@ def generate_lineplot(
     xlabel=None,
     ylabel=None,
     cmap_name=None,
+    rc_params=rc_params,
     output_file="output.png",
 ):
     """Aggregates data and generates lineplot."""
@@ -213,6 +214,7 @@ def generate_lineplot(
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.legend()
+    plt.rcParams.update(rc_params)
     plt.savefig(output_file)
     plt.close()
 
@@ -229,6 +231,7 @@ def plot_results(
     cmap_name=None,
     smoothing_fn=None,
     num_sampled_points=100,
+    rc_params={},
     output_file="output.png",
 ):
     """Plots results."""
@@ -250,6 +253,7 @@ def plot_results(
         xlabel=x_label,
         ylabel=y_label,
         cmap_name=cmap_name,
+        rc_params=rc_params,
         output_file=output_file,
     )
 
@@ -291,7 +295,8 @@ if __name__ == "__main__":
     parser.add_argument("--smoothing_fn", choices=["exponential", "moving_average"])
     parser.add_argument("--smoothing_fn_kwargs")
     parser.add_argument("--num_sampled_points", type=int, default=100)
-    parser.add_argument("--num_sampled_points", type=int, default=100)
+    parser.add_argument("--rc_params", default=None)
+    parser.add_argument("--output_file", default="output.png")
     parser.add_argument("--drop_last", action="store_true")
 
     args = parser.parse_args()
@@ -301,6 +306,11 @@ if __name__ == "__main__":
         smoothing_fn = get_smoothing_fn(args.smoothing_fn, smoothing_fn_kwargs)
     else:
         smoothing_fn = None
+    if args.rc_params is None:
+        rc_params = {}
+    else:
+        rc_params = json.loads(args.rc_params)
+
     plot_results(
         experiments_folder=args.experiments_folder,
         x_key=args.x_key,
@@ -313,5 +323,6 @@ if __name__ == "__main__":
         cmap_name=args.cmap_name,
         smoothing_fn=smoothing_fn,
         num_sampled_points=args.num_sampled_points,
+        rc_params=rc_params,
         output_file=args.output_file,
     )

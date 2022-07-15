@@ -20,6 +20,7 @@ Submodules
    hive.agents.qnets.mlp
    hive.agents.qnets.noisy_linear
    hive.agents.qnets.qnet_heads
+   hive.agents.qnets.td3_heads
    hive.agents.qnets.utils
 
 Module contents

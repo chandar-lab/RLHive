@@ -1,0 +1,64 @@
+run_name: &run_name 'td3'
+train_steps: 2000000
+test_frequency: 5000
+test_episodes: 10
+max_steps_per_episode: 1000000
+stack_size: &stack_size 1
+save_dir: 'experiment'
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 500000
+environment:
+  name: 'GymEnv'
+  kwargs:
+    env_name: 'Hopper-v2'
+    
+agent:
+  name: 'TD3'
+  kwargs:
+    actor_net:
+      name: 'MLPNetwork'
+      kwargs: 
+        hidden_units: [256, 256]
+    critic_net:
+      name: 'MLPNetwork'
+      kwargs: 
+        hidden_units: [256, 256]
+    replay_buffer:
+      name: 'CircularReplayBuffer'
+      kwargs:
+        capacity: 1000000
+    actor_optimizer_fn:
+      name: 'Adam'
+      kwargs:
+        lr: .0003
+    critic_optimizer_fn:
+      name: 'Adam'
+      kwargs:
+        lr: .0003
+    discount_rate: .99
+    grad_clip: .5
+    soft_update_fraction: .005
+    batch_size: 256
+    update_frequency: 1
+    action_noise: .1
+    target_noise: .2
+    target_noise_clip: .5
+    min_replay_history: 25000
+    device: 'cuda'
+    id: 'agent'
+# List of logger configs used.
+loggers:
+  -
+    name: ChompLogger
+  -
+    name: WandbLogger
+    kwargs:
+      project: Hive
+      name: *run_name
+      resume: "allow"
+      start_method: "fork"
+      
