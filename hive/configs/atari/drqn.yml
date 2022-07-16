@@ -28,6 +28,11 @@ agent:
         strides: [4, 2, 1]
         paddings: [2, 2, 1]
         mlp_layers: [512]
+        sequence_fn:
+          name: 'LSTM'
+          kwargs:
+            rnn_hidden_size: 128
+            num_rnn_layers: 1
     optimizer_fn:
       name: 'RMSpropTF'
       kwargs:
