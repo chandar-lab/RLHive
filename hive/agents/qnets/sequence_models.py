@@ -11,23 +11,17 @@ class SequenceModule(nn.Module, Registrable):
 
     def __init__(
         self,
-        rnn_input_size=256,
         rnn_hidden_size=128,
         num_rnn_layers=1,
-        batch_first=True,
     ):
         """
         Args:
-            rnn_input_size (int): The number of expected features in the input x.
             rnn_hidden_size (int):  The number of features in the hidden state h.
             num_rnn_layers (int): Number of recurrent layers.
-            batch_first (bool): If True, then the input and output tensors are provided as (batch, seq, feature) instead of (seq, batch, feature).
         """
         super().__init__()
-        self._rnn_input_size = rnn_input_size
         self._rnn_hidden_size = rnn_hidden_size
         self._num_rnn_layers = num_rnn_layers
-        self._batch_first = batch_first
         self.core = None
 
     def forward(self, x, hidden_state=None):
@@ -63,16 +57,14 @@ class LSTMModule(SequenceModule):
             batch_first (bool): If True, then the input and output tensors are provided as (batch, seq, feature) instead of (seq, batch, feature).
         """
         super().__init__(
-            rnn_input_size=rnn_input_size,
             rnn_hidden_size=rnn_hidden_size,
             num_rnn_layers=num_rnn_layers,
-            batch_first=batch_first,
         )
         self.core = nn.LSTM(
-            input_size=self._rnn_input_size,
+            input_size=rnn_input_size,
             hidden_size=self._rnn_hidden_size,
             num_layers=self._num_rnn_layers,
-            batch_first=self._batch_first,
+            batch_first=batch_first,
         )
 
     def init_hidden(self, batch_size, device="cpu"):
@@ -112,16 +104,14 @@ class GRUModule(SequenceModule):
             batch_first (bool): If True, then the input and output tensors are provided as (batch, seq, feature) instead of (seq, batch, feature).
         """
         super().__init__(
-            rnn_input_size=rnn_input_size,
             rnn_hidden_size=rnn_hidden_size,
             num_rnn_layers=num_rnn_layers,
-            batch_first=batch_first,
         )
         self.core = nn.GRU(
-            input_size=self._rnn_input_size,
+            input_size=rnn_input_size,
             hidden_size=self._rnn_hidden_size,
             num_layers=self._num_rnn_layers,
-            batch_first=self._batch_first,
+            batch_first=batch_first,
         )
 
     def init_hidden(self, batch_size, device="cpu"):

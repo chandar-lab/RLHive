@@ -65,9 +65,9 @@ class DRQNAgent(DQNAgent):
             action_space (gym.spaces.Discrete): Action space for the agent.
             representation_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute Q-values (e.g.
-                everything except the final layer of the DQN).
+                everything except the final layer of the DRQN).
             stack_size: Number of observations stacked to create the state fed to the
-                DQN.
+                DRQN.
             id: Agent identifier.
             optimizer_fn (OptimizerFn): A function that takes in a list of parameters
                 to optimize and returns the optimizer. If None, defaults to
@@ -204,7 +204,7 @@ class DRQNAgent(DQNAgent):
 
     def update(self, update_info):
         """
-        Updates the DQN agent.
+        Updates the DRQN agent.
 
         Args:
             update_info: dictionary containing all the necessary information to
