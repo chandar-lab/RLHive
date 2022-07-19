@@ -332,9 +332,9 @@ class TD3(Agent):
                 noise = torch.clamp(
                     noise, -self._target_noise_clip, self._target_noise_clip
                 )
-                next_actions = torch.clamp(
-                    self._target_actor(*next_state_inputs) + noise, -1, 1
-                )
+                next_actions = self._target_actor(*next_state_inputs) + noise
+                if self._scale_actions:
+                    next_actions = torch.clamp(next_actions, -1, 1)
                 next_q_vals = torch.cat(
                     self._target_critic(*next_state_inputs, next_actions), dim=1
                 )
