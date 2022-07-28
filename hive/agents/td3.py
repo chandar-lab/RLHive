@@ -296,9 +296,9 @@ class TD3(Agent):
             action = action + noise
         action = action.cpu().detach().numpy()
         if self._scale_actions:
-            action = self.unscale_actions(np.expand_dims(action, axis=0))
+            action = self.unscale_actions(action)
         action = np.clip(action, self._action_min, self._action_max)
-        return action
+        return np.squeeze(action, axis=0)
 
     def update(self, update_info):
         """
