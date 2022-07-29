@@ -1,0 +1,87 @@
+run_name: &run_name 'atari-dqn'
+train_steps: 5000
+test_frequency: 25
+test_episodes: 10
+# before training
+max_steps_per_episode: 27
+stack_size: &stack_size 4
+save_dir: 'experiment'
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 10
+environment:
+  name: 'AtariEnv'
+  kwargs:
+    env_name: 'Asterix'
+
+agent:
+  name: 'DQNAgent'
+  kwargs:
+    representation_net:
+      name: 'ConvNetwork'
+      kwargs:
+        channels: [32, 64, 64]
+        kernel_sizes: [8, 4, 3]
+        strides: [4, 2, 1]
+        paddings: [2, 2, 1]
+        mlp_layers: [512]
+    optimizer_fn:
+      name: 'RMSpropTF'
+      kwargs:
+        lr: 0.00025
+        alpha: .95
+        eps: 0.00001
+        centered: True
+    init_fn:
+      name: 'xavier_uniform'
+    loss_fn:
+      name: 'SmoothL1Loss'
+    replay_buffer:
+      name: 'CircularReplayBuffer'
+      kwargs:
+        capacity: 1000000
+        stack_size: *stack_size
+        gamma: &gamma .99
+    discount_rate: *gamma
+    reward_clip: 1
+    update_period_schedule:
+      name: 'PeriodicSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        period: 4
+    target_net_update_schedule:
+      name: 'PeriodicSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        period: 80
+    epsilon_schedule:
+      name: 'LinearSchedule'
+      kwargs:
+        init_value: 1.0
+        end_value: .01
+        steps: 25
+    test_epsilon: .001
+    min_replay_history: 20
+    device: 'cuda'
+    log_frequency: 1000
+# List of logger configs used.
+loggers:
+  -
+    name: ChompLogger
+  -
+    name: WandbLogger
+    kwargs:
+      project: Hive
+      name: *run_name
+      resume: "allow"
+      start_method: "thread"
+# debugger config.
+debugger:
+  name: 'Debugger'
+  kwargs:
+    check_type: 'Pre'

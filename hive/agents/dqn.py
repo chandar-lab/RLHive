@@ -22,6 +22,7 @@ from hive.utils.schedule import (
     SwitchSchedule,
 )
 from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder
+from hive.debugger.debugger import Debugger
 
 
 class DQNAgent(Agent):
@@ -54,6 +55,7 @@ class DQNAgent(Agent):
         batch_size: int = 32,
         device="cpu",
         logger: Logger = None,
+        debugger: Debugger = None,
         log_frequency: int = 100,
     ):
         """
@@ -158,6 +160,8 @@ class DQNAgent(Agent):
 
         self._test_epsilon = test_epsilon
         self._learn_schedule = SwitchSchedule(False, True, min_replay_history)
+
+        self._debugger = debugger
 
         self._state = {"episode_start": True}
         self._training = False
@@ -316,6 +320,16 @@ class DQNAgent(Agent):
             q_targets = batch["reward"] + self._discount_rate * next_qvals * (
                 1 - batch["done"]
             )
+
+            if not self._debugger.pre_check.pre_check_done:
+                self._debugger.set_parameters(observations=copy.deepcopy(current_state_inputs[0].numpy()),
+                                              model=copy.deepcopy(self._qnet),
+                                              labels=copy.deepcopy(q_targets),
+                                              predictions=copy.deepcopy(pred_qvals.detach()),
+                                              loss=copy.deepcopy(self._loss_fn),
+                                              opt=copy.deepcopy(self._optimizer),
+                                              actions=copy.deepcopy(actions))
+                self._debugger.pre_check.run()
 
             loss = self._loss_fn(pred_qvals, q_targets).mean()
 

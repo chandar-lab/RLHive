@@ -7,6 +7,7 @@ from hive.runners.base import Runner
 from hive.runners.utils import TransitionInfo, load_config
 from hive.utils import experiment, loggers, schedule, utils
 from hive.utils.registry import get_parsed_args
+from hive import debugger as debugger_lib
 
 
 class SingleAgentRunner(Runner):
@@ -17,6 +18,7 @@ class SingleAgentRunner(Runner):
         environment,
         agent,
         logger,
+        debugger,  # we can remove the debugger from the class Runner if we don't need it
         experiment_manager,
         train_steps,
         test_frequency,
@@ -46,6 +48,7 @@ class SingleAgentRunner(Runner):
             environment,
             agent,
             logger,
+            debugger,
             experiment_manager,
             train_steps,
             test_frequency,
@@ -149,12 +152,23 @@ def set_up_experiment(config):
     logger_fn, full_config["loggers"] = loggers.get_logger(logger_config, "loggers")
     logger = logger_fn()
 
+    # Set up debugger
+    # TODO:
+    # if config.get("debugger", False):
+    #     # skip the debugger (to be done soon
+    #     pass
+    debugger_config = config["debugger"]
+
+    debugger, full_config["debugger"] = debugger_lib.get_debugger(debugger_config, "debugger")
+
     agent_fn, full_config["agent"] = agent_lib.get_agent(config["agent"], "agent")
+    # inject debugger in the agent config
     agent = agent_fn(
         observation_space=env_spec.observation_space[0],
         action_space=env_spec.action_space[0],
         stack_size=config.get("stack_size", 1),
         logger=logger,
+        debugger = debugger
     )
 
     # Set up experiment manager
@@ -164,6 +178,8 @@ def set_up_experiment(config):
     experiment_manager = experiment.Experiment(
         config["run_name"], config["save_dir"], saving_schedule_fn()
     )
+    # experiment_manager is used to save various components (like logger, agent, ...)  in one experiment.
+    # TODO: maybe we need to add the debugger here
     experiment_manager.register_experiment(
         config=full_config,
         logger=logger,
@@ -174,6 +190,7 @@ def set_up_experiment(config):
         environment,
         agent,
         logger,
+        debugger,
         experiment_manager,
         config.get("train_steps", -1),
         config.get("test_frequency", -1),

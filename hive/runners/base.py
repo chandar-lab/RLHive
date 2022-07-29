@@ -7,6 +7,7 @@ from hive.runners.utils import Metrics
 from hive.utils import schedule
 from hive.utils.experiment import Experiment
 from hive.utils.loggers import ScheduledLogger
+from hive.debugger.debugger import Debugger
 
 
 class Runner(ABC):
@@ -21,6 +22,7 @@ class Runner(ABC):
         environment: BaseEnv,
         agents: List[Agent],
         logger: ScheduledLogger,
+        debugger: Debugger,
         experiment_manager: Experiment,
         train_steps: int = 1000000,
         test_frequency: int = 10000,
@@ -46,6 +48,7 @@ class Runner(ABC):
         else:
             self._agents = [agents]
         self._logger = logger
+        self._debugger = debugger
         self._experiment_manager = experiment_manager
         if train_steps == -1:
             self._train_schedule = schedule.ConstantSchedule(True)
