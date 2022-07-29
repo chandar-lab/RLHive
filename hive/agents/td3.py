@@ -4,7 +4,6 @@ import os
 import gym
 import numpy as np
 import torch
-from torch.nn.functional import mse_loss
 
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
@@ -152,7 +151,7 @@ class TD3(Agent):
         self._soft_update_fraction = soft_update_fraction
         if critic_loss_fn is None:
             critic_loss_fn = torch.nn.MSELoss
-        self._critic_loss_fn = critic_loss_fn(reduction="none")
+        self._critic_loss_fn = critic_loss_fn(reduction="mean")
         self._batch_size = batch_size
         self._logger = logger
         if self._logger is None:
@@ -295,9 +294,9 @@ class TD3(Agent):
             action = action + noise
         action = action.cpu().detach().numpy()
         if self._scale_actions:
-            action = self.unscale_actions(np.expand_dims(action, axis=0))
+            action = self.unscale_actions(action)
             action = np.clip(action, self._action_min, self._action_max)
-        return action
+        return np.squeeze(action, axis=0)
 
     def update(self, update_info):
         """
@@ -347,7 +346,7 @@ class TD3(Agent):
             # Critic losses
             pred_qvals = self._critic(*current_state_inputs, batch["action"])
             critic_loss = sum(
-                [mse_loss(qvals, target_q_values) for qvals in pred_qvals]
+                [self._critic_loss_fn(qvals, target_q_values) for qvals in pred_qvals]
             )
             self._critic_optimizer.zero_grad()
             critic_loss.backward()
