@@ -1,3 +1,11 @@
+# others
+.idea
+./hive/runners/experiment/
+./hive/runners/logs/
+./hive/runners/wandb/
+
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -127,16 +135,3 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-.DS_Store
-
-# vim editing and such
-*.*~
-
-# PyCharm
-.idea
-
-# Vscode
-.vscode/
-
-# WandB
-wandb/

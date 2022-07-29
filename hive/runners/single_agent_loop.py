@@ -14,17 +14,17 @@ class SingleAgentRunner(Runner):
     """Runner class used to implement a sinle-agent training loop."""
 
     def __init__(
-        self,
-        environment,
-        agent,
-        logger,
-        debugger,  # we can remove the debugger from the class Runner if we don't need it
-        experiment_manager,
-        train_steps,
-        test_frequency,
-        test_episodes,
-        stack_size,
-        max_steps_per_episode=27000,
+            self,
+            environment,
+            agent,
+            logger,
+            debugger,  # we can remove the debugger from the class Runner if we don't need it
+            experiment_manager,
+            train_steps,
+            test_frequency,
+            test_episodes,
+            stack_size,
+            max_steps_per_episode=27000,
     ):
         """Initializes the Runner object.
 
@@ -168,7 +168,7 @@ def set_up_experiment(config):
         action_space=env_spec.action_space[0],
         stack_size=config.get("stack_size", 1),
         logger=logger,
-        debugger = debugger
+        debugger=debugger
     )
 
     # Set up experiment manager
@@ -205,22 +205,33 @@ def set_up_experiment(config):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config")
-    parser.add_argument("-p", "--preset-config")
-    parser.add_argument("-a", "--agent-config")
-    parser.add_argument("-e", "--env-config")
-    parser.add_argument("-l", "--logger-config")
-    args, _ = parser.parse_known_args()
-    if args.config is None and args.preset_config is None:
-        raise ValueError("Config needs to be provided")
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("-c", "--config")
+    # parser.add_argument("-p", "--preset-config")
+    # parser.add_argument("-a", "--agent-config")
+    # parser.add_argument("-e", "--env-config")
+    # parser.add_argument("-l", "--logger-config")
+    # args, _ = parser.parse_known_args()
+    # if args.config is None and args.preset_config is None:
+    #     raise ValueError("Config needs to be provided")
+    # config = load_config(
+    #     args.config,
+    #     args.preset_config,
+    #     args.agent_config,
+    #     args.env_config,
+    #     args.logger_config,
+    # )
+
+    config = "../configs/atari/dqn.yml"
     config = load_config(
-        args.config,
-        args.preset_config,
-        args.agent_config,
-        args.env_config,
-        args.logger_config,
+        config=config,
+        preset_config=None,
+        agent_config=None,
+        env_config=None,
+        logger_config=None,
+        debugger_config=None
     )
+
     runner = set_up_experiment(config)
     runner.run_training()
 

@@ -10,11 +10,12 @@ from hive.utils.utils import PACKAGE_ROOT
 
 
 def load_config(
-    config=None,
-    preset_config=None,
-    agent_config=None,
-    env_config=None,
-    logger_config=None,
+        config=None,
+        preset_config=None,
+        agent_config=None,
+        env_config=None,
+        logger_config=None,
+        debugger_config=None
 ):
     """Used to load config for experiments. Agents, environment, and loggers components
     in main config file can be overrided based on other log files.
@@ -50,6 +51,9 @@ def load_config(
     if logger_config is not None:
         with open(logger_config) as f:
             yaml_config["loggers"] = yaml.safe_load(f)
+    if debugger_config is not None:
+        with open(debugger_config) as f:
+            yaml_config["debugger"] = yaml.safe_load(f)
     return yaml_config
 
 
