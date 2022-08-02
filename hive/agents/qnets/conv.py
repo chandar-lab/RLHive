@@ -66,7 +66,7 @@ class ConvNetwork(nn.Module):
                 raise ValueError("The lengths of the parameter lists must be the same")
 
             # Convolutional Layers
-            channels.insert(0, in_dim[0])
+            channels = [in_dim[0], *channels]
             conv_seq = []
             for i in range(0, len(channels) - 1):
                 conv_seq.append(
