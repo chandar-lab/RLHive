@@ -14,10 +14,10 @@ registry.register_all(
     {
         "DDPG": DDPG,
         "DQNAgent": DQNAgent,
+        "DRQNAgent": DRQNAgent,
         "LegalMovesRainbowAgent": LegalMovesRainbowAgent,
         "RainbowDQNAgent": RainbowDQNAgent,
         "RandomAgent": RandomAgent,
-        "DRQNAgent": DRQNAgent,
         "TD3": TD3,
     },
 )

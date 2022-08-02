@@ -40,10 +40,13 @@ class DQNNetwork(nn.Module):
 
 
 class DRQNNetwork(nn.Module):
-    """Implements the standard DRQN value computation. Transforms first output from
-    :obj:`base_network` with output dimension :obj:`hidden_dim` to dimension
-    :obj:`out_dim`, which should be equal to the number of actions.
-    The second output is the next hidden_state which will be used as initial hidden_state later.
+    """Implements the standard DRQN value computation. This module returns two outputs,
+    which correspond to the two outputs from :obj:`base_network`. In particular, it
+    transforms the first output from :obj:`base_network` with output dimension
+    :obj:`hidden_dim` to dimension :obj:`out_dim`, which should be equal to the
+    number of actions. The second output of this module is the second output from
+    :obj:`base_network`, which is the hidden state that will be used as the initial
+    hidden state when computing the next action in the trajectory.
     """
 
     def __init__(
@@ -55,8 +58,9 @@ class DRQNNetwork(nn.Module):
     ):
         """
         Args:
-            base_network (torch.nn.Module): Backbone network that computes the
-                representations that are used to compute action values.
+            base_network (torch.nn.Module): Backbone network that returns two outputs,
+                one is the representation used to compute action values, and the
+                other one is the hidden state used as input hidden state later.
             hidden_dim (int): Dimension of the output of the :obj:`network`.
             out_dim (int): Output dimension of the DRQN. Should be equal to the
                 number of actions that you are computing values for.

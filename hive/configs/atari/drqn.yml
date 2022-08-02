@@ -4,7 +4,6 @@ test_frequency: 250000
 test_episodes: 10
 max_steps_per_episode: 27000
 max_seq_len: &max_seq_len 10
-stack_size: &stack_size 1
 save_dir: 'experiment'
 saving_schedule:
   name: 'PeriodicSchedule'

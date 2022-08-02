@@ -6,6 +6,7 @@ import numpy as np
 import torch
 
 from hive.agents.agent import Agent
+from hive.agents.dqn import DQNAgent
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.qnet_heads import DRQNNetwork
 from hive.agents.qnets.utils import (
@@ -22,7 +23,6 @@ from hive.utils.schedule import (
     Schedule,
     SwitchSchedule,
 )
-from hive.agents.dqn import DQNAgent
 from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder
 
 
@@ -36,7 +36,6 @@ class DRQNAgent(DQNAgent):
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Discrete,
         representation_net: FunctionApproximator,
-        stack_size: int = 1,
         id=0,
         optimizer_fn: OptimizerFn = None,
         loss_fn: LossFn = None,
@@ -65,9 +64,8 @@ class DRQNAgent(DQNAgent):
             action_space (gym.spaces.Discrete): Action space for the agent.
             representation_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute Q-values (e.g.
-                everything except the final layer of the DRQN).
-            stack_size: Number of observations stacked to create the state fed to the
-                DRQN.
+                everything except the final layer of the DRQN), as well as the
+                hidden states of the recurrent component.
             id: Agent identifier.
             optimizer_fn (OptimizerFn): A function that takes in a list of parameters
                 to optimize and returns the optimizer. If None, defaults to
@@ -113,7 +111,6 @@ class DRQNAgent(DQNAgent):
             observation_space=observation_space,
             action_space=action_space,
             representation_net=representation_net,
-            stack_size=stack_size,
             id=id,
             optimizer_fn=optimizer_fn,
             loss_fn=loss_fn,
@@ -141,7 +138,10 @@ class DRQNAgent(DQNAgent):
             max_seq_len=max_seq_len,
             observation_shape=self._observation_space.shape,
             observation_dtype=self._observation_space.dtype,
+            action_shape=self._action_space.shape,
+            action_dtype=self._action_space.dtype,
         )
+        self._max_seq_len = max_seq_len
 
     def create_q_networks(self, representation_net):
         """Creates the Q-network and target Q-network.
@@ -246,20 +246,14 @@ class DRQNAgent(DQNAgent):
             )
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals, hidden_state = self._qnet(*current_state_inputs, hidden_state)
-            pred_qvals = pred_qvals.view(
-                self._batch_size, self._replay_buffer._max_seq_len, -1
-            )
+            pred_qvals, _ = self._qnet(*current_state_inputs, hidden_state)
+            pred_qvals = pred_qvals.view(self._batch_size, self._max_seq_len, -1)
             actions = batch["action"].long()
             pred_qvals = torch.gather(pred_qvals, -1, actions.unsqueeze(-1)).squeeze(-1)
 
             # Compute 1-step Q targets
-            next_qvals, target_hidden_state = self._target_qnet(
-                *next_state_inputs, target_hidden_state
-            )
-            next_qvals = next_qvals.view(
-                self._batch_size, self._replay_buffer._max_seq_len, -1
-            )
+            next_qvals, _ = self._target_qnet(*next_state_inputs, target_hidden_state)
+            next_qvals = next_qvals.view(self._batch_size, self._max_seq_len, -1)
             next_qvals, _ = torch.max(next_qvals, dim=-1)
 
             q_targets = batch["reward"] + self._discount_rate * next_qvals * (

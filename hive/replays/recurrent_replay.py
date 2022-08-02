@@ -31,7 +31,8 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
             capacity (int): Total number of observations that can be stored in the
                 buffer. Note, this is not the same as the number of transitions that
                 can be stored in the buffer.
-            max_seq_len (int): The number of consecutive transitions in a sequence.
+            max_seq_len (int): The number of consecutive transitions in a sequence
+                sampled from an episode.
             n_step (int): Horizon used to compute n-step return reward
             gamma (float): Discounting factor used to compute n-step return reward
             observation_shape: Shape of observations that will be stored in the buffer.
@@ -40,9 +41,6 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                 type. The type can be either a native python type or a numpy type. If
                 a numpy type, a string of the form np.uint8 or numpy.uint8 is
                 acceptable.
-            action_shape: Shape of actions that will be stored in the buffer.
-            action_dtype: Type of actions that will be stored in the buffer. Format is
-                described in the description of observation_dtype.
             action_shape: Shape of actions that will be stored in the buffer.
             action_dtype: Type of actions that will be stored in the buffer. Format is
                 described in the description of observation_dtype.
@@ -244,7 +242,8 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                         self._n_step
                     )  # (S-N+1) x N
                     rewards = rewards[:, idx]  # B x (S-N+1) x N
-                    # Creating a vectorized sliding window to calculate discounted returns for every element in the sequence
+                    # Creating a vectorized sliding window to calculate
+                    # discounted returns for every element in the sequence.
                     # equivalent to np.sum(rewards * self._discount[None, None, :], axis=2)
                     disc_rewards = np.einsum("ijk,k->ij", rewards, self._discount)
                     rewards = disc_rewards
