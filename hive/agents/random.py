@@ -29,7 +29,7 @@ class RandomAgent(Agent):
         super().__init__(
             observation_space=observation_space, action_space=action_space, id=id
         )
-        self._action_space.seed(seed=seeder.get_new_seed())
+        self._action_space.seed(seed=seeder.get_new_seed("agent"))
 
     @torch.no_grad()
     def act(self, observation):
