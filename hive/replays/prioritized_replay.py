@@ -201,7 +201,7 @@ class SumTree:
             batch_size (int): The number of elements to sample.
         """
         query_values = (
-            np.arange(batch_size) + self._rng.uniform(batch_size)
+            np.arange(batch_size) + self._rng.uniform(size=batch_size)
         ) / batch_size
         indices = self.extract(query_values)
         return indices
