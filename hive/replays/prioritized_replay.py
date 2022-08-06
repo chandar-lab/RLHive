@@ -110,8 +110,8 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
             indices = indices[indices >= self._stack_size - 1]
         else:
             low = (self._cursor - self._n_step) % self._capacity
-            high = (self._cursor + self._stack_size - 1) % self._capacity
-            if low < high:
+            high = (self._cursor + self._stack_size - 2) % self._capacity
+            if low <= high:
                 indices = indices[np.logical_or(indices < low, indices > high)]
             else:
                 indices = indices[~np.logical_or(indices >= low, indices <= high)]
