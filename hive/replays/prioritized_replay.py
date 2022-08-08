@@ -15,6 +15,7 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
     def __init__(
         self,
         capacity: int,
+        alpha: float = 0.5,
         beta: float = 0.5,
         stack_size: int = 1,
         n_step: int = 1,
@@ -33,7 +34,8 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
             capacity (int): Total number of observations that can be stored in the
                 buffer. Note, this is not the same as the number of transitions that
                 can be stored in the buffer.
-            beta (float): Parameter controlling level of prioritization.
+            alpha (float): Parameter controlling level of prioritization.
+            beta (float): Parameter controlling level of correction for prioritization.
             stack_size (int): The number of frames to stack to create an observation.
             n_step (int): Horizon used to compute n-step return reward
             gamma (float): Discounting factor used to compute n-step return reward
@@ -73,6 +75,7 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
             num_players_sharing_buffer=num_players_sharing_buffer,
         )
         self._sum_tree = SumTree(self._capacity)
+        self._alpha = alpha
         self._beta = beta
 
     def set_beta(self, beta):
@@ -81,6 +84,8 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
     def _add_transition(self, priority=None, **transition):
         if priority is None:
             priority = self._sum_tree.max_recorded_priority
+        else:
+            priority = priority**self._alpha
         self._sum_tree.set_priority(self._cursor, priority)
         super()._add_transition(**transition)
 
@@ -137,7 +142,7 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
                 or torch tensor.
         """
         indices = numpify(indices)
-        priorities = numpify(priorities)
+        priorities = numpify(priorities) ** self._alpha
         indices, unique_idxs = np.unique(indices, return_index=True)
         priorities = priorities[unique_idxs]
         self._sum_tree.set_priority(indices, priorities)
