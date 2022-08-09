@@ -5,7 +5,7 @@ from torch import nn
 from hive.agents.qnets.mlp import MLPNetwork
 from hive.agents.qnets.conv import ConvNetwork
 from hive.agents.qnets.utils import calculate_output_dim
-from hive.agents.qnets.sequence_models import SequenceModule
+from hive.agents.qnets.sequence_models import SequenceFn
 
 
 class ConvRNNNetwork(nn.Module):
@@ -24,7 +24,7 @@ class ConvRNNNetwork(nn.Module):
     def __init__(
         self,
         in_dim,
-        sequence_fn: SequenceModule,
+        sequence_fn: SequenceFn,
         channels=None,
         mlp_layers=None,
         kernel_sizes=1,
@@ -38,7 +38,7 @@ class ConvRNNNetwork(nn.Module):
         Args:
             in_dim (tuple): The tuple of observations dimension (channels, width,
                 height).
-            sequence_fn (SequenceModule): A sequence neural network that learns
+            sequence_fn (SequenceFn): A sequence neural network that learns
                 recurrent representation. Usually placed between the convolutional
                 layers and mlp layers.
             channels (list): The size of output channel for each convolutional layer.
@@ -99,7 +99,7 @@ class ConvRNNNetwork(nn.Module):
         if mlp_layers is not None:
             # MLP Layers
             self.mlp = MLPNetwork(
-                self.rnn.hidden_size, mlp_layers, noisy=noisy, std_init=std_init
+                sequence_fn.keywords["rnn_hidden_size"], mlp_layers, noisy=noisy, std_init=std_init
             )
         else:
             self.mlp = nn.Identity()

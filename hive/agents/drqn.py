@@ -57,6 +57,7 @@ class DRQNAgent(DQNAgent):
         device="cpu",
         logger: Logger = None,
         log_frequency: int = 100,
+        **kwargs,
     ):
         """
         Args:

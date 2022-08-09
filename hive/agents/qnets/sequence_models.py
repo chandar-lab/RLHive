@@ -2,9 +2,19 @@ import torch
 from torch import nn
 
 from hive.utils.registry import registry, Registrable
+from hive.agents.qnets.base import FunctionApproximator
 
 
-class SequenceModule(nn.Module, Registrable):
+class SequenceFn(Registrable):
+    """A wrapper for callables that produce sequence functions.
+    """
+
+    @classmethod
+    def type_name(cls):
+        return "sequence_fn"
+
+
+class SequenceModel(nn.Module):
     """
     Base sequence neural network architecture.
     """
@@ -28,16 +38,8 @@ class SequenceModule(nn.Module, Registrable):
         x, hidden_state = self.core(x, hidden_state)
         return x, hidden_state
 
-    @property
-    def hidden_size(self):
-        return self._rnn_hidden_size
 
-    @classmethod
-    def type_name(cls):
-        return "sequence_fn"
-
-
-class LSTMModule(SequenceModule):
+class LSTMModel(SequenceModel):
     """
     A multi-layer long short-term memory (LSTM) RNN.
     """
@@ -84,7 +86,7 @@ class LSTMModule(SequenceModule):
         return hidden_state
 
 
-class GRUModule(SequenceModule):
+class GRUModel(SequenceModel):
     """
     A multi-layer gated recurrent unit (GRU) RNN.
     """
@@ -125,11 +127,11 @@ class GRUModule(SequenceModule):
 
 
 registry.register_all(
-    SequenceModule,
+    SequenceFn,
     {
-        "LSTM": LSTMModule,
-        "GRU": GRUModule,
+        "LSTM": LSTMModel,
+        "GRU": GRUModel,
     },
 )
 
-get_sequence_fn = getattr(registry, f"get_{SequenceModule.type_name()}")
+get_sequence_fn = getattr(registry, f"get_{SequenceFn.type_name()}")
