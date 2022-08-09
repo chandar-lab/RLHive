@@ -1,10 +1,12 @@
 import os
+import pickle
 from typing import Dict, Tuple
 
 import numpy as np
 
 from hive.replays.circular_replay import CircularReplayBuffer
 from hive.utils.torch_utils import numpify
+from hive.utils.utils import seeder
 
 
 class PrioritizedReplayBuffer(CircularReplayBuffer):
@@ -166,6 +168,7 @@ class SumTree:
             self._last_level_start : self._last_level_start + self._capacity
         ]
         self.max_recorded_priority = 1.0
+        self._rng = np.random.default_rng(seed=seeder.get_new_seed("replay"))
 
     def set_priority(self, indices, priorities):
         """Sets the priorities for the given indices.
@@ -188,7 +191,7 @@ class SumTree:
         Args:
             batch_size (int): The number of elements to sample.
         """
-        indices = self.extract(np.random.rand(batch_size))
+        indices = self.extract(self._rng.uniform(size=batch_size))
         return indices
 
     def stratified_sample(self, batch_size):
@@ -197,7 +200,9 @@ class SumTree:
         Args:
             batch_size (int): The number of elements to sample.
         """
-        query_values = (np.arange(batch_size) + np.random.rand(batch_size)) / batch_size
+        query_values = (
+            np.arange(batch_size) + self._rng.uniform(size=batch_size)
+        ) / batch_size
         indices = self.extract(query_values)
         return indices
 
@@ -231,9 +236,17 @@ class SumTree:
 
     def save(self, dname):
         np.save(os.path.join(dname, "sumtree.npy"), self._tree)
+        state = {
+            "rng": self._rng,
+        }
+        with open(os.path.join(dname, "sumtree.pkl"), "wb") as f:
+            pickle.dump(state, f)
 
     def load(self, dname):
         self._tree = np.load(os.path.join(dname, "sumtree.npy"))
         self._priorities = self._tree[
             self._last_level_start : self._last_level_start + self._capacity
         ]
+        with open(os.path.join(dname, "sumtree.pkl"), "rb") as f:
+            state = pickle.load(f)
+        self._rng = state["rng"]

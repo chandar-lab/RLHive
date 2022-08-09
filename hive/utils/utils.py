@@ -1,3 +1,4 @@
+from collections import defaultdict
 import os
 import pickle
 import random
@@ -29,7 +30,7 @@ class Seeder:
 
     def __init__(self):
         self._seed = 0
-        self._current_seed = 0
+        self._current_seeds = defaultdict(lambda: self._seed)
 
     def set_global_seed(self, seed):
         """This reduces some sources of randomness in experiments. To get reproducible
@@ -40,17 +41,23 @@ class Seeder:
             seed (int): Global seed.
         """
         self._seed = seed
-        self._current_seed = seed
+        self._current_seeds = defaultdict(lambda: self._seed)
         torch.manual_seed(self._seed)
         random.seed(self._seed)
         np.random.seed(self._seed)
         torch.backends.cudnn.benchmark = False
         torch.use_deterministic_algorithms(True)
 
-    def get_new_seed(self):
-        """Each time it is called, it increments the current_seed and returns it."""
-        self._current_seed += 1
-        return self._current_seed
+    def get_new_seed(self, group=None):
+        """Each time it is called, it increments the current_seed for the
+        requested group and returns it. If no group is specified, the default
+        group is selected.
+
+        Args:
+            group (str): The name of the group to get the seed for.
+        """
+        self._current_seeds[group] += 1
+        return self._current_seeds[group]
 
 
 seeder = Seeder()
