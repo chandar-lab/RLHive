@@ -46,9 +46,6 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
             action_shape: Shape of actions that will be stored in the buffer.
             action_dtype: Type of actions that will be stored in the buffer. Format is
                 described in the description of observation_dtype.
-            action_shape: Shape of actions that will be stored in the buffer.
-            action_dtype: Type of actions that will be stored in the buffer. Format is
-                described in the description of observation_dtype.
             reward_shape: Shape of rewards that will be stored in the buffer.
             reward_dtype: Type of rewards that will be stored in the buffer. Format is
                 described in the description of observation_dtype.

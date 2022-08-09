@@ -50,18 +50,18 @@ class DDPG(TD3):
                 None, defaults to :py:class:`~torch.nn.Identity`.
             actor_net (FunctionApproximator): The network that takes the encoded
                 observations from representation_net and outputs the representations
-                used to compute the actions (ie everything except the last layer).
+                used to compute the actions (i.e. everything except the last layer).
             critic_net (FunctionApproximator): The network that takes two inputs: the
                 encoded observations from representation_net and actions. It outputs
-                the representations used to compute the values of the actions (ie
+                the representations used to compute the values of the actions (i.e.
                 everything except the last layer).
             init_fn (InitializationFn): Initializes the weights of agent networks using
                 create_init_weights_fn.
             actor_optimizer_fn (OptimizerFn): A function that takes in the list of
-                parameters of the actor returns the optimizer for the actor. If None,
+                parameters of the actor and returns the optimizer for the actor. If None,
                 defaults to :py:class:`~torch.optim.Adam`.
             critic_optimizer_fn (OptimizerFn): A function that takes in the list of
-                parameters of the critic returns the optimizer for the critic. If None,
+                parameters of the critic and returns the optimizer for the critic. If None,
                 defaults to :py:class:`~torch.optim.Adam`.
             critic_loss_fn (LossFn): The loss function used to optimize the critic. If
                 None, defaults to :py:class:`~torch.nn.MSELoss`.

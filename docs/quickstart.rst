@@ -56,8 +56,8 @@ sure you look at the examples
     hive_single_agent_loop -c <config-file>
     hive_multi_agent_loop -c <config-file>
 
-Finally, if instead you want to use your own custom custom components you can
-simply register it with RLHive and run your config normally: 
+Finally, if instead you want to use your own custom components you can
+simply register it with RLHive and run your config in the following way: 
 
 .. code-block:: python
     

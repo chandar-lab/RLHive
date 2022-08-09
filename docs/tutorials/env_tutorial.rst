@@ -22,7 +22,7 @@ Creating an Environment
 
 RLHive Environments
 ^^^^^^^^^^^^^^^^^^^
-Every environment used in RLHive should be a subclass of `~hive.envs.base.BaseEnv`.
+Every environment used in RLHive should be a subclass of :py:class:`~hive.envs.base.BaseEnv`.
 It should provide a ``reset`` function that resets the environment to a new episode 
 and returns a tuple of ``(observation, turn)`` and a ``step`` function that takes in
 an action, performs the step in the environment, and returns a tuple of 

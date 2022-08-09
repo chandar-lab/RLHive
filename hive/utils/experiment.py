@@ -72,6 +72,7 @@ class Experiment(object):
 
     def save(self, tag="current"):
         """Saves the experiment.
+        
         Args:
             tag (str): Tag to prefix the folder.
         """
