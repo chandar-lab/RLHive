@@ -6,8 +6,7 @@ from hive.agents.qnets.base import FunctionApproximator
 
 
 class SequenceFn(Registrable):
-    """A wrapper for callables that produce sequence functions.
-    """
+    """A wrapper for callables that produce sequence functions."""
 
     @classmethod
     def type_name(cls):

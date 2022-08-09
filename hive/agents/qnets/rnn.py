@@ -99,7 +99,10 @@ class ConvRNNNetwork(nn.Module):
         if mlp_layers is not None:
             # MLP Layers
             self.mlp = MLPNetwork(
-                sequence_fn.keywords["rnn_hidden_size"], mlp_layers, noisy=noisy, std_init=std_init
+                sequence_fn.keywords["rnn_hidden_size"],
+                mlp_layers,
+                noisy=noisy,
+                std_init=std_init,
             )
         else:
             self.mlp = nn.Identity()
