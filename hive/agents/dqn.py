@@ -118,7 +118,7 @@ class DQNAgent(Agent):
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
-        self._rng = np.random.default_rng(seed=seeder.get_new_seed())
+        self._rng = np.random.default_rng(seed=seeder.get_new_seed("agent"))
         if replay_buffer is None:
             replay_buffer = CircularReplayBuffer
         self._replay_buffer = replay_buffer(
