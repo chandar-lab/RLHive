@@ -60,7 +60,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         qvals = self._qnet(vectorized_observation, encoded_legal_moves).cpu()
 
         if self._rng.random() < epsilon:
-            action = np.random.choice(legal_moves_as_int).item()
+            action = self._rng.choice(legal_moves_as_int)
         else:
             action = torch.argmax(qvals).item()
 
