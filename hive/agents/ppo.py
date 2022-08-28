@@ -69,25 +69,17 @@ class PPOAgent(Agent):
                 everything except the last layer).
             init_fn (InitializationFn): Initializes the weights of agent networks using
                 create_init_weights_fn.
-            actor_optimizer_fn (OptimizerFn): A function that takes in the list of
-                parameters of the actor returns the optimizer for the actor. If None,
-                defaults to :py:class:`~torch.optim.Adam`.
-            critic_optimizer_fn (OptimizerFn): A function that takes in the list of
-                parameters of the critic returns the optimizer for the critic. If None,
+            optimizer_fn (OptimizerFn): A function that takes in the list of
+                parameters of the actor and critic returns the optimizer for the actor. If None,
                 defaults to :py:class:`~torch.optim.Adam`.
             critic_loss_fn (LossFn): The loss function used to optimize the critic. If
                 None, defaults to :py:class:`~torch.nn.MSELoss`.
-            n_critics (int): The number of critics used by the agent to estimate
-                Q-values. The minimum Q-value is used as the value for the next state
-                when calculating target Q-values for the critic. The output of the
-                first critic is used when computing the loss for the actor. For TD3,
-                the default value is 2. For DDPG, this parameter is 1.
             stack_size (int): Number of observations stacked to create the state fed
                 to the agent.
             replay_buffer (BaseReplayBuffer): The replay buffer that the agent will
                 push observations to and sample from during learning. If None,
                 defaults to
-                :py:class:`~hive.replays.circular_replay.CircularReplayBuffer`.
+                :py:class:`~hive.replays.circular_replay.PPOReplayBuffer`.
             discount_rate (float): A number between 0 and 1 specifying how much
                 future rewards are discounted by the agent.
             n_step (int): The horizon used in n-step returns to compute TD(n) targets.
@@ -95,25 +87,25 @@ class PPOAgent(Agent):
                 [-grad_clip, grad_clip].
             reward_clip (float): Rewards will be clipped to between
                 [-reward_clip, reward_clip].
-            soft_update_fraction (float): The weight given to the target
-                net parameters in a soft (polyak) update. Also known as tau.
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
             logger (Logger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
-            update_frequency (int): How frequently to update the agent. A value of 1
-                means the agent will be updated every time update is called.
-            policy_update_frequency (int): Relative update frequency of the actor
-                compared to the critic. The actor will be updated every
-                policy_update_frequency times the critic is updated.
-            action_noise (float): The standard deviation for the noise added to the
-                action taken by the agent during training.
-            target_noise (float): The standard deviation of the noise added to the
-                target policy for smoothing.
-            target_noise_clip (float): The sampled target_noise is clipped to
-                [-target_noise_clip, target_noise_clip].
-            min_replay_history (int): How many observations to fill the replay buffer
-                with before starting to learn.
+            clip_coef (float): A number between 0 and 1 specifying the clip ratio
+                for the surrogate objective function to penalise large changes in
+                the policy and/or critic.
+            ent_coef (float): Coefficient for the entropy loss.
+            clip_vloss (bool): Flag to use the clipped objective for the value
+                function.
+            vf_coef (float): Coefficient for the value function loss.
+            transitions_per_update (int): Total number of observations that are 
+                stored before the update.
+            num_epochs_per_update (int): Number of iterations over the entire
+                buffer during an update step.
+            normalize_advantages (bool): Flag to normalise advantages before
+                calculating policy loss.
+            target_kl: Terminates the update if kl-divergence between old and
+                updated policy exceeds target_kl.
             device: Device on which all computations should be run.
             id: Agent identifier.
         """

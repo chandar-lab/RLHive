@@ -14,8 +14,8 @@ registry.register_all(
     {
         "DDPG": DDPG,
         "DQNAgent": DQNAgent,
-        "PPOAgent": PPOAgent,
         "LegalMovesRainbowAgent": LegalMovesRainbowAgent,
+        "PPOAgent": PPOAgent,
         "RainbowDQNAgent": RainbowDQNAgent,
         "RandomAgent": RandomAgent,
         "TD3": TD3,
