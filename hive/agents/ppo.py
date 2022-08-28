@@ -262,20 +262,18 @@ class PPOAgent(Agent):
         """
         if not self._training:
             return
-        if self._replay_buffer.ready():
+        if self._replay_buffer.size() + 1 == self._num_transitions:
             self._replay_buffer.compute_advantages(self._value)
             for _ in range(self._num_epochs):
-                valid_ind_size = self._replay_buffer._find_valid_indices()
-                num_batches = int(np.ceil(valid_ind_size / self._batch_size))
-                for _ in range(num_batches):
-                    batch = self._replay_buffer.sample(batch_size=self._batch_size)
+                batches = self._replay_buffer.sample(self._batch_size)
+                for batch in batches:
                     batch = self.preprocess_update_batch(batch)
                     self._optimizer.zero_grad()
 
-                    _, _logprob, entropy, values = self._actor_critic(
+                    _, logprob, entropy, values = self._actor_critic(
                         batch["observation"], batch["action"]
                     )
-                    logratios = _logprob - batch["logprob"]
+                    logratios = logprob - batch["logprob"]
                     ratios = torch.exp(logratios)
                     advantages = batch["advantages"]
                     if self._normalize_advantages:
@@ -283,11 +281,11 @@ class PPOAgent(Agent):
                             advantages.std() + 1e-8
                         )
                     # Actor loss
-                    loss1 = -advantages * ratios
-                    loss2 = -advantages * torch.clamp(
+                    loss_unclipped = -advantages * ratios
+                    loss_clipped = -advantages * torch.clamp(
                         ratios, 1 - self._clip_coef, 1 + self._clip_coef
                     )
-                    actor_loss = torch.max(loss1, loss2).mean()
+                    actor_loss = torch.max(loss_unclipped, loss_clipped).mean()
                     entr_loss = entropy.mean()
 
                     # Critic loss
