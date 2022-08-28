@@ -47,6 +47,7 @@ class PPOAgent(Agent):
         ent_coef: float = 0.01,
         clip_vloss: bool = True,
         vf_coef: float = 0.5,
+        transitions_per_update: int = 1024,
         num_epochs_per_update: int = 4,
         normalize_advantages: bool = True,
         target_kl=None,
@@ -123,19 +124,13 @@ class PPOAgent(Agent):
         self._optimizer = optimizer_fn(self._actor_critic.parameters())
         if replay_buffer is None:
             replay_buffer = PPOReplayBuffer
-        extra_storage_types = {
-            "values": (np.float32, ()),
-            "returns": (np.float32, ()),
-            "advantages": (np.float32, ()),
-            "logprob": (np.float32, ()),
-        }
         self._replay_buffer = replay_buffer(
+            capacity=transitions_per_update,
             observation_shape=self._observation_space.shape,
             observation_dtype=self._observation_space.dtype,
             action_shape=self._action_space.shape,
             action_dtype=self._action_space.dtype,
             gamma=discount_rate,
-            extra_storage_types=extra_storage_types,
         )
         self._discount_rate = discount_rate**n_step
         self._grad_clip = grad_clip
@@ -155,6 +150,7 @@ class PPOAgent(Agent):
         self._ent_coef = ent_coef
         self._clip_vloss = clip_vloss
         self._vf_coef = vf_coef
+        self._num_transitions = transitions_per_update
         self._num_epochs = num_epochs_per_update
         self._normalize_advantages = normalize_advantages
         self._target_kl = target_kl
@@ -213,6 +209,10 @@ class PPOAgent(Agent):
             "action": update_info["action"],
             "reward": update_info["reward"],
             "done": update_info["done"],
+            "logprob": self._logprob,
+            "values": self._value,
+            "returns": np.empty(self._value.shape),
+            "advantages": np.empty(self._value.shape),
         }
         if "agent_id" in update_info:
             preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
@@ -347,14 +347,6 @@ class PPOAgent(Agent):
             self._replay_buffer.reset()
 
         processed_update_info = self.preprocess_update_info(update_info)
-        processed_update_info.update(
-            {
-                "logprob": self._logprob,
-                "values": self._value,
-                "returns": np.empty(self._value.shape),
-                "advantages": np.empty(self._value.shape),
-            }
-        )
         self._replay_buffer.add(**processed_update_info)
 
     def save(self, dname):

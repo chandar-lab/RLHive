@@ -31,7 +31,6 @@ agent:
     replay_buffer:
       name: 'PPOReplayBuffer'
       kwargs:
-        transitions_per_update: 2048
         use_gae: True
         gae_lambda: .95
     optimizer_fn:
@@ -44,6 +43,7 @@ agent:
     ent_coef: .01
     clip_vloss: True
     vf_coef: .5
+    transitions_per_update: 2048
     num_epochs_per_update: 4
     normalize_advantages: True
     batch_size: 128
