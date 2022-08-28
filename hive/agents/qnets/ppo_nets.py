@@ -1,4 +1,6 @@
+from typing import Tuple, Union
 import gym
+from gym.spaces import Box, Discrete
 import numpy as np
 import torch
 
@@ -12,7 +14,7 @@ class CategoricalHead(torch.nn.Module):
     :obj:`actor_net`, and adds creates a :py:class:`~torch.distributions.categorical.Categorical`
     object to compute the action distribution."""
 
-    def __init__(self, feature_dim, action_space: gym.spaces.Discrete) -> None:
+    def __init__(self, feature_dim: Tuple[int], action_space: gym.spaces.Discrete) -> None:
         """
         Args:
             feature dim: Expected output shape of the actor network.
@@ -33,7 +35,7 @@ class GaussianPolicyHead(torch.nn.Module):
     create a :py:class:`~torch.distributions.normal.Normal`  object to compute
     the action distribution."""
 
-    def __init__(self, feature_dim, action_space: gym.spaces.Box) -> None:
+    def __init__(self, feature_dim: Tuple[int], action_space: gym.spaces.Box) -> None:
         """
         Args:
             feature dim: Expected output shape of the actor network.
@@ -60,18 +62,18 @@ class GaussianPolicyHead(torch.nn.Module):
 
 
 class PPOActorCriticNetwork(torch.nn.Module):
-    """A module that implements the TD3 actor computation. It puts together the
-    :obj:`representation_network` and :obj:`actor_net`, and adds a final
-    :py:class:`~torch.nn.Linear` layer to compute the action."""
+    """A module that implements the PPO actor and critic computation. It puts together the
+    :obj:`representation_network`, :obj:`actor_net` and :obj:`critic_net`, then adds two final
+    :py:class:`~torch.nn.Linear` layers to compute the action and state value."""
 
     def __init__(
         self,
-        representation_network,
-        actor_net,
-        critic_net,
-        network_output_dim,
-        action_space,
-        continuous_action,
+        representation_network: torch.nn.Module,
+        actor_net: FunctionApproximator,
+        critic_net: FunctionApproximator,
+        network_output_dim: Union[int, Tuple[int]],
+        action_space: Union[Box, Discrete],
+        continuous_action: bool,
     ) -> None:
         super().__init__()
         self._network = representation_network
