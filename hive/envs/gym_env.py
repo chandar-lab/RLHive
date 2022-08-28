@@ -1,6 +1,7 @@
 import gym
 import numpy as np
-from hive.envs.base import BaseEnv
+
+from hive.envs.base import BaseEnv, get_wrapper
 from hive.envs.env_spec import EnvSpec
 
 
@@ -30,23 +31,18 @@ class GymEnv(BaseEnv):
             env_name (str): Name of the environment
         """
         env = gym.make(env_name)
-        if kwargs.get("mujoco_wrapper", False):
-            env = gym.wrappers.RecordEpisodeStatistics(env)
-            env = gym.wrappers.ClipAction(env)
-            env = gym.wrappers.NormalizeObservation(env)
-            env = gym.wrappers.TransformObservation(
-                env, lambda obs: np.clip(obs, -10, 10)
-            )
-            env = gym.wrappers.NormalizeReward(env)
-            env = gym.wrappers.TransformReward(
-                env, lambda reward: np.clip(reward, -10, 10)
-            )
 
-        elif kwargs.get("atari_wrapper", False):
-            env = gym.wrappers.NoopResetEnv(env, noop_max=30)
-            env = gym.wrappers.EpisodicLifeEnv(env)
-            if "FIRE" in env.unwrapped.get_action_meanings():
-                env = gym.wrappers.FireResetEnv(env)
+        wrapper_config = kwargs.get("wrappers", {"name": "RecordEpisodeStatistics"})
+        if wrapper_config is None or len(wrapper_config) == 0:
+            wrapper_config = {"name": "RecordEpisodeStatistics"}
+        if isinstance(wrapper_config, list):
+            wrapper_config = {
+                "name": "CompositeEnvWrapper",
+                "kwargs": {"wrapper_list": wrapper_config},
+            }
+        wrapper_fn, _ = get_wrapper(wrapper_config, "wrappers")
+        env = wrapper_fn(env)
+
         self._env = env
 
     def create_env_spec(self, env_name, **kwargs):

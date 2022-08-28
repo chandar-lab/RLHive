@@ -15,8 +15,16 @@ environment:
   name: 'GymEnv'
   kwargs:
     env_name: 'Hopper-v3'
-    mujoco_wrapper: True
-    
+    wrappers:
+      - 
+        name: RecordEpisodeStatistics
+      - 
+        name: ClipAction
+      - 
+        name: NormalizeObservation
+      - 
+        name: NormalizeReward
+
 agent:
   name: 'PPOAgent'
   kwargs:
@@ -51,6 +59,7 @@ agent:
     id: 'agent'
     init_fn: 
       name: 'orthogonal'
+    reward_clip: 10
 
 # List of logger configs used.
 loggers:
