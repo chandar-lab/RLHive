@@ -14,7 +14,9 @@ class CategoricalHead(torch.nn.Module):
     :obj:`actor_net`, and adds creates a :py:class:`~torch.distributions.categorical.Categorical`
     object to compute the action distribution."""
 
-    def __init__(self, feature_dim: Tuple[int], action_space: gym.spaces.Discrete) -> None:
+    def __init__(
+        self, feature_dim: Tuple[int], action_space: gym.spaces.Discrete
+    ) -> None:
         """
         Args:
             feature dim: Expected output shape of the actor network.

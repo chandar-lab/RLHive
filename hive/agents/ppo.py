@@ -99,7 +99,7 @@ class PPOAgent(Agent):
             clip_vloss (bool): Flag to use the clipped objective for the value
                 function.
             vf_coef (float): Coefficient for the value function loss.
-            transitions_per_update (int): Total number of observations that are 
+            transitions_per_update (int): Total number of observations that are
                 stored before the update.
             num_epochs_per_update (int): Number of iterations over the entire
                 buffer during an update step.

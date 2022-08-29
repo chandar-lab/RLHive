@@ -161,6 +161,7 @@ class ParallelEnv(BaseEnv):
             self._info,
         )
 
+
 class EnvWrapper(Registrable):
     """A wrapper for callables that produce environment wrappers.
 
@@ -176,14 +177,15 @@ class EnvWrapper(Registrable):
         """
         return "init_fn"
 
+
 class CompositeEnvWrapper(gym.Wrapper):
-    """This Logger aggregates multiple env wrappers.
-    """
+    """This Logger aggregates multiple env wrappers."""
 
     def __init__(self, env, wrapper_list: List[EnvWrapper]):
         for wrapper in wrapper_list:
             env = wrapper(env)
         super().__init__(env)
+
 
 registry.register_all(
     EnvWrapper,
@@ -195,7 +197,7 @@ registry.register_all(
         "NormalizeReward": gym.wrappers.NormalizeReward,
         "TransformReward": gym.wrappers.TransformReward,
         "CompositeEnvWrapper": CompositeEnvWrapper,
-    }
+    },
 )
 
 get_wrapper = getattr(registry, f"get_{EnvWrapper.type_name()}")
