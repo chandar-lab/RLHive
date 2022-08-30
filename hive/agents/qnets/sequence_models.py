@@ -22,16 +22,19 @@ class SequenceModel(nn.Module):
         self,
         rnn_hidden_size=128,
         num_rnn_layers=1,
+        device="cpu",
     ):
         """
         Args:
             rnn_hidden_size (int):  The number of features in the hidden state h.
             num_rnn_layers (int): Number of recurrent layers.
+            device: Device on which all computations should be run.
         """
         super().__init__()
         self._rnn_hidden_size = rnn_hidden_size
         self._num_rnn_layers = num_rnn_layers
         self.core = None
+        self._device = device
 
     def forward(self, x, hidden_state=None):
         x, hidden_state = self.core(x, hidden_state)
@@ -49,17 +52,20 @@ class LSTMModel(SequenceModel):
         rnn_hidden_size=128,
         num_rnn_layers=1,
         batch_first=True,
+        device="cpu",
     ):
         """
         Args:
             rnn_input_size (int): The number of expected features in the input x.
             rnn_hidden_size (int):  The number of features in the hidden state h.
             num_rnn_layers (int): Number of recurrent layers.
-            batch_first (bool): If True, then the input and output tensors are provided as (batch, seq, feature) instead of (seq, batch, feature).
+            batch_first (bool): If True, then the input and output tensors are
+            provided as (batch, seq, feature) instead of (seq, batch, feature).
         """
         super().__init__(
             rnn_hidden_size=rnn_hidden_size,
             num_rnn_layers=num_rnn_layers,
+            device=device,
         )
         self.core = nn.LSTM(
             input_size=rnn_input_size,
@@ -68,17 +74,17 @@ class LSTMModel(SequenceModel):
             batch_first=batch_first,
         )
 
-    def init_hidden(self, batch_size, device="cpu"):
+    def init_hidden(self, batch_size):
         hidden_state = (
             torch.zeros(
                 (self._num_rnn_layers, batch_size, self._rnn_hidden_size),
                 dtype=torch.float32,
-                device=device,
+                device=self._device,
             ),
             torch.zeros(
                 (self._num_rnn_layers, batch_size, self._rnn_hidden_size),
                 dtype=torch.float32,
-                device=device,
+                device=self._device,
             ),
         )
 
@@ -96,17 +102,20 @@ class GRUModel(SequenceModel):
         rnn_hidden_size=128,
         num_rnn_layers=1,
         batch_first=True,
+        device="cpu",
     ):
         """
         Args:
             rnn_input_size (int): The number of expected features in the input x.
             rnn_hidden_size (int):  The number of features in the hidden state h.
             num_rnn_layers (int): Number of recurrent layers.
-            batch_first (bool): If True, then the input and output tensors are provided as (batch, seq, feature) instead of (seq, batch, feature).
+            batch_first (bool): If True, then the input and output tensors are
+            provided as (batch, seq, feature) instead of (seq, batch, feature).
         """
         super().__init__(
             rnn_hidden_size=rnn_hidden_size,
             num_rnn_layers=num_rnn_layers,
+            device=device,
         )
         self.core = nn.GRU(
             input_size=rnn_input_size,
@@ -115,11 +124,11 @@ class GRUModel(SequenceModel):
             batch_first=batch_first,
         )
 
-    def init_hidden(self, batch_size, device="cpu"):
+    def init_hidden(self, batch_size):
         hidden_state = torch.zeros(
             (self._num_rnn_layers, batch_size, self._rnn_hidden_size),
             dtype=torch.float32,
-            device=device,
+            device=self._device,
         )
 
         return hidden_state

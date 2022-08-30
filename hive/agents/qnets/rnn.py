@@ -130,10 +130,9 @@ class ConvRNNNetwork(nn.Module):
         x = self.mlp(x.reshape((B * L, -1)))
         return x, hidden_state
 
-    def init_hidden(self, batch_size, device="cpu"):
+    def init_hidden(self, batch_size):
         hidden_state = self.rnn.init_hidden(
             batch_size=batch_size,
-            device=device,
         )
 
         return hidden_state

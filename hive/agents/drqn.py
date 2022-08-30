@@ -171,6 +171,12 @@ class DRQNAgent(DQNAgent):
             observation: The current observation.
         """
 
+        # Reset hidden state if it is episode beginning.
+        if self._state["episode_start"]:
+            self._hidden_state = self._qnet.base_network.init_hidden(
+                batch_size=1, device=self._device
+            )
+
         # Determine and log the value of epsilon
         if self._training:
             if not self._learn_schedule.get_value():
@@ -214,9 +220,6 @@ class DRQNAgent(DQNAgent):
         """
         if update_info["done"]:
             self._state["episode_start"] = True
-            self._hidden_state = self._qnet.base_network.init_hidden(
-                batch_size=1, device=self._device
-            )
 
         if not self._training:
             return
