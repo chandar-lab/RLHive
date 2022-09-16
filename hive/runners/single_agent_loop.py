@@ -158,8 +158,8 @@ def set_up_experiment(config):
     #     # skip the debugger (to be done soon
     #     pass
     debugger_config = config["debugger"]
-
-    debugger, full_config["debugger"] = debugger_lib.get_debugger(debugger_config, "debugger")
+    debugger_fn, full_config["debugger"] = debugger_lib.get_debugger(debugger_config, "debugger")
+    debugger = debugger_fn()
 
     agent_fn, full_config["agent"] = agent_lib.get_agent(config["agent"], "agent")
     # inject debugger in the agent config
@@ -222,7 +222,7 @@ def main():
     #     args.logger_config,
     # )
 
-    config = "../configs/atari/dqn.yml"
+    config = "../configs/atari/dqn_VR.yml"
     config = load_config(
         config=config,
         preset_config=None,

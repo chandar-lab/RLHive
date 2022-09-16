@@ -78,4 +78,9 @@ loggers:
       project: Hive
       name: *run_name
       resume: "allow"
-      start_method: "fork"
+      start_method: "thread"
+# debugger config.
+debugger:
+  name: 'Debugger'
+  kwargs:
+    check_type: 'Pre'

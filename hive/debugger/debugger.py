@@ -1,6 +1,12 @@
 from pathlib import Path
+import torch.nn
+import numpy as np
+from collections import OrderedDict
+
 from hive.utils.registry import Registrable
 from hive.debugger.utils import settings
+from hive.debugger.utils import metrics
+from hive.utils.torch_utils import numpify
 
 
 # TODO: Debugger class needs to be divided in multiple classes :
@@ -156,32 +162,32 @@ class PreCheck:
         if err >= self.config.init_loss.dev_ratio * expected_loss:
             self.react(self.main_msgs['poor_init_loss'].format(round((err / expected_loss), 3)))
 
-    def _pre_check_gradients(self):
-        # Train the model on the data we have
-        all_weights, _ = self.get_model_weights_and_biases()
-        weights_shapes = [[int(s) for s in list(weight.shape)] for weight in all_weights]
-        few_x, few_y = self.get_sample(self.observations, self.labels, self.config.grad.sample_size)
-        for i in range(len(all_weights)):
-            theoretical, numerical = tf.test.compute_gradient(
-                all_weights[i],
-                weights_shapes[i],
-                self.nn_data.model.loss,
-                [1],
-                delta=self.config.grad.delta,
-                x_init_value=init_weights[i],
-                extra_feed_dict=feed_dict
-            )
-            theoretical, numerical = theoretical.flatten(), numerical.flatten()
-            total_dims, sample_dims = len(theoretical), int(self.config.grad.ratio_of_dimensions * len(theoretical))
-            indices = np.random.choice(np.arange(total_dims), sample_dims, replace=False)
-            theoretical_sample = theoretical[indices]
-            numerical_sample = numerical[indices]
-            numerator = np.linalg.norm(theoretical_sample - numerical_sample)
-            denominator = np.linalg.norm(theoretical_sample) + np.linalg.norm(numerical_sample)
-            relerr = numerator / denominator
-            if relerr > self.config.grad.relative_err_max_thresh:
-                self.react(self.main_msgs['grad_err'].format(all_weights[i], readable(relerr),
-                                                             self.config.grad.relative_err_max_thresh))
+    # def _pre_check_gradients(self):
+    #     # Train the model on the data we have
+    #     all_weights, _ = self.get_model_weights_and_biases()
+    #     weights_shapes = [[int(s) for s in list(weight.shape)] for weight in all_weights]
+    #     few_x, few_y = self.get_sample(self.observations, self.labels, self.config.grad.sample_size)
+    #     for i in range(len(all_weights)):
+    #         theoretical, numerical = tf.test.compute_gradient(
+    #             all_weights[i],
+    #             weights_shapes[i],
+    #             self.nn_data.model.loss,
+    #             [1],
+    #             delta=self.config.grad.delta,
+    #             x_init_value=init_weights[i],
+    #             extra_feed_dict=feed_dict
+    #         )
+    #         theoretical, numerical = theoretical.flatten(), numerical.flatten()
+    #         total_dims, sample_dims = len(theoretical), int(self.config.grad.ratio_of_dimensions * len(theoretical))
+    #         indices = np.random.choice(np.arange(total_dims), sample_dims, replace=False)
+    #         theoretical_sample = theoretical[indices]
+    #         numerical_sample = numerical[indices]
+    #         numerator = np.linalg.norm(theoretical_sample - numerical_sample)
+    #         denominator = np.linalg.norm(theoretical_sample) + np.linalg.norm(numerical_sample)
+    #         relerr = numerator / denominator
+    #         if relerr > self.config.grad.relative_err_max_thresh:
+    #             self.react(self.main_msgs['grad_err'].format(all_weights[i], readable(relerr),
+    #                                                          self.config.grad.relative_err_max_thresh))
 
     def _pre_check_fitting_data_capability(self):
 
