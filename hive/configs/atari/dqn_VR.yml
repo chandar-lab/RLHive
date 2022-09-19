@@ -84,7 +84,8 @@ loggers:
 debugger:
   name: 'Debugger'
   kwargs:
-    check_type: 'Pre'
+    check_type:
+      [name : "Observations", name : "Weights"]
   
 
 

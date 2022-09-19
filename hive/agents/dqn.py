@@ -321,15 +321,15 @@ class DQNAgent(Agent):
                 1 - batch["done"]
             )
 
-            if not self._debugger.pre_check.pre_check_done:
-                self._debugger.set_parameters(observations=copy.deepcopy(current_state_inputs[0].numpy()),
-                                              model=copy.deepcopy(self._qnet),
-                                              labels=copy.deepcopy(q_targets),
-                                              predictions=copy.deepcopy(pred_qvals.detach()),
-                                              loss=copy.deepcopy(self._loss_fn),
-                                              opt=copy.deepcopy(self._optimizer),
-                                              actions=copy.deepcopy(actions))
-                self._debugger.pre_check.run()
+            # if not self._debugger.pre_check.pre_check_done:
+            self._debugger.set_parameters(observations=copy.deepcopy(current_state_inputs[0].numpy()),
+                                          model=copy.deepcopy(self._qnet),
+                                          labels=copy.deepcopy(q_targets),
+                                          predictions=copy.deepcopy(pred_qvals.detach()),
+                                          loss=copy.deepcopy(self._loss_fn),
+                                          opt=copy.deepcopy(self._optimizer),
+                                          actions=copy.deepcopy(actions))
+            self._debugger.run()
 
             loss = self._loss_fn(pred_qvals, q_targets).mean()
 

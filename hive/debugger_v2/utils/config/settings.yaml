@@ -1,3 +1,19 @@
+Observations:
+    Period: 0
+    Data:
+        normalized_data_mins: [0.0, -1.0]
+        normalized_data_maxs: [1.0]
+        #normalized perplexity of labels,
+        #where 0-->a single label overcomes the dist, 1--> all the labels have almost equal frequencies.
+        labels_perp_min_thresh: 0.5
+        outputs_var_coef_thresh: 0.001
+
+Weights:
+    Period: 0
+    Initial_Weight:
+        disabled: false
+        f_test_alpha: 0.1
+
 PreCheck:
     fail_on: false
     disabled: false

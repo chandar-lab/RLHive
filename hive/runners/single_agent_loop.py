@@ -3,6 +3,8 @@ import copy
 
 from hive import agents as agent_lib
 from hive import envs
+from hive.debugger_v2.debugger import Debugger
+# from hive.debugger.debugger import Debugger
 from hive.runners.base import Runner
 from hive.runners.utils import TransitionInfo, load_config
 from hive.utils import experiment, loggers, schedule, utils
@@ -157,9 +159,12 @@ def set_up_experiment(config):
     # if config.get("debugger", False):
     #     # skip the debugger (to be done soon
     #     pass
+    # debugger_config = config["debugger"]
+    # debugger_fn, full_config["debugger"] = debugger_lib.get_debugger(debugger_config, "debugger")
+    # debugger = debugger_fn()
     debugger_config = config["debugger"]
-    debugger_fn, full_config["debugger"] = debugger_lib.get_debugger(debugger_config, "debugger")
-    debugger = debugger_fn()
+    debugger = Debugger()
+    debugger.set_debugger(debugger_config["kwargs"]["check_type"])
 
     agent_fn, full_config["agent"] = agent_lib.get_agent(config["agent"], "agent")
     # inject debugger in the agent config
