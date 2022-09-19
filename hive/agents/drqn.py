@@ -1,5 +1,6 @@
 import copy
 import os
+from functools import partial
 
 import gym
 import numpy as np
@@ -108,6 +109,11 @@ class DRQNAgent(DQNAgent):
             logger (ScheduledLogger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
         """
+        if replay_buffer is None:
+            replay_buffer = RecurrentReplayBuffer
+        replay_buffer = partial(replay_buffer, max_seq_len=max_seq_len)
+        self._max_seq_len = max_seq_len
+
         super().__init__(
             observation_space=observation_space,
             action_space=action_space,
@@ -133,16 +139,6 @@ class DRQNAgent(DQNAgent):
             logger=logger,
             log_frequency=log_frequency,
         )
-        if replay_buffer is None:
-            replay_buffer = RecurrentReplayBuffer
-        self._replay_buffer = replay_buffer(
-            max_seq_len=max_seq_len,
-            observation_shape=self._observation_space.shape,
-            observation_dtype=self._observation_space.dtype,
-            action_shape=self._action_space.shape,
-            action_dtype=self._action_space.dtype,
-        )
-        self._max_seq_len = max_seq_len
 
     def create_q_networks(self, representation_net):
         """Creates the Q-network and target Q-network.
