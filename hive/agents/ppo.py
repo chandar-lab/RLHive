@@ -231,11 +231,11 @@ class PPOAgent(Agent):
         for key in batch:
             batch[key] = torch.tensor(batch[key], device=self._device)
         return batch
-    
+
     @torch.no_grad()
     def get_action_logprob_value(self, observation):
         """Returns the action, logprob, and value for the agent
-        
+
         Args:
             observation: The current observation.
         """
@@ -273,7 +273,7 @@ class PPOAgent(Agent):
         """
         if not self._training:
             return
-        
+
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(**self.preprocess_update_info(update_info))
 
@@ -359,8 +359,6 @@ class PPOAgent(Agent):
                     if approx_kl > self._target_kl:
                         break
             self._replay_buffer.reset()
-
-        
 
     def save(self, dname):
         torch.save(
