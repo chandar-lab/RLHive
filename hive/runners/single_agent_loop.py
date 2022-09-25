@@ -76,6 +76,7 @@ class SingleAgentRunner(Runner):
             "action": action,
             "done": done,
             "info": other_info,
+            "next_observation": next_observation,
         }
         if self._training:
             agent.update(copy.deepcopy(info))

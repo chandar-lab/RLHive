@@ -150,7 +150,7 @@ class PPOAgent(Agent):
         self._ent_coef = ent_coef
         self._clip_vloss = clip_vloss
         self._vf_coef = vf_coef
-        self._num_transitions = transitions_per_update
+        self._transitions_per_update = transitions_per_update
         self._num_epochs = num_epochs_per_update
         self._normalize_advantages = normalize_advantages
         self._target_kl = target_kl
@@ -231,6 +231,24 @@ class PPOAgent(Agent):
         for key in batch:
             batch[key] = torch.tensor(batch[key], device=self._device)
         return batch
+    
+    @torch.no_grad()
+    def get_action_logprob_value(self, observation):
+        """Returns the action, logprob, and value for the agent
+        
+        Args:
+            observation: The current observation.
+        """
+        observation = torch.tensor(
+            np.expand_dims(observation, axis=0), device=self._device
+        ).float()
+        action, logprob, _, value = self._actor_critic(observation)
+        action = action.cpu().detach().numpy()
+        logprob = logprob.cpu().numpy()
+        value = value.cpu().numpy()
+        action = action[0]
+
+        return action, logprob, value
 
     @torch.no_grad()
     def act(self, observation):
@@ -239,16 +257,9 @@ class PPOAgent(Agent):
         Args:
             observation: The current observation.
         """
-
-        observation = torch.tensor(
-            np.expand_dims(observation, axis=0), device=self._device
-        ).float()
-        action, logprob, _, value = self._actor_critic(observation)
-        action = action.cpu().detach().numpy()
-        action = action[0]
-
-        self._logprob = logprob.cpu().numpy()
-        self._value = value.cpu().numpy()
+        action, logprob, value = self.get_action_logprob_value(observation)
+        self._logprob = logprob
+        self._value = value
         return action
 
     def update(self, update_info):
@@ -262,11 +273,16 @@ class PPOAgent(Agent):
         """
         if not self._training:
             return
-        if self._replay_buffer.size() + 1 == self._num_transitions:
-            self._replay_buffer.compute_advantages(self._value)
+        
+        # Add the most recent transition to the replay buffer.
+        self._replay_buffer.add(**self.preprocess_update_info(update_info))
+
+        if self._replay_buffer.size() + 1 == self._transitions_per_update:
+            self._replay_buffer.compute_advantages(
+                self.get_action_logprob_value(update_info["next_observation"])[2]
+            )
             for _ in range(self._num_epochs):
-                batches = self._replay_buffer.sample(self._batch_size)
-                for batch in batches:
+                for batch in self._replay_buffer.sample(batch_size=self._batch_size):
                     batch = self.preprocess_update_batch(batch)
                     self._optimizer.zero_grad()
 
@@ -344,8 +360,7 @@ class PPOAgent(Agent):
                         break
             self._replay_buffer.reset()
 
-        processed_update_info = self.preprocess_update_info(update_info)
-        self._replay_buffer.add(**processed_update_info)
+        
 
     def save(self, dname):
         torch.save(

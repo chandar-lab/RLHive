@@ -136,62 +136,24 @@ class PPOReplayBuffer(CircularReplayBuffer):
         self._cursor = self._stack_size - 1
         self._num_added = self._stack_size - 1
 
+    
+    def _find_valid_indices(self):
+        """Filters invalid indices."""
+        self._sample_cursor = 0
+        self._valid_indices = self._filter_transitions(np.arange(self._capacity))
+        self._valid_indices = self._rng.permutation(self._valid_indices)
+        return len(self._valid_indices)
+
+    def _sample_indices(self, batch_size):
+        """Samples valid indices that can be used by the replay."""
+        start = self._sample_cursor 
+        end = min(len(self._valid_indices), (self._sample_cursor + batch_size))
+        indices = self._valid_indices[start:end]
+        self._sample_cursor += batch_size
+        return indices + self._stack_size - 1
+
     def sample(self, batch_size):
-        """Sample transitions from the buffer. For a given transition, if it's
-        done is True, the next_observation value should not be taken to have any
-        meaning.
-
-        Args:
-            batch_size (int): Number of transitions to sample.
-        """
-        if self._num_added < self._stack_size + self._n_step:
-            raise ValueError("Not enough transitions added to the buffer to sample")
-
-        all_indices = self._filter_transitions(np.arange(self._capacity))
-        all_indices = self._rng.permutation(all_indices)
-        for i in range(0, len(all_indices), batch_size):
-            indices = all_indices[i : i + batch_size]
-            batch = {}
-            batch["indices"] = indices
-            terminals = self._get_from_storage("done", indices, self._n_step)
-            if self._n_step == 1:
-                is_terminal = terminals
-                trajectory_lengths = np.ones(terminals.shape[0])
-            else:
-                is_terminal = terminals.any(axis=1).astype(int)
-                trajectory_lengths = (
-                    np.argmax(terminals.astype(bool), axis=1) + 1
-                ) * is_terminal + self._n_step * (1 - is_terminal)
-            trajectory_lengths = trajectory_lengths.astype(np.int64)
-
-            for key in self._specs:
-                if key == "observation":
-                    batch[key] = self._get_from_storage(
-                        "observation",
-                        indices - self._stack_size + 1,
-                        num_to_access=self._stack_size,
-                    )
-                elif key == "done":
-                    batch["done"] = is_terminal
-                elif key == "reward":
-                    rewards = self._get_from_storage("reward", indices, self._n_step)
-                    if self._n_step == 1:
-                        rewards = np.expand_dims(rewards, 1)
-                    rewards = rewards * np.expand_dims(self._discount, axis=0)
-
-                    # Mask out rewards past trajectory length
-                    mask = np.expand_dims(trajectory_lengths, 1) > np.arange(
-                        self._n_step
-                    )
-                    rewards = np.sum(rewards * mask, axis=1)
-                    batch["reward"] = rewards
-                else:
-                    batch[key] = self._get_from_storage(key, indices)
-
-            batch["trajectory_lengths"] = trajectory_lengths
-            batch["next_observation"] = self._get_from_storage(
-                "observation",
-                indices + trajectory_lengths - self._stack_size + 1,
-                num_to_access=self._stack_size,
-            )
-            yield batch
+        valid_ind_size = self._find_valid_indices()
+        num_batches = int(np.ceil(valid_ind_size / batch_size))
+        for _ in range(num_batches):
+            yield super().sample(batch_size)
