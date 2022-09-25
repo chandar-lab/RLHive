@@ -7,6 +7,7 @@ from hive.runners.utils import Metrics
 from hive.utils import schedule
 from hive.utils.experiment import Experiment
 from hive.utils.loggers import ScheduledLogger
+from hive.utils.utils import seeder
 
 
 class Runner(ABC):
@@ -41,6 +42,7 @@ class Runner(ABC):
             test_episodes (int): How many episodes to run testing for.
         """
         self._environment = environment
+        self._environment.seed(seeder.get_new_seed("environment"))
         if isinstance(agents, list):
             self._agents = agents
         else:

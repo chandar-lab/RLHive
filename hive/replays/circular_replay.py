@@ -77,7 +77,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         self._episode_start = True
         self._cursor = 0
         self._num_added = 0
-        self._rng = np.random.default_rng(seed=seeder.get_new_seed())
+        self._rng = np.random.default_rng(seed=seeder.get_new_seed("replay"))
         self._num_players_sharing_buffer = num_players_sharing_buffer
         if num_players_sharing_buffer is not None:
             self._episode_storage = [[] for _ in range(num_players_sharing_buffer)]

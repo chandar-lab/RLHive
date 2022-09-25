@@ -1,10 +1,12 @@
 import os
+import pickle
 from typing import Dict, Tuple
 
 import numpy as np
 
 from hive.replays.circular_replay import CircularReplayBuffer
 from hive.utils.torch_utils import numpify
+from hive.utils.utils import seeder
 
 
 class PrioritizedReplayBuffer(CircularReplayBuffer):
@@ -15,6 +17,7 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
     def __init__(
         self,
         capacity: int,
+        alpha: float = 0.5,
         beta: float = 0.5,
         stack_size: int = 1,
         n_step: int = 1,
@@ -33,7 +36,8 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
             capacity (int): Total number of observations that can be stored in the
                 buffer. Note, this is not the same as the number of transitions that
                 can be stored in the buffer.
-            beta (float): Parameter controlling level of prioritization.
+            alpha (float): Parameter controlling level of prioritization.
+            beta (float): Parameter controlling level of correction for prioritization.
             stack_size (int): The number of frames to stack to create an observation.
             n_step (int): Horizon used to compute n-step return reward
             gamma (float): Discounting factor used to compute n-step return reward
@@ -73,6 +77,7 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
             num_players_sharing_buffer=num_players_sharing_buffer,
         )
         self._sum_tree = SumTree(self._capacity)
+        self._alpha = alpha
         self._beta = beta
 
     def set_beta(self, beta):
@@ -81,6 +86,8 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
     def _add_transition(self, priority=None, **transition):
         if priority is None:
             priority = self._sum_tree.max_recorded_priority
+        else:
+            priority = priority**self._alpha
         self._sum_tree.set_priority(self._cursor, priority)
         super()._add_transition(**transition)
 
@@ -110,8 +117,8 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
             indices = indices[indices >= self._stack_size - 1]
         else:
             low = (self._cursor - self._n_step) % self._capacity
-            high = (self._cursor + self._stack_size - 1) % self._capacity
-            if low < high:
+            high = (self._cursor + self._stack_size - 2) % self._capacity
+            if low <= high:
                 indices = indices[np.logical_or(indices < low, indices > high)]
             else:
                 indices = indices[~np.logical_or(indices >= low, indices <= high)]
@@ -137,7 +144,7 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
                 or torch tensor.
         """
         indices = numpify(indices)
-        priorities = numpify(priorities)
+        priorities = numpify(priorities) ** self._alpha
         indices, unique_idxs = np.unique(indices, return_index=True)
         priorities = priorities[unique_idxs]
         self._sum_tree.set_priority(indices, priorities)
@@ -166,6 +173,7 @@ class SumTree:
             self._last_level_start : self._last_level_start + self._capacity
         ]
         self.max_recorded_priority = 1.0
+        self._rng = np.random.default_rng(seed=seeder.get_new_seed("replay"))
 
     def set_priority(self, indices, priorities):
         """Sets the priorities for the given indices.
@@ -188,7 +196,7 @@ class SumTree:
         Args:
             batch_size (int): The number of elements to sample.
         """
-        indices = self.extract(np.random.rand(batch_size))
+        indices = self.extract(self._rng.uniform(size=batch_size))
         return indices
 
     def stratified_sample(self, batch_size):
@@ -197,7 +205,9 @@ class SumTree:
         Args:
             batch_size (int): The number of elements to sample.
         """
-        query_values = (np.arange(batch_size) + np.random.rand(batch_size)) / batch_size
+        query_values = (
+            np.arange(batch_size) + self._rng.uniform(size=batch_size)
+        ) / batch_size
         indices = self.extract(query_values)
         return indices
 
@@ -231,9 +241,17 @@ class SumTree:
 
     def save(self, dname):
         np.save(os.path.join(dname, "sumtree.npy"), self._tree)
+        state = {
+            "rng": self._rng,
+        }
+        with open(os.path.join(dname, "sumtree.pkl"), "wb") as f:
+            pickle.dump(state, f)
 
     def load(self, dname):
         self._tree = np.load(os.path.join(dname, "sumtree.npy"))
         self._priorities = self._tree[
             self._last_level_start : self._last_level_start + self._capacity
         ]
+        with open(os.path.join(dname, "sumtree.pkl"), "rb") as f:
+            state = pickle.load(f)
+        self._rng = state["rng"]
