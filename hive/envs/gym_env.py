@@ -1,5 +1,4 @@
 import gym
-
 from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
 
@@ -21,6 +20,7 @@ class GymEnv(BaseEnv):
         """
         self.create_env(env_name, **kwargs)
         super().__init__(self.create_env_spec(env_name, **kwargs), num_players)
+        self._seed = None
 
     def create_env(self, env_name, **kwargs):
         """Function used to create the environment. Subclasses can override this method
@@ -54,19 +54,21 @@ class GymEnv(BaseEnv):
         )
 
     def reset(self):
-        observation = self._env.reset()
+        observation, _ = self._env.reset(seed=self._seed)
+        self._seed = None
         return observation, self._turn
 
     def step(self, action):
-        observation, reward, done, info = self._env.step(action)
+        observation, reward, terminated, truncated, info = self._env.step(action)
         self._turn = (self._turn + 1) % self._num_players
+        done = terminated or truncated
         return observation, reward, done, self._turn, info
 
     def render(self, mode="rgb_array"):
         return self._env.render(mode=mode)
 
     def seed(self, seed=None):
-        self._env.seed(seed=seed)
+        self._seed = seed
 
     def close(self):
         self._env.close()

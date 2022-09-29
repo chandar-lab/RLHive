@@ -90,8 +90,9 @@ class AtariEnv(GymEnv):
         info = {}
 
         for time_step in range(self.frame_skip):
-            _, reward, done, info = self._env.step(action)
+            _, reward, terminated, truncated, info = self._env.step(action)
             accumulated_reward += reward
+            done = terminated or truncated
 
             if done:
                 break
