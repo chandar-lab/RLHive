@@ -32,16 +32,16 @@ class GymEnv(BaseEnv):
         """
         env = gym.make(env_name)
 
-        wrapper_config = kwargs.get("wrappers", {"name": "RecordEpisodeStatistics"})
-        if wrapper_config is None or len(wrapper_config) == 0:
-            wrapper_config = {"name": "RecordEpisodeStatistics"}
-        if isinstance(wrapper_config, list):
+        wrapper_config = kwargs.get("wrappers", None)
+        if isinstance(wrapper_config, list) and len(wrapper_config) > 0:
             wrapper_config = {
                 "name": "CompositeEnvWrapper",
                 "kwargs": {"wrapper_list": wrapper_config},
             }
-        wrapper_fn, _ = get_wrapper(wrapper_config, "wrappers")
-        env = wrapper_fn(env)
+
+        if wrapper_config is not None:
+            wrapper_fn, _ = get_wrapper(wrapper_config, "wrappers")
+            env = wrapper_fn(env)
 
         self._env = env
 
