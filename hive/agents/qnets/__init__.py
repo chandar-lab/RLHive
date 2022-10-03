@@ -8,9 +8,9 @@ from hive.agents.qnets.rnn import ConvRNNNetwork
 registry.register_all(
     FunctionApproximator,
     {
-        "MLPNetwork": MLPNetwork,
         "ConvNetwork": ConvNetwork,
         "ConvRNNNetwork": ConvRNNNetwork,
+        "MLPNetwork": MLPNetwork,
         "NatureAtariDQNModel": NatureAtariDQNModel,
     },
 )

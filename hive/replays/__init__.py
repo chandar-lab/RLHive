@@ -9,10 +9,10 @@ registry.register_all(
     BaseReplayBuffer,
     {
         "CircularReplayBuffer": CircularReplayBuffer,
-        "SimpleReplayBuffer": SimpleReplayBuffer,
-        "PrioritizedReplayBuffer": PrioritizedReplayBuffer,
         "LegalMovesBuffer": LegalMovesBuffer,
+        "PrioritizedReplayBuffer": PrioritizedReplayBuffer,
         "RecurrentReplayBuffer": RecurrentReplayBuffer,
+        "SimpleReplayBuffer": SimpleReplayBuffer,
     },
 )
 
