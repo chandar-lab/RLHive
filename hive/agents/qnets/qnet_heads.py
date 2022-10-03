@@ -80,6 +80,9 @@ class DRQNNetwork(nn.Module):
         x = x.flatten(start_dim=1)
         return self.output_layer(x), hidden_state
 
+    def init_hidden(self, batch_size):
+        return self.base_network.init_hidden(batch_size)
+
 
 class DuelingNetwork(nn.Module):
     """Computes action values using Dueling Networks (https://arxiv.org/abs/1511.06581).

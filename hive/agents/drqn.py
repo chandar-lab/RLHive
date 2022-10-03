@@ -67,7 +67,12 @@ class DRQNAgent(DQNAgent):
             representation_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute Q-values (e.g.
                 everything except the final layer of the DRQN), as well as the
-                hidden states of the recurrent component.
+                hidden states of the recurrent component. The structure should be
+                similar to ConvRNNNetwork, i.e., it should have a current module
+                component placed between the convolutional layers and MLP layers.
+                It should also define a method that initializes the hidden state
+                of the recurrent module if the computation requires hidden states
+                as input/output.
             id: Agent identifier.
             optimizer_fn (OptimizerFn): A function that takes in a list of parameters
                 to optimize and returns the optimizer. If None, defaults to
@@ -79,7 +84,7 @@ class DRQNAgent(DQNAgent):
             replay_buffer (BaseReplayBuffer): The replay buffer that the agent will
                 push observations to and sample from during learning. If None,
                 defaults to
-                :py:class:`~hive.replays.circular_replay.CircularReplayBuffer`.
+                :py:class:`~hive.replays.recurrent_replay.RecurrentReplayBuffer`.
             max_seq_len (int): The number of consecutive transitions in a sequence.
             discount_rate (float): A number between 0 and 1 specifying how much
                 future rewards are discounted by the agent.
@@ -156,7 +161,7 @@ class DRQNAgent(DQNAgent):
 
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
-        self._hidden_state = network.init_hidden(batch_size=1, device=self._device)
+        self._hidden_state = self._qnet.init_hidden(batch_size=1)
 
     @torch.no_grad()
     def act(self, observation):
@@ -169,9 +174,7 @@ class DRQNAgent(DQNAgent):
 
         # Reset hidden state if it is episode beginning.
         if self._state["episode_start"]:
-            self._hidden_state = self._qnet.base_network.init_hidden(
-                batch_size=1, device=self._device
-            )
+            self._hidden_state = self._qnet.init_hidden(batch_size=1)
 
         # Determine and log the value of epsilon
         if self._training:
@@ -238,11 +241,11 @@ class DRQNAgent(DQNAgent):
                 batch,
             ) = self.preprocess_update_batch(batch)
 
-            hidden_state = self._qnet.base_network.init_hidden(
-                batch_size=self._batch_size, device=self._device
+            hidden_state = self._qnet.init_hidden(
+                batch_size=self._batch_size,
             )
-            target_hidden_state = self._target_qnet.base_network.init_hidden(
-                batch_size=self._batch_size, device=self._device
+            target_hidden_state = self._target_qnet.init_hidden(
+                batch_size=self._batch_size,
             )
             # Compute predicted Q values
             self._optimizer.zero_grad()

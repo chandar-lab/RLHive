@@ -244,7 +244,8 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                     rewards = rewards[:, idx]  # B x (S-N+1) x N
                     # Creating a vectorized sliding window to calculate
                     # discounted returns for every element in the sequence.
-                    # equivalent to np.sum(rewards * self._discount[None, None, :], axis=2)
+                    # Equivalent to
+                    # np.sum(rewards * self._discount[None, None, :], axis=2)
                     disc_rewards = np.einsum("ijk,k->ij", rewards, self._discount)
                     rewards = disc_rewards
 
