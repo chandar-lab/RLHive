@@ -86,15 +86,14 @@ class AtariEnv(GymEnv):
         assert action is not None
 
         accumulated_reward = 0.0
-        done = False
+        terminated, truncated = False, False
         info = {}
 
         for time_step in range(self.frame_skip):
             _, reward, terminated, truncated, info = self._env.step(action)
             accumulated_reward += reward
-            done = terminated or truncated
 
-            if done:
+            if terminated or truncated:
                 break
             elif time_step >= self.frame_skip - 2:
                 t = time_step - (self.frame_skip - 2)
@@ -102,7 +101,7 @@ class AtariEnv(GymEnv):
 
         observation = self._pool_and_resize()
 
-        return observation, accumulated_reward, done, self._turn, info
+        return observation, accumulated_reward, terminated, truncated, self._turn, info
 
     def _get_observation_screen(self, output):
         """Get the screen input of the current observation given empty numpy array in grayscale.

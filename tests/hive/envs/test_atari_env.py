@@ -25,13 +25,19 @@ def test_step_func(env_name, frame_skip, screen_size):
     hive_env = AtariEnv(env_name, frame_skip, screen_size)
     for action in range(hive_env.env_spec.action_space[0].n):
         hive_env.reset()
-        hive_observation, hive_reward, hive_done, hive_turn, hive_info = hive_env.step(
-            action
-        )
+        (
+            hive_observation,
+            hive_reward,
+            hive_terminated,
+            hive_truncated,
+            hive_turn,
+            hive_info,
+        ) = hive_env.step(action)
 
         assert isinstance(hive_observation, np.ndarray)
         assert isinstance(hive_reward, float)
-        assert isinstance(hive_done, bool)
+        assert isinstance(hive_terminated, bool)
+        assert isinstance(hive_truncated, bool)
         assert isinstance(hive_info, dict)
         assert isinstance(hive_turn, int)
         assert hive_turn == 0
@@ -42,7 +48,7 @@ def test_step_func(env_name, frame_skip, screen_size):
 
     init_observation, _ = hive_env.reset()
     for _ in range(50):
-        hive_observation, _, _, _, _ = hive_env.step(
+        hive_observation, _, _, _, _, _ = hive_env.step(
             hive_env.env_spec.action_space[0].sample()
         )
     assert (init_observation == hive_observation).all() == False

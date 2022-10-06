@@ -2,7 +2,6 @@ from copy import deepcopy
 from functools import partial
 from unittest.mock import Mock
 import gym
-
 import numpy as np
 import pytest
 import torch
@@ -259,6 +258,7 @@ def test_create_agent_with_configs(env_spec):
 
 
 def test_train_step(agent_with_mock_optimizer):
+    # ipdb.set_trace()
     agent_with_mock_optimizer.train()
     for idx in range(8):
         observation = np.ones(2) * (idx + 1)
@@ -269,7 +269,8 @@ def test_train_step(agent_with_mock_optimizer):
                 "action": action,
                 "observation": observation,
                 "reward": 1,
-                "done": False,
+                "terminated": False,
+                "truncated": False,
             }
         )
     assert agent_with_mock_optimizer._optimizer.step.call_count == 6
@@ -288,7 +289,8 @@ def test_eval_step(agent_with_mock_optimizer):
                 "action": action,
                 "observation": observation,
                 "reward": 1,
-                "done": False,
+                "terminated": False,
+                "truncated": False,
             }
         )
     assert agent_with_mock_optimizer._optimizer.step.call_count == 0
@@ -320,7 +322,8 @@ def test_target_net_soft_update(agent_with_mock_optimizer):
                 "action": action,
                 "observation": observation,
                 "reward": 1,
-                "done": False,
+                "terminated": False,
+                "truncated": False,
             }
         )
 
@@ -353,7 +356,8 @@ def test_target_net_hard_update(agent_with_mock_optimizer):
                 "action": action,
                 "observation": observation,
                 "reward": 1,
-                "done": False,
+                "terminated": False,
+                "truncated": False,
             }
         )
 
@@ -376,7 +380,8 @@ def test_save_load(agent_with_optimizer, tmpdir):
                 "action": action,
                 "observation": observation,
                 "reward": 1,
-                "done": False,
+                "terminated": False,
+                "truncated": False,
             }
         )
 

@@ -38,13 +38,19 @@ def test_step_func(env_name):
     hive_env = GymEnv(env_name)
     for action in range(hive_env.env_spec.action_space[0].n):
         hive_env.reset()
-        hive_observation, hive_reward, hive_done, hive_turn, hive_info = hive_env.step(
-            action
-        )
+        (
+            hive_observation,
+            hive_reward,
+            hive_terminated,
+            hive_truncated,
+            hive_turn,
+            hive_info,
+        ) = hive_env.step(action)
 
         assert isinstance(hive_observation, np.ndarray)
         assert isinstance(hive_reward, float)
-        assert isinstance(hive_done, bool)
+        assert isinstance(hive_terminated, bool)
+        assert isinstance(hive_truncated, bool)
         assert isinstance(hive_info, dict)
         assert isinstance(hive_turn, int)
         assert hive_turn == 0
