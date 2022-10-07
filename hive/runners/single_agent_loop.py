@@ -115,13 +115,14 @@ class SingleAgentRunner(Runner):
         next_observation, reward, terminated, _, _, other_info = self._environment.step(
             action
         )
+        truncated = True
 
         info = {
             "observation": observation,
             "reward": reward,
             "action": action,
             "terminated": terminated,
-            "truncated": True,
+            "truncated": truncated,
             "info": other_info,
         }
         if self._training:
