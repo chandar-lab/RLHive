@@ -111,7 +111,7 @@ class MultiAgentRunner(Runner):
         self._transition_info.update_all_rewards(reward)
         return terminated, truncated, next_observation, turn
 
-    def run_end_step(self, episode_metrics, truncated=False):
+    def run_end_step(self, episode_metrics, terminated=False, truncated=False):
         """Run the final step of an episode.
 
         After an episode ends, iterate through agents and update then with the final
@@ -119,12 +119,13 @@ class MultiAgentRunner(Runner):
 
         Args:
             episode_metrics (Metrics): Keeps track of metrics for current episode.
+            terminated (bool): Whether this step was terminal.
             truncated (bool): Whether this step was terminal.
 
         """
         for agent in self._agents:
             if self._transition_info.is_started(agent):
-                info = self._transition_info.get_info(agent, truncated=truncated)
+                info = self._transition_info.get_info(agent, done=(terminated or truncated))
 
                 if self._training:
                     agent.update(info)
@@ -148,10 +149,10 @@ class MultiAgentRunner(Runner):
             )
             steps += 1
             if steps == self._max_steps_per_episode:
-                truncated = True
+                truncated = not terminated
 
         # Run the final update.
-        self.run_end_step(episode_metrics, truncated)
+        self.run_end_step(episode_metrics, terminated, truncated)
         return episode_metrics
 
 

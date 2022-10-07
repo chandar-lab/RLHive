@@ -258,7 +258,6 @@ def test_create_agent_with_configs(env_spec):
 
 
 def test_train_step(agent_with_mock_optimizer):
-    # ipdb.set_trace()
     agent_with_mock_optimizer.train()
     for idx in range(8):
         observation = np.ones(2) * (idx + 1)

@@ -101,8 +101,9 @@ class SingleAgentRunner(Runner):
         After an episode ends, set the truncated value to true.
 
         Args:
-            terminated (bool): Whether this episode ended.
-            truncated (bool): Whether this episode was truncated.
+            observation: Current observation that the agent should create an action
+                for.
+            episode_metrics (Metrics): Keeps track of metrics for current episode.
 
         """
         super().run_one_step(observation, 0, episode_metrics)
@@ -115,7 +116,7 @@ class SingleAgentRunner(Runner):
         next_observation, reward, terminated, _, _, other_info = self._environment.step(
             action
         )
-        truncated = True
+        truncated = not terminated
 
         info = {
             "observation": observation,
@@ -145,18 +146,14 @@ class SingleAgentRunner(Runner):
         steps = 0
         # Run the loop until the episode ends or times out
 
-        while not (terminated or truncated) and steps < self._max_steps_per_episode:
-
-            if steps == self._max_steps_per_episode - 1:
-                terminated, truncated, observation = self.run_end_step(
+        while not (terminated or truncated) and steps < self._max_steps_per_episode-1:
+            terminated, truncated, observation = self.run_one_step(
                     observation, episode_metrics
                 )
-            else:
-                terminated, truncated, observation = self.run_one_step(
-                    observation, episode_metrics
-                )
-
             steps += 1
+
+        if not (terminated or truncated):
+            self.run_end_step(observation, episode_metrics)    
 
         return episode_metrics
 
