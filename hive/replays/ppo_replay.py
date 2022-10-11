@@ -29,8 +29,10 @@ class PPOReplayBuffer(CircularReplayBuffer):
             stack_size (int): The number of frames to stack to create an observation.
             n_step (int): Horizon used to compute n-step return reward
             gamma (float): Discounting factor used to compute n-step return reward
-            use_gae (bool): Whether to use generalised advantage estimates for calculating returns
-            gae_lambda (float): Discouting factor used to compute generalised advantage estimation
+            use_gae (bool): Whether to use generalised advantage estimates for calculating 
+                returns
+            gae_lambda (float): Discouting factor used to compute generalised advantage 
+                estimation
             observation_shape: Shape of observations that will be stored in the buffer.
             observation_dtype: Type of observations that will be stored in the buffer.
                 This can either be the type itself or string representation of the
@@ -83,22 +85,22 @@ class PPOReplayBuffer(CircularReplayBuffer):
     def compute_advantages(self, values):
         """Compute advantages using rewards and value estimates."""
         if self._use_gae:
-            lastgaelam = 0
+            last_gae_lambda = 0
             for t in reversed(range(self._capacity)):
-                nextvalues = (
+                next_values = (
                     values
                     if t == self._capacity - 1
                     else self._storage["values"][t + 1]
                 )
-                nextnonterminal = 1.0 - self._storage["done"][t]
+                next_non_terminal = 1.0 - self._storage["done"][t]
                 delta = (
                     self._storage["reward"][t]
-                    + self._gamma * nextvalues * nextnonterminal
+                    + self._gamma * next_values * next_non_terminal
                     - self._storage["values"][t]
                 )
-                self._storage["advantages"][t] = lastgaelam = (
+                self._storage["advantages"][t] = last_gae_lambda = (
                     delta
-                    + self._gamma * self._gae_lambda * nextnonterminal * lastgaelam
+                    + self._gamma * self._gae_lambda * next_non_terminal * last_gae_lambda
                 )
             self._storage["returns"] = (
                 self._storage["advantages"] + self._storage["values"]
@@ -110,10 +112,10 @@ class PPOReplayBuffer(CircularReplayBuffer):
                     if t == self._capacity - 1
                     else self._storage["return"][t + 1]
                 )
-                nextnonterminal = 1.0 - self._storage["done"][t]
+                next_non_terminal = 1.0 - self._storage["done"][t]
                 self._storage["returns"][t] = (
                     self._storage["reward"][t]
-                    + self._gamma * nextnonterminal * next_return
+                    + self._gamma * next_non_terminal * next_return
                 )
             self._storage["advantages"] = (
                 self._storage["returns"] - self._storage["values"]

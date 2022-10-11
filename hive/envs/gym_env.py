@@ -1,8 +1,11 @@
+from typing import List
+
 import gym
 import numpy as np
 
 from hive.envs.base import BaseEnv, get_wrapper
 from hive.envs.env_spec import EnvSpec
+from hive.utils.registry import Registrable, registry
 
 
 class GymEnv(BaseEnv):
@@ -84,3 +87,43 @@ class GymEnv(BaseEnv):
 
     def close(self):
         self._env.close()
+
+class EnvWrapper(Registrable):
+    """A wrapper for callables that produce environment wrappers.
+
+    These wrapped callables can be partially initialized through configuration
+    files or command line arguments.
+    """
+
+    @classmethod
+    def type_name(cls):
+        """
+        Returns:
+            "env_wrapper"
+        """
+        return "env_wrapper"
+
+
+class CompositeEnvWrapper(gym.Wrapper):
+    """This Logger aggregates multiple env wrappers."""
+
+    def __init__(self, env, wrapper_list: List[EnvWrapper]):
+        for wrapper in wrapper_list:
+            env = wrapper(env)
+        super().__init__(env)
+
+
+registry.register_all(
+    EnvWrapper,
+    {
+        "RecordEpisodeStatistics": gym.wrappers.RecordEpisodeStatistics,
+        "ClipAction": gym.wrappers.ClipAction,
+        "NormalizeObservation": gym.wrappers.NormalizeObservation,
+        "TransformObserva": gym.wrappers.TransformObservation,
+        "NormalizeReward": gym.wrappers.NormalizeReward,
+        "TransformReward": gym.wrappers.TransformReward,
+        "CompositeEnvWrapper": CompositeEnvWrapper,
+    },
+)
+
+get_wrapper = getattr(registry, f"get_{EnvWrapper.type_name()}")

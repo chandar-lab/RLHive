@@ -209,10 +209,10 @@ class PPOAgent(Agent):
             "action": update_info["action"],
             "reward": update_info["reward"],
             "done": update_info["done"],
-            "logprob": self._logprob,
-            "values": self._value,
-            "returns": np.empty(self._value.shape),
-            "advantages": np.empty(self._value.shape),
+            "logprob": self._act_vars['logprob'],
+            "values": self._act_vars['value'],
+            "returns": np.empty(self._act_vars['value'].shape),
+            "advantages": np.empty(self._act_vars['value'].shape),
         }
         if "agent_id" in update_info:
             preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
@@ -258,8 +258,10 @@ class PPOAgent(Agent):
             observation: The current observation.
         """
         action, logprob, value = self.get_action_logprob_value(observation)
-        self._logprob = logprob
-        self._value = value
+        self._act_vars = dict(
+            logprob=logprob,
+            value=value
+        )
         return action
 
     def update(self, update_info):
