@@ -1,12 +1,13 @@
-import argparse
 import copy
+from typing import List
 
-from hive import agents as agent_lib
-from hive import envs
-from hive.runners.base import Runner
-from hive.runners.utils import TransitionInfo, load_config
-from hive.utils import experiment, loggers, schedule, utils
-from hive.utils.registry import get_parsed_args
+from hive.agents.agent import Agent
+from hive.envs.base import BaseEnv
+from hive.runners import Runner
+from hive.runners.utils import TransitionInfo
+from hive.utils import utils
+from hive.utils.experiment import Experiment
+from hive.utils.loggers import CompositeLogger, NullLogger, ScheduledLogger
 
 
 class SingleAgentRunner(Runner):
@@ -14,26 +15,31 @@ class SingleAgentRunner(Runner):
 
     def __init__(
         self,
-        environment,
-        agent,
-        logger,
-        experiment_manager,
-        train_steps,
-        test_frequency,
-        test_episodes,
-        stack_size,
-        max_steps_per_episode=27000,
+        environment: BaseEnv,
+        agent: Agent,
+        loggers: List[ScheduledLogger],
+        experiment_manager: Experiment,
+        train_steps: int,
+        eval_environment: BaseEnv = None,
+        test_frequency: int = -1,
+        test_episodes: int = 1,
+        stack_size: int = 1,
+        max_steps_per_episode: int = 1e9,
+        seed: int = None,
     ):
-        """Initializes the Runner object.
+        """Initializes the SingleAgentRunner.
 
         Args:
             environment (BaseEnv): Environment used in the training loop.
             agent (Agent): Agent that will interact with the environment
-            logger (ScheduledLogger): Logger object used to log metrics.
+            loggers (List[ScheduledLogger]): List of loggers used to log metrics.
             experiment_manager (Experiment): Experiment object that saves the state of
                 the training.
             train_steps (int): How many steps to train for. If this is -1, there is no
                 limit for the number of training steps.
+            eval_environment (BaseEnv): Environment used to evaluate the agent. If
+                None, the ``environment`` parameter (which is a function) is
+                used to create a second environment.
             test_frequency (int): After how many training steps to run testing
                 episodes. If this is -1, testing is not run.
             test_episodes (int): How many episodes to run testing for duing each test
@@ -41,18 +47,51 @@ class SingleAgentRunner(Runner):
             stack_size (int): The number of frames in an observation sent to an agent.
             max_steps_per_episode (int): The maximum number of steps to run an episode
                 for.
+            seed (int): Seed used to set the global seed for libraries used by
+                Hive and seed the :py:class:`~hive.utils.utils.Seeder`.
         """
-        super().__init__(
-            environment,
-            agent,
-            logger,
-            experiment_manager,
-            train_steps,
-            test_frequency,
-            test_episodes,
-            max_steps_per_episode,
+        if seed is not None:
+            utils.seeder.set_global_seed(seed)
+        if eval_environment is None:
+            eval_environment = environment
+        environment = environment()
+        eval_environment = eval_environment() if test_frequency != -1 else None
+        env_spec = environment.env_spec
+        # Set up loggers
+        if loggers is None:
+            logger = NullLogger()
+        else:
+            logger = CompositeLogger(loggers)
+
+        agent = agent(
+            observation_space=env_spec.observation_space[0],
+            action_space=env_spec.action_space[0],
+            stack_size=stack_size,
+            logger=logger,
         )
-        self._transition_info = TransitionInfo(self._agents, stack_size)
+
+        # Set up experiment manager
+        experiment_manager = experiment_manager()
+        super().__init__(
+            environment=environment,
+            eval_environment=eval_environment,
+            agents=[agent],
+            logger=logger,
+            experiment_manager=experiment_manager,
+            train_steps=train_steps,
+            test_frequency=test_frequency,
+            test_episodes=test_episodes,
+            max_steps_per_episode=max_steps_per_episode,
+        )
+        self._train_transition_info = TransitionInfo(self._agents, stack_size)
+        self._eval_transition_info = TransitionInfo(self._agents, stack_size)
+        self._transition_info = self._train_transition_info
+
+    def train_mode(self, training):
+        self._transition_info = (
+            self._train_transition_info if training else self._eval_transition_info
+        )
+        super().train_mode(training)
 
     def run_one_step(self, observation, episode_metrics):
         """Run one step of the training loop.
@@ -96,117 +135,15 @@ class SingleAgentRunner(Runner):
         self._transition_info.start_agent(self._agents[0])
         steps = 0
         # Run the loop until the episode ends or times out
-        while not done and steps < self._max_steps_per_episode:
+        while (
+            not done
+            and steps < self._max_steps_per_episode
+            and (not self._training or self._train_schedule.get_value())
+        ):
             done, observation = self.run_one_step(observation, episode_metrics)
             steps += 1
+            if self._run_testing and self._training:
+                # Run test episodes
+                self.run_testing()
 
         return episode_metrics
-
-
-def set_up_experiment(config):
-    """Returns a :py:class:`SingleAgentRunner` object based on the config and any
-    command line arguments.
-
-    Args:
-        config: Configuration for experiment.
-    """
-
-    args = get_parsed_args(
-        {
-            "seed": int,
-            "train_steps": int,
-            "test_frequency": int,
-            "test_episodes": int,
-            "max_steps_per_episode": int,
-            "stack_size": int,
-            "resume": bool,
-            "run_name": str,
-            "save_dir": str,
-        }
-    )
-    config.update(args)
-    full_config = utils.Chomp(copy.deepcopy(config))
-
-    if "seed" in config:
-        utils.seeder.set_global_seed(config["seed"])
-
-    environment_fn, full_config["environment"] = envs.get_env(
-        config["environment"], "environment"
-    )
-    environment = environment_fn()
-    env_spec = environment.env_spec
-
-    # Set up loggers
-    logger_config = config.get("loggers", {"name": "NullLogger"})
-    if logger_config is None or len(logger_config) == 0:
-        logger_config = {"name": "NullLogger"}
-    if isinstance(logger_config, list):
-        logger_config = {
-            "name": "CompositeLogger",
-            "kwargs": {"logger_list": logger_config},
-        }
-
-    logger_fn, full_config["loggers"] = loggers.get_logger(logger_config, "loggers")
-    logger = logger_fn()
-
-    agent_fn, full_config["agent"] = agent_lib.get_agent(config["agent"], "agent")
-    agent = agent_fn(
-        observation_space=env_spec.observation_space[0],
-        action_space=env_spec.action_space[0],
-        stack_size=config.get("stack_size", 1),
-        logger=logger,
-    )
-
-    # Set up experiment manager
-    saving_schedule_fn, full_config["saving_schedule"] = schedule.get_schedule(
-        config["saving_schedule"], "saving_schedule"
-    )
-    experiment_manager = experiment.Experiment(
-        config["run_name"], config["save_dir"], saving_schedule_fn()
-    )
-    experiment_manager.register_experiment(
-        config=full_config,
-        logger=logger,
-        agents=agent,
-    )
-    # Set up runner
-    runner = SingleAgentRunner(
-        environment,
-        agent,
-        logger,
-        experiment_manager,
-        config.get("train_steps", -1),
-        config.get("test_frequency", -1),
-        config.get("test_episodes", 1),
-        config.get("stack_size", 1),
-        config.get("max_steps_per_episode", 1e9),
-    )
-    if config.get("resume", False):
-        runner.resume()
-
-    return runner
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config")
-    parser.add_argument("-p", "--preset-config")
-    parser.add_argument("-a", "--agent-config")
-    parser.add_argument("-e", "--env-config")
-    parser.add_argument("-l", "--logger-config")
-    args, _ = parser.parse_known_args()
-    if args.config is None and args.preset_config is None:
-        raise ValueError("Config needs to be provided")
-    config = load_config(
-        args.config,
-        args.preset_config,
-        args.agent_config,
-        args.env_config,
-        args.logger_config,
-    )
-    runner = set_up_experiment(config)
-    runner.run_training()
-
-
-if __name__ == "__main__":
-    main()

@@ -237,7 +237,7 @@ class TransitionInfo:
     def __repr__(self):
         return str(
             {
-                "transtions": self._transitions,
+                "transitions": self._transitions,
                 "started": self._started,
                 "previous_observations": self._previous_observations,
             }
