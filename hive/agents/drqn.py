@@ -190,8 +190,9 @@ class DRQNAgent(DQNAgent):
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
+        # Insert batch_size and sequence_len dimensions to observation
         observation = torch.tensor(
-            np.expand_dims(observation, axis=0), device=self._device
+            np.expand_dims(observation, axis=(0, 1)), device=self._device
         ).float()
         qvals, self._hidden_state = self._qnet(observation, self._hidden_state)
         if self._rng.random() < epsilon:

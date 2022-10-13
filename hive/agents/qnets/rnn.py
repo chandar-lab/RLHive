@@ -108,13 +108,8 @@ class ConvRNNNetwork(nn.Module):
             self.mlp = nn.Identity()
 
     def forward(self, x, hidden_state=None):
-        if len(x.shape) == 4:
-            # Act. Sequence length is 1.
-            B, C, H, W = x.size()
-            L = 1
-        elif len(x.shape) == 5:
-            # Update. Sequence length pre-defined.
-            B, L, C, H, W = x.size()
+        # Act: sequence length is 1; Update: sequence length pre-defined.
+        B, L, C, H, W = x.size()
         x = x.reshape(B * L, C, H, W)
 
         x = x.float()
