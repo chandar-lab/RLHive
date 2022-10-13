@@ -1,5 +1,7 @@
 import math
+from typing import Tuple
 
+import numpy as np
 import torch
 
 from hive.utils.registry import registry

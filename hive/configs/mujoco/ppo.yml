@@ -1,4 +1,4 @@
-run_name: &run_name 'ppo'
+run_name: &run_name 'mujoco-ppo'
 train_steps: 2000000
 test_frequency: 20000
 test_episodes: 5

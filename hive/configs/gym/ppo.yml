@@ -1,4 +1,4 @@
-run_name: &run_name 'ppo'
+run_name: &run_name 'gym-ppo'
 train_steps: 500000
 test_frequency: 1000
 test_episodes: 10
