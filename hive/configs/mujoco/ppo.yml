@@ -17,13 +17,7 @@ environment:
     env_name: 'Hopper-v3'
     wrappers:
       - 
-        name: RecordEpisodeStatistics
-      - 
         name: ClipAction
-      - 
-        name: NormalizeObservation
-      - 
-        name: NormalizeReward
 
 agent:
   name: 'PPOAgent'
@@ -36,6 +30,10 @@ agent:
       name: 'MLPNetwork'
       kwargs: 
         hidden_units: [64, 64]
+    observation_normalization:
+      name: 'NormalizationFn'
+    reward_normalization:
+      name: 'NormalizationFn'
     replay_buffer:
       name: 'PPOReplayBuffer'
       kwargs:

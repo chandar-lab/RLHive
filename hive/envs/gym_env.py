@@ -3,7 +3,7 @@ from typing import List
 import gym
 import numpy as np
 
-from hive.envs.base import BaseEnv, get_wrapper
+from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
 from hive.utils.registry import Registrable, registry
 
@@ -87,6 +87,7 @@ class GymEnv(BaseEnv):
 
     def close(self):
         self._env.close()
+
 
 class EnvWrapper(Registrable):
     """A wrapper for callables that produce environment wrappers.

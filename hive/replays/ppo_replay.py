@@ -29,9 +29,9 @@ class PPOReplayBuffer(CircularReplayBuffer):
             stack_size (int): The number of frames to stack to create an observation.
             n_step (int): Horizon used to compute n-step return reward
             gamma (float): Discounting factor used to compute n-step return reward
-            use_gae (bool): Whether to use generalised advantage estimates for calculating 
+            use_gae (bool): Whether to use generalised advantage estimates for calculating
                 returns
-            gae_lambda (float): Discouting factor used to compute generalised advantage 
+            gae_lambda (float): Discouting factor used to compute generalised advantage
                 estimation
             observation_shape: Shape of observations that will be stored in the buffer.
             observation_dtype: Type of observations that will be stored in the buffer.
@@ -100,7 +100,10 @@ class PPOReplayBuffer(CircularReplayBuffer):
                 )
                 self._storage["advantages"][t] = last_gae_lambda = (
                     delta
-                    + self._gamma * self._gae_lambda * next_non_terminal * last_gae_lambda
+                    + self._gamma
+                    * self._gae_lambda
+                    * next_non_terminal
+                    * last_gae_lambda
                 )
             self._storage["returns"] = (
                 self._storage["advantages"] + self._storage["values"]

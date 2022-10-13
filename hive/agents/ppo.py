@@ -34,6 +34,8 @@ class PPOAgent(Agent):
         init_fn: InitializationFn = None,
         optimizer_fn: OptimizerFn = None,
         critic_loss_fn: LossFn = None,
+        observation_normalization: FunctionApproximator = None,
+        reward_normalization: FunctionApproximator = None,
         stack_size: int = 1,
         replay_buffer: PPOReplayBuffer = None,
         discount_rate: float = 0.99,
@@ -75,6 +77,9 @@ class PPOAgent(Agent):
                 defaults to :py:class:`~torch.optim.Adam`.
             critic_loss_fn (LossFn): The loss function used to optimize the critic. If
                 None, defaults to :py:class:`~torch.nn.MSELoss`.
+            observation_normalizer (FunctionApproximator): The function for normalizing
+                observations
+            reward_normalizer (FunctionApproximator): The function for normalizing rewards
             stack_size (int): Number of observations stacked to create the state fed
                 to the agent.
             replay_buffer (BaseReplayBuffer): The replay buffer that the agent will
@@ -118,7 +123,13 @@ class PPOAgent(Agent):
         )
         self._continuous_action = isinstance(self._action_space, gym.spaces.Box)
         self._init_fn = create_init_weights_fn(init_fn)
-        self.create_networks(representation_net, actor_net, critic_net)
+        self.create_networks(
+            representation_net,
+            actor_net,
+            critic_net,
+            observation_normalization,
+            reward_normalization,
+        )
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._actor_critic.parameters())
@@ -157,7 +168,14 @@ class PPOAgent(Agent):
 
         self._training = False
 
-    def create_networks(self, representation_net, actor_net, critic_net):
+    def create_networks(
+        self,
+        representation_net,
+        actor_net,
+        critic_net,
+        observation_normalization,
+        reward_normalization,
+    ):
         """Creates the actor and critic networks.
 
         Args:
@@ -166,6 +184,16 @@ class PPOAgent(Agent):
             actor_net: The network that will be used to compute actions.
             critic_net: The network that will be used to compute values of states.
         """
+        if observation_normalization is None:
+            self.obs_norm = torch.nn.Identity().to(self._device)
+        else:
+            self.obs_norm = observation_normalization(self._state_size).to(self._device)
+
+        if reward_normalization is None:
+            self.reward_norm = torch.nn.Identity().to(self._device)
+        else:
+            self.reward_norm = reward_normalization(()).to(self._device)
+
         if representation_net is None:
             network = torch.nn.Identity()
         else:
@@ -200,19 +228,18 @@ class PPOAgent(Agent):
             update_info: Contains the information from the current timestep that the
                 agent should use to update itself.
         """
-        if self._reward_clip is not None:
-            update_info["reward"] = np.clip(
-                update_info["reward"], -self._reward_clip, self._reward_clip
-            )
+        self.obs_norm.update(update_info["observation"])
+        self.reward_norm.update(update_info["reward"])
+
         preprocessed_update_info = {
             "observation": update_info["observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
             "done": update_info["done"],
-            "logprob": self._act_vars['logprob'],
-            "values": self._act_vars['value'],
-            "returns": np.empty(self._act_vars['value'].shape),
-            "advantages": np.empty(self._act_vars['value'].shape),
+            "logprob": self._act_vars["logprob"],
+            "values": self._act_vars["value"],
+            "returns": np.empty(self._act_vars["value"].shape),
+            "advantages": np.empty(self._act_vars["value"].shape),
         }
         if "agent_id" in update_info:
             preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
@@ -230,6 +257,8 @@ class PPOAgent(Agent):
         """
         for key in batch:
             batch[key] = torch.tensor(batch[key], device=self._device)
+        batch["observation"] = self.obs_norm(batch["observation"])
+        batch["values"] = self.reward_norm(batch["values"])
         return batch
 
     @torch.no_grad()
@@ -258,10 +287,7 @@ class PPOAgent(Agent):
             observation: The current observation.
         """
         action, logprob, value = self.get_action_logprob_value(observation)
-        self._act_vars = dict(
-            logprob=logprob,
-            value=value
-        )
+        self._act_vars = dict(logprob=logprob, value=value)
         return action
 
     def update(self, update_info):
