@@ -20,9 +20,18 @@ def calculate_output_dim(net, input_shape):
     """
     if isinstance(input_shape, int):
         input_shape = (input_shape,)
-    placeholder = torch.zeros((0,) + tuple(input_shape))
+    placeholder = torch.zeros((1,) + tuple(input_shape))
     output = net(placeholder)
-    return output.size()[1:]
+    return extract_shape(output)
+
+
+def extract_shape(x):
+    if isinstance(x, torch.Tensor):
+        return x.size()[1:]
+    elif isinstance(x, tuple) or isinstance(x, list):
+        return tuple(extract_shape(y) for y in x)
+    else:
+        raise ValueError("Invalid argument shape")
 
 
 def create_init_weights_fn(initialization_fn):
