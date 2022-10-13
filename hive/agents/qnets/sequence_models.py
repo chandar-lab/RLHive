@@ -40,6 +40,9 @@ class SequenceModel(nn.Module):
         x, hidden_state = self.core(x, hidden_state)
         return x, hidden_state
 
+    def update_device(self):
+        self._device = next(self.core.parameters()).device
+
 
 class LSTMModel(SequenceModel):
     """

@@ -158,6 +158,7 @@ class DRQNAgent(DQNAgent):
         self._qnet = DRQNNetwork(network, network_output_dim, self._action_space.n).to(
             self._device
         )
+        self._qnet.update_rnn_device()
 
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)

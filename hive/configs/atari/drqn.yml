@@ -32,7 +32,6 @@ agent:
           kwargs:
             rnn_hidden_size: 128
             num_rnn_layers: 1
-            device: 'cuda'
     optimizer_fn:
       name: 'RMSpropTF'
       kwargs:

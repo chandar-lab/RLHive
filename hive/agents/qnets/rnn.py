@@ -136,3 +136,6 @@ class ConvRNNNetwork(nn.Module):
         )
 
         return hidden_state
+
+    def update_rnn_device(self):
+        self.rnn.update_device()

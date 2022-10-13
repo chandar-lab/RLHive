@@ -83,6 +83,9 @@ class DRQNNetwork(nn.Module):
     def init_hidden(self, batch_size):
         return self.base_network.init_hidden(batch_size)
 
+    def update_rnn_device(self):
+        self.base_network.update_rnn_device()
+
 
 class DuelingNetwork(nn.Module):
     """Computes action values using Dueling Networks (https://arxiv.org/abs/1511.06581).
