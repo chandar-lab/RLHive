@@ -1,40 +1,48 @@
 import copy
+import os
 from functools import partial
 
 import gym
 import numpy as np
 import torch
 
+from hive.agents.agent import Agent
 from hive.agents.dqn import DQNAgent
 from hive.agents.qnets.base import FunctionApproximator
-from hive.agents.qnets.noisy_linear import NoisyLinear
-from hive.agents.qnets.qnet_heads import (
-    DistributionalNetwork,
-    DQNNetwork,
-    DuelingNetwork,
+from hive.agents.qnets.qnet_heads import DRQNNetwork
+from hive.agents.qnets.utils import (
+    InitializationFn,
+    calculate_output_dim,
+    create_init_weights_fn,
 )
-from hive.agents.qnets.utils import InitializationFn, calculate_output_dim
-from hive.replays import PrioritizedReplayBuffer
-from hive.replays.replay_buffer import BaseReplayBuffer
-from hive.utils.loggers import Logger
-from hive.utils.schedule import Schedule
-from hive.utils.utils import LossFn, OptimizerFn
+from hive.replays import BaseReplayBuffer, CircularReplayBuffer
+from hive.replays.recurrent_replay import RecurrentReplayBuffer
+from hive.utils.loggers import Logger, NullLogger
+from hive.utils.schedule import (
+    LinearSchedule,
+    PeriodicSchedule,
+    Schedule,
+    SwitchSchedule,
+)
+from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder
 
 
-class RainbowDQNAgent(DQNAgent):
-    """An agent implementing the Rainbow algorithm."""
+class DRQNAgent(DQNAgent):
+    """An agent implementing the DRQN algorithm. Uses an epsilon greedy
+    exploration policy
+    """
 
     def __init__(
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Discrete,
         representation_net: FunctionApproximator,
-        stack_size: int = 1,
+        id=0,
         optimizer_fn: OptimizerFn = None,
         loss_fn: LossFn = None,
         init_fn: InitializationFn = None,
-        id=0,
         replay_buffer: BaseReplayBuffer = None,
+        max_seq_len: int = 1,
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: float = None,
@@ -50,15 +58,7 @@ class RainbowDQNAgent(DQNAgent):
         device="cpu",
         logger: Logger = None,
         log_frequency: int = 100,
-        noisy: bool = True,
-        std_init: float = 0.5,
-        use_eps_greedy: bool = False,
-        double: bool = True,
-        dueling: bool = True,
-        distributional: bool = True,
-        v_min: float = 0,
-        v_max: float = 200,
-        atoms: int = 51,
+        **kwargs,
     ):
         """
         Args:
@@ -66,9 +66,13 @@ class RainbowDQNAgent(DQNAgent):
             action_space (gym.spaces.Discrete): Action space for the agent.
             representation_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute Q-values (e.g.
-                everything except the final layer of the DQN).
-            stack_size: Number of observations stacked to create the state fed to the
-                DQN.
+                everything except the final layer of the DRQN), as well as the
+                hidden states of the recurrent component. The structure should be
+                similar to ConvRNNNetwork, i.e., it should have a current module
+                component placed between the convolutional layers and MLP layers.
+                It should also define a method that initializes the hidden state
+                of the recurrent module if the computation requires hidden states
+                as input/output.
             id: Agent identifier.
             optimizer_fn (OptimizerFn): A function that takes in a list of parameters
                 to optimize and returns the optimizer. If None, defaults to
@@ -80,7 +84,8 @@ class RainbowDQNAgent(DQNAgent):
             replay_buffer (BaseReplayBuffer): The replay buffer that the agent will
                 push observations to and sample from during learning. If None,
                 defaults to
-                :py:class:`~hive.replays.prioritized_replay.PrioritizedReplayBuffer`.
+                :py:class:`~hive.replays.recurrent_replay.RecurrentReplayBuffer`.
+            max_seq_len (int): The number of consecutive transitions in a sequence.
             discount_rate (float): A number between 0 and 1 specifying how much
                 future rewards are discounted by the agent.
             n_step (int): The horizon used in n-step returns to compute TD(n) targets.
@@ -108,55 +113,29 @@ class RainbowDQNAgent(DQNAgent):
             device: Device on which all computations should be run.
             logger (ScheduledLogger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
-            noisy (bool): Whether to use noisy linear layers for exploration.
-            std_init (float): The range for the initialization of the standard
-                deviation of the weights.
-            use_eps_greedy (bool): Whether to use epsilon greedy exploration.
-            double (bool): Whether to use double DQN.
-            dueling (bool): Whether to use a dueling network architecture.
-            distributional (bool): Whether to use the distributional RL.
-            vmin (float): The minimum of the support of the categorical value
-                distribution for distributional RL.
-            vmax (float): The maximum of the support of the categorical value
-                distribution for distributional RL.
-            atoms (int): Number of atoms discretizing the support range of the
-                categorical value distribution for distributional RL.
         """
-
-        self._noisy = noisy
-        self._std_init = std_init
-        self._double = double
-        self._dueling = dueling
-        self._distributional = distributional
-
-        self._atoms = atoms if self._distributional else 1
-        self._v_min = v_min
-        self._v_max = v_max
-
-        if loss_fn is None:
-            loss_fn = torch.nn.MSELoss
-
         if replay_buffer is None:
-            replay_buffer = PrioritizedReplayBuffer
+            replay_buffer = RecurrentReplayBuffer
+        replay_buffer = partial(replay_buffer, max_seq_len=max_seq_len)
+        self._max_seq_len = max_seq_len
 
         super().__init__(
             observation_space=observation_space,
             action_space=action_space,
             representation_net=representation_net,
-            stack_size=stack_size,
-            optimizer_fn=optimizer_fn,
-            init_fn=init_fn,
-            loss_fn=loss_fn,
             id=id,
+            optimizer_fn=optimizer_fn,
+            loss_fn=loss_fn,
+            init_fn=init_fn,
             replay_buffer=replay_buffer,
             discount_rate=discount_rate,
             n_step=n_step,
             grad_clip=grad_clip,
             reward_clip=reward_clip,
+            update_period_schedule=update_period_schedule,
             target_net_soft_update=target_net_soft_update,
             target_net_update_fraction=target_net_update_fraction,
             target_net_update_schedule=target_net_update_schedule,
-            update_period_schedule=update_period_schedule,
             epsilon_schedule=epsilon_schedule,
             test_epsilon=test_epsilon,
             min_replay_history=min_replay_history,
@@ -166,67 +145,42 @@ class RainbowDQNAgent(DQNAgent):
             log_frequency=log_frequency,
         )
 
-        self._supports = torch.linspace(
-            self._v_min, self._v_max, self._atoms, device=self._device
-        )
-
-        self._use_eps_greedy = use_eps_greedy
-
     def create_q_networks(self, representation_net):
-        """Creates the Q-network and target Q-network. Adds the appropriate heads
-        for DQN, Dueling DQN, Noisy Networks, and Distributional DQN.
+        """Creates the Q-network and target Q-network.
 
         Args:
             representation_net: A network that outputs the representations that will
                 be used to compute Q-values (e.g. everything except the final layer
-                of the DQN).
+                of the DRQN).
         """
         network = representation_net(self._state_size)
-        network_output_dim = np.prod(calculate_output_dim(network, self._state_size))
-
-        # Use NoisyLinear when creating output heads if noisy is true
-        linear_fn = (
-            partial(NoisyLinear, std_init=self._std_init)
-            if self._noisy
-            else torch.nn.Linear
+        network_output_dim = np.prod(calculate_output_dim(network, self._state_size)[0])
+        self._qnet = DRQNNetwork(network, network_output_dim, self._action_space.n).to(
+            self._device
         )
+        self._qnet.update_rnn_device()
 
-        # Set up Dueling heads
-        if self._dueling:
-            network = DuelingNetwork(
-                network,
-                network_output_dim,
-                self._action_space.n,
-                linear_fn,
-                self._atoms,
-            )
-        else:
-            network = DQNNetwork(
-                network,
-                network_output_dim,
-                self._action_space.n * self._atoms,
-                linear_fn,
-            )
-
-        # Set up DistributionalNetwork wrapper if distributional is true
-        if self._distributional:
-            self._qnet = DistributionalNetwork(
-                network, self._action_space.n, self._v_min, self._v_max, self._atoms
-            )
-        else:
-            self._qnet = network
-        self._qnet.to(device=self._device)
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
+        self._hidden_state = self._qnet.init_hidden(batch_size=1)
 
     @torch.no_grad()
     def act(self, observation):
+        """Returns the action for the agent. If in training mode, follows an epsilon
+        greedy policy. Otherwise, returns the action with the highest Q-value.
 
+        Args:
+            observation: The current observation.
+        """
+
+        # Reset hidden state if it is episode beginning.
+        if self._state["episode_start"]:
+            self._hidden_state = self._qnet.init_hidden(batch_size=1)
+
+        # Determine and log the value of epsilon
         if self._training:
             if not self._learn_schedule.get_value():
                 epsilon = 1.0
-            elif not self._use_eps_greedy:
-                epsilon = 0.0
             else:
                 epsilon = self._epsilon_schedule.update()
             if self._logger.update_step(self._timescale):
@@ -234,14 +188,17 @@ class RainbowDQNAgent(DQNAgent):
         else:
             epsilon = self._test_epsilon
 
+        # Sample action. With epsilon probability choose random action,
+        # otherwise select the action with the highest q-value.
+        # Insert batch_size and sequence_len dimensions to observation
         observation = torch.tensor(
-            np.expand_dims(observation, axis=0), device=self._device
+            np.expand_dims(observation, axis=(0, 1)), device=self._device
         ).float()
-        qvals = self._qnet(observation)
-
+        qvals, self._hidden_state = self._qnet(observation, self._hidden_state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._action_space.n)
         else:
+            # Note: not explicitly handling the ties
             action = torch.argmax(qvals).item()
 
         if (
@@ -251,16 +208,16 @@ class RainbowDQNAgent(DQNAgent):
         ):
             self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
             self._state["episode_start"] = False
-
         return action
 
     def update(self, update_info):
         """
-        Updates the DQN agent.
+        Updates the DRQN agent.
+
         Args:
             update_info: dictionary containing all the necessary information to
-            update the agent. Should contain a full transition, with keys for
-            "observation", "action", "reward", "next_observation", and "done".
+                update the agent. Should contain a full transition, with keys for
+                "observation", "action", "reward", and "done".
         """
         if update_info["done"]:
             self._state["episode_start"] = True
@@ -286,53 +243,33 @@ class RainbowDQNAgent(DQNAgent):
                 batch,
             ) = self.preprocess_update_batch(batch)
 
+            hidden_state = self._qnet.init_hidden(
+                batch_size=self._batch_size,
+            )
+            target_hidden_state = self._target_qnet.init_hidden(
+                batch_size=self._batch_size,
+            )
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(*current_state_inputs)
+            pred_qvals, _ = self._qnet(*current_state_inputs, hidden_state)
+            pred_qvals = pred_qvals.view(self._batch_size, self._max_seq_len, -1)
             actions = batch["action"].long()
+            pred_qvals = torch.gather(pred_qvals, -1, actions.unsqueeze(-1)).squeeze(-1)
 
-            if self._double:
-                next_action = self._qnet(*next_state_inputs)
-            else:
-                next_action = self._target_qnet(*next_state_inputs)
-            next_action = next_action.argmax(1)
+            # Compute 1-step Q targets
+            next_qvals, _ = self._target_qnet(*next_state_inputs, target_hidden_state)
+            next_qvals = next_qvals.view(self._batch_size, self._max_seq_len, -1)
+            next_qvals, _ = torch.max(next_qvals, dim=-1)
 
-            if self._distributional:
-                current_dist = self._qnet.dist(*current_state_inputs)
-                probs = current_dist[torch.arange(actions.size(0)), actions]
-                probs = torch.clamp(probs, 1e-6, 1)  # NaN-guard
-                log_p = torch.log(probs)
-                with torch.no_grad():
-                    target_prob = self.target_projection(
-                        next_state_inputs, next_action, batch["reward"], batch["done"]
-                    )
+            q_targets = batch["reward"] + self._discount_rate * next_qvals * (
+                1 - batch["done"]
+            )
 
-                loss = -(target_prob * log_p).sum(-1)
-
-            else:
-                pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
-
-                next_qvals = self._target_qnet(*next_state_inputs)
-                next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
-
-                q_targets = batch["reward"] + self._discount_rate * next_qvals * (
-                    1 - batch["done"]
-                )
-
-                loss = self._loss_fn(pred_qvals, q_targets)
-
-            if isinstance(self._replay_buffer, PrioritizedReplayBuffer):
-                td_errors = loss.detach().cpu().numpy()
-                self._replay_buffer.update_priorities(batch["indices"], td_errors)
-                loss *= batch["weights"]
-            loss = loss.mean()
+            loss = self._loss_fn(pred_qvals, q_targets).mean()
 
             if self._logger.should_log(self._timescale):
-                self._logger.log_scalar(
-                    "train_loss",
-                    loss,
-                    self._timescale,
-                )
+                self._logger.log_scalar("train_loss", loss, self._timescale)
+
             loss.backward()
             if self._grad_clip is not None:
                 torch.nn.utils.clip_grad_value_(
@@ -343,36 +280,3 @@ class RainbowDQNAgent(DQNAgent):
         # Update target network
         if self._target_net_update_schedule.update():
             self._update_target()
-
-    def target_projection(self, target_net_inputs, next_action, reward, done):
-        """Project distribution of target Q-values.
-
-        Args:
-            target_net_inputs: Inputs to feed into the target net to compute the
-                projection of the target Q-values. Should be set from
-                :py:meth:`~hive.agents.dqn.DQNAgent.preprocess_update_batch`.
-            next_action (~torch.Tensor): Tensor containing next actions used to
-                compute target distribution.
-            reward (~torch.Tensor): Tensor containing rewards for the current batch.
-            done (~torch.Tensor): Tensor containing whether the states in the current
-                batch are terminal.
-
-        """
-        reward = reward.reshape(-1, 1)
-        not_done = 1 - done.reshape(-1, 1)
-        batch_size = reward.size(0)
-        next_dist = self._target_qnet.dist(*target_net_inputs)
-        next_dist = next_dist[torch.arange(batch_size), next_action]
-
-        dist_supports = reward + not_done * self._discount_rate * self._supports
-        dist_supports = dist_supports.clamp(min=self._v_min, max=self._v_max)
-        dist_supports = dist_supports.unsqueeze(1)
-        dist_supports = dist_supports.tile([1, self._atoms, 1])
-        projected_supports = self._supports.tile([batch_size, 1]).unsqueeze(2)
-
-        delta = float(self._v_max - self._v_min) / (self._atoms - 1)
-        quotient = 1 - (torch.abs(dist_supports - projected_supports) / delta)
-        quotient = quotient.clamp(min=0, max=1)
-
-        projection = torch.sum(quotient * next_dist.unsqueeze(1), dim=2)
-        return projection

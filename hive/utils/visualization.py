@@ -188,7 +188,7 @@ def generate_lineplot(
     xlabel=None,
     ylabel=None,
     cmap_name=None,
-    rc_params=rc_params,
+    rc_params=None,
     output_file="output.png",
 ):
     """Aggregates data and generates lineplot."""
