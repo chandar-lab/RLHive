@@ -278,7 +278,7 @@ class TD3(Agent):
         return (batch["observation"],), (batch["next_observation"],), batch
 
     @torch.no_grad()
-    def act(self, observation):
+    def act(self, observation, state=None):
         """Returns the action for the agent. If in training mode, adds noise with
         standard deviation :py:obj:`self._action_noise`.
 
@@ -298,9 +298,9 @@ class TD3(Agent):
         if self._scale_actions:
             action = self.unscale_actions(action)
         action = np.clip(action, self._action_min, self._action_max)
-        return np.squeeze(action, axis=0)
+        return np.squeeze(action, axis=0), state
 
-    def update(self, update_info):
+    def update(self, update_info, state=None):
         """
         Updates the TD3 agent.
 
@@ -382,6 +382,7 @@ class TD3(Agent):
                 self._update_target()
                 if self._logger.should_log(self._timescale):
                     self._logger.log_scalar("actor_loss", actor_loss, self._timescale)
+        return state
 
     def _update_target(self):
         """Update the target network."""

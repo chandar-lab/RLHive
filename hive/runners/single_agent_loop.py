@@ -85,7 +85,9 @@ class SingleAgentRunner(Runner):
         )
         self._stack_size = stack_size
 
-    def run_one_step(self, environment, observation, episode_metrics, transition_info):
+    def run_one_step(
+        self, environment, observation, episode_metrics, transition_info, agent_state
+    ):
         """Run one step of the training loop.
 
         Args:
@@ -96,7 +98,7 @@ class SingleAgentRunner(Runner):
         super().run_one_step(environment, observation, 0, episode_metrics)
         agent = self._agents[0]
         stacked_observation = transition_info.get_stacked_state(agent, observation)
-        action = agent.act(stacked_observation)
+        action, agent_state = agent.act(stacked_observation, agent_state)
         next_observation, reward, done, _, other_info = environment.step(action)
 
         info = {
@@ -107,14 +109,14 @@ class SingleAgentRunner(Runner):
             "info": other_info,
         }
         if self._training:
-            agent.update(copy.deepcopy(info))
+            agent_state = agent.update(copy.deepcopy(info), agent_state)
 
         transition_info.record_info(agent, info)
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1
         episode_metrics["full_episode_length"] += 1
 
-        return done, next_observation
+        return done, next_observation, agent_state
 
     def run_episode(self, environment):
         """Run a single episode of the environment."""
@@ -123,6 +125,7 @@ class SingleAgentRunner(Runner):
         observation, _ = environment.reset()
         transition_info = TransitionInfo(self._agents, self._stack_size)
         transition_info.start_agent(self._agents[0])
+        agent_state = None
         steps = 0
         # Run the loop until the episode ends or times out
         while (
@@ -130,8 +133,8 @@ class SingleAgentRunner(Runner):
             and steps < self._max_steps_per_episode
             and (not self._training or self._train_schedule.get_value())
         ):
-            done, observation = self.run_one_step(
-                environment, observation, episode_metrics, transition_info
+            done, observation, agent_state = self.run_one_step(
+                environment, observation, episode_metrics, transition_info, agent_state
             )
             steps += 1
             if self._run_testing and self._training:

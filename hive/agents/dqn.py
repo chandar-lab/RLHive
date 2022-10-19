@@ -159,7 +159,6 @@ class DQNAgent(Agent):
         self._test_epsilon = test_epsilon
         self._learn_schedule = SwitchSchedule(False, True, min_replay_history)
 
-        self._state = {"episode_start": True}
         self._training = False
 
     def create_q_networks(self, representation_net):
@@ -230,7 +229,7 @@ class DQNAgent(Agent):
         return (batch["observation"],), (batch["next_observation"],), batch
 
     @torch.no_grad()
-    def act(self, observation):
+    def act(self, observation, state=None):
         """Returns the action for the agent. If in training mode, follows an epsilon
         greedy policy. Otherwise, returns the action with the highest Q-value.
 
@@ -264,13 +263,13 @@ class DQNAgent(Agent):
         if (
             self._training
             and self._logger.should_log(self._timescale)
-            and self._state["episode_start"]
+            and state is None
         ):
             self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
-            self._state["episode_start"] = False
-        return action
+            state = {}
+        return action, state
 
-    def update(self, update_info):
+    def update(self, update_info, state=None):
         """
         Updates the DQN agent.
 
@@ -279,9 +278,6 @@ class DQNAgent(Agent):
                 update the agent. Should contain a full transition, with keys for
                 "observation", "action", "reward", and "done".
         """
-        if update_info["done"]:
-            self._state["episode_start"] = True
-
         if not self._training:
             return
 
@@ -332,6 +328,7 @@ class DQNAgent(Agent):
         # Update target network
         if self._target_net_update_schedule.update():
             self._update_target()
+        return state
 
     def _update_target(self):
         """Update the target network."""

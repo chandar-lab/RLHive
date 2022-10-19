@@ -162,10 +162,9 @@ class DRQNAgent(DQNAgent):
 
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
-        self._hidden_state = self._qnet.init_hidden(batch_size=1)
 
     @torch.no_grad()
-    def act(self, observation):
+    def act(self, observation, state=None):
         """Returns the action for the agent. If in training mode, follows an epsilon
         greedy policy. Otherwise, returns the action with the highest Q-value.
 
@@ -174,8 +173,10 @@ class DRQNAgent(DQNAgent):
         """
 
         # Reset hidden state if it is episode beginning.
-        if self._state["episode_start"]:
-            self._hidden_state = self._qnet.init_hidden(batch_size=1)
+        if state is None:
+            hidden_state = self._qnet.init_hidden(batch_size=1)
+        else:
+            hidden_state = state["hidden_state"]
 
         # Determine and log the value of epsilon
         if self._training:
@@ -194,7 +195,7 @@ class DRQNAgent(DQNAgent):
         observation = torch.tensor(
             np.expand_dims(observation, axis=(0, 1)), device=self._device
         ).float()
-        qvals, self._hidden_state = self._qnet(observation, self._hidden_state)
+        qvals, hidden_state = self._qnet(observation, hidden_state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._action_space.n)
         else:
@@ -204,13 +205,14 @@ class DRQNAgent(DQNAgent):
         if (
             self._training
             and self._logger.should_log(self._timescale)
-            and self._state["episode_start"]
+            and state is None
         ):
             self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
-            self._state["episode_start"] = False
-        return action
+            state = {}
+        state["hidden_state"] = hidden_state
+        return action, state
 
-    def update(self, update_info):
+    def update(self, update_info, state=None):
         """
         Updates the DRQN agent.
 
@@ -219,9 +221,6 @@ class DRQNAgent(DQNAgent):
                 update the agent. Should contain a full transition, with keys for
                 "observation", "action", "reward", and "done".
         """
-        if update_info["done"]:
-            self._state["episode_start"] = True
-
         if not self._training:
             return
 
@@ -280,3 +279,4 @@ class DRQNAgent(DQNAgent):
         # Update target network
         if self._target_net_update_schedule.update():
             self._update_target()
+        return state

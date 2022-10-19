@@ -104,7 +104,13 @@ class MultiAgentRunner(Runner):
         self._self_play = self_play
 
     def run_one_step(
-        self, environment, observation, turn, episode_metrics, transition_info
+        self,
+        environment,
+        observation,
+        turn,
+        episode_metrics,
+        transition_info,
+        agent_states,
     ):
         """Run one step of the training loop.
 
@@ -120,10 +126,11 @@ class MultiAgentRunner(Runner):
         """
         super().run_one_step(environment, observation, turn, episode_metrics)
         agent = self._agents[turn]
+        agent_state = agent_states[turn]
         if transition_info.is_started(agent):
             info = transition_info.get_info(agent)
             if self._training:
-                agent.update(copy.deepcopy(info))
+                agent_state = agent.update(copy.deepcopy(info), agent_state)
 
             episode_metrics[agent.id]["reward"] += info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
@@ -132,7 +139,7 @@ class MultiAgentRunner(Runner):
             transition_info.start_agent(agent)
 
         stacked_observation = transition_info.get_stacked_state(agent, observation)
-        action = agent.act(stacked_observation)
+        action, agent_state = agent.act(stacked_observation, agent_state)
         next_observation, reward, done, turn, other_info = environment.step(action)
         transition_info.record_info(
             agent,
@@ -150,9 +157,12 @@ class MultiAgentRunner(Runner):
                 },
             )
         transition_info.update_all_rewards(reward)
-        return done, next_observation, turn
+        agent_states[turn] = agent_state
+        return done, next_observation, turn, agent_states
 
-    def run_end_step(self, environment, episode_metrics, transition_info, done=True):
+    def run_end_step(
+        self, environment, episode_metrics, transition_info, agent_states, done=True
+    ):
         """Run the final step of an episode.
 
         After an episode ends, iterate through agents and update then with the final
@@ -180,14 +190,20 @@ class MultiAgentRunner(Runner):
         observation, turn = environment.reset()
         transition_info = TransitionInfo(self._agents, self._stack_size)
         steps = 0
+        agent_states = [None] * len(self._agents)
         # Run the loop until the episode ends or times out
         while (
             not done
             and steps < self._max_steps_per_episode
             and (not self._training or self._train_schedule.get_value())
         ):
-            done, observation, turn = self.run_one_step(
-                environment, observation, turn, episode_metrics, transition_info
+            done, observation, turn, agent_states = self.run_one_step(
+                environment,
+                observation,
+                turn,
+                episode_metrics,
+                transition_info,
+                agent_states,
             )
             steps += 1
             if self._run_testing and self._training:
@@ -195,5 +211,7 @@ class MultiAgentRunner(Runner):
                 self.run_testing()
 
         # Run the final update.
-        self.run_end_step(environment, episode_metrics, transition_info, done)
+        self.run_end_step(
+            environment, episode_metrics, transition_info, agent_states, done
+        )
         return episode_metrics
