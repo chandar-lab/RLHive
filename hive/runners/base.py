@@ -97,9 +97,6 @@ class Runner(ABC, Registrable):
             training (bool): Whether to be in training mode.
         """
         self._training = training
-        self._environment = (
-            self._train_environment if training else self._eval_environment
-        )
         for agent in self._agents:
             agent.train() if training else agent.eval()
 
@@ -111,7 +108,7 @@ class Runner(ABC, Registrable):
             [("full_episode_length", 0)],
         )
 
-    def run_one_step(self, observation, turn, episode_metrics):
+    def run_one_step(self, environment, observation, turn, episode_metrics):
         """Run one step of the training loop.
 
         Args:
@@ -128,7 +125,7 @@ class Runner(ABC, Registrable):
                 self._experiment_manager.update_step() or self._save_experiment
             )
 
-    def run_end_step(self, episode_metrics, done):
+    def run_end_step(self, environment, episode_metrics, done):
         """Run the final step of an episode.
 
         Args:
@@ -138,7 +135,7 @@ class Runner(ABC, Registrable):
         """
         return NotImplementedError
 
-    def run_episode(self):
+    def run_episode(self, environment):
         """Run a single episode of the environment."""
 
         return NotImplementedError
@@ -150,7 +147,7 @@ class Runner(ABC, Registrable):
             # Run training episode
             if not self._training:
                 self.train_mode(True)
-            episode_metrics = self.run_episode()
+            episode_metrics = self.run_episode(self._train_environment)
             if self._logger.should_log("train"):
                 episode_metrics = episode_metrics.get_flat_dict()
                 self._logger.log_metrics(episode_metrics, "train")
@@ -171,7 +168,7 @@ class Runner(ABC, Registrable):
         self.train_mode(False)
         aggregated_episode_metrics = self.create_episode_metrics().get_flat_dict()
         for _ in range(self._test_episodes):
-            episode_metrics = self.run_episode()
+            episode_metrics = self.run_episode(self._eval_environment)
             for metric, value in episode_metrics.get_flat_dict().items():
                 aggregated_episode_metrics[metric] += value / self._test_episodes
         self._logger.update_step("test")

@@ -83,17 +83,9 @@ class SingleAgentRunner(Runner):
             test_episodes=test_episodes,
             max_steps_per_episode=max_steps_per_episode,
         )
-        self._train_transition_info = TransitionInfo(self._agents, stack_size)
-        self._eval_transition_info = TransitionInfo(self._agents, stack_size)
-        self._transition_info = self._train_transition_info
+        self._stack_size = stack_size
 
-    def train_mode(self, training):
-        self._transition_info = (
-            self._train_transition_info if training else self._eval_transition_info
-        )
-        super().train_mode(training)
-
-    def run_one_step(self, observation, episode_metrics):
+    def run_one_step(self, environment, observation, episode_metrics, transition_info):
         """Run one step of the training loop.
 
         Args:
@@ -101,13 +93,11 @@ class SingleAgentRunner(Runner):
                 for.
             episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
-        super().run_one_step(observation, 0, episode_metrics)
+        super().run_one_step(environment, observation, 0, episode_metrics)
         agent = self._agents[0]
-        stacked_observation = self._transition_info.get_stacked_state(
-            agent, observation
-        )
+        stacked_observation = transition_info.get_stacked_state(agent, observation)
         action = agent.act(stacked_observation)
-        next_observation, reward, done, _, other_info = self._environment.step(action)
+        next_observation, reward, done, _, other_info = environment.step(action)
 
         info = {
             "observation": observation,
@@ -119,20 +109,20 @@ class SingleAgentRunner(Runner):
         if self._training:
             agent.update(copy.deepcopy(info))
 
-        self._transition_info.record_info(agent, info)
+        transition_info.record_info(agent, info)
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1
         episode_metrics["full_episode_length"] += 1
 
         return done, next_observation
 
-    def run_episode(self):
+    def run_episode(self, environment):
         """Run a single episode of the environment."""
         episode_metrics = self.create_episode_metrics()
         done = False
-        observation, _ = self._environment.reset()
-        self._transition_info.reset()
-        self._transition_info.start_agent(self._agents[0])
+        observation, _ = environment.reset()
+        transition_info = TransitionInfo(self._agents, self._stack_size)
+        transition_info.start_agent(self._agents[0])
         steps = 0
         # Run the loop until the episode ends or times out
         while (
@@ -140,7 +130,9 @@ class SingleAgentRunner(Runner):
             and steps < self._max_steps_per_episode
             and (not self._training or self._train_schedule.get_value())
         ):
-            done, observation = self.run_one_step(observation, episode_metrics)
+            done, observation = self.run_one_step(
+                environment, observation, episode_metrics, transition_info
+            )
             steps += 1
             if self._run_testing and self._training:
                 # Run test episodes
