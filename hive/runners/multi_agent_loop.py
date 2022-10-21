@@ -125,8 +125,7 @@ class MultiAgentRunner(Runner):
         """
         for agent in self._agents:
             if self._transition_info.is_started(agent):
-                info = self._transition_info.get_info(agent, done=(terminated or truncated))
-
+                info = self._transition_info.get_info(agent, terminated, truncated)
                 if self._training:
                     agent.update(info)
                 episode_metrics[agent.id]["episode_length"] += 1
@@ -136,7 +135,6 @@ class MultiAgentRunner(Runner):
     def run_episode(self):
         """Run a single episode of the environment."""
         episode_metrics = self.create_episode_metrics()
-
         observation, turn = self._environment.reset()
         self._transition_info.reset()
         steps = 0
@@ -213,7 +211,7 @@ def set_up_experiment(config):
     for idx in range(num_agents):
         if not config["self_play"] or idx == 0:
             agent_fn, full_agent_config = agent_lib.get_agent(
-                config["agent"][idx], f"agents.{idx}"
+                config["agents"][idx], f"agents.{idx}"
             )
             agent = agent_fn(
                 observation_space=env_spec.observation_space[idx],

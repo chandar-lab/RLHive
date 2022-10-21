@@ -79,6 +79,28 @@ class MultiGridEnvHive(MultiGridEnv):
 
         return grid, vis_mask
 
+    def place_obj(self, obj, top=(0, 0), size=None, reject_fn=None, max_tries=1e5):
+        max_tries = int(max(1, min(max_tries, 1e5)))
+        top = (max(top[0], 0), max(top[1], 0))
+        if size is None:
+            size = (self.grid.width, self.grid.height)
+        bottom = (
+            min(top[0] + size[0], self.grid.width),
+            min(top[1] + size[1], self.grid.height),
+        )
+
+        # agent_positions = [tuple(agent.pos) if agent.pos is not None else None for agent in self.agents]
+        for try_no in range(max_tries):
+            pos = self.np_random.integers(bottom, top)
+            if (reject_fn is not None) and reject_fn(pos):
+                continue
+            else:
+                if self.try_place_obj(obj, pos):
+                    break
+        else:
+            raise RecursionError("Rejection sampling failed in place_obj.")
+        return pos
+
     def render(
         self,
         mode="human",
