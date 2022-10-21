@@ -29,7 +29,7 @@ class GymEnv(BaseEnv):
         Args:
             env_name (str): Name of the environment
         """
-        self._env = gym.make(env_name)
+        self._env = gym.make(env_name, **kwargs)
 
     def create_env_spec(self, env_name, **kwargs):
         """Function used to create the specification. Subclasses can override this method
