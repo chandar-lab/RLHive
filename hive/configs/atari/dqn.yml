@@ -79,7 +79,7 @@ loggers:
       name: *run_name
       resume: "allow"
       start_method: "thread"
-# debugger config.
+ debugger config.
 debugger:
   name: 'Debugger'
   kwargs:

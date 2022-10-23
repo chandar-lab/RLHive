@@ -1,0 +1,24 @@
+{
+    "os": "Windows-10-10.0.17134-SP0",
+    "python": "3.7.13",
+    "heartbeatAt": "2022-10-02T22:51:23.806139",
+    "startedAt": "2022-10-02T22:51:18.474726",
+    "docker": null,
+    "gpu": "GeForce 920M",
+    "gpu_count": 1,
+    "cpu_count": 4,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "C:/Users/EXTRA/Desktop/RL debugging/dev/RLHive/hive/runners/single_agent_loop.py",
+    "codePath": "hive\\runners\\single_agent_loop.py",
+    "git": {
+        "remote": "https://github.com/rached1997/RLHive.git",
+        "commit": "21399471953618b23a4d807f2787b1672506b920"
+    },
+    "email": "bouchoucharached@gmail.com",
+    "root": "C:/Users/EXTRA/Desktop/RL debugging/dev/RLHive",
+    "host": "DESKTOP-VHI3HDI",
+    "username": "EXTRA",
+    "executable": "C:\\Users\\EXTRA\\Anaconda3-2021\\envs\\RL_debugging\\python.exe"
+}

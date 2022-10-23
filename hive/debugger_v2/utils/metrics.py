@@ -5,6 +5,14 @@ from functools import reduce
 from operator import itemgetter
 from scipy.stats import mannwhitneyu
 
+
+def almost_equal(value1, value2, rtol=1e-2):
+  rerr = np.abs(value1 - value2)
+  if isinstance(value1, np.ndarray):
+    return (rerr <= rtol).all()
+  else:
+    return rerr <= rtol
+
 def are_significantly_different(sample_1, sample_2, alpha = 0.05):
   stat, p = mannwhitneyu(sample_1, sample_2)
   return p <= alpha

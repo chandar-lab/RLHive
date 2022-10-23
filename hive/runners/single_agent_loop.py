@@ -3,13 +3,11 @@ import copy
 
 from hive import agents as agent_lib
 from hive import envs
-from hive.debugger_v2.debugger import Debugger
-# from hive.debugger.debugger import Debugger
+from hive.debugger_v2.DebuggerFactory import DebuggerFactory
 from hive.runners.base import Runner
 from hive.runners.utils import TransitionInfo, load_config
 from hive.utils import experiment, loggers, schedule, utils
 from hive.utils.registry import get_parsed_args
-from hive import debugger as debugger_lib
 
 
 class SingleAgentRunner(Runner):
@@ -155,19 +153,14 @@ def set_up_experiment(config):
     logger = logger_fn()
 
     # Set up debugger
-    # TODO:
-    # if config.get("debugger", False):
-    #     # skip the debugger (to be done soon
-    #     pass
-    # debugger_config = config["debugger"]
-    # debugger_fn, full_config["debugger"] = debugger_lib.get_debugger(debugger_config, "debugger")
-    # debugger = debugger_fn()
-    debugger_config = config["debugger"]
-    debugger = Debugger()
-    debugger.set_debugger(debugger_config["kwargs"]["check_type"])
+    debugger = None
+    if "debugger" in config:
+        debugger_config = config["debugger"]
+        debugger = DebuggerFactory()
+        debugger.set_debugger(debugger_config["kwargs"]["check_type"])
 
     agent_fn, full_config["agent"] = agent_lib.get_agent(config["agent"], "agent")
-    # inject debugger in the agent config
+    # TODO inject debugger in all the agents configs
     agent = agent_fn(
         observation_space=env_spec.observation_space[0],
         action_space=env_spec.action_space[0],

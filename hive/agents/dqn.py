@@ -13,6 +13,8 @@ from hive.agents.qnets.utils import (
     calculate_output_dim,
     create_init_weights_fn,
 )
+from hive.debugger_v2 import DebuggerInterface
+from hive.debugger_v2.DebuggerFactory import DebuggerFactory
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.loggers import Logger, NullLogger
 from hive.utils.schedule import (
@@ -22,7 +24,6 @@ from hive.utils.schedule import (
     SwitchSchedule,
 )
 from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder
-from hive.debugger.debugger import Debugger
 
 
 class DQNAgent(Agent):
@@ -31,32 +32,32 @@ class DQNAgent(Agent):
     """
 
     def __init__(
-        self,
-        observation_space: gym.spaces.Box,
-        action_space: gym.spaces.Discrete,
-        representation_net: FunctionApproximator,
-        stack_size: int = 1,
-        id=0,
-        optimizer_fn: OptimizerFn = None,
-        loss_fn: LossFn = None,
-        init_fn: InitializationFn = None,
-        replay_buffer: BaseReplayBuffer = None,
-        discount_rate: float = 0.99,
-        n_step: int = 1,
-        grad_clip: float = None,
-        reward_clip: float = None,
-        update_period_schedule: Schedule = None,
-        target_net_soft_update: bool = False,
-        target_net_update_fraction: float = 0.05,
-        target_net_update_schedule: Schedule = None,
-        epsilon_schedule: Schedule = None,
-        test_epsilon: float = 0.001,
-        min_replay_history: int = 5000,
-        batch_size: int = 32,
-        device="cpu",
-        logger: Logger = None,
-        debugger: Debugger = None,
-        log_frequency: int = 100,
+            self,
+            observation_space: gym.spaces.Box,
+            action_space: gym.spaces.Discrete,
+            representation_net: FunctionApproximator,
+            stack_size: int = 1,
+            id=0,
+            optimizer_fn: OptimizerFn = None,
+            loss_fn: LossFn = None,
+            init_fn: InitializationFn = None,
+            replay_buffer: BaseReplayBuffer = None,
+            discount_rate: float = 0.99,
+            n_step: int = 1,
+            grad_clip: float = None,
+            reward_clip: float = None,
+            update_period_schedule: Schedule = None,
+            target_net_soft_update: bool = False,
+            target_net_update_fraction: float = 0.05,
+            target_net_update_schedule: Schedule = None,
+            epsilon_schedule: Schedule = None,
+            test_epsilon: float = 0.001,
+            min_replay_history: int = 5000,
+            batch_size: int = 32,
+            device="cpu",
+            logger: Logger = None,
+            debugger: DebuggerFactory = None,
+            log_frequency: int = 100,
     ):
         """
         Args:
@@ -127,7 +128,7 @@ class DQNAgent(Agent):
             observation_shape=self._observation_space.shape,
             observation_dtype=self._observation_space.dtype,
         )
-        self._discount_rate = discount_rate**n_step
+        self._discount_rate = discount_rate ** n_step
         self._grad_clip = grad_clip
         self._reward_clip = reward_clip
         self._target_net_soft_update = target_net_soft_update
@@ -266,9 +267,9 @@ class DQNAgent(Agent):
             action = torch.argmax(qvals).item()
 
         if (
-            self._training
-            and self._logger.should_log(self._timescale)
-            and self._state["episode_start"]
+                self._training
+                and self._logger.should_log(self._timescale)
+                and self._state["episode_start"]
         ):
             self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
             self._state["episode_start"] = False
@@ -296,9 +297,9 @@ class DQNAgent(Agent):
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
         if (
-            self._learn_schedule.update()
-            and self._replay_buffer.size() > 0
-            and self._update_period_schedule.update()
+                self._learn_schedule.update()
+                and self._replay_buffer.size() > 0
+                and self._update_period_schedule.update()
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             (
@@ -318,18 +319,18 @@ class DQNAgent(Agent):
             next_qvals, _ = torch.max(next_qvals, dim=1)
 
             q_targets = batch["reward"] + self._discount_rate * next_qvals * (
-                1 - batch["done"]
+                    1 - batch["done"]
             )
 
-            # if not self._debugger.pre_check.pre_check_done:
-            self._debugger.set_parameters(observations=copy.deepcopy(current_state_inputs[0].numpy()),
-                                          model=copy.deepcopy(self._qnet),
-                                          labels=copy.deepcopy(q_targets),
-                                          predictions=copy.deepcopy(pred_qvals.detach()),
-                                          loss=copy.deepcopy(self._loss_fn),
-                                          opt=copy.deepcopy(self._optimizer),
-                                          actions=copy.deepcopy(actions))
-            self._debugger.run()
+            self.run_debugging(observations=copy.deepcopy(current_state_inputs[0].numpy()),
+                               model=copy.deepcopy(self._qnet),
+                               labels=copy.deepcopy(q_targets),
+                               predictions=copy.deepcopy(pred_qvals.detach()),
+                               loss=copy.deepcopy(self._loss_fn),
+                               opt=copy.deepcopy(self._optimizer),
+                               actions=copy.deepcopy(actions),
+                               done = copy.deepcopy(update_info["done"])
+                               )
 
             loss = self._loss_fn(pred_qvals, q_targets).mean()
 
@@ -354,12 +355,12 @@ class DQNAgent(Agent):
             current_params = self._qnet.state_dict()
             for key in list(target_params.keys()):
                 target_params[key] = (
-                    1 - self._target_net_update_fraction
-                ) * target_params[
-                    key
-                ] + self._target_net_update_fraction * current_params[
-                    key
-                ]
+                                             1 - self._target_net_update_fraction
+                                     ) * target_params[
+                                         key
+                                     ] + self._target_net_update_fraction * current_params[
+                                         key
+                                     ]
             self._target_qnet.load_state_dict(target_params)
         else:
             self._target_qnet.load_state_dict(self._qnet.state_dict())
@@ -391,3 +392,8 @@ class DQNAgent(Agent):
         self._target_net_update_schedule = checkpoint["target_net_update_schedule"]
         self._rng = checkpoint["rng"]
         self._replay_buffer.load(os.path.join(dname, "replay"))
+
+    def run_debugging(self, **kwargs):
+        if self._debugger is not None:
+            self._debugger.set_parameters(**kwargs)
+            self._debugger.run()
