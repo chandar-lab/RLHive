@@ -31,6 +31,9 @@ To install Marlgrid, run
 - [DQN](https://github.com/chandar-lab/RLHive/blob/main/hive/agents/dqn.py)
 - [Full Rainbow Agent](https://github.com/chandar-lab/RLHive/blob/main/hive/agents/rainbow.py)
 
+## Atari Benchmark
+Results of our implimentations of DQN and Rainbow on Atari games Breakout, Pong, Space Invaders, Seaquest and Qbert over 10 seeds can be accessed here - [Wandb RLhive Atari](https://wandb.ai/chandar-rl/Hive-baselines/reports/Atari--VmlldzoyMjMyODMw) 
+
 ## Tutorials
 - [Quickstart](https://rlhive.readthedocs.io/en/stable/quickstart.html)
 - [Creating new agents](https://rlhive.readthedocs.io/en/stable/tutorials/agent_tutorial.html)
