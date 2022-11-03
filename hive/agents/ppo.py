@@ -184,14 +184,11 @@ class PPOAgent(Agent):
             actor_net: The network that will be used to compute actions.
             critic_net: The network that will be used to compute values of states.
         """
-        if observation_normalization is None:
-            self.obs_norm = torch.nn.Identity().to(self._device)
-        else:
+        self.obs_norm = None
+        self.reward_norm = None
+        if observation_normalization:
             self.obs_norm = observation_normalization(self._state_size).to(self._device)
-
-        if reward_normalization is None:
-            self.reward_norm = torch.nn.Identity().to(self._device)
-        else:
+        if reward_normalization:
             self.reward_norm = reward_normalization(()).to(self._device)
 
         if representation_net is None:
@@ -228,8 +225,10 @@ class PPOAgent(Agent):
             update_info: Contains the information from the current timestep that the
                 agent should use to update itself.
         """
-        self.obs_norm.update(update_info["observation"])
-        self.reward_norm.update(update_info["reward"])
+        if self.obs_norm:
+            self.obs_norm.update(update_info["observation"])
+        if self.reward_norm:
+            self.reward_norm.update(update_info["reward"])
 
         preprocessed_update_info = {
             "observation": update_info["observation"],
@@ -257,8 +256,11 @@ class PPOAgent(Agent):
         """
         for key in batch:
             batch[key] = torch.tensor(batch[key], device=self._device)
-        batch["observation"] = self.obs_norm(batch["observation"])
-        batch["values"] = self.reward_norm(batch["values"])
+        
+        if self.obs_norm:
+            batch["observation"] = self.obs_norm(batch["observation"])
+        if self.reward_norm:
+            batch["values"] = self.reward_norm(batch["values"])
         return batch
 
     @torch.no_grad()
