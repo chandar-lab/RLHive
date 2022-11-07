@@ -2,6 +2,7 @@ from pathlib import Path
 from hive import debugger_v2 as debugger_lib
 from hive.debugger_v2.utils.model_params_getters import get_model_weights_and_biases, get_model_layer_names
 from hive.debugger_v2.utils import settings
+import inspect
 
 
 def period(check_period, iter_num):
@@ -11,7 +12,7 @@ def period(check_period, iter_num):
 
 class DebuggerFactory:
     def __init__(self, app_path=None):
-        # TODO: merge this logger with RLHive's logger
+        # TODO: Clean this please
         app_path = Path.cwd() if app_path == None else app_path
         log_fpath = settings.build_log_file_path(app_path, "logger")
         self.logger = settings.file_logger(log_fpath, "logger")
@@ -43,6 +44,16 @@ class DebuggerFactory:
     def run(self):
         for debugger in self.debuggers.values():
             if period(check_period=debugger.check_period, iter_num=debugger.iter_num):
+                args = inspect.getfullargspec(debugger.run).args[1:]
+                kwargs = {arg: self.params[arg] for arg in args}
+                msg = debugger.run(**kwargs)
+                self.react(msg)
+
+
+
+
+
+
 
                 if debugger.check_type == "Observation":
                     msg = debugger.run(self.params["observations"])

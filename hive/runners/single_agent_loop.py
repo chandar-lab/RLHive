@@ -153,9 +153,11 @@ def set_up_experiment(config):
     logger = logger_fn()
 
     # Set up debugger
+    # TODO: revise this !!
     debugger = None
     if "debugger" in config:
         debugger_config = config["debugger"]
+        # TODO: merge these two lines;
         debugger = DebuggerFactory()
         debugger.set_debugger(debugger_config["kwargs"]["check_type"])
 
