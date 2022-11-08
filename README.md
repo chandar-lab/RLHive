@@ -8,7 +8,7 @@ RLHive is a framework designed to facilitate research in reinforcement learning.
 
 The full documentation and tutorials are available at https://rlhive.readthedocs.io/. 
 
-We reproduce baselines for our agents [here!](https://wandb.ai/chandar-rl/Hive-baselines/reports/Hive-Baselines--VmlldzoyMjMyODE2)
+We reproduce baselines for our agents [here](https://wandb.ai/chandar-rl/Hive-baselines/reports/Hive-Baselines--VmlldzoyMjMyODE2)!
 ## Installing
 RLHive is available through pip! For the basic RLHive package, simply run 
 ``pip install rlhive``.
