@@ -1,6 +1,7 @@
 from hive.envs import GymEnv, ParallelEnv
 from hive.envs.wrappers.gym_wrappers import FlattenWrapper, PermuteImageWrapper
 from marlgrid import envs
+from gym.wrappers.compatibility import EnvCompatibility
 
 
 class MarlGridEnv(ParallelEnv, GymEnv):
@@ -21,8 +22,9 @@ class MarlGridEnv(ParallelEnv, GymEnv):
         """
         if env_name is None:
             self._env = envs.env_from_config(kwargs, randomize_seed=randomize_seed)
+            self._env = EnvCompatibility(self._env)
         else:
-            super().create_env(env_name, **kwargs)
+            super().create_env(env_name, apply_api_compatibility=True, **kwargs)
 
         self._env = PermuteImageWrapper(self._env)
         if flatten:
@@ -32,3 +34,7 @@ class MarlGridEnv(ParallelEnv, GymEnv):
         return super().create_env_spec(
             name if name is not None else f"Marlgrid_{str(kwargs)}", **kwargs
         )
+
+    def reset(self):
+        obs = super().reset()
+        return obs

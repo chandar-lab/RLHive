@@ -91,7 +91,7 @@ class MultiGridEnvHive(MultiGridEnv):
 
         # agent_positions = [tuple(agent.pos) if agent.pos is not None else None for agent in self.agents]
         for try_no in range(max_tries):
-            pos = self.np_random.integers(bottom, top)
+            pos = self.np_random.integers(top, bottom)
             if (reject_fn is not None) and reject_fn(pos):
                 continue
             else:
