@@ -7,6 +7,7 @@
 RLHive is a framework designed to facilitate research in reinforcement learning. It provides the components necessary to run a full RL experiment, for both single agent and multi agent environments. It is designed to be readable and easily extensible, to allow users to quickly run and experiment with their own ideas.
 
 The full documentation and tutorials are available at https://rlhive.readthedocs.io/.
+We reproduce baselines for our agents here[https://wandb.ai/chandar-rl/Hive-baselines/reports/Hive-Baselines--VmlldzoyMjMyODE2]!
 ## Installing
 RLHive is available through pip! For the basic RLHive package, simply run 
 ``pip install rlhive``.
@@ -30,9 +31,6 @@ To install Marlgrid, run
 ## Implemented Agents
 - [DQN](https://github.com/chandar-lab/RLHive/blob/main/hive/agents/dqn.py)
 - [Full Rainbow Agent](https://github.com/chandar-lab/RLHive/blob/main/hive/agents/rainbow.py)
-
-## Benchmark
-Reproduced results of our implimentations are available here - [Wandb RLhive](https://wandb.ai/chandar-rl/Hive-baselines/reports/Hive-Baselines--VmlldzoyMjMyODE2), this includes DQN and Rainbow models on Atari games and TD3 and DDPG on MuJoCo. 
 
 ## Tutorials
 - [Quickstart](https://rlhive.readthedocs.io/en/stable/quickstart.html)
