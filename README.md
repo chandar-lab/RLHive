@@ -32,7 +32,7 @@ To install Marlgrid, run
 - [Full Rainbow Agent](https://github.com/chandar-lab/RLHive/blob/main/hive/agents/rainbow.py)
 
 ## Benchmark
-Results of our implimentations of DQN and Rainbow models on Atari games and of TD3 and DDPG on MuJoCo can be accessed here - [Wandb RLhive](https://wandb.ai/chandar-rl/Hive-baselines/reports/Hive-Baselines--VmlldzoyMjMyODE2) 
+Reproduced results of our implimentations are available here - [Wandb RLhive](https://wandb.ai/chandar-rl/Hive-baselines/reports/Hive-Baselines--VmlldzoyMjMyODE2), this includes DQN and Rainbow models on Atari games and TD3 and DDPG on MuJoCo. 
 
 ## Tutorials
 - [Quickstart](https://rlhive.readthedocs.io/en/stable/quickstart.html)
