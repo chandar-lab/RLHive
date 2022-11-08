@@ -1,5 +1,6 @@
 import abc
 import copy
+import logging
 import os
 from typing import List
 
@@ -449,5 +450,7 @@ registry.register_all(
         "CompositeLogger": CompositeLogger,
     },
 )
+
+logging.info("Registered loggers.")
 
 get_logger = getattr(registry, f"get_{Logger.type_name()}")

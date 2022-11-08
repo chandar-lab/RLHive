@@ -1,5 +1,7 @@
 import argparse
 import copy
+import logging
+import pprint
 
 from hive import agents as agent_lib
 from hive import envs
@@ -205,6 +207,11 @@ def main():
         args.logger_config,
     )
     runner = set_up_experiment(config)
+    logging.info(
+        f"Using config: \n{pprint.pformat(runner._experiment_manager._config, compact=False)}"
+    )
+    logging.info("Created runner. Starting run!")
+
     runner.run_training()
 
 

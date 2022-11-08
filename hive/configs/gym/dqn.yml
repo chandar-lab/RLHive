@@ -1,6 +1,6 @@
 run_name: &run_name 'gym-dqn'
 train_steps: 50000
-test_frequency: 200
+test_frequency: 5000
 test_episodes: 10
 max_steps_per_episode: 1000
 stack_size: &stack_size 1

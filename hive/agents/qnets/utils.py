@@ -1,3 +1,4 @@
+import logging
 import math
 
 import torch
@@ -146,5 +147,7 @@ registry.register_all(
         "variance_scaling": variance_scaling_,
     },
 )
+
+logging.info("Registered PyTorch initialization functions.")
 
 get_optimizer_fn = getattr(registry, f"get_{InitializationFn.type_name()}")
