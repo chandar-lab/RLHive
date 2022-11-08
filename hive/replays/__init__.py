@@ -1,5 +1,6 @@
 from hive.replays.circular_replay import CircularReplayBuffer, SimpleReplayBuffer
 from hive.replays.legal_moves_replay import LegalMovesBuffer
+from hive.replays.legal_moves_recurrent_replay import LegalMovesRecurrentBuffer
 from hive.replays.prioritized_replay import PrioritizedReplayBuffer
 from hive.replays.recurrent_replay import RecurrentReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
@@ -10,6 +11,7 @@ registry.register_all(
     {
         "CircularReplayBuffer": CircularReplayBuffer,
         "LegalMovesBuffer": LegalMovesBuffer,
+        "LegalMovesRecurrentBuffer": LegalMovesRecurrentBuffer,
         "PrioritizedReplayBuffer": PrioritizedReplayBuffer,
         "RecurrentReplayBuffer": RecurrentReplayBuffer,
         "SimpleReplayBuffer": SimpleReplayBuffer,
