@@ -382,7 +382,20 @@ class DRQNAgent(DQNAgent):
                 1 - batch["terminated"]
             )
 
-            loss = self._loss_fn(pred_qvals, q_targets).mean()
+            if self._burn_frames > 0:
+                interm_loss = self._loss_fn(pred_qvals, q_targets)
+                mask = torch.zeros(
+                    self._replay_buffer._max_seq_len,
+                    device=self._device,
+                    dtype=torch.float,
+                )
+                mask[self._burn_frames :] = 1.0
+                mask = mask.view(1, -1)
+                interm_loss *= mask
+                loss = interm_loss.mean()
+
+            else:
+                loss = self._loss_fn(pred_qvals, q_targets).mean()
 
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar("train_loss", loss, self._timescale)
