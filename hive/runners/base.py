@@ -133,7 +133,6 @@ class Runner(ABC):
             # Run training episode
             if not self._training:
                 self.train_mode(True)
-            logging.info("Starting train loop")
 
             episode_metrics = self.run_episode()
             if self._logger.should_log("train"):
