@@ -1,4 +1,7 @@
+import logging
 from abc import ABC
+from asyncio.log import logger
+import pprint
 from typing import List
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
@@ -130,6 +133,8 @@ class Runner(ABC):
             # Run training episode
             if not self._training:
                 self.train_mode(True)
+            logging.info("Starting train loop")
+
             episode_metrics = self.run_episode()
             if self._logger.should_log("train"):
                 episode_metrics = episode_metrics.get_flat_dict()
@@ -137,13 +142,20 @@ class Runner(ABC):
 
             # Run test episodes
             if self._run_testing:
+                logging.info(
+                    f"{self._train_schedule._steps}/"
+                    f"{self._train_schedule._flip_step} training steps completed."
+                )
+                logger.info("Running testing.")
                 test_metrics = self.run_testing()
                 self._logger.update_step("test")
                 self._logger.log_metrics(test_metrics, "test")
                 self._run_testing = False
+                logging.info(f"Testing results: {pprint.pformat(test_metrics)}")
 
             # Save experiment state
             if self._save_experiment:
+                logger.info("Saving run.")
                 self._experiment_manager.save()
                 self._save_experiment = False
 

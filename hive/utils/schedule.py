@@ -1,4 +1,5 @@
 import abc
+import logging
 
 from hive.utils.registry import Registrable, registry
 
@@ -199,5 +200,7 @@ registry.register_all(
         "DoublePeriodicSchedule": DoublePeriodicSchedule,
     },
 )
+
+logging.info("Registered schedules.")
 
 get_schedule = getattr(registry, f"get_{Schedule.type_name()}")
