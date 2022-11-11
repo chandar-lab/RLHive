@@ -46,6 +46,8 @@ class MeanStd:
 
 
 class BaseNormalizationFn(object):
+    """Implements the base normalization function."""
+
     def __init__(self, *args, **kwds):
         pass
 
@@ -88,25 +90,24 @@ class ObservationNormalizationFn(BaseNormalizationFn):
 
 
 class RewardNormalizationFn(BaseNormalizationFn):
-    r"""This wrapper will normalize immediate rewards s.t. their exponential moving average has a fixed variance.
-    The exponential moving average will have variance :math:`(1 - \gamma)^2`.
-    Note:
-        The scaling depends on past trajectories and rewards will not be scaled correctly if the wrapper was newly
-        instantiated or the policy was changed recently.
+    """Implements a normalization function. Transforms output by
+    normalising the input data by the running :obj:`mean` and
+    :obj:`std`, and clipping the normalised data on :obj:`clip`
     """
 
     def __init__(self, gamma: float, epsilon: float = 1e-4, clip: np.float32 = np.inf):
-        """This wrapper will normalize immediate rewards s.t. their exponential moving average has a fixed variance.
+        """
         Args:
-            env (env): The environment to apply the wrapper
-            epsilon (float): A stability parameter
-            gamma (float): The discount factor that is used in the exponential moving average.
+            gamma (float): discount factor for the agent.
+            epsilon (float): minimum value of variance to avoid division by 0.
+            clip (np.float32): The clip value for the normalised data.
         """
         super().__init__()
         self.return_rms = MeanStd(epsilon, ())
         self._epsilon = epsilon
         self._clip = clip
         self._gamma = gamma
+        self._returns = np.zeros(1)
 
     def __call__(self, rew):
         rew = rew / np.sqrt(self.return_rms.var + self._epsilon)

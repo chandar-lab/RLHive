@@ -127,7 +127,7 @@ class PPOAgent(Agent):
             critic_net,
         )
         if obs_norm is not None:
-            self.obs_norm = obs_norm(self.observation_space)
+            self.obs_norm = obs_norm(self._state_size)
         else:
             self.obs_norm = None
 
@@ -151,7 +151,6 @@ class PPOAgent(Agent):
         )
         self._discount_rate = discount_rate**n_step
         self._grad_clip = grad_clip
-        self._reward_clip = reward_clip
         if critic_loss_fn is None:
             critic_loss_fn = torch.nn.MSELoss
         self._critic_loss_fn = critic_loss_fn(reduction="none")
@@ -221,9 +220,9 @@ class PPOAgent(Agent):
             self.obs_norm.update(update_info["observation"])
             update_info["observation"] = self.obs_norm(update_info["observation"])
 
-        if self.reward_norm:
-            self.reward_norm.update(update_info["reward"], update_info["done"])
-            update_info["reward"] = self.reward_norm(update_info["reward"])
+        if self.rew_norm:
+            self.rew_norm.update(update_info["reward"], update_info["done"])
+            update_info["reward"] = self.rew_norm(update_info["reward"])
 
         preprocessed_update_info = {
             "observation": update_info["observation"],
@@ -251,11 +250,7 @@ class PPOAgent(Agent):
         """
         for key in batch:
             batch[key] = torch.tensor(batch[key], device=self._device)
-        
-        if self.obs_norm:
-            batch["observation"] = self.obs_norm(batch["observation"])
-        if self.reward_norm:
-            batch["values"] = self.reward_norm(batch["values"])
+
         return batch
 
     @torch.no_grad()
