@@ -8,6 +8,7 @@ from typing import Union
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.ppo_nets import PPOActorCriticNetwork
+from hive.agents.qnets.normalizer import NormalizationFn
 from hive.agents.qnets.utils import (
     InitializationFn,
     calculate_output_dim,
@@ -34,14 +35,13 @@ class PPOAgent(Agent):
         init_fn: InitializationFn = None,
         optimizer_fn: OptimizerFn = None,
         critic_loss_fn: LossFn = None,
-        observation_normalization: FunctionApproximator = None,
-        reward_normalization: FunctionApproximator = None,
+        obs_norm: NormalizationFn = None,
+        rew_norm: NormalizationFn = None,
         stack_size: int = 1,
         replay_buffer: PPOReplayBuffer = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: float = None,
-        reward_clip: float = None,
         batch_size: int = 64,
         logger: Logger = None,
         log_frequency: int = 100,
@@ -91,8 +91,6 @@ class PPOAgent(Agent):
             n_step (int): The horizon used in n-step returns to compute TD(n) targets.
             grad_clip (float): Gradients will be clipped to between
                 [-grad_clip, grad_clip].
-            reward_clip (float): Rewards will be clipped to between
-                [-reward_clip, reward_clip].
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
             logger (Logger): Logger used to log agent's metrics.
@@ -127,9 +125,17 @@ class PPOAgent(Agent):
             representation_net,
             actor_net,
             critic_net,
-            observation_normalization,
-            reward_normalization,
         )
+        if obs_norm is not None:
+            self.obs_norm = obs_norm(self.observation_space)
+        else:
+            self.obs_norm = None
+
+        if rew_norm is not None:
+            self.rew_norm = rew_norm(discount_rate)
+        else:
+            self.rew_norm = None
+
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._actor_critic.parameters())
@@ -168,14 +174,7 @@ class PPOAgent(Agent):
 
         self._training = False
 
-    def create_networks(
-        self,
-        representation_net,
-        actor_net,
-        critic_net,
-        observation_normalization,
-        reward_normalization,
-    ):
+    def create_networks(self, representation_net, actor_net, critic_net):
         """Creates the actor and critic networks.
 
         Args:
@@ -184,13 +183,6 @@ class PPOAgent(Agent):
             actor_net: The network that will be used to compute actions.
             critic_net: The network that will be used to compute values of states.
         """
-        self.obs_norm = None
-        self.reward_norm = None
-        if observation_normalization:
-            self.obs_norm = observation_normalization(self._state_size).to(self._device)
-        if reward_normalization:
-            self.reward_norm = reward_normalization(()).to(self._device)
-
         if representation_net is None:
             network = torch.nn.Identity()
         else:
@@ -227,8 +219,11 @@ class PPOAgent(Agent):
         """
         if self.obs_norm:
             self.obs_norm.update(update_info["observation"])
+            update_info["observation"] = self.obs_norm(update_info["observation"])
+
         if self.reward_norm:
-            self.reward_norm.update(update_info["reward"])
+            self.reward_norm.update(update_info["reward"], update_info["done"])
+            update_info["reward"] = self.reward_norm(update_info["reward"])
 
         preprocessed_update_info = {
             "observation": update_info["observation"],

@@ -1,20 +1,69 @@
 from typing import Tuple
 
 import numpy as np
-import torch
+
+from hive.utils.registry import Registrable, registry
+
+# taken from https://github.com/openai/baselines/blob/master/baselines/common/vec_env/vec_normalize.py
+class MeanStd:
+    """Tracks the mean, variance and count of values."""
+
+    # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
+    def __init__(self, epsilon=1e-4, shape=()):
+        """Tracks the mean, variance and count of values."""
+        self.mean = np.zeros(shape, "float64")
+        self.var = np.ones(shape, "float64")
+        self.count = epsilon
+
+    def update(self, x):
+        """Updates the mean, var and count from a batch of samples."""
+        batch_mean = np.mean(x, axis=0)
+        batch_var = np.var(x, axis=0)
+        batch_count = x.shape[0]
+        self.update_from_moments(batch_mean, batch_var, batch_count)
+
+    def update_from_moments(self, batch_mean, batch_var, batch_count):
+        """Updates from batch mean, variance and count moments."""
+        self.mean, self.var, self.count = self.update_mean_var_count_from_moments(
+            self.mean, self.var, self.count, batch_mean, batch_var, batch_count
+        )
+
+    def update_mean_var_count_from_moments(
+        self, mean, var, count, batch_mean, batch_var, batch_count
+    ):
+        """Updates the mean, var and count using the previous mean, var, count and batch values."""
+        delta = batch_mean - mean
+        tot_count = count + batch_count
+
+        new_mean = mean + delta * batch_count / tot_count
+        m_a = var * count
+        m_b = batch_var * batch_count
+        M2 = m_a + m_b + np.square(delta) * count * batch_count / tot_count
+        new_var = M2 / tot_count
+        new_count = tot_count
+
+        return new_mean, new_var, new_count
 
 
-class NormalizationFn(torch.nn.Module):
+class BaseNormalizationFn(object):
+    def __init__(self, *args, **kwds):
+        pass
+
+    def __call__(self, *args, **kwds):
+        return NotImplementedError
+
+    def update(self, *args, **kwds):
+        return NotImplementedError
+
+
+class ObservationNormalizationFn(BaseNormalizationFn):
     """Implements a normalization function. Transforms output by
     normalising the input data by the running :obj:`mean` and
     :obj:`std`, and clipping the normalised data on :obj:`clip`
     """
 
     def __init__(
-        self,
-        shape: Tuple[int, ...],
-        epsilon: float = 1e-4,
-        clip: np.float32 = np.inf,
+        self, shape: Tuple[int, ...], epsilon: float = 1e-4, clip: np.float32 = np.inf
     ):
         """
         Args:
@@ -23,51 +72,77 @@ class NormalizationFn(torch.nn.Module):
             clip (np.float32): The clip value for the normalised data.
         """
         super().__init__()
-        self.mean = np.zeros(shape, np.float32)
-        self.std = np.ones(shape, np.float32)
-        self._mean = torch.nn.Parameter(
-            torch.as_tensor(self.mean, dtype=torch.float32), requires_grad=False
-        )
-        self._std = torch.nn.Parameter(
-            torch.as_tensor(self.std, dtype=torch.float32), requires_grad=False
-        )
+        self.obs_rms = MeanStd(epsilon, shape)
+        self._shape = shape
+        self._epsilon = epsilon
+        self._clip = clip
 
-        self.eps = epsilon
-        self.shape = shape
-        self.clip = clip
-        self.size = 0
+    def __call__(self, obs):
+        obs = (obs - self.obs_rms.mean) / np.sqrt(self.obs_rms.var + self._epsilon)
+        if self._clip is not None:
+            obs = np.clip(obs, -self._clip, self._clip)
+        return obs
 
-    def forward(self, val):
-        with torch.no_grad():
-            val = (val - self._mean) / self._std
-            if self.clip is not None:
-                val = torch.clamp(val, -self.clip, self.clip)
-        return val
+    def update(self, obs):
+        self.obs_rms.update(obs)
 
-    def unnormalize(self, val):
-        return val * self._std + self._mean
 
-    def update(self, values):
+class RewardNormalizationFn(BaseNormalizationFn):
+    r"""This wrapper will normalize immediate rewards s.t. their exponential moving average has a fixed variance.
+    The exponential moving average will have variance :math:`(1 - \gamma)^2`.
+    Note:
+        The scaling depends on past trajectories and rewards will not be scaled correctly if the wrapper was newly
+        instantiated or the policy was changed recently.
+    """
+
+    def __init__(self, gamma: float, epsilon: float = 1e-4, clip: np.float32 = np.inf):
+        """This wrapper will normalize immediate rewards s.t. their exponential moving average has a fixed variance.
+        Args:
+            env (env): The environment to apply the wrapper
+            epsilon (float): A stability parameter
+            gamma (float): The discount factor that is used in the exponential moving average.
         """
-        Implementation of formula:
-        https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
+        super().__init__()
+        self.return_rms = MeanStd(epsilon, ())
+        self._epsilon = epsilon
+        self._clip = clip
+        self._gamma = gamma
+
+    def __call__(self, rew):
+        rew = rew / np.sqrt(self.return_rms.var + self._epsilon)
+        if self._clip is not None:
+            rew = np.clip(rew, -self._clip, self._clip)
+        return rew
+
+    def update(self, rew, done):
+        self._returns = self._returns * self._gamma + rew
+        self.return_rms.update(self._returns)
+        self._returns *= 1 - done
+
+
+class NormalizationFn(Registrable):
+    """A wrapper for callables that produce normalization functions.
+
+    These wrapped callables can be partially initialized through configuration
+    files or command line arguments.
+    """
+
+    @classmethod
+    def type_name(cls):
         """
-        values = np.array(values).reshape(-1, *self.shape)
-        batch_size = values.shape[0]
-        batch_mean = values.mean(axis=0)
-        batch_std = values.std(axis=0)
+        Returns:
+            "norm_fn"
+        """
+        return "norm_fn"
 
-        delta = batch_mean - self.mean
-        total_size = self.size + batch_size
-        updated_mean = self.mean + delta * batch_size / total_size
-        m_a = self.std**2 * self.size
-        m_b = batch_std**2 * batch_size
-        M2 = m_a + m_b + np.square(delta) * self.size * batch_size / total_size
-        updated_std = np.maximum(np.sqrt(M2 / total_size), self.eps)
 
-        self.mean = updated_mean
-        self.std = updated_std
-        self.size = total_size
+registry.register_all(
+    NormalizationFn,
+    {
+        "BaseNormalization": BaseNormalizationFn,
+        "RewardNormalization": RewardNormalizationFn,
+        "ObservationNormalization": ObservationNormalizationFn,
+    },
+)
 
-        self._mean.data.copy_(torch.as_tensor(self.mean, dtype=torch.float32))
-        self._std.data.copy_(torch.as_tensor(self.std, dtype=torch.float32))
+get_norm_fn = getattr(registry, f"get_{NormalizationFn.type_name()}")
