@@ -154,7 +154,9 @@ class DRQNAgent(DQNAgent):
                 of the DRQN).
         """
         network = representation_net(self._state_size)
-        network_output_dim = np.prod(calculate_output_dim(network, self._state_size)[0])
+        network_output_dim = np.prod(
+            calculate_output_dim(network, (1,) + self._state_size)[0]
+        )
         self._qnet = DRQNNetwork(network, network_output_dim, self._action_space.n).to(
             self._device
         )

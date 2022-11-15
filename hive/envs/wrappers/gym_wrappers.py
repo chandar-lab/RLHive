@@ -76,3 +76,33 @@ class PermuteImageWrapper(gym.core.ObservationWrapper):
             return tuple(np.transpose(o, [2, 1, 0]) for o in obs)
         else:
             return np.transpose(obs, [2, 1, 0])
+
+
+class FlickeringWrapper(gym.core.ObservationWrapper):
+    """Fully obscure the image with certain probablity."""
+
+    def __init__(self, env, flicker_prob=0.5):
+        super().__init__(env)
+
+        self.flicker_prob = flicker_prob
+        if isinstance(env.observation_space, gym.spaces.Tuple):
+            self._is_tuple = True
+            self.obscured_obs = np.zeros(
+                shape=env.observation_space[0].shape,
+                dtype=np.uint8,
+            )
+        else:
+            self._is_tuple = False
+            self.obscured_obs = np.zeros(
+                shape=env.observation_space.shape,
+                dtype=np.uint8,
+            )
+
+    def observation(self, obs):
+        if not np.random.binomial(n=1, p=self.flicker_prob):
+            return obs
+
+        if self._is_tuple:
+            return tuple(self.obscured_obs for _ in obs)
+        else:
+            return self.obscured_obs
