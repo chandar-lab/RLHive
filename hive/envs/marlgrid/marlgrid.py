@@ -1,7 +1,12 @@
+import gym
 from hive.envs import GymEnv, ParallelEnv
 from hive.envs.wrappers.gym_wrappers import FlattenWrapper, PermuteImageWrapper
 from marlgrid import envs
 from gym.wrappers.compatibility import EnvCompatibility
+
+from hive.utils.utils import _patched_np_random
+
+gym.utils.seeding.np_random = _patched_np_random
 
 
 class MarlGridEnv(ParallelEnv, GymEnv):
