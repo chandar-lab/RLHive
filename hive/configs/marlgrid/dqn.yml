@@ -4,8 +4,8 @@ train_steps: 500000
 test_frequency: 1000
 test_num_episodes: 10
 self_play: False
-num_agents: &num_agents 2
-stack_size: &stack_size 2
+num_agents: &num_agents 3
+stack_size: &stack_size 3
 saving_schedule:
   name: 'PeriodicSchedule'
   kwargs:
@@ -76,6 +76,43 @@ agents:
         name: 'Adam'
         kwargs: {}
       id: 1
+      replay_buffer:
+        name: 'CircularReplayBuffer'
+        kwargs:
+          capacity: 10000
+          stack_size: *stack_size
+      discount_rate: .9
+      target_net_update_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 100
+      epsilon_schedule:
+        name: 'LinearSchedule'
+        kwargs:
+          init_value: 1
+          end_value: .05
+          steps: 10000
+      min_replay_history: 500
+      batch_size: 128
+      device: 'cpu'
+      log_frequency: 100
+  -
+    name: 'DQNAgent'
+    kwargs:
+      representation_net:
+        name: 'ConvNetwork'
+        kwargs:
+          channels: [ 32, 64, 64 ]
+          kernel_sizes: [ 8, 4, 3 ]
+          strides: [ 4, 2, 1 ]
+          paddings: [ 0, 1, 1 ]
+          mlp_layers: [ 512 ]
+      optimizer_fn:
+        name: 'Adam'
+        kwargs: {}
+      id: 2
       replay_buffer:
         name: 'CircularReplayBuffer'
         kwargs:
