@@ -26,18 +26,20 @@ agent:
       name: 'MLPNetwork'
       kwargs: 
         hidden_units: [64, 64]
-        activation_fn: 'Tanh'
+        activation_fn:
+          name: 'Tanh'
     critic_net:
       name: 'MLPNetwork'
       kwargs: 
         hidden_units: [64, 64]
-        activation_fn: 'Tanh'
-    observation_normalization:
-      name: 'NormalizationFn'
-      clip: -10
-    reward_normalization:
-      name: 'NormalizationFn'
-      clip: -10
+        activation_fn:
+          name: 'Tanh'
+    obs_norm:
+      name: 'ObservationNormalization'
+      clip: 10
+    rew_norm:
+      name: 'RewardNormalization'
+      clip: 10
     replay_buffer:
       name: 'PPOReplayBuffer'
       kwargs:
@@ -61,7 +63,6 @@ agent:
     id: 'agent'
     init_fn: 
       name: 'orthogonal'
-    reward_clip: 10
 
 # List of logger configs used.
 loggers:

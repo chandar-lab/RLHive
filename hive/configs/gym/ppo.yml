@@ -24,12 +24,14 @@ agent:
       name: 'MLPNetwork'
       kwargs: 
         hidden_units: [64, 64]
-        activation_fn: 'Tanh'
+        activation_fn:
+          name: 'Tanh'
     critic_net:
       name: 'MLPNetwork'
       kwargs: 
         hidden_units: [64, 64]
-        activation_fn: 'Tanh'
+        activation_fn:
+          name: 'Tanh'
     replay_buffer:
       name: 'PPOReplayBuffer'
       kwargs:
