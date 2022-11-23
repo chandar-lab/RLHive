@@ -26,14 +26,18 @@ agent:
       name: 'MLPNetwork'
       kwargs: 
         hidden_units: [64, 64]
+        activation_fn: 'Tanh'
     critic_net:
       name: 'MLPNetwork'
       kwargs: 
         hidden_units: [64, 64]
+        activation_fn: 'Tanh'
     observation_normalization:
       name: 'NormalizationFn'
+      clip: -10
     reward_normalization:
       name: 'NormalizationFn'
+      clip: -10
     replay_buffer:
       name: 'PPOReplayBuffer'
       kwargs:
