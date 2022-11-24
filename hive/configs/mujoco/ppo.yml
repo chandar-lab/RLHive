@@ -15,12 +15,8 @@ environment:
   name: 'GymEnv'
   kwargs:
     env_name: 'Hopper-v3'
-    wrappers:
-      - 
-        name: ClipAction
-      -
-        name: NormalizeObservation
-
+    mujoco_wrapper: True
+    
 agent:
   name: 'PPOAgent'
   kwargs:
@@ -34,14 +30,6 @@ agent:
       name: 'MLPNetwork'
       kwargs: 
         hidden_units: [64, 64]
-        activation_fn:
-          name: 'Tanh'
-    obs_norm:
-      name: 'ObservationNormalization'
-      clip: 10
-    rew_norm:
-      name: 'RewardNormalization'
-      clip: 10
     replay_buffer:
       name: 'PPOReplayBuffer'
       kwargs:
@@ -73,7 +61,7 @@ loggers:
   -
     name: WandbLogger
     kwargs:
-      project: Hive
+      project: Hive-Hardcoded
       name: *run_name
       resume: "allow"
       start_method: "fork"
