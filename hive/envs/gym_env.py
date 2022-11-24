@@ -120,7 +120,7 @@ registry.register_all(
         "RecordEpisodeStatistics": gym.wrappers.RecordEpisodeStatistics,
         "ClipAction": gym.wrappers.ClipAction,
         "NormalizeObservation": gym.wrappers.NormalizeObservation,
-        "TransformObserva": gym.wrappers.TransformObservation,
+        "TransformObservation": gym.wrappers.TransformObservation,
         "NormalizeReward": gym.wrappers.NormalizeReward,
         "TransformReward": gym.wrappers.TransformReward,
         "CompositeEnvWrapper": CompositeEnvWrapper,

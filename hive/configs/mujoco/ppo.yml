@@ -18,6 +18,8 @@ environment:
     wrappers:
       - 
         name: ClipAction
+      -
+        name: NormalizeObservation
 
 agent:
   name: 'PPOAgent'
