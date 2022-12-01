@@ -48,6 +48,8 @@ agent:
       kwargs:
         capacity: 1000000
         gamma: &gamma .99
+        rnn_type: 'lstm'
+        rnn_hidden_size: 128
     max_seq_len: *max_seq_len
     discount_rate: *gamma
     reward_clip: 1

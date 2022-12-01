@@ -58,6 +58,8 @@ class DRQNAgent(DQNAgent):
         device="cpu",
         logger: Logger = None,
         log_frequency: int = 100,
+        store_hidden: bool = True,
+        burn_frames: int = 0,
         **kwargs,
     ):
         """
@@ -116,9 +118,10 @@ class DRQNAgent(DQNAgent):
         """
         if replay_buffer is None:
             replay_buffer = RecurrentReplayBuffer
-        replay_buffer = partial(replay_buffer, max_seq_len=max_seq_len)
+        replay_buffer = partial(
+            replay_buffer, max_seq_len=max_seq_len, store_hidden=store_hidden
+        )
         self._max_seq_len = max_seq_len
-
         super().__init__(
             observation_space=observation_space,
             action_space=action_space,
@@ -144,6 +147,8 @@ class DRQNAgent(DQNAgent):
             logger=logger,
             log_frequency=log_frequency,
         )
+        self._store_hidden = store_hidden
+        self._burn_frames = burn_frames
 
     def create_q_networks(self, representation_net):
         """Creates the Q-network and target Q-network.
@@ -154,7 +159,20 @@ class DRQNAgent(DQNAgent):
                 of the DRQN).
         """
         network = representation_net(self._state_size)
-        network_output_dim = np.prod(calculate_output_dim(network, self._state_size)[0])
+
+        if isinstance(network.rnn.core, torch.nn.LSTM):
+            self._rnn_type = "lstm"
+        elif isinstance(network.rnn.core, torch.nn.GRU):
+            self._rnn_type = "gru"
+        else:
+            raise ValueError(
+                f"rnn_type is wrong. Expected either lstm or gru,"
+                f"received {network.rnn.core}."
+            )
+
+        network_output_dim = np.prod(
+            calculate_output_dim(network, (1,) + self._state_size)[0]
+        )
         self._qnet = DRQNNetwork(network, network_output_dim, self._action_space.n).to(
             self._device
         )
@@ -163,6 +181,46 @@ class DRQNAgent(DQNAgent):
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
         self._hidden_state = self._qnet.init_hidden(batch_size=1)
+
+    def preprocess_update_info(self, update_info):
+        """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
+        Clips the reward in update_info.
+        Args:
+            update_info: Contains the information from the current timestep that the
+                agent should use to update itself.
+        """
+        if self._reward_clip is not None:
+            update_info["reward"] = np.clip(
+                update_info["reward"], -self._reward_clip, self._reward_clip
+            )
+
+        preprocessed_update_info = {
+            "observation": update_info["observation"],
+            "action": update_info["action"],
+            "reward": update_info["reward"],
+            "done": update_info["done"],
+        }
+
+        if self._store_hidden == True:
+            if self._rnn_type == "lstm":
+                preprocessed_update_info.update(
+                    {
+                        "hidden_state": self._prev_hidden_state,
+                        "cell_state": self._prev_cell_state,
+                    }
+                )
+
+            elif self._rnn_type == "gru":
+                preprocessed_update_info.update(
+                    {
+                        "hidden_state": self._prev_hidden_state,
+                    }
+                )
+
+        if "agent_id" in update_info:
+            preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
+
+        return preprocessed_update_info
 
     @torch.no_grad()
     def act(self, observation):
@@ -200,6 +258,14 @@ class DRQNAgent(DQNAgent):
         else:
             # Note: not explicitly handling the ties
             action = torch.argmax(qvals).item()
+
+        if self._store_hidden == True:
+            if self._rnn_type == "lstm":
+                self._prev_hidden_state = self._hidden_state[0].detach().cpu().numpy()
+                self._prev_cell_state = self._hidden_state[1].detach().cpu().numpy()
+
+            elif self._rnn_type == "gru":
+                self._prev_hidden_state = self._hidden_state[0].detach().cpu().numpy()
 
         if (
             self._training
@@ -243,12 +309,51 @@ class DRQNAgent(DQNAgent):
                 batch,
             ) = self.preprocess_update_batch(batch)
 
-            hidden_state = self._qnet.init_hidden(
-                batch_size=self._batch_size,
-            )
-            target_hidden_state = self._target_qnet.init_hidden(
-                batch_size=self._batch_size,
-            )
+            if self._store_hidden == True:
+                hidden_state = (
+                    torch.tensor(
+                        batch["hidden_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
+                        device=self._device,
+                    ).float(),
+                )
+
+                target_hidden_state = (
+                    torch.tensor(
+                        batch["next_hidden_state"][:, 0]
+                        .squeeze(1)
+                        .squeeze(1)
+                        .unsqueeze(0),
+                        device=self._device,
+                    ).float(),
+                )
+
+                if self._rnn_type == "lstm":
+                    hidden_state += (
+                        torch.tensor(
+                            batch["cell_state"][:, 0]
+                            .squeeze(1)
+                            .squeeze(1)
+                            .unsqueeze(0),
+                            device=self._device,
+                        ).float(),
+                    )
+
+                    target_hidden_state += (
+                        torch.tensor(
+                            batch["next_cell_state"][:, 0]
+                            .squeeze(1)
+                            .squeeze(1)
+                            .unsqueeze(0),
+                            device=self._device,
+                        ).float(),
+                    )
+            else:
+                hidden_state = self._qnet.init_hidden(
+                    batch_size=self._batch_size,
+                )
+                target_hidden_state = self._target_qnet.init_hidden(
+                    batch_size=self._batch_size,
+                )
             # Compute predicted Q values
             self._optimizer.zero_grad()
             pred_qvals, _ = self._qnet(*current_state_inputs, hidden_state)
@@ -265,7 +370,20 @@ class DRQNAgent(DQNAgent):
                 1 - batch["done"]
             )
 
-            loss = self._loss_fn(pred_qvals, q_targets).mean()
+            if self._burn_frames > 0:
+                interm_loss = self._loss_fn(pred_qvals, q_targets)
+                mask = torch.zeros(
+                    self._replay_buffer._max_seq_len,
+                    device=self._device,
+                    dtype=torch.float,
+                )
+                mask[self._burn_frames :] = 1.0
+                mask = mask.view(1, -1)
+                interm_loss *= mask
+                loss = interm_loss.mean()
+
+            else:
+                loss = self._loss_fn(pred_qvals, q_targets).mean()
 
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar("train_loss", loss, self._timescale)
