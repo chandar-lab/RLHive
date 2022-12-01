@@ -58,6 +58,8 @@ class R2D2Agent(DRQNAgent):
         device="cpu",
         logger: Logger = None,
         log_frequency: int = 100,
+        store_hidden: bool = True,
+        burn_frames: int = 0,
         double: bool = True,
         **kwargs,
     ):
@@ -147,6 +149,8 @@ class R2D2Agent(DRQNAgent):
             device=device,
             logger=logger,
             log_frequency=log_frequency,
+            store_hidden=store_hidden,
+            burn_frames=burn_frames,
         )
 
     def update(self, update_info):
@@ -181,12 +185,51 @@ class R2D2Agent(DRQNAgent):
                 batch,
             ) = self.preprocess_update_batch(batch)
 
-            hidden_state = self._qnet.init_hidden(
-                batch_size=self._batch_size,
-            )
-            target_hidden_state = self._target_qnet.init_hidden(
-                batch_size=self._batch_size,
-            )
+            if self._store_hidden == True:
+                hidden_state = (
+                    torch.tensor(
+                        batch["hidden_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
+                        device=self._device,
+                    ).float(),
+                )
+
+                target_hidden_state = (
+                    torch.tensor(
+                        batch["next_hidden_state"][:, 0]
+                        .squeeze(1)
+                        .squeeze(1)
+                        .unsqueeze(0),
+                        device=self._device,
+                    ).float(),
+                )
+
+                if self._rnn_type == "lstm":
+                    hidden_state += (
+                        torch.tensor(
+                            batch["cell_state"][:, 0]
+                            .squeeze(1)
+                            .squeeze(1)
+                            .unsqueeze(0),
+                            device=self._device,
+                        ).float(),
+                    )
+
+                    target_hidden_state += (
+                        torch.tensor(
+                            batch["next_cell_state"][:, 0]
+                            .squeeze(1)
+                            .squeeze(1)
+                            .unsqueeze(0),
+                            device=self._device,
+                        ).float(),
+                    )
+            else:
+                hidden_state = self._qnet.init_hidden(
+                    batch_size=self._batch_size,
+                )
+                target_hidden_state = self._target_qnet.init_hidden(
+                    batch_size=self._batch_size,
+                )
             # Compute predicted Q values
             self._optimizer.zero_grad()
             pred_qvals = self._qnet(*current_state_inputs, hidden_state)
@@ -207,7 +250,20 @@ class R2D2Agent(DRQNAgent):
                 1 - batch["done"]
             )
 
-            loss = self._loss_fn(pred_qvals, q_targets)
+            if self._burn_frames > 0:
+                interm_loss = self._loss_fn(pred_qvals, q_targets)
+                mask = torch.zeros(
+                    self._replay_buffer._max_seq_len,
+                    device=self._device,
+                    dtype=torch.float,
+                )
+                mask[self._burn_frames :] = 1.0
+                mask = mask.view(1, -1)
+                interm_loss *= mask
+                loss = interm_loss.mean()
+
+            else:
+                loss = self._loss_fn(pred_qvals, q_targets).mean()
 
             if isinstance(self._replay_buffer, PrioritizedReplayBuffer):
                 td_errors = loss.detach().cpu().numpy()

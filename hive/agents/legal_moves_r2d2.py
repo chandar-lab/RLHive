@@ -22,6 +22,23 @@ class LegalMovesR2D2Agent(R2D2Agent):
             "done": update_info["done"],
             "action_mask": action_encoding(update_info["observation"]["action_mask"]),
         }
+
+        if self._store_hidden == True:
+            if self._rnn_type == "lstm":
+                preprocessed_update_info.update(
+                    {
+                        "hidden_state": self._prev_hidden_state,
+                        "cell_state": self._prev_cell_state,
+                    }
+                )
+
+            elif self._rnn_type == "gru":
+                preprocessed_update_info.update(
+                    {
+                        "hidden_state": self._prev_hidden_state,
+                    }
+                )
+
         if "agent_id" in update_info:
             preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
         return preprocessed_update_info
@@ -77,6 +94,14 @@ class LegalMovesR2D2Agent(R2D2Agent):
         else:
             # Note: not explicitly handling the ties
             action = torch.argmax(qvals).item()
+
+        if self._store_hidden == True:
+            if self._rnn_type == "lstm":
+                self._prev_hidden_state = self._hidden_state[0].detach().cpu().numpy()
+                self._prev_cell_state = self._hidden_state[1].detach().cpu().numpy()
+
+            elif self._rnn_type == "gru":
+                self._prev_hidden_state = self._hidden_state[0].detach().cpu().numpy()
 
         if (
             self._training
