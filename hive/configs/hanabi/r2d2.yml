@@ -36,7 +36,7 @@ agent:
           sequence_fn:
             name: 'LSTM'
             kwargs:
-              rnn_hidden_size: 128
+              rnn_hidden_size: &rnn_hidden_size 128
               num_rnn_layers: 1
       optimizer_fn:
         name: 'Adam'
@@ -54,6 +54,7 @@ agent:
           action_dim: 20
           num_players_sharing_buffer: *num_agents
           gamma: 0.99
+          rnn_hidden_size: *rnn_hidden_size
       max_seq_len: *max_seq_len
       discount_rate: .99
       update_period_schedule:

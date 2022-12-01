@@ -25,7 +25,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         extra_storage_types=None,
         num_players_sharing_buffer: int = None,
         rnn_type: str = "lstm",
-        rnn_hidden_size: int = 0,
+        rnn_hidden_size: int = 128,
         store_hidden: bool = False,
     ):
         """Constructor for RecurrentReplayBuffer.

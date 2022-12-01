@@ -15,8 +15,12 @@ from hive.agents.qnets.utils import (
     calculate_output_dim,
     create_init_weights_fn,
 )
-from hive.replays import BaseReplayBuffer, CircularReplayBuffer
-from hive.replays.recurrent_replay import RecurrentReplayBuffer
+from hive.replays import (
+    BaseReplayBuffer,
+    CircularReplayBuffer,
+    PrioritizedReplayBuffer,
+    RecurrentReplayBuffer,
+)
 from hive.utils.loggers import Logger, NullLogger
 from hive.utils.schedule import (
     LinearSchedule,
@@ -232,19 +236,23 @@ class R2D2Agent(DRQNAgent):
                 )
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(*current_state_inputs, hidden_state)
+            pred_qvals, _ = self._qnet(*current_state_inputs, hidden_state)
             actions = batch["action"].long()
 
             if self._double:
-                next_action = self._qnet(*next_state_inputs, hidden_state)
+                next_action, _ = self._qnet(*next_state_inputs, hidden_state)
             else:
-                next_action = self._target_qnet(*next_state_inputs, target_hidden_state)
-            next_action = next_action.argmax(1)
+                next_action, _ = self._target_qnet(
+                    *next_state_inputs, target_hidden_state
+                )
 
-            pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
+            pred_qvals = pred_qvals.view(self._batch_size, self._max_seq_len, -1)
+            actions = batch["action"].long()
+            pred_qvals = torch.gather(pred_qvals, -1, actions.unsqueeze(-1)).squeeze(-1)
 
-            next_qvals = self._target_qnet(*next_state_inputs, target_hidden_state)
-            next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
+            next_qvals, _ = self._target_qnet(*next_state_inputs, target_hidden_state)
+            next_qvals = next_qvals.view(self._batch_size, self._max_seq_len, -1)
+            next_qvals, _ = torch.max(next_qvals, dim=-1)
 
             q_targets = batch["reward"] + self._discount_rate * next_qvals * (
                 1 - batch["done"]

@@ -63,7 +63,7 @@ class LegalMovesR2D2Agent(R2D2Agent):
 
         # Reset hidden state if it is episode beginning.
         if self._state["episode_start"]:
-            self._hidden_state = self._qnet.init_hidden(batch_size=1)
+            self._hidden_state = self._qnet._legal_qnet.init_hidden(batch_size=1)
 
         # Determine and log the value of epsilon
         if self._training:
@@ -85,6 +85,9 @@ class LegalMovesR2D2Agent(R2D2Agent):
         encoded_legal_moves = torch.tensor(
             action_encoding(observation["action_mask"]), device=self._device
         ).float()
+        legal_moves_as_int = [
+            i for i, x in enumerate(observation["action_mask"]) if x == 1
+        ]
         qvals, self._hidden_state = self._qnet(
             vectorized_observation, encoded_legal_moves, self._hidden_state
         )

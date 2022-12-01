@@ -25,6 +25,9 @@ class LegalMovesRecurrentBuffer(RecurrentReplayBuffer):
         extra_storage_types=None,
         action_dim: int = None,
         num_players_sharing_buffer: int = None,
+        rnn_type: str = "lstm",
+        rnn_hidden_size: int = 128,
+        store_hidden: bool = False,
     ):
         if extra_storage_types is None:
             extra_storage_types = {}
@@ -42,6 +45,9 @@ class LegalMovesRecurrentBuffer(RecurrentReplayBuffer):
             reward_dtype=reward_dtype,
             extra_storage_types=extra_storage_types,
             num_players_sharing_buffer=num_players_sharing_buffer,
+            rnn_type=rnn_type,
+            rnn_hidden_size=rnn_hidden_size,
+            store_hidden=store_hidden,
         )
 
     def sample(self, batch_size):
@@ -51,7 +57,7 @@ class LegalMovesRecurrentBuffer(RecurrentReplayBuffer):
         batch = super().sample(batch_size)
         batch["action_mask"] = self._get_from_storage(
             "action_mask",
-            indices - self._max_seq_len + 1,
+            batch["indices"] - self._max_seq_len + 1,
             num_to_access=self._max_seq_len,
         )
 
