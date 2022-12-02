@@ -40,10 +40,6 @@ def _patched_np_random(seed: int = None):
 
 gym.utils.seeding.np_random = _patched_np_random
 
-from hive.utils.utils import _patched_np_random
-
-gym.utils.seeding.np_random = _patched_np_random
-
 
 class MarlGridEnv(ParallelEnv, GymEnv):
     """MarlGrid environment from https://github.com/kandouss/marlgrid/.
