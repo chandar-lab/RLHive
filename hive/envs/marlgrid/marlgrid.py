@@ -1,10 +1,41 @@
 import gym
+import numpy as np
 from hive.envs import GymEnv, ParallelEnv
 from hive.envs.wrappers.gym_wrappers import FlattenWrapper, PermuteImageWrapper
 from marlgrid import envs
 from gym.wrappers.compatibility import EnvCompatibility
+from numpy.random._generator import Generator
 
-from hive.utils.utils import _patched_np_random
+
+class MyGenerator(Generator):
+    def randint(
+        self: Generator,
+        low: int,
+        high: int,
+        size=None,
+        dtype="l",
+        endpoint: bool = False,
+    ):
+        """Replacement for `numpy.random.Generator.randint` that uses the
+        `Generator.integers` method instead of `Generator.random_integers`
+        which is deprecated."""
+        return self.integers(low, high, size=size, dtype=dtype, endpoint=endpoint)
+
+
+def _patched_np_random(seed: int = None):
+    """Replacement for `gym.utils.seeding.np_random` that uses the
+    `MyGenerator` class instead of `numpy.random.Generator`.
+    MyGenerator has a `.randint` method so the old code from marlgrid
+    can still work."""
+    from gym import error
+
+    if seed is not None and not (isinstance(seed, int) and 0 <= seed):
+        raise error.Error(f"Seed must be a non-negative integer or omitted, not {seed}")
+    seed_seq = np.random.SeedSequence(seed)
+    np_seed = seed_seq.entropy
+    rng = MyGenerator(np.random.PCG64(seed_seq))
+    return rng, np_seed
+
 
 gym.utils.seeding.np_random = _patched_np_random
 
