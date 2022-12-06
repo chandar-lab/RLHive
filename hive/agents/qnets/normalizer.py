@@ -80,7 +80,8 @@ class ObservationNormalizationFn(BaseNormalizationFn):
         self._clip = clip
 
     def __call__(self, obs):
-        obs = (obs - self.obs_rms.mean) / np.sqrt(self.obs_rms.var + self._epsilon)
+        obs = np.array([obs])
+        obs = ((obs - self.obs_rms.mean) / np.sqrt(self.obs_rms.var + self._epsilon))[0]
         if self._clip is not None:
             obs = np.clip(obs, -self._clip, self._clip)
         return obs
