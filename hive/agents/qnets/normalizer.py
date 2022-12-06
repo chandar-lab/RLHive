@@ -111,8 +111,8 @@ class RewardNormalizationFn(BaseNormalizationFn):
         self._returns = np.zeros(1)
 
     def __call__(self, rew):
-        rew = np.array([rew])[0]
-        rew = rew / np.sqrt(self.return_rms.var + self._epsilon)
+        rew = np.array([rew])
+        rew = (rew / np.sqrt(self.return_rms.var + self._epsilon))[0]
         if self._clip is not None:
             rew = np.clip(rew, -self._clip, self._clip)
         return rew
