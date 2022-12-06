@@ -217,7 +217,6 @@ class PPOAgent(Agent):
                 agent should use to update itself.
         """
         if self.obs_norm:
-            self.obs_norm.update(update_info["observation"])
             update_info["observation"] = self.obs_norm(update_info["observation"])
 
         if self.rew_norm:
@@ -278,6 +277,9 @@ class PPOAgent(Agent):
         Args:
             observation: The current observation.
         """
+        if self.obs_norm:
+            self.obs_norm.update(observation)
+            observation = self.obs_norm(observation)
         action, logprob, value = self.get_action_logprob_value(observation)
         self._act_vars = dict(logprob=logprob, value=value)
         return action
