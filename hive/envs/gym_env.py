@@ -35,25 +35,15 @@ class GymEnv(BaseEnv):
         """
         env = gym.make(env_name)
 
-        # wrapper_config = kwargs.get("wrappers", None)
-        # if isinstance(wrapper_config, list) and len(wrapper_config) > 0:
-        #     wrapper_config = {
-        #         "name": "CompositeEnvWrapper",
-        #         "kwargs": {"wrapper_list": wrapper_config},
-        #     }
-
-        # if wrapper_config is not None:
-        #     wrapper_fn, _ = get_wrapper(wrapper_config, "wrappers")
-        #     env = wrapper_fn(env)
-        if kwargs.get("mujoco_wrapper", False):
-            env = gym.wrappers.RecordEpisodeStatistics(env)
-            env = gym.wrappers.ClipAction(env)
-            env = gym.wrappers.NormalizeObservation(env)
-            env = gym.wrappers.TransformObservation(
-                env, lambda obs: np.clip(obs, -10, 10)
-            )
-            env = gym.wrappers.NormalizeReward(env)
-            env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+        wrapper_config = kwargs.get("wrappers", None)
+        if isinstance(wrapper_config, list) and len(wrapper_config) > 0:
+            wrapper_config = {
+                "name": "CompositeEnvWrapper",
+                "kwargs": {"wrapper_list": wrapper_config},
+            }
+        if wrapper_config is not None:
+            wrapper_fn, _ = get_wrapper(wrapper_config, "wrappers")
+            env = wrapper_fn(env)
 
         self._env = env
 

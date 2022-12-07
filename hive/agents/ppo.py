@@ -301,7 +301,9 @@ class PPOAgent(Agent):
 
         if self._replay_buffer.size() + 1 == self._transitions_per_update:
             if self.obs_norm:
-                update_info["next_observation"] = self.obs_norm(update_info["next_observation"])
+                update_info["next_observation"] = self.obs_norm(
+                    update_info["next_observation"]
+                )
             self._replay_buffer.compute_advantages(
                 self.get_action_logprob_value(update_info["next_observation"])[2]
             )

@@ -23,15 +23,11 @@ agent:
     actor_net:
       name: 'MLPNetwork'
       kwargs: 
-        hidden_units: [64, 64]
-        activation_fn:
-          name: 'Tanh'
+        hidden_units: [256, 256]
     critic_net:
       name: 'MLPNetwork'
       kwargs: 
-        hidden_units: [64, 64]
-        activation_fn:
-          name: 'Tanh'
+        hidden_units: [256, 256]
     replay_buffer:
       name: 'PPOReplayBuffer'
       kwargs:
@@ -47,10 +43,10 @@ agent:
     ent_coef: .01
     clip_vloss: True
     vf_coef: .5
-    transitions_per_update: 1024
+    transitions_per_update: 2048
     num_epochs_per_update: 4
     normalize_advantages: True
-    batch_size: 256
+    batch_size: 128
     device: 'cuda'
     id: 'agent'
     init_fn: 

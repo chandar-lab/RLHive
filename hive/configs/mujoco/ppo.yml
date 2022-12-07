@@ -1,6 +1,6 @@
 run_name: &run_name 'mujoco-ppo'
 train_steps: 2000000
-test_frequency: 20000
+test_frequency: 10000
 test_episodes: 5
 max_steps_per_episode: 100000
 stack_size: &stack_size 1
@@ -15,7 +15,9 @@ environment:
   name: 'GymEnv'
   kwargs:
     env_name: 'Hopper-v3'
-    mujoco_wrapper: True
+    wrappers:
+      -
+        name: 'ClipAction'
     
 agent:
   name: 'PPOAgent'
@@ -30,6 +32,14 @@ agent:
       name: 'MLPNetwork'
       kwargs: 
         hidden_units: [64, 64]
+    obs_norm:
+      name: 'ObservationNormalization'
+      kwargs:
+        clip: 10
+    rew_norm:
+      name: 'RewardNormalization'
+      kwargs:
+        clip: 10
     replay_buffer:
       name: 'PPOReplayBuffer'
       kwargs:
@@ -61,7 +71,7 @@ loggers:
   -
     name: WandbLogger
     kwargs:
-      project: Hive-Hardcoded
+      project: Hive
       name: *run_name
       resume: "allow"
       start_method: "fork"
