@@ -8,7 +8,6 @@ from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.utils import calculate_output_dim
 
 
-# TODO: add Multi-Discrete
 class CategoricalHead(torch.nn.Module):
     """A module that implements a discrete actor head. It uses the ouput from the
     :obj:`actor_net`, and adds creates a :py:class:`~torch.distributions.categorical.Categorical`
