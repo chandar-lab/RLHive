@@ -8,17 +8,19 @@ class GymEnv(BaseEnv):
     Class for loading gym environments.
     """
 
-    def __init__(self, env_name, num_players=1, **kwargs):
+    def __init__(self, env_name, num_players=1, render_mode=None, **kwargs):
         """
         Args:
             env_name (str): Name of the environment (NOTE: make sure it is available
                 in gym.envs.registry.all())
             num_players (int): Number of players for the environment.
+            render_mode (str): One of None, "human", "rgb_array", "ansi", or
+                "rgb_array_list". See gym documentation for details.
             kwargs: Any arguments you want to pass to :py:meth:`create_env` or
                 :py:meth:`create_env_spec` can be passed as keyword arguments to this
                 constructor.
         """
-        self.create_env(env_name, **kwargs)
+        self.create_env(env_name, render_mode=render_mode, **kwargs)
         super().__init__(self.create_env_spec(env_name, **kwargs), num_players)
         self._seed = None
 
@@ -63,8 +65,8 @@ class GymEnv(BaseEnv):
         self._turn = (self._turn + 1) % self._num_players
         return observation, reward, terminated, truncated, self._turn, info
 
-    def render(self, mode="rgb_array"):
-        return self._env.render(mode=mode)
+    def render(self):
+        return self._env.render()
 
     def seed(self, seed=None):
         self._seed = seed
