@@ -1,6 +1,6 @@
 import ale_py
 import cv2
-import gym
+import gymnasium as gym
 import numpy as np
 
 from hive.envs.env_spec import EnvSpec

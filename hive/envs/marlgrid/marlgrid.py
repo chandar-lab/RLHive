@@ -61,7 +61,11 @@ class MarlGridEnv(ParallelEnv, GymEnv):
             self._env = envs.env_from_config(kwargs, randomize_seed=randomize_seed)
             self._env = EnvCompatibility(self._env)
         else:
-            super().create_env(env_name, apply_api_compatibility=True, **kwargs)
+            super().create_env(
+                "GymV22Environment-v0",
+                env_id=env_name,
+                **kwargs,
+            )
 
         self._env = PermuteImageWrapper(self._env)
         if flatten:

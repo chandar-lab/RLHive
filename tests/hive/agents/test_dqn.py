@@ -1,7 +1,7 @@
 from copy import deepcopy
 from functools import partial
 from unittest.mock import Mock
-import gym
+import gymnasium as gym
 import numpy as np
 import pytest
 import torch

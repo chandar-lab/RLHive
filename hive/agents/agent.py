@@ -1,6 +1,6 @@
 import abc
 
-import gym
+import gymnasium as gym
 
 from hive.utils.registry import Registrable
 

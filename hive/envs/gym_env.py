@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
 
