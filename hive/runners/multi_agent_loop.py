@@ -118,7 +118,7 @@ class MultiAgentRunner(Runner):
             turn (int): Agent whose turn it is.
             episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
-        super().run_one_step(environment, observation, turn, episode_metrics)
+        self.update_runner_state()
         agent = self._agents[turn]
         if transition_info.is_started(agent):
             info = transition_info.get_info(agent)
@@ -161,7 +161,6 @@ class MultiAgentRunner(Runner):
 
     def run_end_step(
         self,
-        environment,
         episode_metrics,
         transition_info,
         terminated=True,
@@ -214,7 +213,5 @@ class MultiAgentRunner(Runner):
                 truncated = not terminated
 
         # Run the final update.
-        self.run_end_step(
-            environment, episode_metrics, transition_info, terminated, truncated
-        )
+        self.run_end_step(episode_metrics, transition_info, terminated, truncated)
         return episode_metrics

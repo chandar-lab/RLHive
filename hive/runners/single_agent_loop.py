@@ -93,7 +93,7 @@ class SingleAgentRunner(Runner):
                 for.
             episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
-        super().run_one_step(environment, observation, 0, episode_metrics)
+        self.update_runner_state()
         agent = self._agents[0]
         stacked_observation = transition_info.get_stacked_state(agent, observation)
         action = agent.act(stacked_observation)
@@ -135,7 +135,7 @@ class SingleAgentRunner(Runner):
             episode_metrics (Metrics): Keeps track of metrics for current episode.
 
         """
-        super().run_one_step(None, observation, 0, episode_metrics)
+        self.update_runner_state()
         agent = self._agents[0]
         stacked_observation = transition_info.get_stacked_state(agent, observation)
 
