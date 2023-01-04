@@ -9,7 +9,7 @@ import hive
 from hive import main
 from hive import runners
 from hive.runners import single_agent_loop
-from hive.runners.utils import load_config
+from hive.runners.utils import load_config, TransitionInfo
 from hive.utils.loggers import ScheduledLogger
 
 
@@ -110,7 +110,10 @@ def test_run_step(initial_runner):
     assert turn == 0
     agent = single_agent_loop._agents[turn]
     terminated, truncated, observation = single_agent_loop.run_one_step(
-        observation, episode_metrics
+        single_agent_loop._train_environment,
+        observation,
+        episode_metrics,
+        TransitionInfo(single_agent_loop._agents, single_agent_loop._stack_size),
     )
     single_agent_loop._train_schedule.update()
     assert episode_metrics[agent.id]["episode_length"] == 1
@@ -121,7 +124,9 @@ def test_run_episode(initial_runner):
     test running one episode
     """
     single_agent_runner, config = initial_runner
-    episode_metrics = single_agent_runner.run_episode()
+    episode_metrics = single_agent_runner.run_episode(
+        single_agent_runner._train_environment
+    )
     agent = single_agent_runner._agents[0]
     assert (
         episode_metrics[agent._id]["episode_length"]
@@ -151,7 +156,9 @@ def test_resume(initial_runner):
             "test_schedule"
         ]
     )
-    episode_metrics = resumed_single_agent_runner.run_episode()
+    episode_metrics = resumed_single_agent_runner.run_episode(
+        resumed_single_agent_runner._train_environment
+    )
 
 
 def test_run_training(initial_runner):
