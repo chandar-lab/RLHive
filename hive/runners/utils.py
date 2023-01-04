@@ -200,7 +200,7 @@ class TransitionInfo:
             for agent_id in rewards:
                 self._transitions[agent_id]["reward"] += rewards[agent_id]
 
-    def get_info(self, agent, done=False):
+    def get_info(self, agent, terminated=False, truncated=False):
         """Get all the info for the agent, and reset the info for that agent. Also adds
         a done value to the info dictionary that is based on the done parameter to the
         function.
@@ -210,7 +210,8 @@ class TransitionInfo:
             done (bool): Whether this transition is terminal.
         """
         info = self._transitions[agent.id]
-        info["done"] = done
+        info["terminated"] = terminated
+        info["truncated"] = truncated
         self._transitions[agent.id] = {"reward": 0.0}
         return info
 

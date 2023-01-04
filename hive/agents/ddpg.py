@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.utils import InitializationFn
 from hive.agents.td3 import TD3

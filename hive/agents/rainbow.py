@@ -1,7 +1,7 @@
 import copy
 from functools import partial
 
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
 
@@ -262,7 +262,7 @@ class RainbowDQNAgent(DQNAgent):
             update the agent. Should contain a full transition, with keys for
             "observation", "action", "reward", "next_observation", and "done".
         """
-        if update_info["done"]:
+        if update_info["terminated"] or update_info["truncated"]:
             self._state["episode_start"] = True
 
         if not self._training:
