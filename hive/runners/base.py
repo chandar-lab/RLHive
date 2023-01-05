@@ -108,7 +108,7 @@ class Runner(ABC, Registrable):
             [("full_episode_length", 0)],
         )
 
-    def run_one_step(self, environment, observation, turn, episode_metrics):
+    def update_runner_state(self):
         """Run one step of the training loop.
 
         Args:
@@ -124,16 +124,6 @@ class Runner(ABC, Registrable):
             self._save_experiment = (
                 self._experiment_manager.update_step() or self._save_experiment
             )
-
-    def run_end_step(self, environment, episode_metrics, done):
-        """Run the final step of an episode.
-
-        Args:
-            episode_metrics (Metrics): Keeps track of metrics for current episode.
-            done (bool): Whether this step was terminal.
-
-        """
-        return NotImplementedError
 
     def run_episode(self, environment):
         """Run a single episode of the environment."""

@@ -1,7 +1,7 @@
 import operator
 from functools import reduce
 
-import gym
+import gymnasium as gym
 import numpy as np
 
 

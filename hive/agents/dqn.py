@@ -1,7 +1,7 @@
 import copy
 import os
 
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
 
@@ -205,7 +205,7 @@ class DQNAgent(Agent):
             "observation": update_info["observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
-            "done": update_info["done"],
+            "done": update_info["terminated"] or update_info["truncated"],
         }
         if "agent_id" in update_info:
             preprocessed_update_info["agent_id"] = int(update_info["agent_id"])

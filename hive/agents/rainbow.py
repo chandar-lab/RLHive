@@ -1,7 +1,7 @@
 import copy
 from functools import partial
 
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
 

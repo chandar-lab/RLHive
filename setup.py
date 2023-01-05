@@ -8,10 +8,10 @@ with open("version.txt") as f:
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-atari = ["gym[atari,accept-rom-license]~=0.21", "opencv-python~=4.0"]
-gym_minigrid = ["gym-minigrid~=1.0"]
+atari = ["gymnasium[atari,accept-rom-license]~=0.27.0", "opencv-python~=4.0"]
+gym_minigrid = ["gym-minigrid~=1.2.2"]
 minatar = ["MinAtar>=1.0.10"]
-petting_zoo = ["pettingzoo[sisl,atari,classic]~=1.11"]
+petting_zoo = ["pettingzoo[sisl,atari,classic]~=1.22"]
 visualization = ["pandas~=1.0"]
 test = ["pytest~=6.2", "pytest-lazy-fixture~=0.6"]
 
@@ -38,7 +38,7 @@ setuptools.setup(
     ],
     python_requires=">=3.6",
     install_requires=[
-        "gym~=0.21",
+        "gymnasium~=0.27.0",
         "numpy~=1.18",
         "PyYAML~=5.4",
         "torch>=1.8",

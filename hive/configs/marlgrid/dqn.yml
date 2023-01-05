@@ -16,8 +16,8 @@ kwargs:
   test_frequency: 1000
   test_episodes: 10
   self_play: False
-  num_agents: &num_agents 2
-  stack_size: &stack_size 2
+  num_agents: &num_agents 3
+  stack_size: &stack_size 3
 
   # Environment config
   environment:

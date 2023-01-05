@@ -15,7 +15,10 @@ def initial_buffer():
     observation, _ = environment.reset()
     for i in range(400):
         action = environment._env_spec.action_space[0].sample()
-        next_observation, reward, done, turn, info = environment.step(action)
+        next_observation, reward, terminated, truncated, turn, info = environment.step(
+            action
+        )
+        done = terminated or truncated
         buffer.add(observation=observation, action=action, reward=reward, done=done)
         observation = next_observation
         if done:
@@ -32,7 +35,10 @@ def test_add_to_buffer(initial_buffer):
     rng = np.random.default_rng(seed)
     observation, _ = environment.reset()
     action = environment._env_spec.action_space[0].sample()
-    next_observation, reward, done, turn, info = environment.step(action)
+    next_observation, reward, terminated, truncated, turn, info = environment.step(
+        action
+    )
+    done = terminated or truncated
     buffer.add(observation=observation, action=action, reward=reward, done=done)
     assert buffer.size() == 400
 

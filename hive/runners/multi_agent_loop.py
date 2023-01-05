@@ -124,7 +124,7 @@ class MultiAgentRunner(Runner):
             turn (int): Agent whose turn it is.
             episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
-        super().run_one_step(environment, observation, turn, episode_metrics)
+        self.update_runner_state()
         agent = self._agents[turn]
         agent_state = agent_states[turn]
         if transition_info.is_started(agent):
@@ -140,7 +140,14 @@ class MultiAgentRunner(Runner):
 
         stacked_observation = transition_info.get_stacked_state(agent, observation)
         action, agent_state = agent.act(stacked_observation, agent_state)
-        next_observation, reward, done, turn, other_info = environment.step(action)
+        (
+            next_observation,
+            reward,
+            terminated,
+            truncated,
+            turn,
+            other_info,
+        ) = environment.step(action)
         transition_info.record_info(
             agent,
             {
@@ -158,10 +165,15 @@ class MultiAgentRunner(Runner):
             )
         transition_info.update_all_rewards(reward)
         agent_states[turn] = agent_state
-        return done, next_observation, turn, agent_states
+        return terminated, truncated, next_observation, turn, agent_states
 
     def run_end_step(
-        self, environment, episode_metrics, transition_info, agent_states, done=True
+        self,
+        episode_metrics,
+        transition_info,
+        agent_states,
+        terminated=True,
+        truncated=False,
     ):
         """Run the final step of an episode.
 
@@ -170,34 +182,36 @@ class MultiAgentRunner(Runner):
 
         Args:
             episode_metrics (Metrics): Keeps track of metrics for current episode.
-            done (bool): Whether this step was terminal.
+            terminated (bool): Whether this step was terminal.
+            truncated (bool): Whether this step was terminal.
 
         """
-        for agent in self._agents:
+        for idx, agent in enumerate(self._agents):
             if transition_info.is_started(agent):
-                info = transition_info.get_info(agent, done=done)
-
+                info = transition_info.get_info(agent, terminated, truncated)
+                agent_state = agent_states[idx]
                 if self._training:
-                    agent.update(info)
+                    agent_state = agent.update(copy.deepcopy(info), agent_state)
                 episode_metrics[agent.id]["episode_length"] += 1
+                episode_metrics[agent.id]["reward"] += info["reward"]
                 episode_metrics["full_episode_length"] += 1
-            episode_metrics[agent.id]["reward"] += info["reward"]
 
     def run_episode(self, environment):
         """Run a single episode of the environment."""
         episode_metrics = self.create_episode_metrics()
-        done = False
         observation, turn = environment.reset()
         transition_info = TransitionInfo(self._agents, self._stack_size)
         steps = 0
         agent_states = [None] * len(self._agents)
+        terminated, truncated = False, False
+
         # Run the loop until the episode ends or times out
         while (
-            not done
+            not (terminated or truncated)
             and steps < self._max_steps_per_episode
             and (not self._training or self._train_schedule.get_value())
         ):
-            done, observation, turn, agent_states = self.run_one_step(
+            terminated, truncated, observation, turn, agent_states = self.run_one_step(
                 environment,
                 observation,
                 turn,
@@ -205,13 +219,16 @@ class MultiAgentRunner(Runner):
                 transition_info,
                 agent_states,
             )
-            steps += 1
             if self._run_testing and self._training:
                 # Run test episodes
                 self.run_testing()
 
+            steps += 1
+            if steps == self._max_steps_per_episode:
+                truncated = not terminated
+
         # Run the final update.
         self.run_end_step(
-            environment, episode_metrics, transition_info, agent_states, done
+            episode_metrics, transition_info, agent_states, terminated, truncated
         )
         return episode_metrics

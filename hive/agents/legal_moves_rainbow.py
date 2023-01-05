@@ -18,7 +18,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
             "observation": update_info["observation"]["observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
-            "done": update_info["done"],
+            "done": update_info["terminated"] or update_info["truncated"],
             "action_mask": action_encoding(update_info["observation"]["action_mask"]),
         }
         if "agent_id" in update_info:
