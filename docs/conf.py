@@ -20,6 +20,7 @@
 import sys
 import os
 import inspect
+
 sys.path.insert(0, os.path.abspath("../"))
 
 import hive
