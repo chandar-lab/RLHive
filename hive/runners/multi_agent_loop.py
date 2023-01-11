@@ -85,9 +85,14 @@ class MultiAgentRunner(Runner):
             agent, observation
         )
         action = agent.act(stacked_observation)
-        next_observation, reward, done, turn, other_info = self._environment.step(
-            action
-        )
+        (
+            next_observation,
+            reward,
+            terminated,
+            truncated,
+            turn,
+            other_info,
+        ) = self._environment.step(action)
         self._transition_info.record_info(
             agent,
             {
@@ -104,9 +109,9 @@ class MultiAgentRunner(Runner):
                 },
             )
         self._transition_info.update_all_rewards(reward)
-        return done, next_observation, turn
+        return terminated, truncated, next_observation, turn
 
-    def run_end_step(self, episode_metrics, done=True):
+    def run_end_step(self, episode_metrics, terminated=False, truncated=False):
         """Run the final step of an episode.
 
         After an episode ends, iterate through agents and update then with the final
@@ -114,13 +119,13 @@ class MultiAgentRunner(Runner):
 
         Args:
             episode_metrics (Metrics): Keeps track of metrics for current episode.
-            done (bool): Whether this step was terminal.
+            terminated (bool): Whether this step was terminal.
+            truncated (bool): Whether this step was terminal.
 
         """
         for agent in self._agents:
             if self._transition_info.is_started(agent):
-                info = self._transition_info.get_info(agent, done=done)
-
+                info = self._transition_info.get_info(agent, terminated, truncated)
                 if self._training:
                     agent.update(info)
                 episode_metrics[agent.id]["episode_length"] += 1
@@ -130,19 +135,22 @@ class MultiAgentRunner(Runner):
     def run_episode(self):
         """Run a single episode of the environment."""
         episode_metrics = self.create_episode_metrics()
-        done = False
         observation, turn = self._environment.reset()
         self._transition_info.reset()
         steps = 0
+        terminated, truncated = False, False
+
         # Run the loop until the episode ends or times out
-        while not done and steps < self._max_steps_per_episode:
-            done, observation, turn = self.run_one_step(
+        while not (terminated or truncated) and steps < self._max_steps_per_episode:
+            terminated, truncated, observation, turn = self.run_one_step(
                 observation, turn, episode_metrics
             )
             steps += 1
+            if steps == self._max_steps_per_episode:
+                truncated = not terminated
 
         # Run the final update.
-        self.run_end_step(episode_metrics, done)
+        self.run_end_step(episode_metrics, terminated, truncated)
         return episode_metrics
 
 
@@ -203,7 +211,7 @@ def set_up_experiment(config):
     for idx in range(num_agents):
         if not config["self_play"] or idx == 0:
             agent_fn, full_agent_config = agent_lib.get_agent(
-                config["agent"][idx], f"agents.{idx}"
+                config["agents"][idx], f"agents.{idx}"
             )
             agent = agent_fn(
                 observation_space=env_spec.observation_space[idx],

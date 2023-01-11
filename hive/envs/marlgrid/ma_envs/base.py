@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 import numpy as np
 from marlgrid.base import MultiGrid, MultiGridEnv, rotate_grid
 from marlgrid.rendering import SimpleImageViewer

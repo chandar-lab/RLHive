@@ -128,12 +128,14 @@ class ParallelEnv(BaseEnv):
     before A in the order.
     """
 
-    def __init__(self, env_name, num_players):
-        super().__init__(env_name, num_players)
+    def __init__(self, env_name, num_players, **kwargs):
+        super().__init__(env_name, num_players, **kwargs)
         self._actions = []
         self._obs = None
         self._info = None
         self._done = False
+        self._termination = False
+        self._truncation = False
 
     def reset(self):
         self._obs, _ = super().reset()
@@ -142,19 +144,23 @@ class ParallelEnv(BaseEnv):
     def step(self, action):
         self._actions.append(action)
         if len(self._actions) == self._num_players:
-            observation, reward, done, _, info = super().step(self._actions)
+            observation, reward, termination, truncation, _, info = super().step(
+                self._actions
+            )
             self._actions = []
             self._turn = 0
             self._obs = observation
             self._info = info
-            self._done = done
+            self._termination = termination
+            self._truncation = truncation
         else:
             self._turn = (self._turn + 1) % self._num_players
             reward = 0
         return (
             self._obs[self._turn],
             reward,
-            self._done and self._turn == 0,
+            self._termination,
+            self._truncation,
             self._turn,
             self._info,
         )
