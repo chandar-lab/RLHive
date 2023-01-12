@@ -40,7 +40,7 @@ class Registry:
     For example, let's consider the following scenario:
     Your agent class has an argument `arg1` which is annotated to be `List[Class1]`,
     `Class1` is `Registrable`, and the `Class1` constructor takes an argument `arg2`.
-    In the passed yml config, there are two different Class1 object configs listed.
+    In the passed yml config, there are two different Class1 object configs listed,
     the constructor will check to see if both `--agent.arg1.0.arg2` and
     `--agent.arg1.1.arg2` have been passed.
 

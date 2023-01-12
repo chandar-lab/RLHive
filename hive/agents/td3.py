@@ -62,10 +62,10 @@ class TD3(Agent):
                 None, defaults to :py:class:`~torch.nn.Identity`.
             actor_net (FunctionApproximator): The network that takes the encoded
                 observations from representation_net and outputs the representations
-                used to compute the actions (ie everything except the last layer).
+                used to compute the actions (i.e. everything except the last layer).
             critic_net (FunctionApproximator): The network that takes two inputs: the
                 encoded observations from representation_net and actions. It outputs
-                the representations used to compute the values of the actions (ie
+                the representations used to compute the values of the actions (i.e.
                 everything except the last layer).
             init_fn (InitializationFn): Initializes the weights of agent networks using
                 create_init_weights_fn.

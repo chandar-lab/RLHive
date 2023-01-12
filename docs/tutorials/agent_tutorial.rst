@@ -32,6 +32,7 @@ First, we define the constructor:
             self._q_values = np.zeros(obs_dim, act_dim)
             self._gamma = gamma
             self._alpha = alpha
+            self._act_dim = act_dim
             self._epsilon_schedule = LinearSchedule(1.0, final_epsilon, explore_steps)
 
 In this constructor, we created a numpy array to keep track of the Q-values for every

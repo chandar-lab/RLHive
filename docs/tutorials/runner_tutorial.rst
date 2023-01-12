@@ -6,7 +6,7 @@ We provide two different :py:class:`~hive.runners.base.Runner` classes:
 for both Runner classes can be viewed in their respective files with the
 :py:meth:`set_up_experiment` functions. 
 The :py:meth:`~hive.utils.registry.get_parsed_args` function can be used
-to get any arguments from the command line are not part of the signatures
+to get any arguments from the command line that are not part of the signatures
 of already registered RLHive class constructors. 
 
 

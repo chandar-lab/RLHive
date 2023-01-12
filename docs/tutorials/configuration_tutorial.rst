@@ -36,8 +36,8 @@ In this example, :py:class:`~hive.agents.dqn_agent.DQNAgent` ,
 :py:class:`~hive.agents.qnets.mlp.MLPNetwork` , and
 :py:class:`~hive.replays.circular_replay.CircularReplayBuffer` are all classes
 registered with RLHive. Thus, we can do this configuration directly. When the
-``registry`` getter function for agents, 
-:py:meth:`~hive.utils.registry.Registry.get_agent` is then called with this config
+``registry`` getter function for agents 
+:py:meth:`~hive.utils.registry.Registry.get_agent`, is then called with this config
 dictionary (with the missing required arguments such as ``obs_dim`` and ``act_dim``,
 filled in), it will build all the inner RLHive objects automatically.
 This works by using the type annotations on the constructors of the objects, so
@@ -51,8 +51,8 @@ Overriding from command lines
 --------------------------------
 When using the ``registry`` getter functions, RLHive automatically checks any command 
 line arguments passed to see if they match/override any default or yaml configured 
-arguments. With ``getter`` functionyou provide a config and a prefix. That prefix
-is added prepended to any argument names when searching the command line. For example,
+arguments. With ``getter`` function you provide a config and a prefix. That prefix
+is added, prepended to any argument names when searching the command line. For example,
 with the above config, if it were loaded and the 
 :py:meth:`~hive.utils.registry.Registry.get_agent` method was called as follows:
 
@@ -65,7 +65,7 @@ python script: ``--ag.discount_rate .95``. This can go arbitrarily deep into reg
 RLHive class. For example, if you wanted to change the capacity of the replay buffer,
 you could pass ``--ag.replay_buffer.capacity 100000``.
 
-If the type annotation the argument ``arg`` is ``List[C]`` where C is a registered
+If the type annotation of the argument ``arg`` is ``List[C]`` where C is a registered
 RLHive class, then you can override the argument of an individual object, ``foo``,
 configured through YAML by passing ``--arg.0.foo <value>``.
 

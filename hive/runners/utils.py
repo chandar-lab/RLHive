@@ -17,7 +17,7 @@ def load_config(
     logger_config=None,
 ):
     """Used to load config for experiments. Agents, environment, and loggers components
-    in main config file can be overrided based on other log files.
+    in main config file can be overriden based on other log files.
 
     Args:
         config (str): Path to configuration file. Either this or :obj:`preset_config`
