@@ -3,7 +3,7 @@ import copy
 
 from hive import agents as agent_lib
 from hive import envs
-from hive.debugger_v2.DebuggerFactory import DebuggerFactory
+from hive.debugger.DebuggerFactory import DebuggerFactory
 from hive.runners.base import Runner
 from hive.runners.utils import TransitionInfo, load_config
 from hive.utils import experiment, loggers, schedule, utils

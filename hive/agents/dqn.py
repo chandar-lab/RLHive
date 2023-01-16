@@ -13,8 +13,8 @@ from hive.agents.qnets.utils import (
     calculate_output_dim,
     create_init_weights_fn,
 )
-from hive.debugger_v2 import DebuggerInterface
-from hive.debugger_v2.DebuggerFactory import DebuggerFactory
+from hive.debugger import DebuggerInterface
+from hive.debugger.DebuggerFactory import DebuggerFactory
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.loggers import Logger, NullLogger
 from hive.utils.schedule import (
@@ -24,7 +24,7 @@ from hive.utils.schedule import (
     SwitchSchedule,
 )
 from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder
-
+import tensorflow as tf
 
 class DQNAgent(Agent):
     """An agent implementing the DQN algorithm. Uses an epsilon greedy
@@ -322,6 +322,7 @@ class DQNAgent(Agent):
                     1 - batch["done"]
             )
 
+            number_of_actions = q_targets.size
             self.run_debugging(observations=copy.deepcopy(current_state_inputs[0].numpy()),
                                model=copy.deepcopy(self._qnet),
                                labels=copy.deepcopy(q_targets),

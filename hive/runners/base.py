@@ -7,7 +7,7 @@ from hive.runners.utils import Metrics
 from hive.utils import schedule
 from hive.utils.experiment import Experiment
 from hive.utils.loggers import ScheduledLogger
-from hive.debugger.debugger import Debugger
+from hive.debugger.DebuggerFactory import DebuggerFactory
 
 
 class Runner(ABC):
@@ -22,7 +22,7 @@ class Runner(ABC):
         environment: BaseEnv,
         agents: List[Agent],
         logger: ScheduledLogger,
-        debugger: Debugger,
+        debugger: DebuggerFactory,
         experiment_manager: Experiment,
         train_steps: int = 1000000,
         test_frequency: int = 10000,

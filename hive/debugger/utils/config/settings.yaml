@@ -1,3 +1,46 @@
+Observations:
+    Period: 0
+    Data:
+        normalized_data_mins: [0.0, -1.0]
+        normalized_data_maxs: [1.0]
+        #normalized perplexity of labels,
+        #where 0-->a single label overcomes the dist, 1--> all the labels have almost equal frequencies.
+        labels_perp_min_thresh: 0.5
+        outputs_var_coef_thresh: 0.001
+
+Weights:
+    Period: 0
+    Initial_Weight:
+        disabled: false
+        f_test_alpha: 0.1
+
+Bias:
+    Period: 0
+
+Loss:
+    Period: 0
+    init_loss:
+        size_growth_rate: 2
+        size_growth_iters: 5
+        dev_ratio: 1.0
+
+ProperFitting:
+    Period: 0
+    single_batch_size: 16
+    total_iters: 100
+    abs_loss_min_thresh: 1e-8
+    loss_min_thresh: 0.00001 # (1e-5) check of close-to-zero loss (lack of regularization)
+    smoothness_max_thresh: 0.95 # check of very smoothly decreasing loss (lack of regularization)
+    mislabeled_rate_max_thresh: 0.05 #no more than 5% error rate w.r.t a single batch of data
+    mean_error_max_thresh: 0.001 #max of the mean of error per instance (assuming output is normalized within [0,1])
+    #refers to number of loss values used to perform statistical comparison between two models:
+    #one takes the features as inputs and one takes zeroed features(null) to test for data dependency
+    sample_size_of_losses: 100
+    Instance_wise_Operation:
+        sample_size: 32
+        trials: 10
+
+
 PreCheck:
     fail_on: false
     disabled: false

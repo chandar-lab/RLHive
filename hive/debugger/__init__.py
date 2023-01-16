@@ -1,7 +1,13 @@
+from hive.debugger.Checkers.NN_checkers.BiasCheck import BiasCheck
+from hive.debugger.Checkers.NN_checkers.LossCheck import LossCheck
+from hive.debugger.Checkers.NN_checkers.ObservationsCheck import ObservationsCheck
+from hive.debugger.Checkers.NN_checkers.ProperFittingCheck import ProperFittingCheck
+from hive.debugger.Checkers.NN_checkers.WeightsCheck import WeightsCheck
+from hive.debugger.DebuggerInterface import DebuggerInterface
 from hive.utils.registry import registry
-from hive.debugger.debugger import Debugger
 
-# registry.register_all(
+# Todo
+#  registry.register_all(
 #     Debugger,
 #     {
 #         "NullDebugger": NullDebugger,
@@ -12,6 +18,12 @@ from hive.debugger.debugger import Debugger
 #     },
 # )
 
-registry.register("Debugger", Debugger, Debugger)
+registry.register("Observations", ObservationsCheck, ObservationsCheck)
+registry.register("Weights", WeightsCheck, WeightsCheck)
+registry.register("Bias", BiasCheck, BiasCheck)
+registry.register("Loss", LossCheck, LossCheck)
+registry.register("ProperFitting", ProperFittingCheck, ProperFittingCheck)
 
-get_debugger = getattr(registry, f"get_{Debugger.type_name()}")
+
+
+get_debugger = getattr(registry, f"get_{DebuggerInterface.type_name()}")

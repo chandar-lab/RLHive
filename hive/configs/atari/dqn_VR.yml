@@ -85,7 +85,7 @@ debugger:
   name: 'Debugger'
   kwargs:
     check_type:
-      [name : "Observations", name : "Weights"]
+      [name : "ProperFitting"]
   
 
 
