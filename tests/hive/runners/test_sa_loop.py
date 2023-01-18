@@ -106,7 +106,7 @@ def test_run_step(initial_runner):
     episode_metrics = single_agent_loop.create_episode_metrics()
     done = False
     terminated, truncated = False, False
-    observation, turn = single_agent_loop._environment.reset()
+    observation, turn = single_agent_loop._train_environment.reset()
     assert turn == 0
     agent = single_agent_loop._agents[turn]
     terminated, truncated, observation, agent_state = single_agent_loop.run_one_step(
@@ -171,7 +171,7 @@ def test_run_training(initial_runner):
     assert (
         single_agent_runner._train_schedule._steps
         <= config["kwargs"]["train_steps"]
-        + single_agent_runner._environment._env._max_episode_steps
+        + single_agent_runner._train_environment._env._max_episode_steps
     )
 
 
