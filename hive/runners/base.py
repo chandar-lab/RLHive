@@ -48,7 +48,6 @@ class Runner(ABC, Registrable):
         self._eval_environment = eval_environment
         if self._eval_environment is not None:
             self._eval_environment.seed(seeder.get_new_seed("environment"))
-        self._environment = self._train_environment
 
         if isinstance(agents, list):
             self._agents = agents

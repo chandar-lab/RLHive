@@ -124,7 +124,7 @@ class SingleAgentRunner(Runner):
 
         return terminated, truncated, next_observation
 
-    def run_end_step(self, observation, episode_metrics, transition_info):
+    def run_end_step(self, environment, observation, episode_metrics, transition_info):
         """Run the final step of an episode.
 
         After an episode ends, set the truncated value to true.
@@ -140,7 +140,7 @@ class SingleAgentRunner(Runner):
         stacked_observation = transition_info.get_stacked_state(agent, observation)
 
         action = agent.act(stacked_observation)
-        next_observation, reward, terminated, _, _, other_info = self._environment.step(
+        next_observation, reward, terminated, _, _, other_info = environment.step(
             action
         )
         truncated = not terminated
@@ -186,6 +186,8 @@ class SingleAgentRunner(Runner):
                 self.run_testing()
 
         if not (terminated or truncated):
-            self.run_end_step(observation, episode_metrics, transition_info)
+            self.run_end_step(
+                environment, observation, episode_metrics, transition_info
+            )
 
         return episode_metrics
