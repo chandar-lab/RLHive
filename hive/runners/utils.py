@@ -40,16 +40,16 @@ def load_config(
             yaml_config = yaml.safe_load(f)
     if agent_config is not None:
         with open(agent_config) as f:
-            if "agents" in yaml_config:
-                yaml_config["agents"] = yaml.safe_load(f)
+            if "agents" in yaml_config["kwargs"]:
+                yaml_config["kwargs"]["agents"] = yaml.safe_load(f)
             else:
-                yaml_config["agent"] = yaml.safe_load(f)
+                yaml_config["kwargs"]["agent"] = yaml.safe_load(f)
     if env_config is not None:
         with open(env_config) as f:
-            yaml_config["environment"] = yaml.safe_load(f)
+            yaml_config["kwargs"]["environment"] = yaml.safe_load(f)
     if logger_config is not None:
         with open(logger_config) as f:
-            yaml_config["loggers"] = yaml.safe_load(f)
+            yaml_config["kwargs"]["loggers"] = yaml.safe_load(f)
     return yaml_config
 
 
