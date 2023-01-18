@@ -86,7 +86,12 @@ class SingleAgentRunner(Runner):
         self._stack_size = stack_size
 
     def run_one_step(
-        self, environment, observation, episode_metrics, transition_info, agent_state
+        self,
+        environment,
+        observation,
+        episode_metrics,
+        transition_info,
+        agent_traj_state,
     ):
         """Run one step of the training loop.
 
@@ -98,7 +103,7 @@ class SingleAgentRunner(Runner):
         self.update_runner_state()
         agent = self._agents[0]
         stacked_observation = transition_info.get_stacked_state(agent, observation)
-        action, agent_state = agent.act(stacked_observation, agent_state)
+        action, agent_traj_state = agent.act(stacked_observation, agent_traj_state)
         (
             next_observation,
             reward,
@@ -117,17 +122,22 @@ class SingleAgentRunner(Runner):
             "info": other_info,
         }
         if self._training:
-            agent_state = agent.update(copy.deepcopy(info), agent_state)
+            agent_traj_state = agent.update(copy.deepcopy(info), agent_traj_state)
 
         transition_info.record_info(agent, info)
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1
         episode_metrics["full_episode_length"] += 1
 
-        return terminated, truncated, next_observation, agent_state
+        return terminated, truncated, next_observation, agent_traj_state
 
     def run_end_step(
-        self, environment, observation, episode_metrics, transition_info, agent_state
+        self,
+        environment,
+        observation,
+        episode_metrics,
+        transition_info,
+        agent_traj_state,
     ):
         """Run the final step of an episode.
 
@@ -143,7 +153,7 @@ class SingleAgentRunner(Runner):
         agent = self._agents[0]
         stacked_observation = transition_info.get_stacked_state(agent, observation)
 
-        action, agent_state = agent.act(stacked_observation, agent_state)
+        action, agent_traj_state = agent.act(stacked_observation, agent_traj_state)
         next_observation, reward, terminated, _, _, other_info = environment.step(
             action
         )
@@ -158,14 +168,14 @@ class SingleAgentRunner(Runner):
             "info": other_info,
         }
         if self._training:
-            agent_state = agent.update(copy.deepcopy(info), agent_state)
+            agent_traj_state = agent.update(copy.deepcopy(info), agent_traj_state)
 
         transition_info.record_info(agent, info)
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1
         episode_metrics["full_episode_length"] += 1
 
-        return terminated, truncated, next_observation, agent_state
+        return terminated, truncated, next_observation, agent_traj_state
 
     def run_episode(self, environment):
         """Run a single episode of the environment."""
@@ -174,7 +184,7 @@ class SingleAgentRunner(Runner):
         observation, _ = environment.reset()
         transition_info = TransitionInfo(self._agents, self._stack_size)
         transition_info.start_agent(self._agents[0])
-        agent_state = None
+        agent_traj_state = None
         steps = 0
         # Run the loop until the episode ends or times out
         while (
@@ -182,8 +192,12 @@ class SingleAgentRunner(Runner):
             and steps < self._max_steps_per_episode - 1
             and (not self._training or self._train_schedule.get_value())
         ):
-            terminated, truncated, observation, agent_state = self.run_one_step(
-                environment, observation, episode_metrics, transition_info, agent_state
+            terminated, truncated, observation, agent_traj_state = self.run_one_step(
+                environment,
+                observation,
+                episode_metrics,
+                transition_info,
+                agent_traj_state,
             )
             steps += 1
             if self._run_testing and self._training:
@@ -192,7 +206,11 @@ class SingleAgentRunner(Runner):
 
         if not (terminated or truncated):
             self.run_end_step(
-                environment, observation, episode_metrics, transition_info, agent_state
+                environment,
+                observation,
+                episode_metrics,
+                transition_info,
+                agent_traj_state,
             )
 
         return episode_metrics

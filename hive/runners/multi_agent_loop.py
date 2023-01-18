@@ -110,7 +110,7 @@ class MultiAgentRunner(Runner):
         turn,
         episode_metrics,
         transition_info,
-        agent_states,
+        agent_traj_states,
     ):
         """Run one step of the training loop.
 
@@ -126,11 +126,11 @@ class MultiAgentRunner(Runner):
         """
         self.update_runner_state()
         agent = self._agents[turn]
-        agent_state = agent_states[turn]
+        agent_traj_state = agent_traj_states[turn]
         if transition_info.is_started(agent):
             info = transition_info.get_info(agent)
             if self._training:
-                agent_state = agent.update(copy.deepcopy(info), agent_state)
+                agent_traj_state = agent.update(copy.deepcopy(info), agent_traj_state)
 
             episode_metrics[agent.id]["reward"] += info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
@@ -139,7 +139,7 @@ class MultiAgentRunner(Runner):
             transition_info.start_agent(agent)
 
         stacked_observation = transition_info.get_stacked_state(agent, observation)
-        action, agent_state = agent.act(stacked_observation, agent_state)
+        action, agent_traj_state = agent.act(stacked_observation, agent_traj_state)
         (
             next_observation,
             reward,
@@ -164,14 +164,14 @@ class MultiAgentRunner(Runner):
                 },
             )
         transition_info.update_all_rewards(reward)
-        agent_states[turn] = agent_state
-        return terminated, truncated, next_observation, turn, agent_states
+        agent_traj_states[turn] = agent_traj_state
+        return terminated, truncated, next_observation, turn, agent_traj_states
 
     def run_end_step(
         self,
         episode_metrics,
         transition_info,
-        agent_states,
+        agent_traj_states,
         terminated=True,
         truncated=False,
     ):
@@ -189,9 +189,11 @@ class MultiAgentRunner(Runner):
         for idx, agent in enumerate(self._agents):
             if transition_info.is_started(agent):
                 info = transition_info.get_info(agent, terminated, truncated)
-                agent_state = agent_states[idx]
+                agent_traj_state = agent_traj_states[idx]
                 if self._training:
-                    agent_state = agent.update(copy.deepcopy(info), agent_state)
+                    agent_traj_state = agent.update(
+                        copy.deepcopy(info), agent_traj_state
+                    )
                 episode_metrics[agent.id]["episode_length"] += 1
                 episode_metrics[agent.id]["reward"] += info["reward"]
                 episode_metrics["full_episode_length"] += 1
@@ -202,7 +204,7 @@ class MultiAgentRunner(Runner):
         observation, turn = environment.reset()
         transition_info = TransitionInfo(self._agents, self._stack_size)
         steps = 0
-        agent_states = [None] * len(self._agents)
+        agent_traj_states = [None] * len(self._agents)
         terminated, truncated = False, False
 
         # Run the loop until the episode ends or times out
@@ -211,13 +213,19 @@ class MultiAgentRunner(Runner):
             and steps < self._max_steps_per_episode
             and (not self._training or self._train_schedule.get_value())
         ):
-            terminated, truncated, observation, turn, agent_states = self.run_one_step(
+            (
+                terminated,
+                truncated,
+                observation,
+                turn,
+                agent_traj_states,
+            ) = self.run_one_step(
                 environment,
                 observation,
                 turn,
                 episode_metrics,
                 transition_info,
-                agent_states,
+                agent_traj_states,
             )
             if self._run_testing and self._training:
                 # Run test episodes
@@ -229,6 +237,6 @@ class MultiAgentRunner(Runner):
 
         # Run the final update.
         self.run_end_step(
-            episode_metrics, transition_info, agent_states, terminated, truncated
+            episode_metrics, transition_info, agent_traj_states, terminated, truncated
         )
         return episode_metrics

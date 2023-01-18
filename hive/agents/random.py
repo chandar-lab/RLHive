@@ -32,13 +32,13 @@ class RandomAgent(Agent):
         self._action_space.seed(seed=seeder.get_new_seed("agent"))
 
     @torch.no_grad()
-    def act(self, observation, state=None):
+    def act(self, observation, agent_traj_state=None):
         """Returns a random action for the agent."""
         action = self._action_space.sample()
-        return action, state
+        return action, agent_traj_state
 
-    def update(self, update_info, state=None):
-        return state
+    def update(self, update_info, agent_traj_state=None):
+        return agent_traj_state
 
     def save(self, dname):
         torch.save(

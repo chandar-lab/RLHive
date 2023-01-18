@@ -278,12 +278,18 @@ class TD3(Agent):
         return (batch["observation"],), (batch["next_observation"],), batch
 
     @torch.no_grad()
-    def act(self, observation, state=None):
+    def act(self, observation, agent_traj_state=None):
         """Returns the action for the agent. If in training mode, adds noise with
         standard deviation :py:obj:`self._action_noise`.
 
         Args:
             observation: The current observation.
+            agent_traj_state: Contains necessary state information for the agent
+                to process current trajectory. This should be updated and returned.
+
+        Returns:
+            - action
+            - agent trajectory state
         """
 
         # Calculate action and add noise if training.
@@ -298,16 +304,23 @@ class TD3(Agent):
         if self._scale_actions:
             action = self.unscale_actions(action)
         action = np.clip(action, self._action_min, self._action_max)
-        return np.squeeze(action, axis=0), state
+        return np.squeeze(action, axis=0), agent_traj_state
 
-    def update(self, update_info, state=None):
+    def update(self, update_info, agent_traj_state=None):
         """
         Updates the TD3 agent.
 
         Args:
-            update_info: dictionary containing all the necessary information to
-                update the agent. Should contain a full transition, with keys for
-                "observation", "action", "reward", and "done".
+            update_info: dictionary containing all the necessary information
+                from the environment to update the agent. Should contain a full
+                transition, with keys for "observation", "action", "reward",
+                "next_observation", and "done".
+            agent_traj_state: Contains necessary state information for the agent
+                to process current trajectory. This should be updated and returned.
+
+        Returns:
+            - action
+            - agent trajectory state
         """
 
         if not self._training:
@@ -382,7 +395,7 @@ class TD3(Agent):
                 self._update_target()
                 if self._logger.should_log(self._timescale):
                     self._logger.log_scalar("actor_loss", actor_loss, self._timescale)
-        return state
+        return agent_traj_state
 
     def _update_target(self):
         """Update the target network."""

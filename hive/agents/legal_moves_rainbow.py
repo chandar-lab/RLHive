@@ -35,7 +35,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         )
 
     @torch.no_grad()
-    def act(self, observation, state=None):
+    def act(self, observation, agent_traj_state=None):
         if self._training:
             if not self._learn_schedule.get_value():
                 epsilon = 1.0
@@ -67,12 +67,12 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         if (
             self._training
             and self._logger.should_log(self._timescale)
-            and state is None
+            and agent_traj_state is None
         ):
             self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
-            state = {}
+            agent_traj_state = {}
 
-        return action, state
+        return action, agent_traj_state
 
 
 class LegalMovesHead(torch.nn.Module):

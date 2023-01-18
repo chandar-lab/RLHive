@@ -109,7 +109,12 @@ def test_run_step(initial_runner):
     observation, turn = single_agent_loop._train_environment.reset()
     assert turn == 0
     agent = single_agent_loop._agents[turn]
-    terminated, truncated, observation, agent_state = single_agent_loop.run_one_step(
+    (
+        terminated,
+        truncated,
+        observation,
+        agent_traj_state,
+    ) = single_agent_loop.run_one_step(
         single_agent_loop._train_environment,
         observation,
         episode_metrics,
