@@ -50,7 +50,7 @@ def full_buffer(buffer):
 
 @pytest.fixture()
 def full_n_step_buffer():
-    n_step_buffer = CircularReplayBuffer(
+    n_step_buffer = RecurrentReplayBuffer(
         capacity=CAPACITY,
         observation_shape=OBS_SHAPE,
         observation_dtype=np.float32,
