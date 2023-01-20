@@ -41,7 +41,7 @@ class Agent(abc.ABC, Registrable):
         pass
 
     @abc.abstractmethod
-    def update(self, update_info):
+    def update(self, update_info, agent_traj_state):
         """
         Updates the agent.
 
