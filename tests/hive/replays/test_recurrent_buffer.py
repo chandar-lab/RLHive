@@ -11,7 +11,7 @@ from hive.replays.recurrent_replay import RecurrentReplayBuffer
 OBS_SHAPE = (4, 4)
 CAPACITY = 60
 MAX_SEQ_LEN = 10
-N_STEP_HORIZON = 3
+N_STEP_HORIZON = 1
 GAMMA = 0.99
 
 @pytest.fixture()
@@ -99,7 +99,7 @@ def test_constructor(
         extra_storage_types=extra_storage_types,
     )
     assert buffer.size() == 0
-    assert buffer._max_seq_len == 10
+    assert buffer._max_seq_len == MAX_SEQ_LEN
     assert buffer._storage["observation"].shape == (10,) + observation_shape
     assert buffer._storage["observation"].dtype == observation_dtype
     assert buffer._storage["action"].shape == (10,) + action_shape
@@ -114,32 +114,33 @@ def test_constructor(
 
 def test_add(buffer):
     assert buffer.size() == 0
-    for i in range(CAPACITY):
+    done_time = 15
+    for i in range(33):  #until the buffer is full instead of CAPACITY
         buffer.add(
             observation=np.ones(OBS_SHAPE) * i,
             action=i,
             reward=i % 10,
-            done=((i + 1) % 15) == 0,
+            done=((i + 1) % done_time) == 0,
             priority=(i % 10) + 1,
         )
-        if i < MAX_SEQ_LEN:
-            assert buffer.size() == i
-            assert buffer._cursor == ((i + 1) % CAPACITY)
-        else:
-            assert buffer.size() == i - MAX_SEQ_LEN
-            assert buffer._cursor == ((i + 1) % CAPACITY)
 
-    for i in range(20):
+        assert buffer.size() == i + ((i) // done_time) * (MAX_SEQ_LEN - 1)
+        assert buffer._cursor == ((i + MAX_SEQ_LEN)  + (((i) // done_time) * (MAX_SEQ_LEN - 1))) % CAPACITY
+
+
+    more_steps = 40
+    for i in range(more_steps):
         buffer.add(
             observation=np.ones(OBS_SHAPE) * i,
             action=i,
             reward=i % 10,
-            done=((i + 1) % 15) == 0,
+            done=((i + 1) % done_time) == 0,
             priority=(i % 10) + 1,
         )
-        assert buffer.size() == CAPACITY - MAX_SEQ_LEN- 1
-        assert buffer._cursor == ((i + 1) % CAPACITY)
-    assert buffer._num_added == CAPACITY + 20
+        assert buffer.size() == CAPACITY - MAX_SEQ_LEN
+        assert buffer._cursor == (((i + 1) + (((i) // done_time) * (MAX_SEQ_LEN - 1)) ) % CAPACITY)
+
+    assert buffer._num_added == (more_steps + (((i) // done_time) * (MAX_SEQ_LEN - 1))) + CAPACITY
 
 
 
