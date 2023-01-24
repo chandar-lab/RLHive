@@ -9,6 +9,7 @@ Submodules
 
    hive.runners.base
    hive.runners.multi_agent_loop
+   hive.runners.parallel_single_agent_loop
    hive.runners.single_agent_loop
    hive.runners.utils
 

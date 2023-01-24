@@ -22,6 +22,7 @@ Submodules
    hive.envs.base
    hive.envs.env_spec
    hive.envs.gym_env
+   hive.envs.parallel_env
 
 Module contents
 ---------------

@@ -55,8 +55,7 @@ setuptools.setup(
     },
     entry_points={
         "console_scripts": [
-            "hive_single_agent_loop = hive.runners.single_agent_loop:main",
-            "hive_multi_agent_loop = hive.runners.multi_agent_loop:main",
+            "hive_main = hive.main:main",
         ]
     },
 )
