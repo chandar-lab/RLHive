@@ -37,7 +37,8 @@ class Runner(ABC, Registrable):
             logger (ScheduledLogger): Logger object used to log metrics.
             experiment_manager (Experiment): Experiment object that saves the state of
                 the training.
-            train_steps (int): How many steps to train for. If this is -1, there is no
+            train_steps (int): How many steps to train for. This is the number
+                of times that agent.update is called. If this is -1, there is no
                 limit for the number of training steps.
             test_frequency (int): After how many training steps to run testing episodes.
                 If this is -1, testing is not run.
@@ -119,8 +120,11 @@ class Runner(ABC, Registrable):
             )
 
     def run_episode(self, environment):
-        """Run a single episode of the environment."""
+        """Run a single episode of the environment.
 
+        Args:
+            environment (BaseEnv): Environment in which the agent will take a step in.
+        """
         return NotImplementedError
 
     def run_training(self):

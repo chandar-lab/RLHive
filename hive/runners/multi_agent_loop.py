@@ -37,7 +37,8 @@ class MultiAgentRunner(Runner):
             loggers (List[ScheduledLogger]): List of loggers used to log metrics.
             experiment_manager (Experiment): Experiment object that saves the state of
                 the training.
-            train_steps (int): How many steps to train for. If this is -1, there is no
+            train_steps (int): How many steps to train for. This is the number
+                of times that agent.update is called. If this is -1, there is no
                 limit for the number of training steps.
             num_agents (int): Number of agents running in this multiagent experiment.
             eval_environment (BaseEnv): Environment used to evaluate the agent. If
@@ -119,10 +120,17 @@ class MultiAgentRunner(Runner):
         reward since then.
 
         Args:
+            environment (BaseEnv): Environment in which the agent will take a step in.
             observation: Current observation that the agent should create an action
                 for.
             turn (int): Agent whose turn it is.
-            episode_metrics (Metrics): Keeps track of metrics for current episode.
+            episode_metrics (Metrics): Keeps track of metrics for current
+                episode.
+            transition_info (TransitionInfo): Used to keep track of the most
+                recent transition for each agent.
+            agent_traj_states: List of trajectory state objects that will be
+                passed to each agent when act and update are called. The agent
+                returns new trajectory states to replace the state passed in.
         """
         agent = self._agents[turn]
         agent_traj_state = agent_traj_states[turn]
@@ -180,9 +188,13 @@ class MultiAgentRunner(Runner):
 
         Args:
             episode_metrics (Metrics): Keeps track of metrics for current episode.
+            transition_info (TransitionInfo): Used to keep track of the most
+                recent transition for each agent.
+            agent_traj_states: List of trajectory state objects that will be
+                passed to each agent when act and update are called. The agent
+                returns new trajectory states to replace the state passed in.
             terminated (bool): Whether this step was terminal.
             truncated (bool): Whether this step was terminal.
-
         """
         for idx, agent in enumerate(self._agents):
             if transition_info.is_started(agent):
@@ -197,7 +209,11 @@ class MultiAgentRunner(Runner):
                 episode_metrics["full_episode_length"] += 1
 
     def run_episode(self, environment):
-        """Run a single episode of the environment."""
+        """Run a single episode of the environment.
+
+        Args:
+            environment (BaseEnv): Environment in which the agent will take a step in.
+        """
         episode_metrics = self.create_episode_metrics()
         observation, turn = environment.reset()
         transition_info = TransitionInfo(self._agents, self._stack_size)

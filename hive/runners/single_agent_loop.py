@@ -35,7 +35,8 @@ class SingleAgentRunner(Runner):
             loggers (List[ScheduledLogger]): List of loggers used to log metrics.
             experiment_manager (Experiment): Experiment object that saves the state of
                 the training.
-            train_steps (int): How many steps to train for. If this is -1, there is no
+            train_steps (int): How many steps to train for. This is the number
+                of times that agent.update is called. If this is -1, there is no
                 limit for the number of training steps.
             eval_environment (BaseEnv): Environment used to evaluate the agent. If
                 None, the ``environment`` parameter (which is a function) is
@@ -143,9 +144,16 @@ class SingleAgentRunner(Runner):
         After an episode ends, set the truncated value to true.
 
         Args:
+            environment (BaseEnv): Environment in which the agent will take a step in.
             observation: Current observation that the agent should create an action
                 for.
-            episode_metrics (Metrics): Keeps track of metrics for current episode.
+            episode_metrics (Metrics): Keeps track of metrics for current
+                episode.
+            transition_info (TransitionInfo): Used to keep track of the most
+                recent transition for the agent.
+            agent_traj_state: Trajectory state object that will be passed to the
+                agent when act and update are called. The agent returns a new
+                trajectory state object to replace the state passed in.
 
         """
         agent = self._agents[0]
@@ -176,7 +184,11 @@ class SingleAgentRunner(Runner):
         return terminated, truncated, next_observation, agent_traj_state
 
     def run_episode(self, environment):
-        """Run a single episode of the environment."""
+        """Run a single episode of the environment.
+
+        Args:
+            environment (BaseEnv): Environment in which the agent will take a step in.
+        """
         episode_metrics = self.create_episode_metrics()
         terminated, truncated = False, False
         observation, _ = environment.reset()
