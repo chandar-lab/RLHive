@@ -107,19 +107,13 @@ class Runner(ABC, Registrable):
             [("full_episode_length", 0)],
         )
 
-    def update_runner_state(self):
-        """Run one step of the training loop.
-
-        Args:
-            observation: Current observation that the agent should create an action
-                for.
-            turn (int): Agent whose turn it is.
-            episode_metrics (Metrics): Keeps track of metrics for current episode.
-        """
+    def update_step(self):
+        """Update steps for various schedules. Run testing if appropriate."""
         if self._training:
             self._train_schedule.update()
             self._logger.update_step("train")
-            self._run_testing = self._test_schedule.update() or self._run_testing
+            if self._test_schedule.update():
+                self.run_testing()
             self._save_experiment = (
                 self._experiment_manager.update_step() or self._save_experiment
             )

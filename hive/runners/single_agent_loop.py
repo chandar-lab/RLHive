@@ -100,7 +100,6 @@ class SingleAgentRunner(Runner):
                 for.
             episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
-        self.update_runner_state()
         agent = self._agents[0]
         stacked_observation = transition_info.get_stacked_state(agent, observation)
         action, agent_traj_state = agent.act(stacked_observation, agent_traj_state)
@@ -149,7 +148,6 @@ class SingleAgentRunner(Runner):
             episode_metrics (Metrics): Keeps track of metrics for current episode.
 
         """
-        self.update_runner_state()
         agent = self._agents[0]
         stacked_observation = transition_info.get_stacked_state(agent, observation)
 
@@ -200,9 +198,7 @@ class SingleAgentRunner(Runner):
                 agent_traj_state,
             )
             steps += 1
-            if self._run_testing and self._training:
-                # Run test episodes
-                self.run_testing()
+            self.update_step()
 
         if not (terminated or truncated):
             self.run_end_step(
@@ -212,5 +208,6 @@ class SingleAgentRunner(Runner):
                 transition_info,
                 agent_traj_state,
             )
+            self.update_step()
 
         return episode_metrics

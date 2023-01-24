@@ -124,14 +124,12 @@ class MultiAgentRunner(Runner):
             turn (int): Agent whose turn it is.
             episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
-        self.update_runner_state()
         agent = self._agents[turn]
         agent_traj_state = agent_traj_states[turn]
         if transition_info.is_started(agent):
             info = transition_info.get_info(agent)
             if self._training:
                 agent_traj_state = agent.update(copy.deepcopy(info), agent_traj_state)
-
             episode_metrics[agent.id]["reward"] += info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
             episode_metrics["full_episode_length"] += 1
@@ -227,10 +225,8 @@ class MultiAgentRunner(Runner):
                 transition_info,
                 agent_traj_states,
             )
-            if self._run_testing and self._training:
-                # Run test episodes
-                self.run_testing()
 
+            self.update_step()
             steps += 1
             if steps == self._max_steps_per_episode:
                 truncated = not terminated
@@ -239,4 +235,6 @@ class MultiAgentRunner(Runner):
         self.run_end_step(
             episode_metrics, transition_info, agent_traj_states, terminated, truncated
         )
+        self.update_step()
+
         return episode_metrics
