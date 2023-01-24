@@ -37,7 +37,8 @@ class MultiAgentRunner(Runner):
             loggers (List[ScheduledLogger]): List of loggers used to log metrics.
             experiment_manager (Experiment): Experiment object that saves the state of
                 the training.
-            train_steps (int): How many steps to train for. If this is -1, there is no
+            train_steps (int): How many steps to train for. This is the number
+                of times that agent.update is called. If this is -1, there is no
                 limit for the number of training steps.
             num_agents (int): Number of agents running in this multiagent experiment.
             eval_environment (BaseEnv): Environment used to evaluate the agent. If
@@ -104,7 +105,13 @@ class MultiAgentRunner(Runner):
         self._self_play = self_play
 
     def run_one_step(
-        self, environment, observation, turn, episode_metrics, transition_info
+        self,
+        environment,
+        observation,
+        turn,
+        episode_metrics,
+        transition_info,
+        agent_traj_states,
     ):
         """Run one step of the training loop.
 
@@ -113,18 +120,24 @@ class MultiAgentRunner(Runner):
         reward since then.
 
         Args:
+            environment (BaseEnv): Environment in which the agent will take a step in.
             observation: Current observation that the agent should create an action
                 for.
             turn (int): Agent whose turn it is.
-            episode_metrics (Metrics): Keeps track of metrics for current episode.
+            episode_metrics (Metrics): Keeps track of metrics for current
+                episode.
+            transition_info (TransitionInfo): Used to keep track of the most
+                recent transition for each agent.
+            agent_traj_states: List of trajectory state objects that will be
+                passed to each agent when act and update are called. The agent
+                returns new trajectory states to replace the state passed in.
         """
-        self.update_runner_state()
         agent = self._agents[turn]
+        agent_traj_state = agent_traj_states[turn]
         if transition_info.is_started(agent):
             info = transition_info.get_info(agent)
             if self._training:
-                agent.update(copy.deepcopy(info))
-
+                agent_traj_state = agent.update(copy.deepcopy(info), agent_traj_state)
             episode_metrics[agent.id]["reward"] += info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
             episode_metrics["full_episode_length"] += 1
@@ -132,7 +145,7 @@ class MultiAgentRunner(Runner):
             transition_info.start_agent(agent)
 
         stacked_observation = transition_info.get_stacked_state(agent, observation)
-        action = agent.act(stacked_observation)
+        action, agent_traj_state = agent.act(stacked_observation, agent_traj_state)
         (
             next_observation,
             reward,
@@ -157,12 +170,14 @@ class MultiAgentRunner(Runner):
                 },
             )
         transition_info.update_all_rewards(reward)
-        return terminated, truncated, next_observation, turn
+        agent_traj_states[turn] = agent_traj_state
+        return terminated, truncated, next_observation, turn, agent_traj_states
 
     def run_end_step(
         self,
         episode_metrics,
         transition_info,
+        agent_traj_states,
         terminated=True,
         truncated=False,
     ):
@@ -173,26 +188,37 @@ class MultiAgentRunner(Runner):
 
         Args:
             episode_metrics (Metrics): Keeps track of metrics for current episode.
+            transition_info (TransitionInfo): Used to keep track of the most
+                recent transition for each agent.
+            agent_traj_states: List of trajectory state objects that will be
+                passed to each agent when act and update are called. The agent
+                returns new trajectory states to replace the state passed in.
             terminated (bool): Whether this step was terminal.
             truncated (bool): Whether this step was terminal.
-
         """
-        for agent in self._agents:
+        for idx, agent in enumerate(self._agents):
             if transition_info.is_started(agent):
                 info = transition_info.get_info(agent, terminated, truncated)
-
+                agent_traj_state = agent_traj_states[idx]
                 if self._training:
-                    agent.update(info)
+                    agent_traj_state = agent.update(
+                        copy.deepcopy(info), agent_traj_state
+                    )
                 episode_metrics[agent.id]["episode_length"] += 1
+                episode_metrics[agent.id]["reward"] += info["reward"]
                 episode_metrics["full_episode_length"] += 1
-            episode_metrics[agent.id]["reward"] += info["reward"]
 
     def run_episode(self, environment):
-        """Run a single episode of the environment."""
+        """Run a single episode of the environment.
+
+        Args:
+            environment (BaseEnv): Environment in which the agent will take a step in.
+        """
         episode_metrics = self.create_episode_metrics()
         observation, turn = environment.reset()
         transition_info = TransitionInfo(self._agents, self._stack_size)
         steps = 0
+        agent_traj_states = [None] * len(self._agents)
         terminated, truncated = False, False
 
         # Run the loop until the episode ends or times out
@@ -201,17 +227,30 @@ class MultiAgentRunner(Runner):
             and steps < self._max_steps_per_episode
             and (not self._training or self._train_schedule.get_value())
         ):
-            terminated, truncated, observation, turn = self.run_one_step(
-                environment, observation, turn, episode_metrics, transition_info
+            (
+                terminated,
+                truncated,
+                observation,
+                turn,
+                agent_traj_states,
+            ) = self.run_one_step(
+                environment,
+                observation,
+                turn,
+                episode_metrics,
+                transition_info,
+                agent_traj_states,
             )
-            if self._run_testing and self._training:
-                # Run test episodes
-                self.run_testing()
 
+            self.update_step()
             steps += 1
             if steps == self._max_steps_per_episode:
                 truncated = not terminated
 
         # Run the final update.
-        self.run_end_step(episode_metrics, transition_info, terminated, truncated)
+        self.run_end_step(
+            episode_metrics, transition_info, agent_traj_states, terminated, truncated
+        )
+        self.update_step()
+
         return episode_metrics

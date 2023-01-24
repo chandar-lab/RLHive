@@ -159,7 +159,6 @@ class DQNAgent(Agent):
         self._test_epsilon = test_epsilon
         self._learn_schedule = SwitchSchedule(False, True, min_replay_history)
 
-        self._state = {"episode_start": True}
         self._training = False
 
     def create_q_networks(self, representation_net):
@@ -230,12 +229,18 @@ class DQNAgent(Agent):
         return (batch["observation"],), (batch["next_observation"],), batch
 
     @torch.no_grad()
-    def act(self, observation):
+    def act(self, observation, agent_traj_state=None):
         """Returns the action for the agent. If in training mode, follows an epsilon
         greedy policy. Otherwise, returns the action with the highest Q-value.
 
         Args:
             observation: The current observation.
+            agent_traj_state: Contains necessary state information for the agent
+                to process current trajectory. This should be updated and returned.
+
+        Returns:
+            - action
+            - agent trajectory state
         """
 
         # Determine and log the value of epsilon
@@ -264,24 +269,28 @@ class DQNAgent(Agent):
         if (
             self._training
             and self._logger.should_log(self._timescale)
-            and self._state["episode_start"]
+            and agent_traj_state is None
         ):
             self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
-            self._state["episode_start"] = False
-        return action
+            agent_traj_state = {}
+        return action, agent_traj_state
 
-    def update(self, update_info):
+    def update(self, update_info, agent_traj_state=None):
         """
         Updates the DQN agent.
 
         Args:
-            update_info: dictionary containing all the necessary information to
-                update the agent. Should contain a full transition, with keys for
-                "observation", "action", "reward", and "done".
-        """
-        if update_info["terminated"] or update_info["truncated"]:
-            self._state["episode_start"] = True
+            update_info: dictionary containing all the necessary information
+                from the environment to update the agent. Should contain a full
+                transition, with keys for "observation", "action", "reward",
+                "next_observation", and "done".
+            agent_traj_state: Contains necessary state information for the agent
+                to process current trajectory. This should be updated and returned.
 
+        Returns:
+            - action
+            - agent trajectory state
+        """
         if not self._training:
             return
 
@@ -332,6 +341,7 @@ class DQNAgent(Agent):
         # Update target network
         if self._target_net_update_schedule.update():
             self._update_target()
+        return agent_traj_state
 
     def _update_target(self):
         """Update the target network."""

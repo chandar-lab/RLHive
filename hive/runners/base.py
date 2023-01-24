@@ -37,7 +37,8 @@ class Runner(ABC, Registrable):
             logger (ScheduledLogger): Logger object used to log metrics.
             experiment_manager (Experiment): Experiment object that saves the state of
                 the training.
-            train_steps (int): How many steps to train for. If this is -1, there is no
+            train_steps (int): How many steps to train for. This is the number
+                of times that agent.update is called. If this is -1, there is no
                 limit for the number of training steps.
             test_frequency (int): After how many training steps to run testing episodes.
                 If this is -1, testing is not run.
@@ -107,37 +108,31 @@ class Runner(ABC, Registrable):
             [("full_episode_length", 0)],
         )
 
-    def update_runner_state(self):
-        """Run one step of the training loop.
-
-        Args:
-            observation: Current observation that the agent should create an action
-                for.
-            turn (int): Agent whose turn it is.
-            episode_metrics (Metrics): Keeps track of metrics for current episode.
-        """
+    def update_step(self):
+        """Update steps for various schedules. Run testing if appropriate."""
         if self._training:
             self._train_schedule.update()
             self._logger.update_step("train")
-            self._run_testing = self._test_schedule.update() or self._run_testing
+            if self._test_schedule.update():
+                self.run_testing()
             self._save_experiment = (
                 self._experiment_manager.update_step() or self._save_experiment
             )
 
     def run_episode(self, environment):
-        """Run a single episode of the environment."""
+        """Run a single episode of the environment.
 
+        Args:
+            environment (BaseEnv): Environment in which the agent will take a step in.
+        """
         return NotImplementedError
 
     def run_training(self):
-        """Run the training loop. Note, the responsibility for running the
-        testing phase at appropriate points belongs to each individual runner.
-        This method only runs a testing phase at the end of training. If you
-        need to run testing more often, the logic for that must be added in the
-        individual runner classes.
-        :py:class:`~hive.runners.single_agent_loop.SingleAgentRunner` and
-        :py:class:`~hive.runners.multi_agent_loop.MultiAgentRunner` run the
-        testing phase periodically in their :py:meth:`~Runner.run_episode` methods."""
+        """Run the training loop. Note, to ensure that the test phase is run during
+        the individual runners must call :py:meth:`~Runner.update_step` in their
+        :py:meth:`~Runner.run_episode` methods.
+        See :py:class:`~hive.runners.single_agent_loop.SingleAgentRunner` and
+        :py:class:`~hive.runners.multi_agent_loop.MultiAgentRunner` for examples."""
         self.train_mode(True)
         while self._train_schedule.get_value():
             # Run training episode

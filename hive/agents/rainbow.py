@@ -220,7 +220,7 @@ class RainbowDQNAgent(DQNAgent):
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
     @torch.no_grad()
-    def act(self, observation):
+    def act(self, observation, agent_traj_state=None):
 
         if self._training:
             if not self._learn_schedule.get_value():
@@ -247,24 +247,29 @@ class RainbowDQNAgent(DQNAgent):
         if (
             self._training
             and self._logger.should_log(self._timescale)
-            and self._state["episode_start"]
+            and agent_traj_state is None
         ):
             self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
-            self._state["episode_start"] = False
+            agent_traj_state = {}
 
-        return action
+        return action, agent_traj_state
 
-    def update(self, update_info):
+    def update(self, update_info, agent_traj_state=None):
         """
         Updates the DQN agent.
-        Args:
-            update_info: dictionary containing all the necessary information to
-            update the agent. Should contain a full transition, with keys for
-            "observation", "action", "reward", "next_observation", and "done".
-        """
-        if update_info["terminated"] or update_info["truncated"]:
-            self._state["episode_start"] = True
 
+        Args:
+            update_info: dictionary containing all the necessary information
+                from the environment to update the agent. Should contain a full
+                transition, with keys for "observation", "action", "reward",
+                "next_observation", and "done".
+            agent_traj_state: Contains necessary state information for the agent
+                to process current trajectory. This should be updated and returned.
+
+        Returns:
+            - action
+            - agent trajectory state
+        """
         if not self._training:
             return
 
@@ -343,6 +348,7 @@ class RainbowDQNAgent(DQNAgent):
         # Update target network
         if self._target_net_update_schedule.update():
             self._update_target()
+        return agent_traj_state
 
     def target_projection(self, target_net_inputs, next_action, reward, done):
         """Project distribution of target Q-values.
