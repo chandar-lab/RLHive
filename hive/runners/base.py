@@ -124,14 +124,11 @@ class Runner(ABC, Registrable):
         return NotImplementedError
 
     def run_training(self):
-        """Run the training loop. Note, the responsibility for running the
-        testing phase at appropriate points belongs to each individual runner.
-        This method only runs a testing phase at the end of training. If you
-        need to run testing more often, the logic for that must be added in the
-        individual runner classes.
-        :py:class:`~hive.runners.single_agent_loop.SingleAgentRunner` and
-        :py:class:`~hive.runners.multi_agent_loop.MultiAgentRunner` run the
-        testing phase periodically in their :py:meth:`~Runner.run_episode` methods."""
+        """Run the training loop. Note, to ensure that the test phase is run during
+        the individual runners must call :py:meth:`~Runner.update_step` in their
+        :py:meth:`~Runner.run_episode` methods.
+        See :py:class:`~hive.runners.single_agent_loop.SingleAgentRunner` and
+        :py:class:`~hive.runners.multi_agent_loop.MultiAgentRunner` for examples."""
         self.train_mode(True)
         while self._train_schedule.get_value():
             # Run training episode
