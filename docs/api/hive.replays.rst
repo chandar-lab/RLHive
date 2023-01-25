@@ -8,8 +8,10 @@ Submodules
    :maxdepth: 3
 
    hive.replays.circular_replay
+   hive.replays.circular_replay2
    hive.replays.legal_moves_replay
    hive.replays.prioritized_replay
+   hive.replays.recurrent_replay
    hive.replays.replay_buffer
 
 Module contents

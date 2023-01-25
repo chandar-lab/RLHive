@@ -6,8 +6,10 @@ from unittest.mock import patch
 import pytest
 
 import hive
+from hive import main
+from hive import runners
 from hive.runners import single_agent_loop
-from hive.runners.utils import load_config
+from hive.runners.utils import load_config, TransitionInfo
 from hive.utils.loggers import ScheduledLogger
 
 
@@ -75,9 +77,11 @@ def initial_runner(args, tmpdir):
         env_config=args.env_config,
         logger_config=args.logger_config,
     )
-    config["save_dir"] = os.path.join(tmpdir, config["save_dir"])
-    runner = single_agent_loop.set_up_experiment(config)
-
+    config["kwargs"]["experiment_manager"]["kwargs"]["save_dir"] = os.path.join(
+        tmpdir, config["kwargs"]["experiment_manager"]["kwargs"]["save_dir"]
+    )
+    runner_fn, config = runners.get_runner(config)
+    runner = runner_fn()
     return runner, config
 
 
@@ -102,13 +106,21 @@ def test_run_step(initial_runner):
     episode_metrics = single_agent_loop.create_episode_metrics()
     done = False
     terminated, truncated = False, False
-    observation, turn = single_agent_loop._environment.reset()
+    observation, turn = single_agent_loop._train_environment.reset()
     assert turn == 0
     agent = single_agent_loop._agents[turn]
-    terminated, truncated, observation = single_agent_loop.run_one_step(
-        observation, episode_metrics
+    (
+        terminated,
+        truncated,
+        observation,
+        agent_traj_state,
+    ) = single_agent_loop.run_one_step(
+        single_agent_loop._train_environment,
+        observation,
+        episode_metrics,
+        TransitionInfo(single_agent_loop._agents, single_agent_loop._stack_size),
+        None,
     )
-    single_agent_loop._train_schedule.update()
     assert episode_metrics[agent.id]["episode_length"] == 1
 
 
@@ -117,7 +129,9 @@ def test_run_episode(initial_runner):
     test running one episode
     """
     single_agent_runner, config = initial_runner
-    episode_metrics = single_agent_runner.run_episode()
+    episode_metrics = single_agent_runner.run_episode(
+        single_agent_runner._train_environment
+    )
     agent = single_agent_runner._agents[0]
     assert (
         episode_metrics[agent._id]["episode_length"]
@@ -147,7 +161,9 @@ def test_resume(initial_runner):
             "test_schedule"
         ]
     )
-    episode_metrics = resumed_single_agent_runner.run_episode()
+    episode_metrics = resumed_single_agent_runner.run_episode(
+        resumed_single_agent_runner._train_environment
+    )
 
 
 def test_run_training(initial_runner):
@@ -156,11 +172,11 @@ def test_run_training(initial_runner):
     """
     single_agent_runner, config = initial_runner
     single_agent_runner.run_training()
-    assert single_agent_runner._train_schedule._steps >= config["train_steps"]
+    assert single_agent_runner._train_schedule._steps >= config["kwargs"]["train_steps"]
     assert (
         single_agent_runner._train_schedule._steps
-        <= config["train_steps"]
-        + single_agent_runner._environment._env._max_episode_steps
+        <= config["kwargs"]["train_steps"]
+        + single_agent_runner._train_environment._env._max_episode_steps
     )
 
 
@@ -168,28 +184,26 @@ def test_run_training(initial_runner):
     "arg_string,cl_args",
     [
         (
-            "single_agent_loop.py"
+            "main.py"
             " --agent.representation_net.hidden_units [30,30]"
             " --agent.discount_rate .8 "
             " --seed 20"
-            " --loggers.logger_list.0.arg1 2"
-            " --loggers.logger_list.1.arg2 .2",
+            " --loggers.0.arg1 2"
+            " --loggers.1.arg2 .2",
             [[30, 30], 0.8, 20, 2, 0.2],
         ),
         (
-            "single_agent_loop.py"
-            " --loggers.logger_list.0.arg1 2"
-            " --loggers.logger_list.1.arg2 .2",
+            "main.py" " --loggers.0.arg1 2 --loggers.1.arg2 .2",
             [None, None, None, 2, 0.2],
         ),
         (
-            "single_agent_loop.py"
+            "main.py"
             " --agent.representation_net.hidden_units [30,30]"
             " --agent.discount_rate .8 ",
             [[30, 30], 0.8, None, None, None],
         ),
         (
-            "single_agent_loop.py --seed 20",
+            "main.py --seed 20",
             [None, None, 20, None, None],
         ),
     ],
@@ -207,7 +221,9 @@ def test_cl_parsing(mock_seeder, args, arg_string, cl_args):
         env_config=args.env_config,
         logger_config=args.logger_config,
     )
-    runner = single_agent_loop.set_up_experiment(config)
+    runner_fn, config = runners.get_runner(config)
+    runner = runner_fn()
+    runner.register_config(config)
     full_config = runner._experiment_manager._config
     # Check hidden units
     assert (
@@ -215,30 +231,24 @@ def test_cl_parsing(mock_seeder, args, arg_string, cl_args):
         == expected_args[0][0]
     )
     assert (
-        full_config["agent"]["kwargs"]["representation_net"]["kwargs"]["hidden_units"]
+        full_config["kwargs"]["agent"]["kwargs"]["representation_net"]["kwargs"][
+            "hidden_units"
+        ]
         == expected_args[0]
     )
     # Check discount factor
     assert runner._agents[0]._discount_rate == expected_args[1]
-    assert full_config["agent"]["kwargs"]["discount_rate"] == expected_args[1]
+    assert full_config["kwargs"]["agent"]["kwargs"]["discount_rate"] == expected_args[1]
     # Check Logger 1 arg
     assert runner._logger._logger_list[0].arg1 == expected_args[3]
     if cl_args[3]:
-        assert (
-            full_config["loggers"]["kwargs"]["logger_list"][0]["kwargs"]["arg1"]
-            == expected_args[3]
-        )
+        assert full_config["kwargs"]["loggers"][0]["kwargs"]["arg1"] == expected_args[3]
     else:
-        assert (
-            "arg1" not in full_config["loggers"]["kwargs"]["logger_list"][0]["kwargs"]
-        )
+        assert "arg1" not in full_config["kwargs"]["loggers"][0]["kwargs"]
     # Check Logger 2 arg
     assert runner._logger._logger_list[1].arg2 == expected_args[4]
     if cl_args[4]:
-        assert (
-            full_config["loggers"]["kwargs"]["logger_list"][1]["kwargs"]["arg2"]
-            == expected_args[4]
-        )
+        assert full_config["kwargs"]["loggers"][1]["kwargs"]["arg2"] == expected_args[4]
     # Check seed
     if cl_args[2]:
         assert mock_seeder.set_global_seed.call_args.args == (cl_args[2],)
