@@ -18,7 +18,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
             "observation": update_info["observation"]["observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
-            "done": update_info["done"],
+            "done": update_info["terminated"] or update_info["truncated"],
             "action_mask": action_encoding(update_info["observation"]["action_mask"]),
         }
         if "agent_id" in update_info:
@@ -35,7 +35,7 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         )
 
     @torch.no_grad()
-    def act(self, observation):
+    def act(self, observation, agent_traj_state=None):
         if self._training:
             if not self._learn_schedule.get_value():
                 epsilon = 1.0
@@ -67,12 +67,12 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         if (
             self._training
             and self._logger.should_log(self._timescale)
-            and self._state["episode_start"]
+            and agent_traj_state is None
         ):
             self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
-            self._state["episode_start"] = False
+            agent_traj_state = {}
 
-        return action
+        return action, agent_traj_state
 
 
 class LegalMovesHead(torch.nn.Module):
