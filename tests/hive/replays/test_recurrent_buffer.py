@@ -1,4 +1,3 @@
-
 import numpy as np
 import pytest
 from pytest_lazyfixture import lazy_fixture
@@ -14,24 +13,26 @@ MAX_SEQ_LEN = 10
 N_STEP_HORIZON = 1
 GAMMA = 0.99
 
+
 @pytest.fixture()
 def rec_buffer():
     return RecurrentReplayBuffer(
         capacity=CAPACITY,
-        max_seq_len = MAX_SEQ_LEN,
+        max_seq_len=MAX_SEQ_LEN,
         observation_shape=OBS_SHAPE,
         observation_dtype=np.float32,
         extra_storage_types={"priority": (np.int8, ())},
     )
+
 
 @pytest.fixture(
     params=[
         pytest.lazy_fixture("rec_buffer"),
     ]
 )
-
 def buffer(request):
     return request.param
+
 
 ### truncated and terminated instead of done???
 @pytest.fixture()
@@ -45,7 +46,6 @@ def full_buffer(buffer):
             priority=(i % 10) + 1,
         )
     return buffer
-
 
 
 @pytest.fixture()
@@ -75,8 +75,6 @@ def full_n_step_buffer():
 @pytest.mark.parametrize("reward_shape", [(), (6,)])
 @pytest.mark.parametrize("reward_dtype", [np.int8, np.float32])
 @pytest.mark.parametrize("extra_storage_types", [None, {"foo": (np.float32, (7,))}])
-
-
 def test_constructor(
     constructor,
     observation_shape,
@@ -115,7 +113,7 @@ def test_constructor(
 def test_add(buffer):
     assert buffer.size() == 0
     done_time = 15
-    for i in range(33):  #until the buffer is full instead of CAPACITY
+    for i in range(33):  # until the buffer is full instead of CAPACITY
         buffer.add(
             observation=np.ones(OBS_SHAPE) * i,
             action=i,
@@ -125,8 +123,10 @@ def test_add(buffer):
         )
 
         assert buffer.size() == i + ((i) // done_time) * (MAX_SEQ_LEN - 1)
-        assert buffer._cursor == ((i + MAX_SEQ_LEN)  + (((i) // done_time) * (MAX_SEQ_LEN - 1))) % CAPACITY
-
+        assert (
+            buffer._cursor
+            == ((i + MAX_SEQ_LEN) + (((i) // done_time) * (MAX_SEQ_LEN - 1))) % CAPACITY
+        )
 
     more_steps = 40
     for i in range(more_steps):
@@ -138,11 +138,11 @@ def test_add(buffer):
             priority=(i % 10) + 1,
         )
         assert buffer.size() == CAPACITY - MAX_SEQ_LEN
-        assert buffer._cursor == (((i + 1) + (((i) // done_time) * (MAX_SEQ_LEN - 1)) ) % CAPACITY)
+        assert buffer._cursor == (
+            ((i + 1) + (((i) // done_time) * (MAX_SEQ_LEN - 1))) % CAPACITY
+        )
 
-    assert buffer._num_added == (more_steps + (((i) // done_time) * (MAX_SEQ_LEN - 1))) + CAPACITY
-
-
-
-
-
+    assert (
+        buffer._num_added
+        == (more_steps + (((i) // done_time) * (MAX_SEQ_LEN - 1))) + CAPACITY
+    )
