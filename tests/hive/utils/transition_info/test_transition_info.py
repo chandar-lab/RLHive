@@ -85,8 +85,7 @@ def test_record_info(transition_info):
 
 def test_get_stacked_state(transition_info):
     t_info, agents, config = transition_info
-    observation = np.array(2)
-    breakpoint()
+    observation = 2
     t_info._previous_observations[agents[0].id].append(3)
     stacked_observation = t_info.get_stacked_state(agents[0], observation)
-    assert stacked_observation == [0,3,2]
+    assert stacked_observation == [3,0,2]
