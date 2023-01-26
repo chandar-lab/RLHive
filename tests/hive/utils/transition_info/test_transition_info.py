@@ -88,4 +88,4 @@ def test_get_stacked_state(transition_info):
     observation = 2
     t_info._previous_observations[agents[0].id].append(3)
     stacked_observation = t_info.get_stacked_state(agents[0], observation)
-    assert stacked_observation == [3,0,2]
+    assert list(stacked_observation) == [3,0,2]
