@@ -6,20 +6,17 @@ from unittest.mock import patch
 import pytest
 
 import hive
-from hive.runners import single_agent_loop
 from hive.runners.utils import load_config
-from hive.utils.loggers import ScheduledLogger
 from hive.runners.utils import TransitionInfo
 from hive.agents.dqn import DQNAgent
 from hive.agents.qnets.mlp import MLPNetwork
-from hive.replays.circular_replay import CircularReplayBuffer
-from hive.utils.schedule import PeriodicSchedule, ConstantSchedule
 import gym
+import numpy as np
 
 @pytest.fixture()
 def args():
     return Namespace(
-        config="tests/hive/utils/metrics/test_transition_info_config.yml",
+        config="tests/hive/utils/transition_info/test_transition_info_config.yml",
         agent_config=None,
     )
 
@@ -45,7 +42,7 @@ def transition_info(args, tmpdir):
                     )
 
     agents = [agent0, agent1]
-    stack_size = 1
+    stack_size = 5
     t_info = TransitionInfo(agents, stack_size)
     return t_info, agents, config
 
@@ -72,3 +69,24 @@ def test_update_all_rewards(transition_info):
     t_info.update_all_rewards(rewards)
     assert t_info._transitions[t_info._agent_ids[0]]["reward"] == 1.
     assert t_info._transitions[t_info._agent_ids[1]]["reward"] == 2.
+
+def test_get_info(transition_info):
+    t_info, agents, config = transition_info
+    info = t_info.get_info(agents[0], terminated = True, truncated = True)
+    assert info == {'reward':0, 'truncated':True, 'terminated' : True}
+    assert t_info._transitions['0'] == {"reward": 0.0}
+
+def test_record_info(transition_info):
+    t_info, agents, config = transition_info
+    info = {'observation': 2, 'reward':1}
+    t_info.record_info(agents[0], info)
+    assert t_info._transitions['0'] == {'observation': 2, 'reward':1}
+    assert t_info._previous_observations['0'][-1] == 2
+
+def test_get_stacked_state(transition_info):
+    t_info, agents, config = transition_info
+    observation = np.array(2)
+    breakpoint()
+    t_info._previous_observations[agents[0].id].append(3)
+    stacked_observation = t_info.get_stacked_state(agents[0], observation)
+    assert stacked_observation == [0,3,2]
