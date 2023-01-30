@@ -14,7 +14,7 @@ from hive.agents.qnets.utils import (
     calculate_output_dim,
     create_init_weights_fn,
 )
-from hive.replays.ppo_replay import OnPolicyReplayBuffer
+from hive.replays.on_policy_replay import OnPolicyReplayBuffer
 from hive.utils.loggers import Logger, NullLogger
 from hive.utils.schedule import (
     PeriodicSchedule,
