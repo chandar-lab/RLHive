@@ -39,10 +39,10 @@ agent:
         lr: .00025
     discount_rate: .99
     grad_clip: .5
-    clip_coef: .2
-    ent_coef: .01
-    clip_vloss: True
-    vf_coef: .5
+    clip_coefficient: .2
+    entropy_coefficient: .01
+    clip_value_loss: True
+    value_fn_coefficient: .5
     transitions_per_update: 2048
     num_epochs_per_update: 4
     normalize_advantages: True

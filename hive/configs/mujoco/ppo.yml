@@ -15,7 +15,7 @@ environment:
   name: 'GymEnv'
   kwargs:
     env_name: 'Hopper-v3'
-    wrappers:
+    env_wrappers:
       -
         name: 'ClipAction'
     
@@ -32,11 +32,11 @@ agent:
       name: 'MLPNetwork'
       kwargs: 
         hidden_units: [64, 64]
-    obs_norm:
+    observation_normalization_fn:
       name: 'ObservationNormalization'
       kwargs:
         clip: 10
-    rew_norm:
+    reward_normalization_fn:
       name: 'RewardNormalization'
       kwargs:
         clip: 10
@@ -51,10 +51,10 @@ agent:
         lr: .0003
     discount_rate: .99
     grad_clip: .5
-    clip_coef: .2
-    ent_coef: .0
-    clip_vloss: True
-    vf_coef: .5
+    clip_coefficient: .2
+    entropy_coefficient: .0
+    clip_value_loss: True
+    value_fn_coefficient: .5
     transitions_per_update: 2048
     num_epochs_per_update: 10
     normalize_advantages: True
