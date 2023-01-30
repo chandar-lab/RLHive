@@ -1,4 +1,4 @@
 pytest==6.2.2
 pytest-lazy-fixture==0.6.3
 opencv-python>=4.3.0.36
-gym[atari,accept-rom-license]
+gymnasium[atari,accept-rom-license]==0.27.0

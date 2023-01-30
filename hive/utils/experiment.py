@@ -3,14 +3,16 @@ import logging
 import os
 
 import yaml
+from hive.utils.registry import Registrable, registry
+from hive.utils.schedule import Schedule
 
 from hive.utils.utils import Chomp, create_folder
 
 
-class Experiment(object):
+class Experiment(Registrable):
     """Implementation of a simple experiment class."""
 
-    def __init__(self, name, dir_name, schedule):
+    def __init__(self, name: str, save_dir: str, saving_schedule: Schedule):
         """Initializes an experiment object.
 
         The experiment state is an exposed property of objects of this class. It can
@@ -21,54 +23,48 @@ class Experiment(object):
         Args:
             name (str): Name of the experiment.
             dir_name (str): Absolute path to the directory to save/load the experiment.
+            saving_schedule (Schedule): Schedule that determines when the
+                experiment should be saved.
         """
 
         self._name = name
-        self._dir_name = os.path.join(dir_name, name)
-        self._schedule = schedule
+        self._save_dir = os.path.join(save_dir, name)
+        self._saving_schedule = saving_schedule()
         self._step = 0
-        create_folder(self._dir_name)
+        create_folder(self._save_dir)
 
         self._config = None
-        self._logger = None
-        self._agents = None
-        self._environment = None
         self.experiment_state = Chomp()
-        self.experiment_state["saving_schedule"] = self._schedule
+        self.experiment_state["saving_schedule"] = self._saving_schedule
+        self._experiment_components = {}
 
-    def register_experiment(
-        self,
-        config=None,
-        logger=None,
-        agents=None,
-        environment=None,
-    ):
+    def register_experiment(self, **kwargs):
         """Registers all the components of an experiment.
 
         Args:
-            config (Chomp): a config dictionary.
             logger (Logger): a logger object.
             agents (Agent | list[Agent]): either an agent object or a list of agents.
             environment (BaseEnv): an environment object.
         """
 
-        self._config = config
-        self._logger = logger
-        self._logger.log_config(config)
+        self._experiment_components.update(kwargs)
 
-        if agents is not None and not isinstance(agents, list):
-            agents = [agents]
-        self._agents = agents
-        self._environment = environment
+    def register_config(self, config):
+        """Registers the experiment config.
+
+        Args:
+            config (Chomp): a config dictionary.
+        """
+        self._config = config
 
     def update_step(self):
         """Updates the step of the saving schedule for the experiment."""
         self._step += 1
-        return self._schedule.update()
+        return self._saving_schedule.update()
 
     def should_save(self):
         """Returns whether you should save the experiment at the current step."""
-        return self._schedule.get_value()
+        return self._saving_schedule.get_value()
 
     def save(self, tag="current"):
         """Saves the experiment.
@@ -76,7 +72,7 @@ class Experiment(object):
             tag (str): Tag to prefix the folder.
         """
 
-        save_dir = os.path.join(self._dir_name, tag)
+        save_dir = os.path.join(self._save_dir, tag)
         create_folder(save_dir)
 
         logging.info("Saving the experiment at {}".format(save_dir))
@@ -90,20 +86,7 @@ class Experiment(object):
             with open(file_name, "w") as f:
                 yaml.safe_dump(dict(self._config), f)
 
-        if self._logger is not None:
-            folder_name = os.path.join(save_dir, "logger")
-            create_folder(folder_name)
-            self._logger.save(folder_name)
-
-        if self._agents is not None:
-            for idx, agent in enumerate(self._agents):
-                agent_dir = os.path.join(save_dir, f"agent_{idx}")
-                create_folder(agent_dir)
-                agent.save(agent_dir)
-
-        if self._environment is not None:
-            file_name = os.path.join(save_dir, "environment.p")
-            self._environment.save(file_name)
+        save_component(self._experiment_components, save_dir)
 
         file_name = os.path.join(save_dir, "experiment_state.p")
         self.experiment_state.save(file_name)
@@ -118,7 +101,7 @@ class Experiment(object):
             tag (str): Tag for the saved experiment.
         """
 
-        flag_file = os.path.join(self._dir_name, tag, "flag.p")
+        flag_file = os.path.join(self._save_dir, tag, "flag.p")
         if os.path.isfile(flag_file):
             return True
         else:
@@ -132,7 +115,7 @@ class Experiment(object):
         """
 
         if self.is_resumable(tag):
-            save_dir = os.path.join(self._dir_name, tag)
+            save_dir = os.path.join(self._save_dir, tag)
             logging.info("Loading the experiment from {}".format(save_dir))
 
             if self._config is not None:
@@ -140,19 +123,56 @@ class Experiment(object):
                 with open(file_name) as f:
                     self._config = Chomp(yaml.safe_load(f))
 
-            if self._logger is not None:
-                folder_name = os.path.join(save_dir, "logger")
-                self._logger.load(folder_name)
-
-            if self._agents is not None:
-                for idx, agent in enumerate(self._agents):
-                    agent_dir = os.path.join(save_dir, f"agent_{idx}")
-                    agent.load(agent_dir)
-
-            if self._environment is not None:
-                file_name = os.path.join(save_dir, "environment.p")
-                self._environment.load(file_name)
-
+            load_component(self._experiment_components, save_dir)
             file_name = os.path.join(save_dir, "experiment_state.p")
             self.experiment_state.load(file_name)
-            self._schedule = self.experiment_state["saving_schedule"]
+            self._saving_schedule = self.experiment_state["saving_schedule"]
+
+    @classmethod
+    def type_name(cls):
+        """
+        Returns:
+            "experiment_manager"
+        """
+        return "experiment_manager"
+
+
+def save_component(component, prefix):
+    if component is None:
+        return
+    elif isinstance(component, list):
+        for idx, sub_component in enumerate(component):
+            save_component(sub_component, os.path.join(prefix, str(idx)))
+    elif isinstance(component, dict):
+        for name, sub_component in component.items():
+            save_component(sub_component, os.path.join(prefix, name))
+    elif hasattr(component, "save") and callable(getattr(component, "save")):
+        folder_name = os.path.join(prefix)
+        create_folder(folder_name)
+        try:
+            save_fn = getattr(component, "save")
+            save_fn(folder_name)
+        except NotImplementedError:
+            logging.info(f"{prefix} save not implemented")
+
+
+def load_component(component, prefix):
+    if component is None:
+        return
+    elif isinstance(component, list):
+        for idx, sub_component in enumerate(component):
+            load_component(sub_component, os.path.join(prefix, idx))
+    elif isinstance(component, dict):
+        for name, sub_component in component.items():
+            load_component(sub_component, os.path.join(prefix, name))
+    elif hasattr(component, "load") and callable(getattr(component, "load")):
+        folder_name = os.path.join(prefix)
+        create_folder(folder_name)
+        try:
+            load_fn = getattr(component, "load")
+            load_fn(folder_name)
+        except:
+            logging.info(f"{prefix} not loaded")
+
+
+registry.register("Experiment", Experiment, Experiment)

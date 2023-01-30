@@ -13,6 +13,14 @@ Subpackages
    hive.runners
    hive.utils
 
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 3
+
+   hive.main
+
 Module contents
 ---------------
 

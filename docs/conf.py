@@ -20,9 +20,11 @@
 import sys
 import os
 import inspect
-import hive
 
 sys.path.insert(0, os.path.abspath("../"))
+
+import hive
+
 project = "RLHive"
 copyright = "2021, RLHive Authors"
 author = "RLHive Authors"

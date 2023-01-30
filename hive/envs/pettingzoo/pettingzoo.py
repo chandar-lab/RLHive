@@ -30,6 +30,7 @@ class PettingZooEnv(BaseEnv):
         self._env_family = env_family
         self.create_env(env_name, num_players, **kwargs)
         self._env_spec = self.create_env_spec(env_name, **kwargs)
+        self._seed = None
         super().__init__(self.create_env_spec(env_name, **kwargs), num_players)
 
     def create_env(self, env_name, num_players, **kwargs):
@@ -58,8 +59,9 @@ class PettingZooEnv(BaseEnv):
         )
 
     def reset(self):
-        self._env.reset()
-        observation, _, _, _ = self._env.last()
+        self._env.reset(seed=self._seed)
+        observation, _, _, _, _ = self._env.last()
+        self._seed = None
         for key in observation.keys():
             observation[key] = np.array(observation[key], dtype=np.uint8)
         self._turn = self._env.agents.index(self._env.agent_selection)
@@ -68,14 +70,15 @@ class PettingZooEnv(BaseEnv):
 
     def step(self, action):
         self._env.step(action)
-        observation, _, done, info = self._env.last()
+        observation, _, terminated, truncated, info = self._env.last()
         self._turn = (self._turn + 1) % self._num_players
         for key in observation.keys():
             observation[key] = np.array(observation[key], dtype=np.uint8)
         return (
             observation,
             [self._env.rewards[agent] for agent in self._env.agents],
-            done,
+            terminated,
+            truncated,
             self._turn,
             info,
         )
@@ -84,7 +87,7 @@ class PettingZooEnv(BaseEnv):
         return self._env.render(mode=mode)
 
     def seed(self, seed=None):
-        self._env.seed(seed=seed)
+        self._seed = seed
 
     def close(self):
         self._env.close()
