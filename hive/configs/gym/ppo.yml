@@ -29,7 +29,7 @@ agent:
       kwargs: 
         hidden_units: [256, 256]
     replay_buffer:
-      name: 'PPOReplayBuffer'
+      name: 'OnPolicyReplayBuffer'
       kwargs:
         use_gae: True
         gae_lambda: .95

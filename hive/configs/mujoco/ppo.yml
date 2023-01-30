@@ -41,7 +41,7 @@ agent:
       kwargs:
         clip: 10
     replay_buffer:
-      name: 'PPOReplayBuffer'
+      name: 'OnPolicyReplayBuffer'
       kwargs:
         use_gae: True
         gae_lambda: .95

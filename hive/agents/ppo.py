@@ -14,7 +14,7 @@ from hive.agents.qnets.utils import (
     calculate_output_dim,
     create_init_weights_fn,
 )
-from hive.replays.ppo_replay import PPOReplayBuffer
+from hive.replays.ppo_replay import OnPolicyReplayBuffer
 from hive.utils.loggers import Logger, NullLogger
 from hive.utils.schedule import (
     PeriodicSchedule,
@@ -35,24 +35,24 @@ class PPOAgent(Agent):
         init_fn: InitializationFn = None,
         optimizer_fn: OptimizerFn = None,
         critic_loss_fn: LossFn = None,
-        obs_norm: NormalizationFn = None,
-        rew_norm: NormalizationFn = None,
+        observation_normalization_fn: NormalizationFn = None,
+        reward_normalization_fn: NormalizationFn = None,
         stack_size: int = 1,
-        replay_buffer: PPOReplayBuffer = None,
+        replay_buffer: OnPolicyReplayBuffer = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: float = None,
         batch_size: int = 64,
         logger: Logger = None,
         log_frequency: int = 100,
-        clip_coef: float = 0.2,
-        ent_coef: float = 0.01,
-        clip_vloss: bool = True,
-        vf_coef: float = 0.5,
+        clip_coefficient: float = 0.2,
+        entropy_coefficient: float = 0.01,
+        clip_value_loss: bool = True,
+        value_fn_coefficient: float = 0.5,
         transitions_per_update: int = 1024,
         num_epochs_per_update: int = 4,
         normalize_advantages: bool = True,
-        target_kl=None,
+        target_kl: float = None,
         device="cpu",
         id=0,
     ):
@@ -70,22 +70,22 @@ class PPOAgent(Agent):
                 encoded observations from representation_net and actions. It outputs
                 the representations used to compute the values of the actions (ie
                 everything except the last layer).
-            init_fn (InitializationFn): Initializes the weights of agent networks using
-                create_init_weights_fn.
+            init_fn (InitializationFn): Initializes the weights of agent networks
+                using create_init_weights_fn.
             optimizer_fn (OptimizerFn): A function that takes in the list of
-                parameters of the actor and critic returns the optimizer for the actor. If None,
-                defaults to :py:class:`~torch.optim.Adam`.
+                parameters of the actor and critic returns the optimizer for the actor.
+                If None, defaults to :py:class:`~torch.optim.Adam`.
             critic_loss_fn (LossFn): The loss function used to optimize the critic. If
                 None, defaults to :py:class:`~torch.nn.MSELoss`.
-            observation_normalizer (FunctionApproximator): The function for normalizing
+            observation_normalizer (NormalizationFn): The function for normalizing
                 observations
-            reward_normalizer (FunctionApproximator): The function for normalizing rewards
+            reward_normalizer (NormalizationFn): The function for normalizing rewards
             stack_size (int): Number of observations stacked to create the state fed
                 to the agent.
-            replay_buffer (BaseReplayBuffer): The replay buffer that the agent will
+            replay_buffer (OnPolicyReplayBuffer): The replay buffer that the agent will
                 push observations to and sample from during learning. If None,
                 defaults to
-                :py:class:`~hive.replays.circular_replay.PPOReplayBuffer`.
+                :py:class:`~hive.replays.circular_replay.OnPolicyReplayBuffer`.
             discount_rate (float): A number between 0 and 1 specifying how much
                 future rewards are discounted by the agent.
             n_step (int): The horizon used in n-step returns to compute TD(n) targets.
@@ -95,20 +95,20 @@ class PPOAgent(Agent):
                 during learning.
             logger (Logger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
-            clip_coef (float): A number between 0 and 1 specifying the clip ratio
+            clip_coefficient (float): A number between 0 and 1 specifying the clip ratio
                 for the surrogate objective function to penalise large changes in
                 the policy and/or critic.
-            ent_coef (float): Coefficient for the entropy loss.
-            clip_vloss (bool): Flag to use the clipped objective for the value
+            entropy_coefficient (float): Coefficient for the entropy loss.
+            clip_value_loss (bool): Flag to use the clipped objective for the value
                 function.
-            vf_coef (float): Coefficient for the value function loss.
+            value_fn_coefficient (float): Coefficient for the value function loss.
             transitions_per_update (int): Total number of observations that are
                 stored before the update.
             num_epochs_per_update (int): Number of iterations over the entire
                 buffer during an update step.
             normalize_advantages (bool): Flag to normalise advantages before
                 calculating policy loss.
-            target_kl: Terminates the update if kl-divergence between old and
+            target_kl (float): Terminates the update if kl-divergence between old and
                 updated policy exceeds target_kl.
             device: Device on which all computations should be run.
             id: Agent identifier.
@@ -119,28 +119,29 @@ class PPOAgent(Agent):
             stack_size * self._observation_space.shape[0],
             *self._observation_space.shape[1:],
         )
-        self._continuous_action = isinstance(self._action_space, gym.spaces.Box)
         self._init_fn = create_init_weights_fn(init_fn)
         self.create_networks(
             representation_net,
             actor_net,
             critic_net,
         )
-        if obs_norm is not None:
-            self.obs_norm = obs_norm(self._state_size)
+        if observation_normalization_fn is not None:
+            self._observation_normalization_fn = observation_normalization_fn(
+                self._state_size
+            )
         else:
-            self.obs_norm = None
+            self._observation_normalization_fn = None
 
-        if rew_norm is not None:
-            self.rew_norm = rew_norm(discount_rate)
+        if reward_normalization_fn is not None:
+            self._reward_normalization_fn = reward_normalization_fn(discount_rate)
         else:
-            self.rew_norm = None
+            self._reward_normalization_fn = None
 
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._actor_critic.parameters())
         if replay_buffer is None:
-            replay_buffer = PPOReplayBuffer
+            replay_buffer = OnPolicyReplayBuffer
         self._replay_buffer = replay_buffer(
             capacity=transitions_per_update,
             observation_shape=self._observation_space.shape,
@@ -162,10 +163,10 @@ class PPOAgent(Agent):
         self._logger.register_timescale(
             self._timescale, PeriodicSchedule(False, True, log_frequency)
         )
-        self._clip_coef = clip_coef
-        self._ent_coef = ent_coef
-        self._clip_vloss = clip_vloss
-        self._vf_coef = vf_coef
+        self._clip_coefficient = clip_coefficient
+        self._entropy_coefficient = entropy_coefficient
+        self._clip_value_loss = clip_value_loss
+        self._value_fn_coefficient = value_fn_coefficient
         self._transitions_per_update = transitions_per_update
         self._num_epochs = num_epochs_per_update
         self._normalize_advantages = normalize_advantages
@@ -194,7 +195,7 @@ class PPOAgent(Agent):
             critic_net,
             network_output_shape,
             self._action_space,
-            self._continuous_action,
+            isinstance(self._action_space, gym.spaces.Box),
         ).to(self._device)
 
         self._actor_critic.apply(self._init_fn)
@@ -216,12 +217,16 @@ class PPOAgent(Agent):
             update_info: Contains the information from the current timestep that the
                 agent should use to update itself.
         """
-        if self.obs_norm:
-            update_info["observation"] = self.obs_norm(update_info["observation"])
+        if self._observation_normalization_fn:
+            update_info["observation"] = self._observation_normalization_fn(
+                update_info["observation"]
+            )
 
-        if self.rew_norm:
-            self.rew_norm.update(update_info["reward"], update_info["done"])
-            update_info["reward"] = self.rew_norm(update_info["reward"])
+        if self._reward_normalization_fn:
+            self._reward_normalization_fn.update(
+                update_info["reward"], update_info["done"]
+            )
+            update_info["reward"] = self._reward_normalization_fn(update_info["reward"])
 
         preprocessed_update_info = {
             "observation": update_info["observation"],
@@ -239,13 +244,10 @@ class PPOAgent(Agent):
         return preprocessed_update_info
 
     def preprocess_update_batch(self, batch):
-        """Preprocess the batch sampled from the replay buffer.
+        """Returns preprocesed batch sampled from the replay buffer.
 
         Args:
             batch: Batch sampled from the replay buffer for the current update.
-
-        Returns:
-                - Preprocessed batch.
         """
         for key in batch:
             batch[key] = torch.tensor(batch[key], device=self._device)
@@ -277,9 +279,9 @@ class PPOAgent(Agent):
         Args:
             observation: The current observation.
         """
-        if self.obs_norm:
-            self.obs_norm.update(observation)
-            observation = self.obs_norm(observation)
+        if self._observation_normalization_fn:
+            self._observation_normalization_fn.update(observation)
+            observation = self._observation_normalization_fn(observation)
         action, logprob, value = self.get_action_logprob_value(observation)
         self._act_vars = dict(logprob=logprob, value=value)
         return action
@@ -299,14 +301,15 @@ class PPOAgent(Agent):
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(**self.preprocess_update_info(update_info))
 
-        if self._replay_buffer.size() + 1 == self._transitions_per_update:
-            if self.obs_norm:
-                update_info["next_observation"] = self.obs_norm(
+        if self._replay_buffer.size() == self._transitions_per_update - 1:
+            if self._observation_normalization_fn:
+                update_info["next_observation"] = self._observation_normalization_fn(
                     update_info["next_observation"]
                 )
-            self._replay_buffer.compute_advantages(
-                self.get_action_logprob_value(update_info["next_observation"])[2]
+            _, _, values = self.get_action_logprob_value(
+                update_info["next_observation"]
             )
+            self._replay_buffer.compute_advantages(values)
             for _ in range(self._num_epochs):
                 for batch in self._replay_buffer.sample(batch_size=self._batch_size):
                     batch = self.preprocess_update_batch(batch)
@@ -325,21 +328,21 @@ class PPOAgent(Agent):
                     # Actor loss
                     loss_unclipped = -advantages * ratios
                     loss_clipped = -advantages * torch.clamp(
-                        ratios, 1 - self._clip_coef, 1 + self._clip_coef
+                        ratios, 1 - self._clip_coefficient, 1 + self._clip_coefficient
                     )
                     actor_loss = torch.max(loss_unclipped, loss_clipped).mean()
                     entr_loss = entropy.mean()
 
                     # Critic loss
                     values = values.view(-1)
-                    if self._clip_vloss:
+                    if self._clip_value_loss:
                         v_loss_unclipped = self._critic_loss_fn(
                             values, batch["returns"]
                         )
                         v_clipped = batch["values"] + torch.clamp(
                             values - batch["values"],
-                            -self._clip_coef,
-                            self._clip_coef,
+                            -self._clip_coefficient,
+                            self._clip_coefficient,
                         )
                         v_loss_clipped = self._critic_loss_fn(
                             v_clipped, batch["returns"]
@@ -353,8 +356,8 @@ class PPOAgent(Agent):
 
                     loss = (
                         actor_loss
-                        - self._ent_coef * entr_loss
-                        + self._vf_coef * critic_loss
+                        - self._entropy_coefficient * entr_loss
+                        + self._value_fn_coefficient * critic_loss
                     )
                     loss.backward()
 

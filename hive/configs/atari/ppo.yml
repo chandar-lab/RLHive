@@ -34,7 +34,7 @@ agent:
     init_fn: 
       name: 'orthogonal'
     replay_buffer:
-      name: 'PPOReplayBuffer'
+      name: 'OnPolicyReplayBuffer'
       kwargs:
         stack_size: *stack_size
         use_gae: True

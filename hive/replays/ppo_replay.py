@@ -2,7 +2,7 @@ import numpy as np
 from hive.replays.circular_replay import CircularReplayBuffer
 
 
-class PPOReplayBuffer(CircularReplayBuffer):
+class OnPolicyReplayBuffer(CircularReplayBuffer):
     """An extension of the CircularReplayBuffer for on-policy learning algorithms"""
 
     def __init__(
@@ -22,7 +22,7 @@ class PPOReplayBuffer(CircularReplayBuffer):
         extra_storage_types=None,
         num_players_sharing_buffer: int = None,
     ):
-        """Constructor for PPOReplayBuffer.
+        """Constructor for OnPolicyReplayBuffer.
 
         Args:
             capacity (int): Total number of observations that can be stored in the buffer
@@ -127,17 +127,15 @@ class PPOReplayBuffer(CircularReplayBuffer):
     def reset(self):
         """Resets the storage."""
         if self._stack_size > 1:
-            transitions = {
+            saved_transitions = {
                 k: self._storage[k][-(self._stack_size - 1) :]
                 for k in self._storage.keys()
             }
             self._create_storage(self._capacity, self._specs)
             for k in self._storage.keys():
-                self._storage[k][: (self._stack_size - 1)] = transitions[k]
-            self._episode_start = transitions["done"][-1]
+                self._storage[k][: (self._stack_size - 1)] = saved_transitions[k]
         else:
             self._create_storage(self._capacity, self._specs)
-            self._episode_start = True
         self._cursor = self._stack_size - 1
         self._num_added = self._stack_size - 1
 
