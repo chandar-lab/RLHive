@@ -7,6 +7,7 @@ from hive.agents.legal_moves_rainbow import LegalMovesRainbowAgent
 from hive.agents.rainbow import RainbowDQNAgent
 from hive.agents.random import RandomAgent
 from hive.agents.td3 import TD3
+from hive.agents.deep_dyna_q import DeepDynaQ
 from hive.utils.registry import registry
 
 registry.register_all(
@@ -19,6 +20,7 @@ registry.register_all(
         "RainbowDQNAgent": RainbowDQNAgent,
         "RandomAgent": RandomAgent,
         "TD3": TD3,
+        "DeepDynaQ": DeepDynaQ,
     },
 )
 

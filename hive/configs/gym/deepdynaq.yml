@@ -1,0 +1,124 @@
+name: 'SingleAgentRunner'
+kwargs:
+  experiment_manager:
+    name: 'Experiment'
+    kwargs:
+      name: &run_name 'gym-deep-dynaQ'
+      save_dir: 'experiment'
+      saving_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 10000
+  train_steps: 1000000
+  test_frequency: 10000
+  test_episodes: 10
+  max_steps_per_episode: 500
+  stack_size: &stack_size 1
+  environment:
+    name: 'GymEnv'
+    kwargs:
+      env_name: 'CartPole-v0'
+  agent:
+    name: 'DeepDynaQ'
+    kwargs:
+      dyna_model:
+        name: 'ActionInMiddleDynaQModel'
+        kwargs:
+          obs_linear_layer: True
+          observation_encoder_net:
+            name: 'MLPNetwork'
+            kwargs:
+              hidden_units: [64, 64, 63]
+              activation_fn:
+                name: 'Tanh'
+          observation_predictor_net:
+            name: 'MLPNetwork'
+            kwargs:
+              hidden_units: [64, 64]
+              activation_fn:
+                name: 'Tanh'
+          reward_encoder_net:
+            name: 'MLPNetwork'
+            kwargs:
+              hidden_units: [64, 64, 63]
+              activation_fn:
+                name: 'Tanh'
+          reward_predictor_net:
+            name: 'MLPNetwork'
+            kwargs:
+              hidden_units: [64, 64]
+              activation_fn:
+                name: 'Tanh'
+          terminated_encoder_net:
+            name: 'MLPNetwork'
+            kwargs:
+              hidden_units: [64, 64, 63]
+              activation_fn:
+                name: 'Tanh'
+          terminated_predictor_net:
+            name: 'MLPNetwork'
+            kwargs:
+              hidden_units: [64, 64]
+              activation_fn:
+                name: 'Tanh'
+      value_representation_net:
+        name: 'MLPNetwork'
+        kwargs:
+          hidden_units: [64, 64, 64, 64]
+          activation_fn:
+            name: 'Tanh'
+      init_fn:
+        name: 'kaiming_uniform'
+        kwargs:
+          mode: 'fan_in'
+      learning_buffer:
+        name: 'CircularReplayBuffer'
+        kwargs:
+          capacity: 1000000
+      planning_buffer:
+        name: 'CircularReplayBuffer'
+        kwargs:
+          capacity: 1000000
+      model_optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr: .00005
+      value_optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr: .000005
+      discount_rate: .99
+      target_net_update_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 500
+      update_period_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 1
+      epsilon_schedule:
+        name: 'ConstantSchedule'
+        kwargs:
+          value: .5
+      min_replay_history: 500
+      num_learning_steps: 5
+      num_planning_steps: 5
+      log_frequency: 1000
+      device: 'cuda'
+      id: 'agent'
+  loggers:
+    -
+      name: ChompLogger
+    -
+      name: WandbLogger
+      kwargs:
+        project: Hive
+        name: *run_name
+        resume: "allow"
+        start_method: "fork"
