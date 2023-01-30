@@ -1,6 +1,6 @@
 import os
 
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
 from typing import Union
@@ -210,7 +210,7 @@ class PPOAgent(Agent):
         super().eval()
         self._actor_critic.eval()
 
-    def preprocess_update_info(self, update_info):
+    def preprocess_update_info(self, update_info, agent_traj_state):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
 
         Args:
@@ -222,21 +222,20 @@ class PPOAgent(Agent):
                 update_info["observation"]
             )
 
+        done = update_info["terminated"] or update_info["truncated"]
         if self._reward_normalization_fn:
-            self._reward_normalization_fn.update(
-                update_info["reward"], update_info["done"]
-            )
+            self._reward_normalization_fn.update(update_info["reward"], done)
             update_info["reward"] = self._reward_normalization_fn(update_info["reward"])
 
         preprocessed_update_info = {
             "observation": update_info["observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
-            "done": update_info["done"],
-            "logprob": self._act_vars["logprob"],
-            "values": self._act_vars["value"],
-            "returns": np.empty(self._act_vars["value"].shape),
-            "advantages": np.empty(self._act_vars["value"].shape),
+            "done": done,
+            "logprob": agent_traj_state["act_vars"]["logprob"],
+            "values": agent_traj_state["act_vars"]["value"],
+            "returns": np.empty(agent_traj_state["act_vars"]["value"].shape),
+            "advantages": np.empty(agent_traj_state["act_vars"]["value"].shape),
         }
         if "agent_id" in update_info:
             preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
@@ -273,33 +272,38 @@ class PPOAgent(Agent):
         return action, logprob, value
 
     @torch.no_grad()
-    def act(self, observation):
+    def act(self, observation, agent_traj_state=None):
         """Returns the action for the agent.
 
         Args:
             observation: The current observation.
         """
+        if agent_traj_state is None:
+            agent_traj_state = {}
         if self._observation_normalization_fn:
             self._observation_normalization_fn.update(observation)
             observation = self._observation_normalization_fn(observation)
         action, logprob, value = self.get_action_logprob_value(observation)
-        self._act_vars = dict(logprob=logprob, value=value)
-        return action
+        agent_traj_state["act_vars"] = dict(logprob=logprob, value=value)
+        return action, agent_traj_state
 
-    def update(self, update_info):
+    def update(self, update_info, agent_traj_state=None):
         """
         Updates the PPO agent.
 
         Args:
             update_info: dictionary containing all the necessary information to
                 update the agent. Should contain a full transition, with keys for
-                "observation", "action", "reward", and "done".
+                "observation", "next_observation", "action", "reward", "terminated",
+                and "truncated".
         """
         if not self._training:
             return
 
         # Add the most recent transition to the replay buffer.
-        self._replay_buffer.add(**self.preprocess_update_info(update_info))
+        self._replay_buffer.add(
+            **self.preprocess_update_info(update_info, agent_traj_state)
+        )
 
         if self._replay_buffer.size() == self._transitions_per_update - 1:
             if self._observation_normalization_fn:
@@ -388,6 +392,7 @@ class PPOAgent(Agent):
                     if approx_kl > self._target_kl:
                         break
             self._replay_buffer.reset()
+        return agent_traj_state
 
     def save(self, dname):
         torch.save(

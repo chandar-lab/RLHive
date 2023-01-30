@@ -115,6 +115,7 @@ class SingleAgentRunner(Runner):
 
         info = {
             "observation": observation,
+            "next_observation": next_observation,
             "reward": reward,
             "action": action,
             "terminated": terminated,
@@ -167,12 +168,12 @@ class SingleAgentRunner(Runner):
 
         info = {
             "observation": observation,
+            "next_observation": next_observation,
             "reward": reward,
             "action": action,
             "terminated": terminated,
             "truncated": truncated,
             "info": other_info,
-            "next_observation": next_observation,
         }
         if self._training:
             agent_traj_state = agent.update(copy.deepcopy(info), agent_traj_state)
