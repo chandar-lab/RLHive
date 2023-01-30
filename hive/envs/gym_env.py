@@ -9,7 +9,9 @@ class GymEnv(BaseEnv):
     Class for loading gym environments.
     """
 
-    def __init__(self, env_name, env_wrappers=None, num_players=1, render_mode=None, **kwargs):
+    def __init__(
+        self, env_name, env_wrappers=None, num_players=1, render_mode=None, **kwargs
+    ):
         """
         Args:
             env_name (str): Name of the environment (NOTE: make sure it is available
