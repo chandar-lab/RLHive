@@ -25,12 +25,13 @@ class OnPolicyReplayBuffer(CircularReplayBuffer):
         """Constructor for OnPolicyReplayBuffer.
 
         Args:
-            capacity (int): Total number of observations that can be stored in the buffer
+            capacity (int): Total number of observations that can be stored in the
+                buffer
             stack_size (int): The number of frames to stack to create an observation.
             n_step (int): Horizon used to compute n-step return reward
             gamma (float): Discounting factor used to compute n-step return reward
-            use_gae (bool): Whether to use generalised advantage estimates for calculating
-                returns
+            use_gae (bool): Whether to use generalised advantage estimates for
+                calculating returns
             gae_lambda (float): Discouting factor used to compute generalised advantage
                 estimation
             observation_shape: Shape of observations that will be stored in the buffer.
@@ -81,33 +82,29 @@ class OnPolicyReplayBuffer(CircularReplayBuffer):
         self._use_gae = use_gae
         self._gae_lambda = gae_lambda
 
+    def compute_gae_advantage(self, values):
+        last_gae_lambda = 0
+        for t in reversed(range(self._capacity)):
+            next_values = (
+                values if t == self._capacity - 1 else self._storage["values"][t + 1]
+            )
+            next_non_terminal = 1.0 - self._storage["done"][t]
+            delta = (
+                self._storage["reward"][t]
+                + self._gamma * next_values * next_non_terminal
+                - self._storage["values"][t]
+            )
+            self._storage["advantages"][t] = last_gae_lambda = (
+                delta
+                + self._gamma * self._gae_lambda * next_non_terminal * last_gae_lambda
+            )
+        self._storage["returns"] = self._storage["advantages"] + self._storage["values"]
+
     # Taken from https://github.com/vwxyzjn/ppo-implementation-details/blob/main/ppo_shared.py
     def compute_advantages(self, values):
         """Compute advantages using rewards and value estimates."""
         if self._use_gae:
-            last_gae_lambda = 0
-            for t in reversed(range(self._capacity)):
-                next_values = (
-                    values
-                    if t == self._capacity - 1
-                    else self._storage["values"][t + 1]
-                )
-                next_non_terminal = 1.0 - self._storage["done"][t]
-                delta = (
-                    self._storage["reward"][t]
-                    + self._gamma * next_values * next_non_terminal
-                    - self._storage["values"][t]
-                )
-                self._storage["advantages"][t] = last_gae_lambda = (
-                    delta
-                    + self._gamma
-                    * self._gae_lambda
-                    * next_non_terminal
-                    * last_gae_lambda
-                )
-            self._storage["returns"] = (
-                self._storage["advantages"] + self._storage["values"]
-            )
+            self.compute_gae_advantage(values)
         else:
             for t in reversed(range(self._capacity)):
                 next_return = (

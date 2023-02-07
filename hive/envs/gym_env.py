@@ -2,6 +2,7 @@ import gymnasium as gym
 from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
 from hive.envs.env_wrapper import EnvWrapper, apply_wrappers
+from hive.utils.registry import registry
 
 
 class GymEnv(BaseEnv):
@@ -16,7 +17,7 @@ class GymEnv(BaseEnv):
         Args:
             env_name (str): Name of the environment (NOTE: make sure it is available
                 in gym.envs.registry.all())
-            env_wrappers (List[Wrapper]): List of environment wrappers to apply.
+            env_wrappers (List[EnvWrapper]): List of environment wrappers to apply.
             num_players (int): Number of players for the environment.
             render_mode (str): One of None, "human", "rgb_array", "ansi", or
                 "rgb_array_list". See gym documentation for details.
@@ -80,3 +81,34 @@ class GymEnv(BaseEnv):
 
     def close(self):
         self._env.close()
+
+
+registry.register_all(
+    EnvWrapper,
+    {
+        "RecordEpisodeStatistics": gym.wrappers.RecordEpisodeStatistics,
+        "AtariPreprocessing": gym.wrappers.AtariPreprocessing,
+        "AutoResetWrapper": gym.wrappers.AutoResetWrapper,
+        "EnvCompatibility": gym.wrappers.EnvCompatibility,
+        "FilterObservation": gym.wrappers.FilterObservation,
+        "FlattenObservation": gym.wrappers.FlattenObservation,
+        "FrameStack": gym.wrappers.FrameStack,
+        "GrayScaleObservation": gym.wrappers.GrayScaleObservation,
+        "HumanRendering": gym.wrappers.HumanRendering,
+        "OrderEnforcing": gym.wrappers.OrderEnforcing,
+        "PixelObservationWrapper": gym.wrappers.PixelObservationWrapper,
+        "RecordVideo": gym.wrappers.RecordVideo,
+        "RenderCollection": gym.wrappers.RenderCollection,
+        "RescaleAction": gym.wrappers.RescaleAction,
+        "ResizeObservation": gym.wrappers.ResizeObservation,
+        "StepAPICompatibility": gym.wrappers.StepAPICompatibility,
+        "TimeAwareObservation": gym.wrappers.TimeAwareObservation,
+        "TimeLimit": gym.wrappers.TimeLimit,
+        "VectorListInfo": gym.wrappers.VectorListInfo,
+        "ClipAction": gym.wrappers.ClipAction,
+        "NormalizeObservation": gym.wrappers.NormalizeObservation,
+        "TransformObservation": gym.wrappers.TransformObservation,
+        "NormalizeReward": gym.wrappers.NormalizeReward,
+        "TransformReward": gym.wrappers.TransformReward,
+    },
+)

@@ -9,9 +9,10 @@ from hive.agents.qnets.utils import calculate_output_dim
 
 
 class CategoricalHead(torch.nn.Module):
-    """A module that implements a discrete actor head. It uses the ouput from the
-    :obj:`actor_net`, and adds creates a :py:class:`~torch.distributions.categorical.Categorical`
-    object to compute the action distribution."""
+    """A module that implements a discrete actor head. It uses the ouput from
+    the :obj:`actor_net`, and adds creates a
+    :py:class:`~torch.distributions.categorical.Categorical` object to compute
+    the action distribution."""
 
     def __init__(
         self, feature_dim: Tuple[int], action_space: gym.spaces.Discrete
@@ -63,9 +64,10 @@ class GaussianPolicyHead(torch.nn.Module):
 
 
 class PPOActorCriticNetwork(torch.nn.Module):
-    """A module that implements the PPO actor and critic computation. It puts together the
-    :obj:`representation_network`, :obj:`actor_net` and :obj:`critic_net`, then adds two final
-    :py:class:`~torch.nn.Linear` layers to compute the action and state value."""
+    """A module that implements the PPO actor and critic computation. It puts together
+    the :obj:`representation_network`, :obj:`actor_net` and :obj:`critic_net`, then
+    adds two final :py:class:`~torch.nn.Linear` layers to compute the action and state
+    value."""
 
     def __init__(
         self,

@@ -305,7 +305,7 @@ class PPOAgent(Agent):
             **self.preprocess_update_info(update_info, agent_traj_state)
         )
 
-        if self._replay_buffer.size() == self._transitions_per_update - 1:
+        if self._replay_buffer.size() >= self._transitions_per_update - 1:
             if self._observation_normalization_fn:
                 update_info["next_observation"] = self._observation_normalization_fn(
                     update_info["next_observation"]
@@ -386,7 +386,7 @@ class PPOAgent(Agent):
                         self._logger.log_scalar(
                             "entropy_loss", entr_loss, self._timescale
                         )
-                        self._logger.log_scalar("approxkl", approx_kl, self._timescale)
+                        self._logger.log_scalar("approx_kl", approx_kl, self._timescale)
 
                 if self._target_kl is not None:
                     if approx_kl > self._target_kl:

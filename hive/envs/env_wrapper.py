@@ -1,6 +1,4 @@
-import gymnasium as gym
-
-from hive.utils.registry import Registrable, registry
+from hive.utils.registry import Registrable
 
 
 class EnvWrapper(Registrable):
@@ -23,16 +21,3 @@ def apply_wrappers(env, env_wrappers):
     for wrapper in env_wrappers:
         env = wrapper(env)
     return env
-
-
-registry.register_all(
-    EnvWrapper,
-    {
-        "RecordEpisodeStatistics": gym.wrappers.RecordEpisodeStatistics,
-        "ClipAction": gym.wrappers.ClipAction,
-        "NormalizeObservation": gym.wrappers.NormalizeObservation,
-        "TransformObservation": gym.wrappers.TransformObservation,
-        "NormalizeReward": gym.wrappers.NormalizeReward,
-        "TransformReward": gym.wrappers.TransformReward,
-    },
-)

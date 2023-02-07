@@ -31,7 +31,8 @@ class MeanStd:
     def update_mean_var_count_from_moments(
         self, mean, var, count, batch_mean, batch_var, batch_count
     ):
-        """Updates the mean, var and count using the previous mean, var, count and batch values."""
+        """Updates the mean, var and count using the previous mean, var, count
+        and batch values."""
         delta = batch_mean - mean
         tot_count = count + batch_count
 
