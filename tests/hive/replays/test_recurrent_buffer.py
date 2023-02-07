@@ -4,14 +4,12 @@ from pytest_lazyfixture import lazy_fixture
 
 from hive.replays.recurrent_replay import RecurrentReplayBuffer
 
-### size, seq_length,
-### add --> check shape,
 
-OBS_SHAPE = (4, 4)
+OBS_SHAPE = (2, 2)
 CAPACITY = 60
 MAX_SEQ_LEN = 10
-N_STEP_HORIZON = 1
-GAMMA = 0.99
+N_STEP_HORIZON = 2
+GAMMA = 1
 
 
 @pytest.fixture()
@@ -37,12 +35,13 @@ def buffer(request):
 ### truncated and terminated instead of done???
 @pytest.fixture()
 def full_buffer(buffer):
-    for i in range(CAPACITY + 20):
+    done_time = 15
+    for i in range(33):  # until the buffer is full instead of CAPACITY
         buffer.add(
             observation=np.ones(OBS_SHAPE) * i,
-            action=i,
-            reward=i % 10,
-            done=((i + 1) % 15) == 0,
+            action=(i % done_time) + 1,
+            reward=(i % done_time) + 1,
+            done=((i + 1) % done_time) == 0,
             priority=(i % 10) + 1,
         )
     return buffer
@@ -52,17 +51,20 @@ def full_buffer(buffer):
 def full_n_step_buffer():
     n_step_buffer = RecurrentReplayBuffer(
         capacity=CAPACITY,
+        max_seq_len=MAX_SEQ_LEN,
         observation_shape=OBS_SHAPE,
         observation_dtype=np.float32,
         n_step=N_STEP_HORIZON,
         gamma=GAMMA,
     )
-    for i in range(CAPACITY + 20):
+    done_time = 15
+    for i in range(33):  # until the buffer is full instead of CAPACITY
         n_step_buffer.add(
             observation=np.ones(OBS_SHAPE) * i,
-            action=i,
-            reward=i % 10,
-            done=((i + 1) % 15) == 0,
+            action=(i % done_time) + 1,
+            reward=(i % done_time) + 1,
+            done=((i + 1) % done_time) == 0,
+            priority=(i % 10) + 1,
         )
     return n_step_buffer
 
@@ -112,6 +114,7 @@ def test_constructor(
 
 def test_add(buffer):
     assert buffer.size() == 0
+    ## add to the buffer until the buffer is full
     done_time = 15
     for i in range(33):  # until the buffer is full instead of CAPACITY
         buffer.add(
@@ -128,6 +131,7 @@ def test_add(buffer):
             == ((i + MAX_SEQ_LEN) + (((i) // done_time) * (MAX_SEQ_LEN - 1))) % CAPACITY
         )
 
+    ## when the buffer is full
     more_steps = 40
     for i in range(more_steps):
         buffer.add(
@@ -146,3 +150,59 @@ def test_add(buffer):
         buffer._num_added
         == (more_steps + (((i) // done_time) * (MAX_SEQ_LEN - 1))) + CAPACITY
     )
+
+
+def test_sample_shape(full_buffer):
+    # sample transitions from buffer
+    batch_size = CAPACITY - 1
+    batch = full_buffer.sample(batch_size)
+    # check if the shape of batch is correct
+    assert batch["indices"].shape == (batch_size,)
+    assert batch["observation"].shape == (batch_size, 10) + OBS_SHAPE
+    assert batch["action"].shape == (batch_size, 10)
+    assert batch["done"].shape == (batch_size, 10)
+    assert batch["reward"].shape == (batch_size, 10)
+    assert batch["trajectory_lengths"].shape == (batch_size,)
+    assert batch["next_observation"].shape == (batch_size, 10) + OBS_SHAPE
+
+
+def test_sample(full_buffer):
+    # sample transitions from buffer
+    batch_size = 50
+    batch = full_buffer.sample(batch_size)
+    for b in range(batch_size):
+        t = 0
+
+        while batch["action"][b, t] == 0:
+            t += 1
+
+        while t < MAX_SEQ_LEN and batch["action"][b, t] > 0:
+            if t > 0:
+                assert batch["action"][b, t] - batch["action"][b, t - 1] == 1
+                assert batch["reward"][b, t] - batch["reward"][b, t - 1] == 1
+            t += 1
+
+
+def test_sample_n_step(full_n_step_buffer):
+    # sample transitions from buffer
+    batch_size = 50
+    batch = full_n_step_buffer.sample(batch_size)
+    for b in range(batch_size):
+        t = 0
+
+        while batch["action"][b, t] == 0:
+            t += 1
+
+        while t < MAX_SEQ_LEN - 1 and batch["action"][b, t] > 0:
+            if t > 0:
+                assert batch["action"][b, t] - batch["action"][b, t - 1] == 1
+                if t == full_n_step_buffer.size() - 1 or batch["reward"][b, t + 1] == 0:
+                    assert (
+                        batch["reward"][b, t] - batch["reward"][b, t - 1]
+                        == 1 - batch["reward"][b, t] * GAMMA
+                    )
+                else:
+                    assert (
+                        batch["reward"][b, t] - batch["reward"][b, t - 1] == 1 + GAMMA
+                    )
+            t += 1
