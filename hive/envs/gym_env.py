@@ -1,4 +1,7 @@
 import gymnasium as gym
+import inspect
+import gymnasium.wrappers as w
+
 from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
 from hive.envs.env_wrapper import EnvWrapper, apply_wrappers
@@ -83,32 +86,13 @@ class GymEnv(BaseEnv):
         self._env.close()
 
 
+wrappers = [
+    getattr(w, x)
+    for x in dir(w)
+    if inspect.isclass(getattr(w, x)) and issubclass(getattr(w, x), gym.Wrapper)
+]
+
 registry.register_all(
     EnvWrapper,
-    {
-        "RecordEpisodeStatistics": gym.wrappers.RecordEpisodeStatistics,
-        "AtariPreprocessing": gym.wrappers.AtariPreprocessing,
-        "AutoResetWrapper": gym.wrappers.AutoResetWrapper,
-        "EnvCompatibility": gym.wrappers.EnvCompatibility,
-        "FilterObservation": gym.wrappers.FilterObservation,
-        "FlattenObservation": gym.wrappers.FlattenObservation,
-        "FrameStack": gym.wrappers.FrameStack,
-        "GrayScaleObservation": gym.wrappers.GrayScaleObservation,
-        "HumanRendering": gym.wrappers.HumanRendering,
-        "OrderEnforcing": gym.wrappers.OrderEnforcing,
-        "PixelObservationWrapper": gym.wrappers.PixelObservationWrapper,
-        "RecordVideo": gym.wrappers.RecordVideo,
-        "RenderCollection": gym.wrappers.RenderCollection,
-        "RescaleAction": gym.wrappers.RescaleAction,
-        "ResizeObservation": gym.wrappers.ResizeObservation,
-        "StepAPICompatibility": gym.wrappers.StepAPICompatibility,
-        "TimeAwareObservation": gym.wrappers.TimeAwareObservation,
-        "TimeLimit": gym.wrappers.TimeLimit,
-        "VectorListInfo": gym.wrappers.VectorListInfo,
-        "ClipAction": gym.wrappers.ClipAction,
-        "NormalizeObservation": gym.wrappers.NormalizeObservation,
-        "TransformObservation": gym.wrappers.TransformObservation,
-        "NormalizeReward": gym.wrappers.NormalizeReward,
-        "TransformReward": gym.wrappers.TransformReward,
-    },
+    {wrapper.__name__: wrapper for wrapper in wrappers},
 )

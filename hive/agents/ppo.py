@@ -232,10 +232,10 @@ class PPOAgent(Agent):
             "action": update_info["action"],
             "reward": update_info["reward"],
             "done": done,
-            "logprob": agent_traj_state["act_vars"]["logprob"],
-            "values": agent_traj_state["act_vars"]["value"],
-            "returns": np.empty(agent_traj_state["act_vars"]["value"].shape),
-            "advantages": np.empty(agent_traj_state["act_vars"]["value"].shape),
+            "logprob": agent_traj_state["logprob"],
+            "values": agent_traj_state["value"],
+            "returns": np.empty(agent_traj_state["value"].shape),
+            "advantages": np.empty(agent_traj_state["value"].shape),
         }
         if "agent_id" in update_info:
             preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
@@ -284,7 +284,8 @@ class PPOAgent(Agent):
             self._observation_normalization_fn.update(observation)
             observation = self._observation_normalization_fn(observation)
         action, logprob, value = self.get_action_logprob_value(observation)
-        agent_traj_state["act_vars"] = dict(logprob=logprob, value=value)
+        agent_traj_state["logprob"] = logprob
+        agent_traj_state["value"] = value
         return action, agent_traj_state
 
     def update(self, update_info, agent_traj_state=None):
