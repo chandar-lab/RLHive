@@ -135,7 +135,6 @@ class MultiGridEnvHive(MultiGridEnv):
         )
 
         if show_agent_views:
-
             target_partial_width = int(
                 img.shape[0] * agent_col_width_frac - 2 * agent_col_padding_px
             )

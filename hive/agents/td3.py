@@ -399,7 +399,7 @@ class TD3(Agent):
 
     def _update_target(self):
         """Update the target network."""
-        for (network, target_network) in [
+        for network, target_network in [
             (self._actor, self._target_actor),
             (self._critic, self._target_critic),
         ]:
