@@ -133,6 +133,9 @@ class Runner(ABC, Registrable):
         :py:meth:`~Runner.run_episode` methods.
         See :py:class:`~hive.runners.single_agent_loop.SingleAgentRunner` and
         :py:class:`~hive.runners.multi_agent_loop.MultiAgentRunner` for examples."""
+        # Run an initial test episode
+        self.run_testing()
+        
         self.train_mode(True)
         while self._train_schedule.get_value():
             # Run training episode
