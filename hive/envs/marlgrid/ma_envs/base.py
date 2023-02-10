@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 import numpy as np
 from marlgrid.base import MultiGrid, MultiGridEnv, rotate_grid
 from marlgrid.rendering import SimpleImageViewer
@@ -135,7 +135,6 @@ class MultiGridEnvHive(MultiGridEnv):
         )
 
         if show_agent_views:
-
             target_partial_width = int(
                 img.shape[0] * agent_col_width_frac - 2 * agent_col_padding_px
             )

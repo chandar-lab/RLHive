@@ -334,7 +334,6 @@ class SimpleReplayBuffer(BaseReplayBuffer):
     """
 
     def __init__(self, capacity=1e5, compress=False, seed=42, **kwargs):
-
         self._numpy_rng = np.random.default_rng(seed)
         self._capacity = int(capacity)
         self._compress = compress

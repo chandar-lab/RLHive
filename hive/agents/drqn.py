@@ -2,7 +2,7 @@ import copy
 import os
 from functools import partial
 
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
 
@@ -180,7 +180,6 @@ class DRQNAgent(DQNAgent):
 
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
-        self._hidden_state = self._qnet.init_hidden(batch_size=1)
 
     def preprocess_update_info(self, update_info):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
@@ -210,17 +209,25 @@ class DRQNAgent(DQNAgent):
         return preprocessed_update_info
 
     @torch.no_grad()
-    def act(self, observation):
+    def act(self, observation, agent_traj_state=None):
         """Returns the action for the agent. If in training mode, follows an epsilon
         greedy policy. Otherwise, returns the action with the highest Q-value.
 
         Args:
             observation: The current observation.
+            agent_traj_state: Contains necessary state information for the agent
+                to process current trajectory. This should be updated and returned.
+
+        Returns:
+            - action
+            - agent trajectory state
         """
 
         # Reset hidden state if it is episode beginning.
-        if self._state["episode_start"]:
-            self._hidden_state = self._qnet.init_hidden(batch_size=1)
+        if agent_traj_state is None:
+            hidden_state = self._qnet.init_hidden(batch_size=1)
+        else:
+            hidden_state = agent_traj_state["hidden_state"]
 
         # Determine and log the value of epsilon
         if self._training:
@@ -239,7 +246,7 @@ class DRQNAgent(DQNAgent):
         observation = torch.tensor(
             np.expand_dims(observation, axis=(0, 1)), device=self._device
         ).float()
-        qvals, self._hidden_state = self._qnet(observation, self._hidden_state)
+        qvals, hidden_state = self._qnet(observation, hidden_state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._action_space.n)
         else:
@@ -254,24 +261,29 @@ class DRQNAgent(DQNAgent):
         if (
             self._training
             and self._logger.should_log(self._timescale)
-            and self._state["episode_start"]
+            and agent_traj_state is None
         ):
             self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
-            self._state["episode_start"] = False
-        return action
+            agent_traj_state = {}
+        agent_traj_state["hidden_state"] = hidden_state
+        return action, agent_traj_state
 
-    def update(self, update_info):
+    def update(self, update_info, agent_traj_state=None):
         """
         Updates the DRQN agent.
 
         Args:
-            update_info: dictionary containing all the necessary information to
-                update the agent. Should contain a full transition, with keys for
-                "observation", "action", "reward", and "done".
-        """
-        if update_info["done"]:
-            self._state["episode_start"] = True
+            update_info: dictionary containing all the necessary information
+                from the environment to update the agent. Should contain a full
+                transition, with keys for "observation", "action", "reward",
+                "next_observation", and "done".
+            agent_traj_state: Contains necessary state information for the agent
+                to process current trajectory. This should be updated and returned.
 
+        Returns:
+            - action
+            - agent trajectory state
+        """
         if not self._training:
             return
 
@@ -340,66 +352,4 @@ class DRQNAgent(DQNAgent):
         if self._target_net_update_schedule.update():
             self._update_target()
 
-    def unpack_hidden_state(self):
-        hidden_state = {}
-        if self._rnn_type == "lstm":
-            hidden_state = {
-                "hidden_state": self._prev_hidden_state[0].detach().cpu().numpy(),
-                "cell_state": self._prev_hidden_state[1].detach().cpu().numpy(),
-            }
-
-        elif self._rnn_type == "gru":
-            hidden_state = {
-                "hidden_state": self._prev_hidden_state[0].detach().cpu().numpy(),
-            }
-        else:
-            raise ValueError(
-                f"rnn_type is wrong. Expected either lstm or gru,"
-                f"received {self._rnn_type}."
-            )
-
-        return hidden_state
-
-    def get_hidden_state(self, batch):
-
-        if self._store_hidden == True:
-            hidden_state = (
-                torch.tensor(
-                    batch["hidden_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
-                    device=self._device,
-                ).float(),
-            )
-
-            target_hidden_state = (
-                torch.tensor(
-                    batch["next_hidden_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
-                    device=self._device,
-                ).float(),
-            )
-
-            if self._rnn_type == "lstm":
-                hidden_state += (
-                    torch.tensor(
-                        batch["cell_state"][:, 0].squeeze(1).squeeze(1).unsqueeze(0),
-                        device=self._device,
-                    ).float(),
-                )
-
-                target_hidden_state += (
-                    torch.tensor(
-                        batch["next_cell_state"][:, 0]
-                        .squeeze(1)
-                        .squeeze(1)
-                        .unsqueeze(0),
-                        device=self._device,
-                    ).float(),
-                )
-        else:
-            hidden_state = self._qnet.init_hidden(
-                batch_size=self._batch_size,
-            )
-            target_hidden_state = self._target_qnet.init_hidden(
-                batch_size=self._batch_size,
-            )
-
-        return hidden_state, target_hidden_state
+        return agent_traj_state

@@ -40,16 +40,16 @@ def load_config(
             yaml_config = yaml.safe_load(f)
     if agent_config is not None:
         with open(agent_config) as f:
-            if "agents" in yaml_config:
-                yaml_config["agents"] = yaml.safe_load(f)
+            if "agents" in yaml_config["kwargs"]:
+                yaml_config["kwargs"]["agents"] = yaml.safe_load(f)
             else:
-                yaml_config["agent"] = yaml.safe_load(f)
+                yaml_config["kwargs"]["agent"] = yaml.safe_load(f)
     if env_config is not None:
         with open(env_config) as f:
-            yaml_config["environment"] = yaml.safe_load(f)
+            yaml_config["kwargs"]["environment"] = yaml.safe_load(f)
     if logger_config is not None:
         with open(logger_config) as f:
-            yaml_config["loggers"] = yaml.safe_load(f)
+            yaml_config["kwargs"]["loggers"] = yaml.safe_load(f)
     return yaml_config
 
 
@@ -200,7 +200,7 @@ class TransitionInfo:
             for agent_id in rewards:
                 self._transitions[agent_id]["reward"] += rewards[agent_id]
 
-    def get_info(self, agent, done=False):
+    def get_info(self, agent, terminated=False, truncated=False):
         """Get all the info for the agent, and reset the info for that agent. Also adds
         a done value to the info dictionary that is based on the done parameter to the
         function.
@@ -210,7 +210,8 @@ class TransitionInfo:
             done (bool): Whether this transition is terminal.
         """
         info = self._transitions[agent.id]
-        info["done"] = done
+        info["terminated"] = terminated
+        info["truncated"] = truncated
         self._transitions[agent.id] = {"reward": 0.0}
         return info
 
@@ -237,7 +238,7 @@ class TransitionInfo:
     def __repr__(self):
         return str(
             {
-                "transtions": self._transitions,
+                "transitions": self._transitions,
                 "started": self._started,
                 "previous_observations": self._previous_observations,
             }

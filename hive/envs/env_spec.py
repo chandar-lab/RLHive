@@ -1,6 +1,6 @@
 from typing import List, Union
 
-import gym
+import gymnasium as gym
 
 
 class EnvSpec:

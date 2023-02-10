@@ -1,6 +1,6 @@
 import abc
 
-import gym
+import gymnasium as gym
 
 from hive.utils.registry import Registrable
 
@@ -27,24 +27,32 @@ class Agent(abc.ABC, Registrable):
         return self._id
 
     @abc.abstractmethod
-    def act(self, observation):
+    def act(self, observation, agent_traj_state):
         """Returns an action for the agent to perform based on the observation.
 
         Args:
             observation: Current observation that agent should act on.
+            agent_traj_state: Contains necessary state information for the agent
+                to process current trajectory. This should be updated and returned.
         Returns:
-            Action for the current timestep.
+            - Action for the current timestep.
+            - Agent trajectory state.
         """
         pass
 
     @abc.abstractmethod
-    def update(self, update_info):
+    def update(self, update_info, agent_traj_state):
         """
         Updates the agent.
 
         Args:
-            update_info (dict): Contains information agent needs to update
-                itself.
+            update_info (dict): Contains information from the environment agent needs
+                to update itself.
+            agent_traj_state: Contains necessary state information for the agent
+                to process current trajectory. This should be updated and returned.
+
+        Returns:
+            Agent trajectory state.
         """
         pass
 
