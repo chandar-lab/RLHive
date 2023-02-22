@@ -1,5 +1,5 @@
-import gym_minigrid
-from gym_minigrid.wrappers import (
+import minigrid
+from minigrid import (
     FlatObsWrapper,
     FullyObsWrapper,
     ImgObsWrapper,

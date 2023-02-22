@@ -1,1 +1,1 @@
-gym-minigrid==1.2.2
+minigrid==2.1.0
