@@ -1,10 +1,10 @@
 from typing import Tuple
+
 import numpy as np
 import torch
-from torch import nn
-
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.utils import calculate_output_dim
+from torch import nn
 
 
 class NetPerActionDynaQModel(nn.Module):
@@ -33,8 +33,9 @@ class NetPerActionDynaQModel(nn.Module):
                 representations that will be used to compute next observations.
             reward_encoder_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute rewards.
-            terminated_encoder_net (FunctionApproximator): A network that outputs the
-                representations that will be used to compute episode terminations of episodes.
+            terminated_encoder_net (FunctionApproximator): A network that outputs
+                the representations that will be used to compute
+                episode terminations of episodes.
             add_obs (bool): Whether to sum up the observation predictions to the
                 current observations or not.
             obs_linear_layer (bool): Whether to use a linear layer at the end of the
@@ -152,7 +153,8 @@ class ActionInMiddleDynaQModel(nn.Module):
             observation_encoder_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute next observations.
             observation_predictor_net (FunctionApproximator): A network that takes in
-                the representations and outputs the predictions for the next observations.
+                the representations and outputs
+                the predictions for the next observations.
             reward_encoder_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute rewards.
             reward_predictor_net (FunctionApproximator): A network that takes in
@@ -160,7 +162,8 @@ class ActionInMiddleDynaQModel(nn.Module):
             terminated_encoder_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute episode terminations.
             terminated_predictor_net (FunctionApproximator): A network that takes in
-                the representations and outputs the predictions for the episode terminations.
+                the representations and outputs the predictions
+                for the episode terminations.
             add_obs (bool): Whether to sum up the observation predictions to the
                 current observations or not.
             obs_linear_layer (bool): Whether to use a linear layer at the end of the

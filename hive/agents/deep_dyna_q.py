@@ -5,16 +5,15 @@ import pickle
 import gymnasium as gym
 import numpy as np
 import torch
-
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.qnet_heads import DQNNetwork
-from hive.agents.world_models.base import WorldModel
 from hive.agents.qnets.utils import (
     InitializationFn,
     calculate_output_dim,
     create_init_weights_fn,
 )
+from hive.agents.world_models.base import WorldModel
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.loggers import Logger, NullLogger
 from hive.utils.schedule import (
@@ -71,31 +70,32 @@ class DeepDynaQ(Agent):
         Args:
             observation_space (gym.spaces.Box): Observation space for the agent.
             action_space (gym.spaces.Discrete): Action space for the agent.
-            dyna_model (WorldModel): A network that outputs the next observation, reward,
-                and episode termination given a state and action.
+            dyna_model (WorldModel): A network that outputs the next observation,
+                reward, and episode termination given a state and action.
             value_representation_net (FunctionApproximator): A network that outputs the
                 representations that will be used to compute Q-values.
-            stack_size: Number of observations stacked to create the observation fed to the
-                general neural network.
+            stack_size: Number of observations stacked to create the observation
+                fed to the general neural network.
             id: Agent identifier.
-            model_optimizer_fn (OptimizerFn): A function that takes in a list of parameters
-                to optimize and returns the optimizer for learning the model.
-                If None, defaults to :py:class:`~torch.optim.Adam`.
-            value_optimizer_fn (OptimizerFn): A function that takes in a list of parameters
-                to optimize and returns the optimizer for learning the Q-values.
-                If None, defaults to :py:class:`~torch.optim.Adam`.
-            observation_loss_fn (LossFn): Loss function used by the agent for the observations.
-                If None, defaults to :py:class:`~torch.nn.MSELoss`.
-            observation_normalization_factor (float): What the inputs are divided by before
-                calculating the loss.
+            model_optimizer_fn (OptimizerFn): A function that takes in a list of
+                parameters to optimize and returns the optimizer for learning
+                the model. If None, defaults to :py:class:`~torch.optim.Adam`.
+            value_optimizer_fn (OptimizerFn): A function that takes in a list of
+                parameters to optimize and returns the optimizer for learning
+                the Q-values. If None, defaults to :py:class:`~torch.optim.Adam`.
+            observation_loss_fn (LossFn): Loss function used by the agent for
+                the observations. If None, defaults to :py:class:`~torch.nn.MSELoss`.
+            observation_normalization_factor (float): What the inputs are
+                divided by before calculating the loss.
             reward_loss_fn (LossFn): Loss function used by the agent for the rewards.
                 If None, defaults to :py:class:`~torch.nn.MSELoss`.
-            terminated_loss_fn (LossFn): Loss function used by the agent for the episode termination.
-                If None, defaults to :py:class:`~torch.nn.BCELoss`.
+            terminated_loss_fn (LossFn): Loss function used by the agent for
+                the episode termination. If None,
+                defaults to :py:class:`~torch.nn.BCELoss`.
             value_loss_fn (LossFn): Loss function used by the agent for the Q-values.
                 If None, defaults to :py:class:`~torch.nn.MSELoss`.
-            init_fn (InitializationFn): Initializes the weights of general neural network
-                using create_init_weights_fn.
+            init_fn (InitializationFn): Initializes the weights of
+                general neural network using create_init_weights_fn.
             learning_buffer (BaseReplayBuffer): The replay buffer that the agent will
                 push observations to and sample from during model learning. If None,
                 defaults to
@@ -231,8 +231,9 @@ class DeepDynaQ(Agent):
 
         Args:
             dyna_model: The network that will be used to compute model's estimations.
-            value_representation_net: A network that outputs the representations that will
-                    be used to compute Q-values (e.g. everything except the final layer).
+            value_representation_net: A network that outputs the representations
+                that will be used to compute Q-values
+                (e.g. everything except the final layer).
         """
         # Model
         self._model_network = dyna_model(self._state_size, self._action_space.n).to(
@@ -442,7 +443,6 @@ class DeepDynaQ(Agent):
             # Value Learning (Planning)
             planning_losses = []
             for _ in range(self._num_planning_steps):
-
                 batch = self._planning_buffer.sample(
                     batch_size=self._planning_batch_size
                 )
