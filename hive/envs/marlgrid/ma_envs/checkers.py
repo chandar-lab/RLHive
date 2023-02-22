@@ -85,7 +85,6 @@ class CheckersMultiGrid(MultiGridEnvHive):
             agent.step_reward = 0
 
             if agent.active:
-
                 cur_pos = agent.pos[:]
                 cur_cell = self.grid.get(*cur_pos)
                 fwd_pos = agent.front_pos[:]
