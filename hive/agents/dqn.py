@@ -3,6 +3,7 @@ import os
 from collections import deque
 
 import gymnasium as gym
+from gymnasium.vector.utils.numpy_utils import create_empty_array, concatenate
 import numpy as np
 import torch
 from gymnasium.vector.utils.numpy_utils import create_empty_array
@@ -24,7 +25,7 @@ from hive.utils.schedule import (
     Schedule,
     SwitchSchedule,
 )
-from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder
+from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder, DL_to_LD
 
 
 class DQNAgent(Agent):

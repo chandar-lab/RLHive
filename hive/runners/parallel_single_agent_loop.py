@@ -9,7 +9,7 @@ from hive.runners.base import Runner
 from hive.runners.utils import Metrics, TransitionInfo
 from hive.utils import utils
 from hive.utils.experiment import Experiment
-from hive.utils.loggers import CompositeLogger, NullLogger, ScheduledLogger
+from hive.utils.loggers import logger
 from gymnasium.vector.utils.numpy_utils import create_empty_array, concatenate
 import numpy as np
 
@@ -300,8 +300,8 @@ class ParallelSingleAgentRunner(Runner):
 
     def update_step(self):
         if self._training:
-            self._train_schedule(global_step)
+            self._train_steps.increment()
             if self._experiment_manager.update_step():
                 self._experiment_manager.save()
-            if self._test_schedule(global_step):
+            if self._test_schedule(self._train_steps):
                 self.run_testing()
