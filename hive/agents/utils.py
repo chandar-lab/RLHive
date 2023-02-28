@@ -9,6 +9,8 @@ def get_stacked_state(observation, observation_stack, stack_size):
 
     Args:
         observation: Current observation.
+        observation_stack: Observations from previous timesteps.
+        stack_size: Number of observations to stack.
     """
 
     if stack_size == 1:
@@ -20,9 +22,48 @@ def get_stacked_state(observation, observation_stack, stack_size):
     return stacked_observation, observation_stack
 
 
+def roll_state(state, stack):
+    if isinstance(state, np.ndarray):
+        # state = D x ...
+        # stack = S x D ...
+        stack = np.roll(stack, -1, axis=0)
+        stack[-1] = state
+        return stack
+    elif isinstance(state, dict):
+        return {k: roll_state(v, stack[k]) for k, v in state.items()}
+    elif isinstance(state, list):
+        return [zeros_like(*item) for item in zip(state, stack)]
+    elif isinstance(state, tuple):
+        return tuple(zeros_like(*item) for item in zip(state, stack))
+    else:
+        return 0
+
+
+def get_multiple_zeros_like(x, tile=1):
+    """Create a zero state like some state, with the 0th dimension tiled.
+    This handles slightly more complex objects such as lists, dictionaries, and
+    tuples of numpy arrays.
+
+    Args:
+        x (np.ndarray | torch.Tensor | dict | list): State used to define
+            structure/state of zero state.
+    """
+    if isinstance(x, np.ndarray):
+        x = np.concatenate([x] * tile, axis=0)
+        return np.zeros_like(x)
+    elif isinstance(x, dict):
+        return {k: zeros_like(v) for k, v in x.items()}
+    elif isinstance(x, list):
+        return [zeros_like(item) for item in x]
+    elif isinstance(x, tuple):
+        return tuple(zeros_like(item) for item in x)
+    else:
+        return 0
+
+
 def zeros_like(x):
     """Create a zero state like some state. This handles slightly more complex
-    objects such as lists and dictionaries of numpy arrays and torch Tensors.
+    objects such as lists, dictionaries, and tuples of numpy arrays.
 
     Args:
         x (np.ndarray | torch.Tensor | dict | list): State used to define
@@ -30,12 +71,12 @@ def zeros_like(x):
     """
     if isinstance(x, np.ndarray):
         return np.zeros_like(x)
-    elif isinstance(x, torch.Tensor):
-        return torch.zeros_like(x)
     elif isinstance(x, dict):
         return {k: zeros_like(v) for k, v in x.items()}
     elif isinstance(x, list):
         return [zeros_like(item) for item in x]
+    elif isinstance(x, tuple):
+        return tuple(zeros_like(item) for item in x)
     else:
         return 0
 

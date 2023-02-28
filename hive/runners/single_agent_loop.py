@@ -4,10 +4,26 @@ from typing import List
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.runners import Runner
-from hive.runners.utils import TransitionInfo
+
+# from hive.runners.utils import TransitionInfo
 from hive.utils import utils
 from hive.utils.experiment import Experiment
 from hive.utils.loggers import CompositeLogger, NullLogger, ScheduledLogger
+from gymnasium.vector.utils.numpy_utils import create_empty_array, concatenate
+import numpy as np
+
+
+def batch_input(x):
+    if isinstance(x, np.ndarray):
+        return np.expand_dims(x, axis=0)
+    elif isinstance(x, dict):
+        return {k: batch_input(v) for k, v in x.items()}
+    elif isinstance(x, list):
+        return [batch_input(item) for item in x]
+    elif isinstance(x, tuple):
+        return tuple(batch_input(item) for item in x)
+    else:
+        return [x]
 
 
 class SingleAgentRunner(Runner):
@@ -97,7 +113,7 @@ class SingleAgentRunner(Runner):
             episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
         agent = self._agents[0]
-        action, agent_traj_state = agent.act(observation, agent_traj_state)
+        action, agent_traj_state = agent.act(batch_input(observation), agent_traj_state)
         (
             next_observation,
             reward,
@@ -115,9 +131,12 @@ class SingleAgentRunner(Runner):
             "terminated": terminated,
             "truncated": truncated,
             "info": other_info,
+            "source": 0,
         }
         if self._training:
-            agent_traj_state = agent.update(copy.deepcopy(info), agent_traj_state)
+            agent_traj_state = agent.update(
+                copy.deepcopy(batch_input(info)), agent_traj_state
+            )
 
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1

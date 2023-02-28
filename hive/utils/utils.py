@@ -64,6 +64,16 @@ class Seeder:
 seeder = Seeder()
 
 
+def DL_to_LD(x, list_size):
+    """Turns a dictionary of lists to a list of dictionaries."""
+    return [{k: v[i] for k, v in x.items()} for i in range(list_size)]
+
+
+def LD_to_DL(x):
+    """Turns a list of dictionaries to a dictionary of lists."""
+    return {k: [d[k] for d in x] for k in x[0]}
+
+
 class Chomp(dict):
     """An extension of the dictionary class that allows for accessing through dot
     notation and easy saving/loading.

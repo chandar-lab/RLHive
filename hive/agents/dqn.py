@@ -3,6 +3,7 @@ import os
 from collections import deque
 
 import gymnasium as gym
+from gymnasium.vector.utils.numpy_utils import create_empty_array, concatenate
 import numpy as np
 import torch
 
@@ -14,7 +15,7 @@ from hive.agents.qnets.utils import (
     calculate_output_dim,
     create_init_weights_fn,
 )
-from hive.agents.utils import get_stacked_state
+from hive.agents.utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.loggers import Logger, NullLogger
 from hive.utils.schedule import (
@@ -23,7 +24,7 @@ from hive.utils.schedule import (
     Schedule,
     SwitchSchedule,
 )
-from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder
+from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder, DL_to_LD
 
 
 class DQNAgent(Agent):
@@ -198,14 +199,25 @@ class DQNAgent(Agent):
         self._target_qnet.eval()
 
     def preprocess_observation(self, observation, agent_traj_state):
+        # observation_stacks = []
+        # for agent_traj_state in agent_traj_states:
         if agent_traj_state is None:
-            observation_stack = deque(maxlen=self._stack_size - 1)
+            observation_stack = create_empty_array(
+                self._observation_space, n=self._stack_size
+            )
         else:
             observation_stack = agent_traj_state["observation_stack"]
-        state, observation_stack = get_stacked_state(
-            observation, observation_stack, self._stack_size
+        # observation_stacks.append(observation_stack)
+        observation_stack = roll_state(
+            # concatenate(self._observation_space, observation, None),
+            observation,
+            observation_stack,
         )
-        state = torch.tensor(state, device=self._device).unsqueeze(0).float()
+        state = (
+            torch.tensor(observation_stack, device=self._device, dtype=torch.float32)
+            .flatten(0, 1)
+            .unsqueeze(0)
+        )
         return state, observation_stack
 
     def preprocess_update_info(self, update_info):
@@ -227,9 +239,13 @@ class DQNAgent(Agent):
             "reward": update_info["reward"],
             "terminated": update_info["terminated"],
             "truncated": update_info["truncated"],
+            "source": update_info["source"],
         }
-        if "agent_id" in update_info:
-            preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
+
+        # Dictionary of lists to list of dictionaries
+        preprocessed_update_info = DL_to_LD(
+            preprocessed_update_info, len(update_info["observation"])
+        )
 
         return preprocessed_update_info
 
@@ -270,8 +286,6 @@ class DQNAgent(Agent):
                 epsilon = 1.0
             else:
                 epsilon = self._epsilon_schedule.update()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_scalar("epsilon", epsilon, self._timescale)
         else:
             epsilon = self._test_epsilon
 
@@ -294,7 +308,7 @@ class DQNAgent(Agent):
             and agent_traj_state is None
         ):
             self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
-        observation_stack.append(observation)
+        # observation_stack.append(observation)
         agent_traj_state = {"observation_stack": observation_stack}
         return action, agent_traj_state
 
@@ -318,7 +332,9 @@ class DQNAgent(Agent):
             return
 
         # Add the most recent transition to the replay buffer.
-        self._replay_buffer.add(**self.preprocess_update_info(update_info))
+        transitions = self.preprocess_update_info(update_info)
+        for transition in transitions:
+            self._replay_buffer.add(**transition)
 
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception

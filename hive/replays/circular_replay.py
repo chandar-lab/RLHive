@@ -1,3 +1,4 @@
+from collections import defaultdict
 import os
 import pickle
 
@@ -26,8 +27,8 @@ class CircularReplayBuffer(BaseReplayBuffer):
         reward_shape=(),
         reward_dtype=np.float32,
         extra_storage_types=None,
-        num_players_sharing_buffer: int = None,
         optimize_storage: bool = True,
+        commit_at_done: bool = True,
     ):
         """Constructor for CircularReplayBuffer.
 
@@ -89,9 +90,9 @@ class CircularReplayBuffer(BaseReplayBuffer):
         self._cursor = 0
         self._num_added = 0
         self._rng = np.random.default_rng(seed=seeder.get_new_seed("replay"))
-        self._num_players_sharing_buffer = num_players_sharing_buffer
-        if num_players_sharing_buffer is not None:
-            self._episode_storage = [[] for _ in range(num_players_sharing_buffer)]
+        self._commit_at_done = commit_at_done
+        if commit_at_done:
+            self._episode_storage = defaultdict(lambda: [])
 
     def size(self):
         """Returns the number of transitions stored in the buffer."""
@@ -142,6 +143,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         reward,
         terminated,
         truncated,
+        source,
         **kwargs,
     ):
         """Adds a transition to the buffer.
@@ -175,14 +177,14 @@ class CircularReplayBuffer(BaseReplayBuffer):
                     f"Key {key} has wrong dtype. Expected {self._specs[key][0]},"
                     f"received {type(transition[key])}."
                 )
-        if self._num_players_sharing_buffer is None:
+        if not self._commit_at_done:
             self._add_transition(**transition)
         else:
-            self._episode_storage[kwargs["agent_id"]].append(transition)
+            self._episode_storage[source].append(transition)
             if done:
-                for transition in self._episode_storage[kwargs["agent_id"]]:
+                for transition in self._episode_storage[source]:
                     self._add_transition(**transition)
-                self._episode_storage[kwargs["agent_id"]] = []
+                self._episode_storage[source] = []
 
         if done:
             self._episode_start = True

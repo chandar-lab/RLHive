@@ -10,7 +10,7 @@ class Schedule(abc.ABC, Registrable):
         pass
 
     @abc.abstractmethod
-    def update(self):
+    def update(self, num_steps=1):
         """Update the value of the variable we are tracking and return the updated value.
         The first call to update will return the initial value of the schedule."""
         pass
@@ -42,11 +42,11 @@ class LinearSchedule(Schedule):
     def get_value(self):
         return self._value
 
-    def update(self):
+    def update(self, num_steps=1):
         if self._value == self._end_value:
             return self._value
 
-        self._value += self._delta
+        self._value += self._delta * num_steps
 
         # Check if value is over the end_value
         if ((self._value - self._end_value) > 0) == (self._delta > 0):
@@ -75,7 +75,7 @@ class ConstantSchedule(Schedule):
     def get_value(self):
         return self._value
 
-    def update(self):
+    def update(self, num_steps=1):
         return self._value
 
     def __repr__(self):
@@ -107,8 +107,8 @@ class SwitchSchedule(Schedule):
         else:
             return self._on_value
 
-    def update(self):
-        self._steps += 1
+    def update(self, num_steps=1):
+        self._steps += num_steps
         value = self.get_value()
         return value
 
@@ -148,8 +148,8 @@ class DoublePeriodicSchedule(Schedule):
         else:
             return self._on_value
 
-    def update(self):
-        self._steps += 1
+    def update(self, num_steps=1):
+        self._steps += num_steps
         return self.get_value()
 
     def __repr__(self):
