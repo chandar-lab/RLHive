@@ -3,7 +3,7 @@ kwargs:
   experiment_manager:
     name: 'Experiment'
     kwargs:
-      name: &run_name 'ddpg'
+      name: &run_name 'td3'
       save_dir: 'experiment'
       saving_schedule:
         name: 'PeriodicSchedule'
@@ -19,7 +19,7 @@ kwargs:
   environment:
     name: 'GymEnv'
     kwargs:
-      env_name: 'Hopper-v2'
+      env_name: 'Hopper-v4'
       
   agent:
     name: 'TD3'

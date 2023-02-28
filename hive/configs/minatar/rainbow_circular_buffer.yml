@@ -37,6 +37,7 @@ kwargs:
           strides: [1]
           paddings: [0]
           normalization_factor: 1
+      stack_size: 1
       optimizer_fn:
         name: 'Adam'
         kwargs:
@@ -47,14 +48,11 @@ kwargs:
       init_fn:
         name: "variance_scaling"
       id: 0
-      n_step: &n_step 1
+      n_step: 1
       replay_buffer:
         name: 'CircularReplayBuffer'
         kwargs:
           capacity: 100000
-          stack_size: 1
-          n_step: *n_step
-          gamma: .99
       discount_rate: .99
       update_period_schedule:
         name: 'PeriodicSchedule'

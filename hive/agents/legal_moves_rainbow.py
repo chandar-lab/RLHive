@@ -1,7 +1,10 @@
+from collections import deque
+
 import numpy as np
 import torch
 
 from hive.agents.rainbow import RainbowDQNAgent
+from hive.agents.utils import get_stacked_state
 
 
 class LegalMovesRainbowAgent(RainbowDQNAgent):
@@ -12,6 +15,22 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         super().create_q_networks(representation_net)
         self._qnet = LegalMovesHead(self._qnet)
         self._target_qnet = LegalMovesHead(self._target_qnet)
+
+    def preprocess_observation(self, observation, agent_traj_state):
+        if agent_traj_state is None:
+            observation_stack = deque(maxlen=self._stack_size - 1)
+        else:
+            observation_stack = agent_traj_state["observation_stack"]
+        state, observation_stack = get_stacked_state(
+            observation["observation"], observation_stack, self._stack_size
+        )
+        state = torch.tensor(state, device=self._device).unsqueeze(0).float()
+
+        legal_moves = np.nonzero(observation["action_mask"])[0]
+        encoded_legal_moves = torch.tensor(
+            action_encoding(observation["action_mask"]), device=self._device
+        ).float()
+        return state, legal_moves, encoded_legal_moves, observation_stack
 
     def preprocess_update_info(self, update_info):
         preprocessed_update_info = {
@@ -48,19 +67,16 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         else:
             epsilon = self._test_epsilon
 
-        vectorized_observation = torch.tensor(
-            np.expand_dims(observation["observation"], axis=0), device=self._device
-        ).float()
-        legal_moves_as_int = [
-            i for i, x in enumerate(observation["action_mask"]) if x == 1
-        ]
-        encoded_legal_moves = torch.tensor(
-            action_encoding(observation["action_mask"]), device=self._device
-        ).float()
-        qvals = self._qnet(vectorized_observation, encoded_legal_moves).cpu()
+        (
+            state,
+            legal_moves,
+            encoded_legal_moves,
+            observation_stack,
+        ) = self.preprocess_observation(observation, agent_traj_state)
+        qvals = self._qnet(state, encoded_legal_moves)
 
         if self._rng.random() < epsilon:
-            action = self._rng.choice(legal_moves_as_int)
+            action = self._rng.choice(legal_moves)
         else:
             action = torch.argmax(qvals).item()
 
@@ -70,8 +86,9 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
             and agent_traj_state is None
         ):
             self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
-            agent_traj_state = {}
 
+        observation_stack.append(observation["observation"])
+        agent_traj_state = {"observation_stack": observation_stack}
         return action, agent_traj_state
 
 

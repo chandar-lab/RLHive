@@ -47,9 +47,8 @@ agent:
       name: 'RecurrentReplayBuffer'
       kwargs:
         capacity: 1000000
-        gamma: &gamma .99
     max_seq_len: *max_seq_len
-    discount_rate: *gamma
+    discount_rate: .99
     reward_clip: 1
     update_period_schedule:
       name: 'PeriodicSchedule'

@@ -23,7 +23,6 @@ class SingleAgentRunner(Runner):
         eval_environment: BaseEnv = None,
         test_frequency: int = -1,
         test_episodes: int = 1,
-        stack_size: int = 1,
         max_steps_per_episode: int = 1e9,
         seed: int = None,
     ):
@@ -45,7 +44,6 @@ class SingleAgentRunner(Runner):
                 episodes. If this is -1, testing is not run.
             test_episodes (int): How many episodes to run testing for duing each test
                 phase.
-            stack_size (int): The number of frames in an observation sent to an agent.
             max_steps_per_episode (int): The maximum number of steps to run an episode
                 for.
             seed (int): Seed used to set the global seed for libraries used by
@@ -67,7 +65,6 @@ class SingleAgentRunner(Runner):
         agent = agent(
             observation_space=env_spec.observation_space[0],
             action_space=env_spec.action_space[0],
-            stack_size=stack_size,
             logger=logger,
         )
 
@@ -84,14 +81,12 @@ class SingleAgentRunner(Runner):
             test_episodes=test_episodes,
             max_steps_per_episode=max_steps_per_episode,
         )
-        self._stack_size = stack_size
 
     def run_one_step(
         self,
         environment,
         observation,
         episode_metrics,
-        transition_info,
         agent_traj_state,
     ):
         """Run one step of the training loop.
@@ -102,8 +97,7 @@ class SingleAgentRunner(Runner):
             episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
         agent = self._agents[0]
-        stacked_observation = transition_info.get_stacked_state(agent, observation)
-        action, agent_traj_state = agent.act(stacked_observation, agent_traj_state)
+        action, agent_traj_state = agent.act(observation, agent_traj_state)
         (
             next_observation,
             reward,
@@ -124,7 +118,6 @@ class SingleAgentRunner(Runner):
         if self._training:
             agent_traj_state = agent.update(copy.deepcopy(info), agent_traj_state)
 
-        transition_info.record_info(agent, info)
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1
         episode_metrics["full_episode_length"] += 1
@@ -136,7 +129,6 @@ class SingleAgentRunner(Runner):
         environment,
         observation,
         episode_metrics,
-        transition_info,
         agent_traj_state,
     ):
         """Run the final step of an episode.
@@ -149,17 +141,14 @@ class SingleAgentRunner(Runner):
                 for.
             episode_metrics (Metrics): Keeps track of metrics for current
                 episode.
-            transition_info (TransitionInfo): Used to keep track of the most
-                recent transition for the agent.
             agent_traj_state: Trajectory state object that will be passed to the
                 agent when act and update are called. The agent returns a new
                 trajectory state object to replace the state passed in.
 
         """
         agent = self._agents[0]
-        stacked_observation = transition_info.get_stacked_state(agent, observation)
 
-        action, agent_traj_state = agent.act(stacked_observation, agent_traj_state)
+        action, agent_traj_state = agent.act(observation, agent_traj_state)
         next_observation, reward, terminated, _, _, other_info = environment.step(
             action
         )
@@ -176,7 +165,6 @@ class SingleAgentRunner(Runner):
         if self._training:
             agent_traj_state = agent.update(copy.deepcopy(info), agent_traj_state)
 
-        transition_info.record_info(agent, info)
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1
         episode_metrics["full_episode_length"] += 1
@@ -192,8 +180,6 @@ class SingleAgentRunner(Runner):
         episode_metrics = self.create_episode_metrics()
         terminated, truncated = False, False
         observation, _ = environment.reset()
-        transition_info = TransitionInfo(self._agents, self._stack_size)
-        transition_info.start_agent(self._agents[0])
         agent_traj_state = None
         steps = 0
         # Run the loop until the episode ends or times out
@@ -206,7 +192,6 @@ class SingleAgentRunner(Runner):
                 environment,
                 observation,
                 episode_metrics,
-                transition_info,
                 agent_traj_state,
             )
             steps += 1
@@ -217,7 +202,6 @@ class SingleAgentRunner(Runner):
                 environment,
                 observation,
                 episode_metrics,
-                transition_info,
                 agent_traj_state,
             )
             self.update_step()

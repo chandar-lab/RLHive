@@ -1,5 +1,6 @@
 import copy
 import os
+from collections import deque
 
 import gymnasium as gym
 import numpy as np
@@ -13,6 +14,7 @@ from hive.agents.qnets.utils import (
     calculate_output_dim,
     create_init_weights_fn,
 )
+from hive.agents.utils import get_stacked_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.loggers import Logger, NullLogger
 from hive.utils.schedule import PeriodicSchedule, SwitchSchedule
@@ -119,6 +121,7 @@ class TD3(Agent):
         """
         super().__init__(observation_space, action_space, id)
         self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
+        self._stack_size = stack_size
         self._state_size = (
             stack_size * self._observation_space.shape[0],
             *self._observation_space.shape[1:],
@@ -145,6 +148,7 @@ class TD3(Agent):
             observation_dtype=self._observation_space.dtype,
             action_shape=self._action_space.shape,
             action_dtype=self._action_space.dtype,
+            stack_size=stack_size,
             gamma=discount_rate,
         )
         self._discount_rate = discount_rate**n_step
@@ -238,6 +242,17 @@ class TD3(Agent):
         else:
             return actions
 
+    def preprocess_observation(self, observation, agent_traj_state):
+        if agent_traj_state is None:
+            observation_stack = deque(maxlen=self._stack_size - 1)
+        else:
+            observation_stack = agent_traj_state["observation_stack"]
+        state, observation_stack = get_stacked_state(
+            observation, observation_stack, self._stack_size
+        )
+        state = torch.tensor(state, device=self._device).unsqueeze(0).float()
+        return state, observation_stack
+
     def preprocess_update_info(self, update_info):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
         Scales the action to [-1, 1].
@@ -293,10 +308,10 @@ class TD3(Agent):
         """
 
         # Calculate action and add noise if training.
-        observation = torch.tensor(
-            np.expand_dims(observation, axis=0), device=self._device
-        ).float()
-        action = self._actor(observation)
+        state, observation_stack = self.preprocess_observation(
+            observation, agent_traj_state
+        )
+        action = self._actor(state)
         if self._training:
             noise = torch.randn_like(action, requires_grad=False) * self._action_noise
             action = action + noise
@@ -304,6 +319,8 @@ class TD3(Agent):
         if self._scale_actions:
             action = self.unscale_actions(action)
         action = np.clip(action, self._action_min, self._action_max)
+        observation_stack.append(observation)
+        agent_traj_state = {"observation_stack": observation_stack}
         return np.squeeze(action, axis=0), agent_traj_state
 
     def update(self, update_info, agent_traj_state=None):

@@ -17,7 +17,6 @@ kwargs:
   test_episodes: 10
   self_play: True
   num_agents: &num_agents 2
-  stack_size: &stack_size 1
 
   # Environment config
   environment:
@@ -37,6 +36,7 @@ kwargs:
           name: 'MLPNetwork'
           kwargs:
             hidden_units: [512, 512]
+        stack_size: 1
         optimizer_fn:
           name: 'Adam'
           kwargs:
@@ -49,10 +49,7 @@ kwargs:
           name: 'LegalMovesBuffer'
           kwargs:
             capacity: 1000000
-            stack_size: *stack_size
-            action_dim: 20
             num_players_sharing_buffer: *num_agents
-            gamma: 0.99
         discount_rate: .99
         update_period_schedule:
           name: 'PeriodicSchedule'

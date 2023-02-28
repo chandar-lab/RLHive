@@ -221,11 +221,23 @@ class RainbowDQNAgent(DQNAgent):
 
     @torch.no_grad()
     def act(self, observation, agent_traj_state=None):
+        """Returns the action for the agent. If in training mode, follows an epsilon
+        greedy policy. Otherwise, returns the action with the highest Q-value.
+
+        Args:
+            observation: The current observation.
+            agent_traj_state: Contains necessary state information for the agent
+                to process current trajectory. This should be updated and returned.
+
+        Returns:
+            - action
+            - agent trajectory state
+        """
+
+        # Determine and log the value of epsilon
         if self._training:
             if not self._learn_schedule.get_value():
                 epsilon = 1.0
-            elif not self._use_eps_greedy:
-                epsilon = 0.0
             else:
                 epsilon = self._epsilon_schedule.update()
             if self._logger.update_step(self._timescale):
@@ -233,14 +245,17 @@ class RainbowDQNAgent(DQNAgent):
         else:
             epsilon = self._test_epsilon
 
-        observation = torch.tensor(
-            np.expand_dims(observation, axis=0), device=self._device
-        ).float()
-        qvals = self._qnet(observation)
+        state, observation_stack = self.preprocess_observation(
+            observation, agent_traj_state
+        )
 
+        # Sample action. With epsilon probability choose random action,
+        # otherwise select the action with the highest q-value.
+        qvals = self._qnet(state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._action_space.n)
         else:
+            # Note: not explicitly handling the ties
             action = torch.argmax(qvals).item()
 
         if (
@@ -249,8 +264,8 @@ class RainbowDQNAgent(DQNAgent):
             and agent_traj_state is None
         ):
             self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
-            agent_traj_state = {}
-
+        observation_stack.append(observation)
+        agent_traj_state = {"observation_stack": observation_stack}
         return action, agent_traj_state
 
     def update(self, update_info, agent_traj_state=None):
