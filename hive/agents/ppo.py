@@ -1,14 +1,14 @@
 import os
+from typing import Union
 
 import gymnasium as gym
 import numpy as np
 import torch
-from typing import Union
 
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
-from hive.agents.qnets.ppo_nets import PPOActorCriticNetwork
 from hive.agents.qnets.normalizer import NormalizationFn
+from hive.agents.qnets.ppo_nets import PPOActorCriticNetwork
 from hive.agents.qnets.utils import (
     InitializationFn,
     calculate_output_dim,
@@ -16,9 +16,7 @@ from hive.agents.qnets.utils import (
 )
 from hive.replays.on_policy_replay import OnPolicyReplayBuffer
 from hive.utils.loggers import Logger, NullLogger
-from hive.utils.schedule import (
-    PeriodicSchedule,
-)
+from hive.utils.schedule import PeriodicSchedule
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
 
 

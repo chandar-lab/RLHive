@@ -4,6 +4,7 @@ import numpy as np
 
 from hive.utils.registry import Registrable, registry
 
+
 # taken from https://github.com/openai/baselines/blob/master/baselines/common/vec_env/vec_normalize.py
 class MeanStd:
     """Tracks the mean, variance and count of values."""

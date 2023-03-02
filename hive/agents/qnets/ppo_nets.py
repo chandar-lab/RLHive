@@ -1,8 +1,9 @@
 from typing import Tuple, Union
+
 import gymnasium as gym
-from gymnasium.spaces import Box, Discrete
 import numpy as np
 import torch
+from gymnasium.spaces import Box, Discrete
 
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.utils import calculate_output_dim

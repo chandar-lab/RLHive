@@ -1,6 +1,8 @@
-import gymnasium as gym
 import inspect
-import gymnasium.wrappers as w
+from typing import List
+
+import gymnasium as gym
+from gymnasium import wrappers
 
 from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
@@ -14,7 +16,12 @@ class GymEnv(BaseEnv):
     """
 
     def __init__(
-        self, env_name, env_wrappers=None, num_players=1, render_mode=None, **kwargs
+        self,
+        env_name: str,
+        env_wrappers: List[EnvWrapper] = None,
+        num_players: int = 1,
+        render_mode: str = None,
+        **kwargs
     ):
         """
         Args:
@@ -87,9 +94,10 @@ class GymEnv(BaseEnv):
 
 
 wrappers = [
-    getattr(w, x)
-    for x in dir(w)
-    if inspect.isclass(getattr(w, x)) and issubclass(getattr(w, x), gym.Wrapper)
+    getattr(wrappers, x)
+    for x in dir(wrappers)
+    if inspect.isclass(getattr(wrappers, x))
+    and issubclass(getattr(wrappers, x), gym.Wrapper)
 ]
 
 registry.register_all(
