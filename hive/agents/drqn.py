@@ -303,8 +303,7 @@ class DRQNAgent(DQNAgent):
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            done = torch.logical_or(update_info['truncated'], update_info['terminated'])
-            pred_qvals, _ = self._qnet(*current_state_inputs, hidden_state, done)
+            pred_qvals, _ = self._qnet(*current_state_inputs, hidden_state, batch["done"])
             pred_qvals = pred_qvals.view(self._batch_size, self._max_seq_len, -1)
             actions = batch["action"].long()
             pred_qvals = torch.gather(pred_qvals, -1, actions.unsqueeze(-1)).squeeze(-1)
