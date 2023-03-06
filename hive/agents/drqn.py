@@ -230,6 +230,7 @@ class DRQNAgent(DQNAgent):
         else:
             hidden_state = agent_traj_state["hidden_state"]
 
+
         # Determine and log the value of epsilon
         if self._training:
             if not self._learn_schedule.get_value():
@@ -279,7 +280,7 @@ class DRQNAgent(DQNAgent):
         if not self._training:
             return
 
-        # Add the most recent transition to the replay buffer.
+        # Add the most recent transition to  the replay buffer.
         update_info.update(agent_traj_state)
         self._replay_buffer.add(**self.preprocess_update_info(update_info))
 
@@ -288,7 +289,7 @@ class DRQNAgent(DQNAgent):
         # and move on.
         if (
             self._learn_schedule.update()
-            and self._replay_buffer.size() > 0
+            and self._replay_buffer.size() >= self._max_seq_len
             and self._update_period_schedule.update()
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
@@ -302,7 +303,8 @@ class DRQNAgent(DQNAgent):
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals, _ = self._qnet(*current_state_inputs, hidden_state)
+            done = torch.logical_or(update_info['truncated'], update_info['terminated'])
+            pred_qvals, _ = self._qnet(*current_state_inputs, hidden_state, done)
             pred_qvals = pred_qvals.view(self._batch_size, self._max_seq_len, -1)
             actions = batch["action"].long()
             pred_qvals = torch.gather(pred_qvals, -1, actions.unsqueeze(-1)).squeeze(-1)

@@ -27,6 +27,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         rnn_type: str = "lstm",
         rnn_hidden_size: int = 0,
         store_hidden: bool = False,
+        no_pad: bool = True,
     ):
         """Constructor for RecurrentReplayBuffer.
 
@@ -86,6 +87,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
             reward_dtype=reward_dtype,
             extra_storage_types=extra_storage_types,
             num_players_sharing_buffer=num_players_sharing_buffer,
+            no_pad=no_pad,
         )
         self._max_seq_len = max_seq_len
         self._rnn_type = rnn_type
@@ -107,8 +109,10 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         """
 
         if self._episode_start:
-            self._pad_buffer(self._max_seq_len - 1)
+            if not self._no_pad:
+                self._pad_buffer(self._max_seq_len - 1)
             self._episode_start = False
+
         transition = {
             "observation": observation,
             "action": action,

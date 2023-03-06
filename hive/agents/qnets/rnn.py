@@ -107,7 +107,7 @@ class ConvRNNNetwork(nn.Module):
         else:
             self.mlp = nn.Identity()
 
-    def forward(self, x, hidden_state=None):
+    def forward(self, x, hidden_state=None, done=None):
         # Act: sequence length is 1; Update: sequence length pre-defined.
         B, L, C, H, W = x.size()
         x = x.reshape(B * L, C, H, W)
@@ -121,6 +121,9 @@ class ConvRNNNetwork(nn.Module):
         if hidden_state is None:
             hidden_state = self.init_hidden(B)
         x = torch.flatten(x, start_dim=2, end_dim=-1)  # (B, L, -1)
+        hidden_state = hidden_state
+        if done is not None:
+            hidden_state = hidden_state * (1 - done)
         x, hidden_state = self.rnn(x, hidden_state)
         x = self.mlp(x.reshape((B * L, -1)))
         return x, hidden_state

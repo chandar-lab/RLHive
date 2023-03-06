@@ -26,6 +26,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         reward_dtype=np.float32,
         extra_storage_types=None,
         num_players_sharing_buffer: int = None,
+        no_pad: bool = False,
     ):
         """Constructor for CircularReplayBuffer.
 
@@ -74,6 +75,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
             [self._gamma**i for i in range(self._n_step)],
             dtype=self._specs["reward"][0],
         )
+        self._no_pad = no_pad
         self._episode_start = True
         self._cursor = 0
         self._num_added = 0
@@ -131,7 +133,8 @@ class CircularReplayBuffer(BaseReplayBuffer):
         """
 
         if self._episode_start:
-            self._pad_buffer(self._stack_size - 1)
+            if not self._no_pad:
+                self._pad_buffer(self._stack_size - 1)
             self._episode_start = False
         transition = {
             "observation": observation,

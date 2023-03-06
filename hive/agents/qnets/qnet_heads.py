@@ -74,8 +74,8 @@ class DRQNNetwork(nn.Module):
         self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
         self.output_layer = self._linear_fn(hidden_dim, out_dim)
 
-    def forward(self, x, hidden_state=None):
-        x, hidden_state = self.base_network(x, hidden_state)
+    def forward(self, x, hidden_state=None, done=None):
+        x, hidden_state = self.base_network(x, hidden_state, done)
 
         x = x.flatten(start_dim=1)
         return self.output_layer(x), hidden_state
