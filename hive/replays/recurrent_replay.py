@@ -114,6 +114,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
             "action": action,
             "reward": reward,
             "done": done,
+            "mask": 1,
         }
         transition.update(kwargs)
         for key in self._specs:

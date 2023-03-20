@@ -63,6 +63,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
             "done": (np.uint8, ()),
             "action": (action_dtype, action_shape),
             "reward": (reward_dtype, reward_shape),
+            "mask": (reward_dtype, reward_shape),
         }
         if extra_storage_types is not None:
             self._specs.update(extra_storage_types)
@@ -104,7 +105,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
             specs[key] = dtype, shape
             shape = (capacity,) + tuple(shape)
             storage[key] = np.zeros(shape, dtype=dtype)
-        storage['mask'] = np.zeros((), dtype=np.float32)
+        # storage['mask'] = np.zeros((), dtype=np.float32)
         return storage
 
     def _add_transition(self, **transition):
