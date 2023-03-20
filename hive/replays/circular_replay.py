@@ -26,7 +26,6 @@ class CircularReplayBuffer(BaseReplayBuffer):
         reward_dtype=np.float32,
         extra_storage_types=None,
         num_players_sharing_buffer: int = None,
-        masking: bool = True,
     ):
         """Constructor for CircularReplayBuffer.
 
