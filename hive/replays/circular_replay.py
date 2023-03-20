@@ -26,6 +26,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         reward_dtype=np.float32,
         extra_storage_types=None,
         num_players_sharing_buffer: int = None,
+        masking: bool = True,
     ):
         """Constructor for CircularReplayBuffer.
 
@@ -56,6 +57,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
                 (type, shape) tuple.
             num_players_sharing_buffer (int): Number of agents that share their
                 buffers. It is used for self-play.
+            masking (bool):
         """
         self._capacity = capacity
         self._specs = {
@@ -81,6 +83,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         self._num_players_sharing_buffer = num_players_sharing_buffer
         if num_players_sharing_buffer is not None:
             self._episode_storage = [[] for _ in range(num_players_sharing_buffer)]
+        self._masking = np.zeros(1, self._capacity)
 
     def size(self):
         """Returns the number of transitions stored in the buffer."""
@@ -103,6 +106,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
             specs[key] = dtype, shape
             shape = (capacity,) + tuple(shape)
             storage[key] = np.zeros(shape, dtype=dtype)
+        storage['mask'] = np.zeros((), dtype=np.float32)
         return storage
 
     def _add_transition(self, **transition):
@@ -110,8 +114,10 @@ class CircularReplayBuffer(BaseReplayBuffer):
         for key in transition:
             if key in self._storage:
                 self._storage[key][self._cursor] = transition[key]
+
         self._num_added += 1
         self._cursor = (self._cursor + 1) % self._capacity
+
 
     def _pad_buffer(self, pad_length):
         """Adds padding to the buffer. Used when stack_size > 1, and padding needs to
@@ -122,6 +128,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
                 key: np.zeros_like(self._storage[key][0]) for key in self._storage
             }
             self._add_transition(**transition)
+
 
     def add(self, observation, action, reward, done, **kwargs):
         """Adds a transition to the buffer.
@@ -138,6 +145,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
             "action": action,
             "reward": reward,
             "done": done,
+            "mask": 1,
         }
         transition.update(kwargs)
         for key in self._specs:
