@@ -57,7 +57,6 @@ class CircularReplayBuffer(BaseReplayBuffer):
                 (type, shape) tuple.
             num_players_sharing_buffer (int): Number of agents that share their
                 buffers. It is used for self-play.
-            masking (bool):
         """
         self._capacity = capacity
         self._specs = {
@@ -83,7 +82,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         self._num_players_sharing_buffer = num_players_sharing_buffer
         if num_players_sharing_buffer is not None:
             self._episode_storage = [[] for _ in range(num_players_sharing_buffer)]
-        self._masking = np.zeros(1, self._capacity)
+
 
     def size(self):
         """Returns the number of transitions stored in the buffer."""
