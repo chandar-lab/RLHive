@@ -331,6 +331,7 @@ class DRQNAgent(DQNAgent):
 
             else:
                 interm_loss = self._loss_fn(pred_qvals, q_targets)
+                print(batch['mask'].shape, batch['reward'].shape, interm_loss.shape)
                 interm_loss *= batch['mask']
                 loss = interm_loss.sum() / batch['mask'].sum()
 
