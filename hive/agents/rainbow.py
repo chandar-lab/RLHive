@@ -221,7 +221,6 @@ class RainbowDQNAgent(DQNAgent):
 
     @torch.no_grad()
     def act(self, observation, agent_traj_state=None):
-
         if self._training:
             if not self._learn_schedule.get_value():
                 epsilon = 1.0
