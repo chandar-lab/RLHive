@@ -391,11 +391,20 @@ class PPOAgent(Agent):
         return agent_traj_state
 
     def save(self, dname):
-        torch.save(
+        state_dict = (
             {
                 "actor_critic": self._actor_critic.state_dict(),
                 "optimizer": self._optimizer.state_dict(),
             },
+        )
+        if self._observation_normalizer:
+            state_dict[
+                "observation_normalizer"
+            ] = self._observation_normalizer.state_dict()
+        if self._reward_normalizer:
+            state_dict["reward_normalizer"] = self._reward_normalizer.state_dict()
+        torch.save(
+            state_dict,
             os.path.join(dname, "agent.pt"),
         )
         replay_dir = os.path.join(dname, "replay")
@@ -407,3 +416,9 @@ class PPOAgent(Agent):
         self._actor_critic.load_state_dict(checkpoint["actor_critic"])
         self._optimizer.load_state_dict(checkpoint["optimizer"])
         self._replay_buffer.load(os.path.join(dname, "replay"))
+        if self._observation_normalizer:
+            self._observation_normalizer.load_state_dict(
+                checkpoint["observation_normalizer"]
+            )
+        if self._reward_normalizer:
+            self._reward_normalizer.load_state_dict(checkpoint["reward_normalizer"])

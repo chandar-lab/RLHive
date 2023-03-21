@@ -1,3 +1,4 @@
+import abc
 from typing import Tuple
 
 import numpy as np
@@ -46,6 +47,16 @@ class MeanStd:
 
         return new_mean, new_var, new_count
 
+    def state_dict(self):
+        """Returns the state as a dictionary."""
+        return {"mean": self.mean, "var": self.var, "count": self.count}
+
+    def load_state_dict(self, state_dict):
+        """Loads the state from a dictionary."""
+        self.mean = state_dict["mean"]
+        self.var = state_dict["var"]
+        self.count = state_dict["count"]
+
 
 class Normalizer(Registrable):
     """A wrapper for callables that produce normalization functions.
@@ -61,6 +72,13 @@ class Normalizer(Registrable):
             "norm_fn"
         """
         return "norm_fn"
+
+    @abc.abstractmethod
+    def state_dict(self):
+        """Returns the state of the normalizer as a dictionary."""
+
+    def load_state_dict(self, state_dict):
+        """Loads the normalizer state from a dictionary."""
 
 
 class MovingAvgNormalizer(Normalizer):
@@ -96,6 +114,12 @@ class MovingAvgNormalizer(Normalizer):
     def update(self, input_data):
         self._rms.update(input_data)
 
+    def state_dict(self):
+        return self._rms.state_dict()
+
+    def load_state_dict(self, state_dict):
+        self._rms.load_state_dict(state_dict)
+
 
 class RewardNormalizer(Normalizer):
     """Normalizes and clips rewards from the environment. Applies a discount-based
@@ -129,6 +153,16 @@ class RewardNormalizer(Normalizer):
         self._returns = self._returns * self._gamma + rew
         self._return_rms.update(self._returns)
         self._returns *= 1 - done
+
+    def state_dict(self):
+        state_dict = self._return_rms.state_dict()
+        state_dict["returns"] = self._returns
+        return state_dict
+
+    def load_state_dict(self, state_dict):
+        self._returns = state_dict["returns"]
+        state_dict.pop("returns")
+        self._return_rms.load_state_dict(state_dict)
 
 
 registry.register_all(
