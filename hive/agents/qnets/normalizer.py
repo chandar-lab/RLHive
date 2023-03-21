@@ -77,6 +77,7 @@ class Normalizer(Registrable):
     def state_dict(self):
         """Returns the state of the normalizer as a dictionary."""
 
+    @abc.abstractmethod
     def load_state_dict(self, state_dict):
         """Loads the normalizer state from a dictionary."""
 

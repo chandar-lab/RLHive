@@ -21,7 +21,6 @@ class OnPolicyReplayBuffer(CircularReplayBuffer):
         reward_shape=(),
         reward_dtype=np.float32,
         extra_storage_types=None,
-        num_players_sharing_buffer: int = None,
     ):
         """Constructor for OnPolicyReplayBuffer.
 
@@ -51,8 +50,6 @@ class OnPolicyReplayBuffer(CircularReplayBuffer):
             extra_storage_types (dict): A dictionary describing extra items to store
                 in the buffer. The mapping should be from the name of the item to a
                 (type, shape) tuple.
-            num_players_sharing_buffer (int): Number of agents that share their
-                buffers. It is used for self-play.
         """
         if extra_storage_types is None:
             extra_storage_types = dict()
@@ -76,7 +73,6 @@ class OnPolicyReplayBuffer(CircularReplayBuffer):
             reward_shape,
             reward_dtype,
             extra_storage_types,
-            num_players_sharing_buffer,
         )
         self._compute_advantage_fn = compute_advantage_fn
 
