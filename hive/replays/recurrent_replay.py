@@ -286,6 +286,12 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                     rewards = disc_rewards
 
                 batch["reward"] = rewards
+            elif key == "mask":
+                batch[key] = self._get_from_storage(
+                    "mask",
+                    indices - self._max_seq_len + 1,
+                    num_to_access=self._max_seq_len,
+                )
             else:
                 batch[key] = self._get_from_storage(key, indices)
 

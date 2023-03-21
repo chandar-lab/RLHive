@@ -1,0 +1,76 @@
+kwargs:
+  agent:
+    kwargs:
+      batch_size: 128
+      device: cuda
+      discount_rate: 0.99
+      epsilon_schedule:
+        kwargs:
+          value: 0.1
+        name: ConstantSchedule
+      log_frequency: 100
+      loss_fn:
+        kwargs: {}
+        name: SmoothL1Loss
+      min_replay_history: 500
+      optimizer_fn:
+        kwargs: {}
+        name: Adam
+      replay_buffer:
+        kwargs:
+          capacity: 1000
+          gamma: 0.99
+          observation_dtype: np.float64
+          stack_size: 1
+        name: CircularReplayBuffer
+      representation_net:
+        kwargs:
+          hidden_units:
+          - 256
+          - 256
+        name: MLPNetwork
+      reward_clip: 1
+      target_net_update_schedule:
+        kwargs:
+          off_value: false
+          on_value: true
+          period: 100
+        name: PeriodicSchedule
+      test_epsilon: 0.001
+      update_period_schedule:
+        kwargs:
+          off_value: false
+          on_value: true
+          period: 1
+        name: PeriodicSchedule
+    name: DQNAgent
+  environment:
+    kwargs:
+      env_name: CartPole-v0
+    name: GymEnv
+  experiment_manager:
+    kwargs:
+      name: gym-dqn
+      save_dir: experiment
+      saving_schedule:
+        kwargs:
+          off_value: false
+          on_value: true
+          period: 10000
+        name: PeriodicSchedule
+    name: Experiment
+  loggers:
+  - kwargs: {}
+    name: ChompLogger
+  - kwargs:
+      name: gym-dqn
+      project: Hive
+      resume: allow
+      start_method: fork
+    name: WandbLogger
+  max_steps_per_episode: 1000
+  stack_size: 1
+  test_episodes: 10
+  test_frequency: 200
+  train_steps: 50000
+name: SingleAgentRunner
