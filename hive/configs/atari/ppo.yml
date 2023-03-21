@@ -44,7 +44,7 @@ kwargs:
         kwargs:
           stack_size: *stack_size
           compute_advantage_fn:
-            name: "ComputeGAEAdvantages"
+            name: "gae_advantages"
             kwargs:
               gae_lambda: 0.95
               

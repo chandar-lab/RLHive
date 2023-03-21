@@ -78,7 +78,7 @@ def compute_standard_advantages(
 registry.register_all(
     AdvantageComputationFn,
     {
-        "ComputeGAEAdvantages": compute_gae_advantages,
-        "ComputeStandardAdvantages": compute_standard_advantages,
+        "gae_advantages": compute_gae_advantages,
+        "standard_advantages": compute_standard_advantages,
     },
 )
