@@ -36,8 +36,11 @@ kwargs:
       replay_buffer:
         name: 'OnPolicyReplayBuffer'
         kwargs:
-          use_gae: True
-          gae_lambda: .95
+          compute_advantage_fn:
+            name: "ComputeGAEAdvantages"
+            kwargs:
+              gae_lambda: 0.95
+              
       optimizer_fn:
         name: 'Adam'
         kwargs:

@@ -43,8 +43,11 @@ kwargs:
         name: 'OnPolicyReplayBuffer'
         kwargs:
           stack_size: *stack_size
-          use_gae: True
-          gae_lambda: .95
+          compute_advantage_fn:
+            name: "ComputeGAEAdvantages"
+            kwargs:
+              gae_lambda: 0.95
+              
       discount_rate: .99
       grad_clip: .5
       clip_coefficient: .1

@@ -1,7 +1,7 @@
 import numpy as np
 
 from hive.replays.circular_replay import CircularReplayBuffer
-
+from hive.utils.advantage_computation_utils import AdvantageComputationFn
 
 class OnPolicyReplayBuffer(CircularReplayBuffer):
     """An extension of the CircularReplayBuffer for on-policy learning algorithms"""
@@ -12,8 +12,7 @@ class OnPolicyReplayBuffer(CircularReplayBuffer):
         stack_size: int = 1,
         n_step: int = 1,
         gamma: float = 0.99,
-        use_gae: bool = True,
-        gae_lambda: float = 0.95,
+        compute_advantage_fn: AdvantageComputationFn = None,
         observation_shape=(),
         observation_dtype=np.uint8,
         action_shape=(),
@@ -31,10 +30,8 @@ class OnPolicyReplayBuffer(CircularReplayBuffer):
             stack_size (int): The number of frames to stack to create an observation.
             n_step (int): Horizon used to compute n-step return reward
             gamma (float): Discounting factor used to compute n-step return reward
-            use_gae (bool): Whether to use generalised advantage estimates for
-                calculating returns
-            gae_lambda (float): Discouting factor used to compute generalised advantage
-                estimation
+            compute_advantage_fn (AdvantageComputationFn): Function used to compute the 
+                advantages.
             observation_shape: Shape of observations that will be stored in the buffer.
             observation_dtype: Type of observations that will be stored in the buffer.
                 This can either be the type itself or string representation of the
@@ -80,47 +77,21 @@ class OnPolicyReplayBuffer(CircularReplayBuffer):
             extra_storage_types,
             num_players_sharing_buffer,
         )
-        self._use_gae = use_gae
-        self._gae_lambda = gae_lambda
-
-    def compute_gae_advantage(self, values):
-        last_gae_lambda = 0
-        for t in reversed(range(self._capacity)):
-            next_values = (
-                values if t == self._capacity - 1 else self._storage["values"][t + 1]
-            )
-            next_non_terminal = 1.0 - self._storage["done"][t]
-            delta = (
-                self._storage["reward"][t]
-                + self._gamma * next_values * next_non_terminal
-                - self._storage["values"][t]
-            )
-            self._storage["advantages"][t] = last_gae_lambda = (
-                delta
-                + self._gamma * self._gae_lambda * next_non_terminal * last_gae_lambda
-            )
-        self._storage["returns"] = self._storage["advantages"] + self._storage["values"]
+        self._compute_advantage_fn = compute_advantage_fn
 
     # Taken from https://github.com/vwxyzjn/ppo-implementation-details/blob/main/ppo_shared.py
-    def compute_advantages(self, values):
+    def compute_advantages(self, last_values):
         """Compute advantages using rewards and value estimates."""
-        if self._use_gae:
-            self.compute_gae_advantage(values)
-        else:
-            for t in reversed(range(self._capacity)):
-                next_return = (
-                    values
-                    if t == self._capacity - 1
-                    else self._storage["return"][t + 1]
-                )
-                next_non_terminal = 1.0 - self._storage["done"][t]
-                self._storage["returns"][t] = (
-                    self._storage["reward"][t]
-                    + self._gamma * next_non_terminal * next_return
-                )
-            self._storage["advantages"] = (
-                self._storage["returns"] - self._storage["values"]
-            )
+        (
+            self._storage["advantages"],
+            self._storage["returns"],
+        ) = self._compute_advantage_fn(
+            self._storage["values"],
+            last_values,
+            self._storage["done"],
+            self._storage["reward"],
+            self._gamma,
+        )
 
     def reset(self):
         """Resets the storage."""
