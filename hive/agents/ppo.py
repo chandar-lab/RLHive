@@ -7,8 +7,11 @@ import torch
 
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
-from hive.agents.qnets.normalizer import NormalizationFn
-from hive.agents.qnets.ppo_nets import PPOActorCriticNetwork
+from hive.agents.qnets.normalizer import (
+    MovingAvgNormalizer,
+    RewardNormalizer,
+)
+from hive.agents.qnets.ac_nets import ActorCriticNetwork
 from hive.agents.qnets.utils import (
     InitializationFn,
     calculate_output_dim,
@@ -33,8 +36,8 @@ class PPOAgent(Agent):
         init_fn: InitializationFn = None,
         optimizer_fn: OptimizerFn = None,
         critic_loss_fn: LossFn = None,
-        observation_normalization_fn: NormalizationFn = None,
-        reward_normalization_fn: NormalizationFn = None,
+        observation_normalizer: MovingAvgNormalizer = None,
+        reward_normalizer: RewardNormalizer = None,
         stack_size: int = 1,
         replay_buffer: OnPolicyReplayBuffer = None,
         discount_rate: float = 0.99,
@@ -75,9 +78,10 @@ class PPOAgent(Agent):
                 If None, defaults to :py:class:`~torch.optim.Adam`.
             critic_loss_fn (LossFn): The loss function used to optimize the critic. If
                 None, defaults to :py:class:`~torch.nn.MSELoss`.
-            observation_normalizer (NormalizationFn): The function for normalizing
-                observations
-            reward_normalizer (NormalizationFn): The function for normalizing rewards
+            observation_normalizer (MovingAvgNormalizer): The function for
+                normalizing observations
+            reward_normalizer (RewardNormalizer): The function for normalizing
+                rewards
             stack_size (int): Number of observations stacked to create the state fed
                 to the agent.
             replay_buffer (OnPolicyReplayBuffer): The replay buffer that the agent will
@@ -123,17 +127,15 @@ class PPOAgent(Agent):
             actor_net,
             critic_net,
         )
-        if observation_normalization_fn is not None:
-            self._observation_normalization_fn = observation_normalization_fn(
-                self._state_size
-            )
+        if observation_normalizer is not None:
+            self._observation_normalizer = observation_normalizer(self._state_size)
         else:
-            self._observation_normalization_fn = None
+            self._observation_normalizer = None
 
-        if reward_normalization_fn is not None:
-            self._reward_normalization_fn = reward_normalization_fn(discount_rate)
+        if reward_normalizer is not None:
+            self._reward_normalizer = reward_normalizer(discount_rate)
         else:
-            self._reward_normalization_fn = None
+            self._reward_normalizer = None
 
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
@@ -187,7 +189,7 @@ class PPOAgent(Agent):
             network = representation_net(self._state_size)
 
         network_output_shape = calculate_output_dim(network, self._state_size)
-        self._actor_critic = PPOActorCriticNetwork(
+        self._actor_critic = ActorCriticNetwork(
             network,
             actor_net,
             critic_net,
@@ -215,15 +217,15 @@ class PPOAgent(Agent):
             update_info: Contains the information from the current timestep that the
                 agent should use to update itself.
         """
-        if self._observation_normalization_fn:
-            update_info["observation"] = self._observation_normalization_fn(
+        if self._observation_normalizer:
+            update_info["observation"] = self._observation_normalizer(
                 update_info["observation"]
             )
 
         done = update_info["terminated"] or update_info["truncated"]
-        if self._reward_normalization_fn:
-            self._reward_normalization_fn.update(update_info["reward"], done)
-            update_info["reward"] = self._reward_normalization_fn(update_info["reward"])
+        if self._reward_normalizer:
+            self._reward_normalizer.update(update_info["reward"], done)
+            update_info["reward"] = self._reward_normalizer(update_info["reward"])
 
         preprocessed_update_info = {
             "observation": update_info["observation"],
@@ -278,9 +280,9 @@ class PPOAgent(Agent):
         """
         if agent_traj_state is None:
             agent_traj_state = {}
-        if self._observation_normalization_fn:
-            self._observation_normalization_fn.update(observation)
-            observation = self._observation_normalization_fn(observation)
+        if self._observation_normalizer:
+            self._observation_normalizer.update(observation)
+            observation = self._observation_normalizer(observation)
         action, logprob, value = self.get_action_logprob_value(observation)
         agent_traj_state["logprob"] = logprob
         agent_traj_state["value"] = value
@@ -305,8 +307,8 @@ class PPOAgent(Agent):
         )
 
         if self._replay_buffer.size() >= self._transitions_per_update - 1:
-            if self._observation_normalization_fn:
-                update_info["next_observation"] = self._observation_normalization_fn(
+            if self._observation_normalizer:
+                update_info["next_observation"] = self._observation_normalizer(
                     update_info["next_observation"]
                 )
             _, _, values = self.get_action_logprob_value(
@@ -376,20 +378,15 @@ class PPOAgent(Agent):
                         approx_kl = ((ratios - 1) - logratios).mean()
 
                     if self._logger.should_log(self._timescale):
-                        self._logger.log_scalar(
-                            "actor_loss", actor_loss, self._timescale
-                        )
-                        self._logger.log_scalar(
-                            "critic_loss", critic_loss, self._timescale
-                        )
-                        self._logger.log_scalar(
-                            "entropy_loss", entr_loss, self._timescale
-                        )
-                        self._logger.log_scalar("approx_kl", approx_kl, self._timescale)
-
-                if self._target_kl is not None:
-                    if approx_kl > self._target_kl:
-                        break
+                        metrics = {
+                            "actor_loss": actor_loss,
+                            "critic_loss": critic_loss,
+                            "entropy_loss": entr_loss,
+                            "approx_kl": approx_kl,
+                        }
+                        self._logger.log_metrics(metrics, prefix=self._timescale)
+                if self._target_kl is not None and self._target_kl < approx_kl:
+                    break
             self._replay_buffer.reset()
         return agent_traj_state
 

@@ -47,85 +47,7 @@ class MeanStd:
         return new_mean, new_var, new_count
 
 
-class BaseNormalizationFn(object):
-    """Implements the base normalization function."""
-
-    def __init__(self, *args, **kwds):
-        pass
-
-    def __call__(self, *args, **kwds):
-        return NotImplementedError
-
-    def update(self, *args, **kwds):
-        return NotImplementedError
-
-
-class ObservationNormalizationFn(BaseNormalizationFn):
-    """Implements a normalization function. Transforms output by
-    normalising the input data by the running :obj:`mean` and
-    :obj:`std`, and clipping the normalised data on :obj:`clip`
-    """
-
-    def __init__(
-        self, shape: Tuple[int, ...], epsilon: float = 1e-4, clip: np.float32 = np.inf
-    ):
-        """
-        Args:
-            epsilon (float): minimum value of variance to avoid division by 0.
-            shape (tuple[int]): The shape of input data.
-            clip (np.float32): The clip value for the normalised data.
-        """
-        super().__init__()
-        self.obs_rms = MeanStd(epsilon, shape)
-        self._shape = shape
-        self._epsilon = epsilon
-        self._clip = clip
-
-    def __call__(self, obs):
-        obs = np.array([obs])
-        obs = ((obs - self.obs_rms.mean) / np.sqrt(self.obs_rms.var + self._epsilon))[0]
-        if self._clip is not None:
-            obs = np.clip(obs, -self._clip, self._clip)
-        return obs
-
-    def update(self, obs):
-        self.obs_rms.update(obs)
-
-
-class RewardNormalizationFn(BaseNormalizationFn):
-    """Implements a normalization function. Transforms output by
-    normalising the input data by the running :obj:`mean` and
-    :obj:`std`, and clipping the normalised data on :obj:`clip`
-    """
-
-    def __init__(self, gamma: float, epsilon: float = 1e-4, clip: np.float32 = np.inf):
-        """
-        Args:
-            gamma (float): discount factor for the agent.
-            epsilon (float): minimum value of variance to avoid division by 0.
-            clip (np.float32): The clip value for the normalised data.
-        """
-        super().__init__()
-        self.return_rms = MeanStd(epsilon, ())
-        self._epsilon = epsilon
-        self._clip = clip
-        self._gamma = gamma
-        self._returns = np.zeros(1)
-
-    def __call__(self, rew):
-        rew = np.array([rew])
-        rew = (rew / np.sqrt(self.return_rms.var + self._epsilon))[0]
-        if self._clip is not None:
-            rew = np.clip(rew, -self._clip, self._clip)
-        return rew
-
-    def update(self, rew, done):
-        self._returns = self._returns * self._gamma + rew
-        self.return_rms.update(self._returns)
-        self._returns *= 1 - done
-
-
-class NormalizationFn(Registrable):
+class Normalizer(Registrable):
     """A wrapper for callables that produce normalization functions.
 
     These wrapped callables can be partially initialized through configuration
@@ -141,13 +63,80 @@ class NormalizationFn(Registrable):
         return "norm_fn"
 
 
+class MovingAvgNormalizer(Normalizer):
+    """Implements a moving average normalization and clipping function. Normalizes
+    input data with the running mean and std. The normalized data is then clipped
+    within the specified range.
+    """
+
+    def __init__(
+        self, shape: Tuple[int, ...], epsilon: float = 1e-4, clip: np.float32 = np.inf
+    ):
+        """
+        Args:
+            epsilon (float): minimum value of variance to avoid division by 0.
+            shape (tuple[int]): The shape of input data.
+            clip (np.float32): The clip value for the normalised data.
+        """
+        super().__init__()
+        self._rms = MeanStd(epsilon, shape)
+        self._shape = shape
+        self._epsilon = epsilon
+        self._clip = clip
+
+    def __call__(self, input_data):
+        input_data = np.array([input_data])
+        input_data = (
+            (input_data - self._rms.mean) / np.sqrt(self._rms.var + self._epsilon)
+        )[0]
+        if self._clip is not None:
+            input_data = np.clip(input_data, -self._clip, self._clip)
+        return input_data
+
+    def update(self, input_data):
+        self._rms.update(input_data)
+
+
+class RewardNormalizer(Normalizer):
+    """Normalizes and clips rewards from the environment. Applies a discount-based
+    scaling scheme, where the rewards are divided by the standard deviation of a
+    rolling discounted sum of the rewards. The scaled rewards are then clipped within
+    specified range.
+    """
+
+    def __init__(self, gamma: float, epsilon: float = 1e-4, clip: np.float32 = np.inf):
+        """
+        Args:
+            gamma (float): discount factor for the agent.
+            epsilon (float): minimum value of variance to avoid division by 0.
+            clip (np.float32): The clip value for the normalised data.
+        """
+        super().__init__()
+        self._return_rms = MeanStd(epsilon, ())
+        self._epsilon = epsilon
+        self._clip = clip
+        self._gamma = gamma
+        self._returns = np.zeros(1)
+
+    def __call__(self, rew):
+        rew = np.array([rew])
+        rew = (rew / np.sqrt(self._return_rms.var + self._epsilon))[0]
+        if self._clip is not None:
+            rew = np.clip(rew, -self._clip, self._clip)
+        return rew
+
+    def update(self, rew, done):
+        self._returns = self._returns * self._gamma + rew
+        self._return_rms.update(self._returns)
+        self._returns *= 1 - done
+
+
 registry.register_all(
-    NormalizationFn,
+    Normalizer,
     {
-        "BaseNormalization": BaseNormalizationFn,
-        "RewardNormalization": RewardNormalizationFn,
-        "ObservationNormalization": ObservationNormalizationFn,
+        "RewardNormalizer": RewardNormalizer,
+        "MovingAvgNormalizer": MovingAvgNormalizer,
     },
 )
 
-get_norm_fn = getattr(registry, f"get_{NormalizationFn.type_name()}")
+get_norm_fn = getattr(registry, f"get_{Normalizer.type_name()}")

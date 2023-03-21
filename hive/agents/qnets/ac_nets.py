@@ -64,8 +64,8 @@ class GaussianPolicyHead(torch.nn.Module):
         return distribution
 
 
-class PPOActorCriticNetwork(torch.nn.Module):
-    """A module that implements the PPO actor and critic computation. It puts together
+class ActorCriticNetwork(torch.nn.Module):
+    """A module that implements the actor and critic computation. It puts together
     the :obj:`representation_network`, :obj:`actor_net` and :obj:`critic_net`, then
     adds two final :py:class:`~torch.nn.Linear` layers to compute the action and state
     value."""

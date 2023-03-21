@@ -46,7 +46,7 @@ class GymEnv(BaseEnv):
         Args:
             env_name (str): Name of the environment
         """
-        self._env = gym.make(env_name)
+        self._env = gym.make(env_name, **kwargs)
 
         if env_wrappers is not None:
             self._env = apply_wrappers(self._env, env_wrappers)

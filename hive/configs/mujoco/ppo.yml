@@ -38,12 +38,12 @@ kwargs:
         name: 'MLPNetwork'
         kwargs: 
           hidden_units: [64, 64]
-      observation_normalization_fn:
-        name: 'ObservationNormalization'
+      observation_normalizer:
+        name: 'MovingAvgNormalizer'
         kwargs:
           clip: 10
-      reward_normalization_fn:
-        name: 'RewardNormalization'
+      reward_normalizer:
+        name: 'RewardNormalizer'
         kwargs:
           clip: 10
       replay_buffer:
