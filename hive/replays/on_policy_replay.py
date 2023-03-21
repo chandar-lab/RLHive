@@ -3,6 +3,7 @@ import numpy as np
 from hive.replays.circular_replay import CircularReplayBuffer
 from hive.utils.advantage_computation_utils import AdvantageComputationFn
 
+
 class OnPolicyReplayBuffer(CircularReplayBuffer):
     """An extension of the CircularReplayBuffer for on-policy learning algorithms"""
 
@@ -30,7 +31,7 @@ class OnPolicyReplayBuffer(CircularReplayBuffer):
             stack_size (int): The number of frames to stack to create an observation.
             n_step (int): Horizon used to compute n-step return reward
             gamma (float): Discounting factor used to compute n-step return reward
-            compute_advantage_fn (AdvantageComputationFn): Function used to compute the 
+            compute_advantage_fn (AdvantageComputationFn): Function used to compute the
                 advantages.
             observation_shape: Shape of observations that will be stored in the buffer.
             observation_dtype: Type of observations that will be stored in the buffer.
