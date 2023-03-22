@@ -391,12 +391,10 @@ class PPOAgent(Agent):
         return agent_traj_state
 
     def save(self, dname):
-        state_dict = (
-            {
-                "actor_critic": self._actor_critic.state_dict(),
-                "optimizer": self._optimizer.state_dict(),
-            },
-        )
+        state_dict = {
+            "actor_critic": self._actor_critic.state_dict(),
+            "optimizer": self._optimizer.state_dict(),
+        }
         if self._observation_normalizer:
             state_dict[
                 "observation_normalizer"
