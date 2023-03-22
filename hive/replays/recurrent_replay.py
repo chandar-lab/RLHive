@@ -107,14 +107,12 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         """
 
         if self._episode_start:
-            self._pad_buffer(self._max_seq_len - 1)
             self._episode_start = False
         transition = {
             "observation": observation,
             "action": action,
             "reward": reward,
             "done": done,
-            "mask": 1,
         }
         transition.update(kwargs)
         for key in self._specs:
@@ -286,12 +284,6 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                     rewards = disc_rewards
 
                 batch["reward"] = rewards
-            elif key == "mask":
-                batch[key] = self._get_from_storage(
-                    "mask",
-                    indices - self._max_seq_len + 1,
-                    num_to_access=self._max_seq_len,
-                )
             else:
                 batch[key] = self._get_from_storage(key, indices)
 
@@ -320,5 +312,12 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                     + 1,
                     num_to_access=self._max_seq_len,
                 )
+
+        mask = np.ones_like(batch["done"], dtype=bool)
+        for i in range(batch["done"].shape[0]):
+            done_indices = np.where(batch["done"][i])[0]
+            if len(done_indices) > 0:
+                mask[i, done_indices[0]:] = False  # first_done+1 ?
+        batch["mask"] = mask
 
         return batch

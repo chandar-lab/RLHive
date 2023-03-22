@@ -63,7 +63,6 @@ class CircularReplayBuffer(BaseReplayBuffer):
             "done": (np.uint8, ()),
             "action": (action_dtype, action_shape),
             "reward": (reward_dtype, reward_shape),
-            "mask": (reward_dtype, reward_shape),
         }
         if extra_storage_types is not None:
             self._specs.update(extra_storage_types)
@@ -144,7 +143,6 @@ class CircularReplayBuffer(BaseReplayBuffer):
             "action": action,
             "reward": reward,
             "done": done,
-            "mask": 1,
         }
         transition.update(kwargs)
         for key in self._specs:
