@@ -1,7 +1,7 @@
 import numpy as np
 
 from hive.replays.circular_replay import CircularReplayBuffer
-from hive.utils.advantage_computation_utils import AdvantageComputationFn
+from hive.utils.advantage import AdvantageComputationFn
 
 
 class OnPolicyReplayBuffer(CircularReplayBuffer):
