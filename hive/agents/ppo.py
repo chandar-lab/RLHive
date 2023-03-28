@@ -19,7 +19,7 @@ from hive.agents.qnets.utils import (
 )
 from hive.replays.on_policy_replay import OnPolicyReplayBuffer
 from hive.utils.loggers import Logger, NullLogger
-from hive.utils.schedule import PeriodicSchedule
+from hive.utils.schedule import PeriodicSchedule, Schedule, ConstantSchedule
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
 
 
@@ -35,6 +35,7 @@ class PPOAgent(Agent):
         critic_net: FunctionApproximator = None,
         init_fn: InitializationFn = None,
         optimizer_fn: OptimizerFn = None,
+        anneal_lr_schedule: Schedule = None,
         critic_loss_fn: LossFn = None,
         observation_normalizer: MovingAvgNormalizer = None,
         reward_normalizer: RewardNormalizer = None,
@@ -45,7 +46,7 @@ class PPOAgent(Agent):
         grad_clip: float = None,
         batch_size: int = 64,
         logger: Logger = None,
-        log_frequency: int = 100,
+        log_frequency: int = 1,
         clip_coefficient: float = 0.2,
         entropy_coefficient: float = 0.01,
         clip_value_loss: bool = True,
@@ -140,6 +141,14 @@ class PPOAgent(Agent):
         if optimizer_fn is None:
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._actor_critic.parameters())
+        if anneal_lr_schedule is None:
+            anneal_lr_schedule = ConstantSchedule(1.0)
+        else:
+            anneal_lr_schedule = anneal_lr_schedule()
+
+        self._lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
+            self._optimizer, lambda x: anneal_lr_schedule.update()
+        )
         if replay_buffer is None:
             replay_buffer = OnPolicyReplayBuffer
         self._replay_buffer = replay_buffer(
@@ -168,7 +177,7 @@ class PPOAgent(Agent):
         self._clip_value_loss = clip_value_loss
         self._value_fn_coefficient = value_fn_coefficient
         self._transitions_per_update = transitions_per_update
-        self._num_epochs = num_epochs_per_update
+        self._num_epochs_per_update = num_epochs_per_update
         self._normalize_advantages = normalize_advantages
         self._target_kl = target_kl
 
@@ -315,7 +324,9 @@ class PPOAgent(Agent):
                 update_info["next_observation"]
             )
             self._replay_buffer.compute_advantages(values)
-            for _ in range(self._num_epochs):
+            clip_fraction = 0
+            num_updates = 0
+            for _ in range(self._num_epochs_per_update):
                 for batch in self._replay_buffer.sample(batch_size=self._batch_size):
                     batch = self.preprocess_update_batch(batch)
                     self._optimizer.zero_grad()
@@ -336,7 +347,7 @@ class PPOAgent(Agent):
                         ratios, 1 - self._clip_coefficient, 1 + self._clip_coefficient
                     )
                     actor_loss = torch.max(loss_unclipped, loss_clipped).mean()
-                    entr_loss = entropy.mean()
+                    entropy_loss = entropy.mean()
 
                     # Critic loss
                     values = values.view(-1)
@@ -361,7 +372,7 @@ class PPOAgent(Agent):
 
                     loss = (
                         actor_loss
-                        - self._entropy_coefficient * entr_loss
+                        - self._entropy_coefficient * entropy_loss
                         + self._value_fn_coefficient * critic_loss
                     )
                     loss.backward()
@@ -372,22 +383,38 @@ class PPOAgent(Agent):
                         )
 
                     self._optimizer.step()
+                    num_updates += 1
 
                     with torch.no_grad():
-                        # calculate approx_kl http://joschu.net/blog/kl-approx.html
+                        # calculate approx_kl
+                        # http://joschu.net/blog/kl-approx.html
+                        old_approx_kl = (-logratios).mean()
                         approx_kl = ((ratios - 1) - logratios).mean()
+                        clip_fraction += (
+                            ((ratios - 1.0).abs() > self._clip_coefficient)
+                            .float()
+                            .mean()
+                            .item()
+                        )
 
-                    if self._logger.should_log(self._timescale):
-                        metrics = {
-                            "actor_loss": actor_loss,
-                            "critic_loss": critic_loss,
-                            "entropy_loss": entr_loss,
-                            "approx_kl": approx_kl,
-                        }
-                        self._logger.log_metrics(metrics, prefix=self._timescale)
                 if self._target_kl is not None and self._target_kl < approx_kl:
                     break
             self._replay_buffer.reset()
+            if self._logger.update_step(self._timescale):
+                self._logger.log_metrics(
+                    {
+                        "loss": loss,
+                        "actor_loss": actor_loss,
+                        "critic_loss": critic_loss,
+                        "entropy_loss": entropy_loss,
+                        "approx_kl": approx_kl,
+                        "old_approx_kl": old_approx_kl,
+                        "clip_fraction": clip_fraction / num_updates,
+                        "lr": self._lr_scheduler.get_last_lr()[0],
+                    },
+                    prefix=self._timescale,
+                )
+            self._lr_scheduler.step()
         return agent_traj_state
 
     def save(self, dname):
