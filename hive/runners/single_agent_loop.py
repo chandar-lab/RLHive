@@ -109,6 +109,7 @@ class SingleAgentRunner(Runner):
 
         info = {
             "observation": observation,
+            "next_observation": next_observation,
             "reward": reward,
             "action": action,
             "terminated": terminated,
@@ -156,6 +157,7 @@ class SingleAgentRunner(Runner):
 
         info = {
             "observation": observation,
+            "next_observation": next_observation,
             "reward": reward,
             "action": action,
             "terminated": terminated,

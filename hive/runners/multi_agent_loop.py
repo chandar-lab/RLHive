@@ -154,6 +154,7 @@ class MultiAgentRunner(Runner):
             agent,
             {
                 "observation": observation,
+                "next_observation": next_observation,
                 "action": action,
                 "info": other_info,
             },
