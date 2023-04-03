@@ -46,6 +46,8 @@ def main():
         args.env_config,
         args.logger_config,
     )
+    # import pdb 
+    # pdb.set_trace()
     runner_fn, full_config = get_runner(config)
     runner = runner_fn()
     runner.register_config(full_config)

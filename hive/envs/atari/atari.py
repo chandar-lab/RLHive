@@ -4,7 +4,7 @@ import gymnasium as gym
 import numpy as np
 
 from hive.envs.env_spec import EnvSpec
-from hive.envs.gym_env import GymEnv
+from hive.envs.gym.gym_env import GymEnv
 
 
 class AtariEnv(GymEnv):
@@ -30,6 +30,8 @@ class AtariEnv(GymEnv):
             frame_skip (int): Number of times the agent takes the same action in the environment
             screen_size (int): Size of the resized frames from the environment
         """
+        import pdb
+        pdb.set_trace()
         env_version = "v0" if sticky_actions else "v4"
         full_env_name = "{}NoFrameskip-{}".format(env_name, env_version)
 
