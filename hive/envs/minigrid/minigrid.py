@@ -7,8 +7,8 @@ from gym_minigrid.wrappers import (
     RGBImgPartialObsWrapper,
 )
 
-from hive.envs.gym_env import GymEnv
-from hive.envs.wrappers.gym_wrappers import FlattenWrapper, PermuteImageWrapper
+from hive.envs.gym.gym_env import GymEnv
+from hive.envs.gym.gym_wrappers import FlattenWrapper, PermuteImageWrapper
 
 
 class MiniGridEnv(GymEnv):

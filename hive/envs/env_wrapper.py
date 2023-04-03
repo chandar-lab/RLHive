@@ -1,7 +1,7 @@
 from hive.utils.registry import Registrable
+import gymnasium as gym
 
-
-class EnvWrapper(Registrable):
+class GymWrapper(Registrable, gym.core.Wrapper):
     """A wrapper for callables that produce environment wrappers.
 
     These wrapped callables can be partially initialized through configuration
