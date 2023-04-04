@@ -1,6 +1,7 @@
 from hive.agents import qnets
 from hive.agents.agent import Agent
 from hive.agents.ddpg import DDPG
+from hive.agents.deep_dyna_q import DeepDynaQ
 from hive.agents.dqn import DQNAgent
 from hive.agents.drqn import DRQNAgent
 from hive.agents.legal_moves_rainbow import LegalMovesRainbowAgent
@@ -14,6 +15,7 @@ registry.register_all(
     Agent,
     {
         "DDPG": DDPG,
+        "DeepDynaQ": DeepDynaQ,
         "DQNAgent": DQNAgent,
         "DRQNAgent": DRQNAgent,
         "LegalMovesRainbowAgent": LegalMovesRainbowAgent,
