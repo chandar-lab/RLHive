@@ -275,9 +275,15 @@ class RainbowDQNAgent(DQNAgent):
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(**self.preprocess_update_info(update_info))
 
-        # Update the q network based on a sample batch from the replay buffer.
-        # If the replay buffer doesn't have enough samples, catch the exception
-        # and move on.
+        # Samples a batch from the replay buffer and updates the agent based on it
+        self._sample_and_learn()
+
+        # Update target network
+        if self._target_net_update_schedule.update():
+            self._update_target()
+        return agent_traj_state
+    
+    def _sample_and_learn(self):
         if (
             self._learn_schedule.update()
             and self._replay_buffer.size() > 0
@@ -343,11 +349,6 @@ class RainbowDQNAgent(DQNAgent):
                     self._qnet.parameters(), self._grad_clip
                 )
             self._optimizer.step()
-
-        # Update target network
-        if self._target_net_update_schedule.update():
-            self._update_target()
-        return agent_traj_state
 
     def target_projection(self, target_net_inputs, next_action, reward, done):
         """Project distribution of target Q-values.

@@ -315,11 +315,17 @@ class PPOAgent(Agent):
             **self.preprocess_update_info(update_info, agent_traj_state)
         )
 
+        # Samples a batch from the replay buffer and updates the agent based on it
         if self._replay_buffer.size() >= self._transitions_per_update - 1:
-            if self._observation_normalizer:
-                update_info["next_observation"] = self._observation_normalizer(
-                    update_info["next_observation"]
-                )
+            self._sample_and_learn(update_info)
+
+        return agent_traj_state
+    
+    def _sample_and_learn(self, update_info):
+        if self._observation_normalizer:
+            update_info["next_observation"] = self._observation_normalizer(
+                update_info["next_observation"]
+            )
             _, _, values = self.get_action_logprob_value(
                 update_info["next_observation"]
             )
@@ -415,7 +421,6 @@ class PPOAgent(Agent):
                     prefix=self._timescale,
                 )
             self._lr_scheduler.step()
-        return agent_traj_state
 
     def save(self, dname):
         state_dict = {

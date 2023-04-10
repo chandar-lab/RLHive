@@ -329,7 +329,12 @@ class TD3(Agent):
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(**self.preprocess_update_info(update_info))
 
-        # Update the agent based on a sample batch from the replay buffer.
+       # Samples a batch from the replay buffer and updates the agent based on it
+        self._sample_and_learn()
+        
+        return agent_traj_state
+    
+    def _sample_and_learn(self):
         if (
             self._learn_schedule.update()
             and self._replay_buffer.size() > 0
@@ -395,7 +400,6 @@ class TD3(Agent):
                 self._update_target()
                 if self._logger.should_log(self._timescale):
                     self._logger.log_scalar("actor_loss", actor_loss, self._timescale)
-        return agent_traj_state
 
     def _update_target(self):
         """Update the target network."""
