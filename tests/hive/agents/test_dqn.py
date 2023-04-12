@@ -263,6 +263,7 @@ def test_train_step(agent_with_mock_optimizer):
     agent_traj_state = None
     for idx in range(8):
         observation = np.ones(2) * (idx + 1)
+        next_observation = np.ones(2) * (idx + 2)
         action, agent_traj_state = agent_with_mock_optimizer.act(
             observation, agent_traj_state
         )
@@ -271,6 +272,7 @@ def test_train_step(agent_with_mock_optimizer):
             {
                 "action": action,
                 "observation": observation,
+                "next_observation": next_observation,
                 "reward": 1,
                 "terminated": False,
                 "truncated": False,
@@ -278,7 +280,7 @@ def test_train_step(agent_with_mock_optimizer):
             agent_traj_state,
         )
     assert agent_with_mock_optimizer._optimizer.step.call_count == 6
-    assert agent_with_mock_optimizer._replay_buffer.size() == 7
+    assert agent_with_mock_optimizer._replay_buffer.size() == 8
     assert agent_with_mock_optimizer._epsilon_schedule._value == pytest.approx(0.82)
 
 
@@ -287,6 +289,7 @@ def test_eval_step(agent_with_mock_optimizer):
     agent_traj_state = None
     for idx in range(8):
         observation = np.ones(2) * (idx + 1)
+        next_observation = np.ones(2) * (idx + 2)
         action, agent_traj_state = agent_with_mock_optimizer.act(
             observation, agent_traj_state
         )
@@ -295,6 +298,7 @@ def test_eval_step(agent_with_mock_optimizer):
             {
                 "action": action,
                 "observation": observation,
+                "next_observation": next_observation,
                 "reward": 1,
                 "terminated": False,
                 "truncated": False,
@@ -324,6 +328,7 @@ def test_target_net_soft_update(agent_with_mock_optimizer):
         check_target_network_value(agent_with_mock_optimizer._target_qnet, 0.0)
 
         observation = np.ones(2) * (idx + 1)
+        next_observation = np.ones(2) * (idx + 2)
         action, agent_traj_state = agent_with_mock_optimizer.act(
             observation, agent_traj_state
         )
@@ -332,6 +337,7 @@ def test_target_net_soft_update(agent_with_mock_optimizer):
             {
                 "action": action,
                 "observation": observation,
+                "next_observation": next_observation,
                 "reward": 1,
                 "terminated": False,
                 "truncated": False,
@@ -361,6 +367,7 @@ def test_target_net_hard_update(agent_with_mock_optimizer):
         # Assert that the target network hasn't changed
         check_target_network_value(agent_with_mock_optimizer._target_qnet, 0.0)
         observation = np.ones(2) * (idx + 1)
+        next_observation = np.ones(2) * (idx + 2)
         action, agent_traj_state = agent_with_mock_optimizer.act(
             observation, agent_traj_state
         )
@@ -369,6 +376,7 @@ def test_target_net_hard_update(agent_with_mock_optimizer):
             {
                 "action": action,
                 "observation": observation,
+                "next_observation": next_observation,
                 "reward": 1,
                 "terminated": False,
                 "truncated": False,
@@ -388,12 +396,14 @@ def test_save_load(agent_with_optimizer, tmpdir):
     # Run agent_1 so that it's internal state is different than agent_2
     for idx in range(10):
         observation = np.ones(2) * (idx + 1)
+        next_observation = np.ones(2) * (idx + 2)
         action, agent_1_traj_state = agent_1.act(observation, agent_1_traj_state)
         assert action < 2
         agent_1_traj_state = agent_1.update(
             {
                 "action": action,
                 "observation": observation,
+                "next_observation": next_observation,
                 "reward": 1,
                 "terminated": False,
                 "truncated": False,
