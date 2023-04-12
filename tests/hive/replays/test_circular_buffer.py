@@ -197,10 +197,8 @@ def test_sample(full_buffer):
     for i in range(CAPACITY - 1):
         timestep = batch["action"][i]
         assert batch["reward"][i] == timestep % 10
-        # assert batch["foo"][i] == timestep % 5
         assert batch["terminated"][i] == (((timestep + 1) % 15) == 0)
         assert batch["observation"][i] == pytest.approx(np.ones(OBS_SHAPE) * timestep)
-        # if not batch["truncated"][i]:
         assert batch["observation"][i] + 1 == pytest.approx(
             batch["next_observation"][i]
         )
