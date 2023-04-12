@@ -1,0 +1,73 @@
+name: 'SingleAgentRunner'
+kwargs:
+  experiment_manager:
+    name: 'Experiment'
+    kwargs:
+      name: &run_name 'sac'
+      save_dir: 'experiment'
+      saving_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 500000
+  train_steps: 1000000
+  test_frequency: 5000
+  test_episodes: 10
+  max_steps_per_episode: 1000000
+  environment:
+    name: 'GymEnv'
+    kwargs:
+      env_name: 'Hopper-v2'
+      
+  agent:
+    name: 'SACAgent'
+    kwargs:
+      actor_net:
+        name: 'MLPNetwork'
+        kwargs: 
+          hidden_units: [256, 256]
+      critic_net:
+        name: 'MLPNetwork'
+        kwargs: 
+          hidden_units: [256, 256]
+      replay_buffer:
+        name: 'CircularReplayBuffer'
+        kwargs:
+          capacity: 1000000
+          optimize_storage: False
+      actor_optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr: .0003
+      critic_optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr: .001
+      alpha_optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr: .001
+      discount_rate: .99
+      soft_update_fraction: .005
+      policy_update_frequency: 2
+      batch_size: 256
+      update_frequency: 1
+      min_replay_history: 5000
+      auto_alpha: True
+      device: 'cuda'
+      id: 'agent'
+  # List of logger configs used.
+  loggers:
+    -
+      name: ChompLogger
+    -
+      name: WandbLogger
+      kwargs:
+        project: Hive
+        name: *run_name
+        resume: "allow"
+        start_method: "fork"
+        tags: 
+          - benchmark_sac
+        
