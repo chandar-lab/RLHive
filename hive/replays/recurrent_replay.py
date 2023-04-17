@@ -107,7 +107,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         """
 
         if self._episode_start:
-            self._pad_buffer(self._max_seq_len - 1)
+            # self._pad_buffer(self._max_seq_len - 1)
             self._episode_start = False
         transition = {
             "observation": observation,
@@ -313,5 +313,8 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                     + 1,
                     num_to_access=self._max_seq_len,
                 )
+
+        mask = np.cumsum(batch['done'], axis=1, dtype=bool)
+        batch["mask"] = mask
 
         return batch
