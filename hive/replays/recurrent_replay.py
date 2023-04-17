@@ -314,7 +314,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                     num_to_access=self._max_seq_len,
                 )
 
-        mask = np.cumsum(batch['done'], axis=1, dtype=bool)
+        mask = np.cumsum(batch["done"], axis=1, dtype=bool)
         batch["mask"] = mask
 
         return batch
