@@ -107,7 +107,6 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         """
 
         if self._episode_start:
-            # self._pad_buffer(self._max_seq_len - 1)
             self._episode_start = False
         transition = {
             "observation": observation,
