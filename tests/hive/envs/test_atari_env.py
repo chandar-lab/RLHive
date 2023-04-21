@@ -19,7 +19,7 @@ def test_reset_func(env_name, frame_skip, screen_size):
                 AtariPreprocessing,
                 frame_skip=frame_skip,
                 screen_size=screen_size,
-                grayscale_newaxis=True
+                grayscale_newaxis=True,
             ),
             PermuteImageWrapper,
         ],
@@ -46,7 +46,7 @@ def test_step_func(env_name, frame_skip, screen_size):
                 AtariPreprocessing,
                 frame_skip=frame_skip,
                 screen_size=screen_size,
-                grayscale_newaxis=True
+                grayscale_newaxis=True,
             ),
             PermuteImageWrapper,
         ],
