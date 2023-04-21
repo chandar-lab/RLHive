@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from functools import partial 
+from functools import partial
 from hive.envs import GymEnv
 from gymnasium.wrappers.atari_preprocessing import AtariPreprocessing
 from hive.envs.gym.gym_wrappers import PermuteImageWrapper
@@ -11,13 +11,18 @@ test_env_configs = [("ALE/Pong-v5", 4, 84), ("ALE/Asterix-v5", 1, 100)]
 @pytest.mark.parametrize("env_name,frame_skip,screen_size", test_env_configs)
 def test_reset_func(env_name, frame_skip, screen_size):
     hive_env = GymEnv(
-        env_name, 
+        env_name,
         repeat_action_probability=0.25,
         frameskip=1,
         env_wrappers=[
-            partial(AtariPreprocessing, frame_skip=frame_skip, screen_size=screen_size, grayscale_newaxis=True),
-            PermuteImageWrapper
-        ]
+            partial(
+                AtariPreprocessing,
+                frame_skip=frame_skip,
+                screen_size=screen_size,
+                grayscale_newaxis=True
+            ),
+            PermuteImageWrapper,
+        ],
     )
     hive_observation, hive_turn = hive_env.reset()
 
@@ -33,13 +38,18 @@ def test_reset_func(env_name, frame_skip, screen_size):
 @pytest.mark.parametrize("env_name,frame_skip,screen_size", test_env_configs)
 def test_step_func(env_name, frame_skip, screen_size):
     hive_env = GymEnv(
-        env_name, 
+        env_name,
         repeat_action_probability=0.25,
         frameskip=1,
         env_wrappers=[
-            partial(AtariPreprocessing, frame_skip=frame_skip, screen_size=screen_size, grayscale_newaxis=True),
-            PermuteImageWrapper
-        ]
+            partial(
+                AtariPreprocessing,
+                frame_skip=frame_skip,
+                screen_size=screen_size,
+                grayscale_newaxis=True
+            ),
+            PermuteImageWrapper,
+        ],
     )
     for action in range(hive_env.env_spec.action_space[0].n):
         hive_env.reset()
