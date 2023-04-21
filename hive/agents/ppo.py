@@ -12,11 +12,7 @@ from hive.agents.qnets.normalizer import (
     RewardNormalizer,
 )
 from hive.agents.qnets.ac_nets import ActorCriticNetwork
-from hive.agents.qnets.utils import (
-    InitializationFn,
-    calculate_output_dim,
-    create_init_weights_fn,
-)
+from hive.agents.qnets.utils import calculate_output_dim
 from hive.replays.on_policy_replay import OnPolicyReplayBuffer
 from hive.utils.loggers import Logger, NullLogger
 from hive.utils.schedule import PeriodicSchedule, Schedule, ConstantSchedule
@@ -33,7 +29,6 @@ class PPOAgent(Agent):
         representation_net: FunctionApproximator = None,
         actor_net: FunctionApproximator = None,
         critic_net: FunctionApproximator = None,
-        init_fn: InitializationFn = None,
         optimizer_fn: OptimizerFn = None,
         anneal_lr_schedule: Schedule = None,
         critic_loss_fn: LossFn = None,
@@ -72,8 +67,6 @@ class PPOAgent(Agent):
                 encoded observations from representation_net and actions. It outputs
                 the representations used to compute the values of the actions (ie
                 everything except the last layer).
-            init_fn (InitializationFn): Initializes the weights of agent networks
-                using create_init_weights_fn.
             optimizer_fn (OptimizerFn): A function that takes in the list of
                 parameters of the actor and critic returns the optimizer for the actor.
                 If None, defaults to :py:class:`~torch.optim.Adam`.
@@ -122,7 +115,6 @@ class PPOAgent(Agent):
             stack_size * self._observation_space.shape[0],
             *self._observation_space.shape[1:],
         )
-        self._init_fn = create_init_weights_fn(init_fn)
         self.create_networks(
             representation_net,
             actor_net,
@@ -206,8 +198,6 @@ class PPOAgent(Agent):
             self._action_space,
             isinstance(self._action_space, gym.spaces.Box),
         ).to(self._device)
-
-        self._actor_critic.apply(self._init_fn)
 
     def train(self):
         """Changes the agent to training mode."""

@@ -1,4 +1,5 @@
 from typing import Tuple, Union
+from functools import partial
 
 import gymnasium as gym
 import numpy as np
@@ -6,7 +7,17 @@ import torch
 from gymnasium.spaces import Box, Discrete
 
 from hive.agents.qnets.base import FunctionApproximator
-from hive.agents.qnets.utils import calculate_output_dim
+from hive.agents.qnets.utils import calculate_output_dim, InitializationFn
+from hive.utils.registry import registry
+
+
+def actor_critic_init(layer, std=np.sqrt(2), bias_const=0.0):
+    if type(layer) == torch.nn.Linear:
+        torch.nn.init.orthogonal_(layer.weight, std)
+        torch.nn.init.constant_(layer.bias, bias_const)
+
+
+registry.register("actor_critic_init", actor_critic_init, InitializationFn)
 
 
 class CategoricalHead(torch.nn.Module):
@@ -78,6 +89,8 @@ class ActorCriticNetwork(torch.nn.Module):
         network_output_dim: Union[int, Tuple[int]],
         action_space: Union[Box, Discrete],
         continuous_action: bool,
+        actor_head_init: InitializationFn = partial(actor_critic_init, std=0.01),
+        critic_head_init: InitializationFn = partial(actor_critic_init, std=1),
     ) -> None:
         super().__init__()
         self._network = representation_network
@@ -92,7 +105,7 @@ class ActorCriticNetwork(torch.nn.Module):
         self.actor = torch.nn.Sequential(
             actor_network,
             torch.nn.Flatten(),
-            actor_head(feature_dim, action_space),
+            actor_head(feature_dim, action_space).apply(actor_head_init),
         )
 
         if critic_net is None:
@@ -103,7 +116,7 @@ class ActorCriticNetwork(torch.nn.Module):
         self.critic = torch.nn.Sequential(
             critic_network,
             torch.nn.Flatten(),
-            torch.nn.Linear(feature_dim, 1),
+            torch.nn.Linear(feature_dim, 1).apply(critic_head_init),
         )
 
     def forward(self, x, action=None):
