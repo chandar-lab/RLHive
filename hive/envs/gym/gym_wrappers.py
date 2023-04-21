@@ -82,6 +82,6 @@ class PermuteImageWrapper(gym.core.ObservationWrapper):
 
 
 registry.register_all(
-    GymWrapper, 
+    GymWrapper,
     {"PermuteImageWrapper": PermuteImageWrapper, "FlattenWrapper": FlattenWrapper},
 )
