@@ -81,7 +81,7 @@ class PermuteImageWrapper(gym.core.ObservationWrapper):
             return np.transpose(obs, [2, 1, 0])
 
 
-registry.register_all(GymWrapper, {
-    'PermuteImageWrapper': PermuteImageWrapper,
-    'FlattenWrapper': FlattenWrapper
-})
+registry.register_all(
+    GymWrapper, 
+    {'PermuteImageWrapper': PermuteImageWrapper, 'FlattenWrapper': FlattenWrapper}
+)
