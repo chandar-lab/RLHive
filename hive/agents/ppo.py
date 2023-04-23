@@ -317,94 +317,23 @@ class PPOAgent(Agent):
 
         # Samples a batch from the replay buffer and updates the agent based on it
         if self._replay_buffer.size() >= self._transitions_per_update - 1:
-            self._sample_and_learn(update_info)
-
-        return agent_traj_state
-    
-    def _sample_and_learn(self, update_info):
-        if self._observation_normalizer:
-            update_info["next_observation"] = self._observation_normalizer(
-                update_info["next_observation"]
-            )
-            _, _, values = self.get_action_logprob_value(
-                update_info["next_observation"]
-            )
+            if self._observation_normalizer:
+                update_info["next_observation"] = self._observation_normalizer(
+                    update_info["next_observation"]
+                )
+            _, _, values = self.get_action_logprob_value(update_info["next_observation"])
             self._replay_buffer.compute_advantages(values)
             clip_fraction = 0
             num_updates = 0
+
             for _ in range(self._num_epochs_per_update):
                 for batch in self._replay_buffer.sample(batch_size=self._batch_size):
                     batch = self.preprocess_update_batch(batch)
-                    self._optimizer.zero_grad()
-
-                    _, logprob, entropy, values = self._actor_critic(
-                        batch["observation"], batch["action"]
-                    )
-                    logratios = logprob - batch["logprob"]
-                    ratios = torch.exp(logratios)
-                    advantages = batch["advantages"]
-                    if self._normalize_advantages:
-                        advantages = (advantages - advantages.mean()) / (
-                            advantages.std() + 1e-8
-                        )
-                    # Actor loss
-                    loss_unclipped = -advantages * ratios
-                    loss_clipped = -advantages * torch.clamp(
-                        ratios, 1 - self._clip_coefficient, 1 + self._clip_coefficient
-                    )
-                    actor_loss = torch.max(loss_unclipped, loss_clipped).mean()
-                    entropy_loss = entropy.mean()
-
-                    # Critic loss
-                    values = values.view(-1)
-                    if self._clip_value_loss:
-                        v_loss_unclipped = self._critic_loss_fn(
-                            values, batch["returns"]
-                        )
-                        v_clipped = batch["values"] + torch.clamp(
-                            values - batch["values"],
-                            -self._clip_coefficient,
-                            self._clip_coefficient,
-                        )
-                        v_loss_clipped = self._critic_loss_fn(
-                            v_clipped, batch["returns"]
-                        )
-                        v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                        critic_loss = 0.5 * v_loss_max.mean()
-                    else:
-                        critic_loss = (
-                            0.5 * self._critic_loss_fn(values, batch["returns"]).mean()
-                        )
-
-                    loss = (
-                        actor_loss
-                        - self._entropy_coefficient * entropy_loss
-                        + self._value_fn_coefficient * critic_loss
-                    )
-                    loss.backward()
-
-                    if self._grad_clip is not None:
-                        torch.nn.utils.clip_grad_norm_(
-                            self._actor_critic.parameters(), self._grad_clip
-                        )
-
-                    self._optimizer.step()
                     num_updates += 1
-
-                    with torch.no_grad():
-                        # calculate approx_kl
-                        # http://joschu.net/blog/kl-approx.html
-                        old_approx_kl = (-logratios).mean()
-                        approx_kl = ((ratios - 1) - logratios).mean()
-                        clip_fraction += (
-                            ((ratios - 1.0).abs() > self._clip_coefficient)
-                            .float()
-                            .mean()
-                            .item()
-                        )
-
+                    loss, actor_loss, critic_loss, entropy_loss, approx_kl, old_approx_kl, clip_fraction = self._update_on_batch(batch, clip_fraction)
                 if self._target_kl is not None and self._target_kl < approx_kl:
                     break
+
             self._replay_buffer.reset()
             if self._logger.update_step(self._timescale):
                 self._logger.log_metrics(
@@ -421,6 +350,79 @@ class PPOAgent(Agent):
                     prefix=self._timescale,
                 )
             self._lr_scheduler.step()
+
+        return agent_traj_state    
+    
+    def _update_on_batch(self, batch, clip_fraction):
+        self._optimizer.zero_grad()
+        _, logprob, entropy, values = self._actor_critic(
+            batch["observation"], batch["action"]
+        )
+        logratios = logprob - batch["logprob"]
+        ratios = torch.exp(logratios)
+        advantages = batch["advantages"]
+        if self._normalize_advantages:
+            advantages = (advantages - advantages.mean()) / (
+                advantages.std() + 1e-8
+            )
+
+        # Actor loss
+        loss_unclipped = -advantages * ratios
+        loss_clipped = -advantages * torch.clamp(
+            ratios, 1 - self._clip_coefficient, 1 + self._clip_coefficient
+        )
+        actor_loss = torch.max(loss_unclipped, loss_clipped).mean()
+        entropy_loss = entropy.mean()
+
+        # Critic loss
+        values = values.view(-1)
+        if self._clip_value_loss:
+            v_loss_unclipped = self._critic_loss_fn(
+                values, batch["returns"]
+            )
+            v_clipped = batch["values"] + torch.clamp(
+                values - batch["values"],
+                -self._clip_coefficient,
+                self._clip_coefficient,
+            )
+            v_loss_clipped = self._critic_loss_fn(
+                v_clipped, batch["returns"]
+            )
+            v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+            critic_loss = 0.5 * v_loss_max.mean()
+        else:
+            critic_loss = (
+                0.5 * self._critic_loss_fn(values, batch["returns"]).mean()
+            )
+
+        loss = (
+            actor_loss
+            - self._entropy_coefficient * entropy_loss
+            + self._value_fn_coefficient * critic_loss
+        )
+        loss.backward()
+
+        if self._grad_clip is not None:
+            torch.nn.utils.clip_grad_norm_(
+                self._actor_critic.parameters(), self._grad_clip
+            )
+
+        self._optimizer.step()
+
+        with torch.no_grad():
+            # calculate approx_kl
+            # http://joschu.net/blog/kl-approx.html
+            old_approx_kl = (-logratios).mean()
+            approx_kl = ((ratios - 1) - logratios).mean()
+            clip_fraction += (
+                ((ratios - 1.0).abs() > self._clip_coefficient)
+                .float()
+                .mean()
+                .item()
+            )
+
+        return loss, actor_loss, critic_loss, entropy_loss, approx_kl, old_approx_kl, clip_fraction  
+
 
     def save(self, dname):
         state_dict = {

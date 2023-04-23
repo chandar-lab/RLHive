@@ -275,26 +275,28 @@ class RainbowDQNAgent(DQNAgent):
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(**self.preprocess_update_info(update_info))
 
-        # Samples a batch from the replay buffer and updates the agent based on it
-        self._sample_and_learn()
+        # Sample a batch from the replay buffer
+        batch = self._replay_buffer.sample(batch_size=self._batch_size)
+        (
+            current_state_inputs,
+            next_state_inputs,
+            batch,
+        ) = self.preprocess_update_batch(batch)
+
+        # Update the agent based on it
+        self._update_on_batch(batch, current_state_inputs, next_state_inputs)
 
         # Update target network
         if self._target_net_update_schedule.update():
             self._update_target()
         return agent_traj_state
     
-    def _sample_and_learn(self):
+    def _update_on_batch(self, batch, current_state_inputs, next_state_inputs):
         if (
             self._learn_schedule.update()
             and self._replay_buffer.size() > 0
             and self._update_period_schedule.update()
         ):
-            batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            (
-                current_state_inputs,
-                next_state_inputs,
-                batch,
-            ) = self.preprocess_update_batch(batch)
 
             # Compute predicted Q values
             self._optimizer.zero_grad()

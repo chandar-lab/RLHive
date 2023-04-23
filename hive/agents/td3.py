@@ -329,12 +329,7 @@ class TD3(Agent):
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(**self.preprocess_update_info(update_info))
 
-       # Samples a batch from the replay buffer and updates the agent based on it
-        self._sample_and_learn()
-        
-        return agent_traj_state
-    
-    def _sample_and_learn(self):
+        # Update the agent based on a sample batch from the replay buffer.
         if (
             self._learn_schedule.update()
             and self._replay_buffer.size() > 0
@@ -346,7 +341,18 @@ class TD3(Agent):
                 next_state_inputs,
                 batch,
             ) = self.preprocess_update_batch(batch)
-            with torch.no_grad():
+
+            self._update_on_batch(batch, current_state_inputs, next_state_inputs)
+        
+        return agent_traj_state
+    
+    def _update_on_batch(self, batch, current_state_inputs, next_state_inputs):
+        self._update_critic_on_batch(batch, current_state_inputs, next_state_inputs)
+        self._update_actor_on_batch(current_state_inputs)
+
+
+    def _update_critic_on_batch(self, batch, current_state_inputs, next_state_inputs):
+        with torch.no_grad():
                 noise = torch.randn_like(batch["action"]) * self._target_noise
                 noise = torch.clamp(
                     noise, -self._target_noise_clip, self._target_noise_clip
@@ -368,38 +374,39 @@ class TD3(Agent):
                     + (1 - batch["done"][:, None]) * self._discount_rate * next_q_vals
                 )
 
-            # Critic losses
-            pred_qvals = self._critic(*current_state_inputs, batch["action"])
-            critic_loss = sum(
-                [self._critic_loss_fn(qvals, target_q_values) for qvals in pred_qvals]
+        pred_qvals = self._critic(*current_state_inputs, batch["action"])
+        critic_loss = sum(
+            [self._critic_loss_fn(qvals, target_q_values) for qvals in pred_qvals]
+        )
+        self._critic_optimizer.zero_grad()
+        critic_loss.backward()
+        if self._grad_clip is not None:
+            torch.nn.utils.clip_grad_norm_(
+                self._critic.parameters(), self._grad_clip
             )
-            self._critic_optimizer.zero_grad()
-            critic_loss.backward()
+        self._critic_optimizer.step()
+        if self._logger.update_step(self._timescale):
+            self._logger.log_scalar("critic_loss", critic_loss, self._timescale)
+
+    
+    def _update_actor_on_batch(self, current_state_inputs):
+        if self._policy_update_schedule.update():
+            actor_loss = -torch.mean(
+                self._critic.q1(
+                    *current_state_inputs, self._actor(*current_state_inputs)
+                )
+            )
+            self._actor_optimizer.zero_grad()
+            actor_loss.backward()
             if self._grad_clip is not None:
                 torch.nn.utils.clip_grad_norm_(
-                    self._critic.parameters(), self._grad_clip
+                    self._actor.parameters(), self._grad_clip
                 )
-            self._critic_optimizer.step()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_scalar("critic_loss", critic_loss, self._timescale)
-
-            # Update policy with policy delay
-            if self._policy_update_schedule.update():
-                actor_loss = -torch.mean(
-                    self._critic.q1(
-                        *current_state_inputs, self._actor(*current_state_inputs)
-                    )
-                )
-                self._actor_optimizer.zero_grad()
-                actor_loss.backward()
-                if self._grad_clip is not None:
-                    torch.nn.utils.clip_grad_norm_(
-                        self._actor.parameters(), self._grad_clip
-                    )
-                self._actor_optimizer.step()
-                self._update_target()
-                if self._logger.should_log(self._timescale):
-                    self._logger.log_scalar("actor_loss", actor_loss, self._timescale)
+            self._actor_optimizer.step()
+            self._update_target()
+            if self._logger.should_log(self._timescale):
+                self._logger.log_scalar("actor_loss", actor_loss, self._timescale)
+    
 
     def _update_target(self):
         """Update the target network."""
