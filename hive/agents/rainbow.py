@@ -290,7 +290,7 @@ class RainbowDQNAgent(DQNAgent):
         if self._target_net_update_schedule.update():
             self._update_target()
         return agent_traj_state
-    
+
     def _update_on_batch(self, batch, current_state_inputs, next_state_inputs):
         if (
             self._learn_schedule.update()

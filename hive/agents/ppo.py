@@ -321,7 +321,9 @@ class PPOAgent(Agent):
                 update_info["next_observation"] = self._observation_normalizer(
                     update_info["next_observation"]
                 )
-            _, _, values = self.get_action_logprob_value(update_info["next_observation"])
+            _, _, values = self.get_action_logprob_value(
+                update_info["next_observation"]
+            )
             self._replay_buffer.compute_advantages(values)
             clip_fraction = 0
             num_updates = 0
@@ -330,7 +332,15 @@ class PPOAgent(Agent):
                 for batch in self._replay_buffer.sample(batch_size=self._batch_size):
                     batch = self.preprocess_update_batch(batch)
                     num_updates += 1
-                    loss, actor_loss, critic_loss, entropy_loss, approx_kl, old_approx_kl, clip_fraction = self._update_on_batch(batch, clip_fraction)
+                    (
+                        loss,
+                        actor_loss,
+                        critic_loss,
+                        entropy_loss,
+                        approx_kl,
+                        old_approx_kl,
+                        clip_fraction,
+                    ) = self._update_on_batch(batch, clip_fraction)
                 if self._target_kl is not None and self._target_kl < approx_kl:
                     break
 
@@ -351,8 +361,8 @@ class PPOAgent(Agent):
                 )
             self._lr_scheduler.step()
 
-        return agent_traj_state    
-    
+        return agent_traj_state
+
     def _update_on_batch(self, batch, clip_fraction):
         self._optimizer.zero_grad()
         _, logprob, entropy, values = self._actor_critic(
@@ -362,9 +372,7 @@ class PPOAgent(Agent):
         ratios = torch.exp(logratios)
         advantages = batch["advantages"]
         if self._normalize_advantages:
-            advantages = (advantages - advantages.mean()) / (
-                advantages.std() + 1e-8
-            )
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
         # Actor loss
         loss_unclipped = -advantages * ratios
@@ -377,23 +385,17 @@ class PPOAgent(Agent):
         # Critic loss
         values = values.view(-1)
         if self._clip_value_loss:
-            v_loss_unclipped = self._critic_loss_fn(
-                values, batch["returns"]
-            )
+            v_loss_unclipped = self._critic_loss_fn(values, batch["returns"])
             v_clipped = batch["values"] + torch.clamp(
                 values - batch["values"],
                 -self._clip_coefficient,
                 self._clip_coefficient,
             )
-            v_loss_clipped = self._critic_loss_fn(
-                v_clipped, batch["returns"]
-            )
+            v_loss_clipped = self._critic_loss_fn(v_clipped, batch["returns"])
             v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
             critic_loss = 0.5 * v_loss_max.mean()
         else:
-            critic_loss = (
-                0.5 * self._critic_loss_fn(values, batch["returns"]).mean()
-            )
+            critic_loss = 0.5 * self._critic_loss_fn(values, batch["returns"]).mean()
 
         loss = (
             actor_loss
@@ -415,14 +417,18 @@ class PPOAgent(Agent):
             old_approx_kl = (-logratios).mean()
             approx_kl = ((ratios - 1) - logratios).mean()
             clip_fraction += (
-                ((ratios - 1.0).abs() > self._clip_coefficient)
-                .float()
-                .mean()
-                .item()
+                ((ratios - 1.0).abs() > self._clip_coefficient).float().mean().item()
             )
 
-        return loss, actor_loss, critic_loss, entropy_loss, approx_kl, old_approx_kl, clip_fraction  
-
+        return (
+            loss,
+            actor_loss,
+            critic_loss,
+            entropy_loss,
+            approx_kl,
+            old_approx_kl,
+            clip_fraction,
+        )
 
     def save(self, dname):
         state_dict = {

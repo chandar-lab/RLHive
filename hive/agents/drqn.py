@@ -256,7 +256,7 @@ class DRQNAgent(DQNAgent):
             self._update_target()
 
         return agent_traj_state
-    
+
     def _update_on_batch(self, batch, current_state_inputs, next_state_inputs):
         if (
             self._learn_schedule.update()

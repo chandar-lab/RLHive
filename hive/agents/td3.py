@@ -343,36 +343,35 @@ class TD3(Agent):
             ) = self.preprocess_update_batch(batch)
 
             self._update_on_batch(batch, current_state_inputs, next_state_inputs)
-        
+
         return agent_traj_state
-    
+
     def _update_on_batch(self, batch, current_state_inputs, next_state_inputs):
         self._update_critic_on_batch(batch, current_state_inputs, next_state_inputs)
         self._update_actor_on_batch(current_state_inputs)
 
-
     def _update_critic_on_batch(self, batch, current_state_inputs, next_state_inputs):
         with torch.no_grad():
-                noise = torch.randn_like(batch["action"]) * self._target_noise
-                noise = torch.clamp(
-                    noise, -self._target_noise_clip, self._target_noise_clip
+            noise = torch.randn_like(batch["action"]) * self._target_noise
+            noise = torch.clamp(
+                noise, -self._target_noise_clip, self._target_noise_clip
+            )
+            next_actions = self._target_actor(*next_state_inputs) + noise
+            if self._scale_actions:
+                next_actions = torch.clamp(next_actions, -1, 1)
+            else:
+                next_actions = torch.clamp(
+                    next_actions, self._action_min_tensor, self._action_max_tensor
                 )
-                next_actions = self._target_actor(*next_state_inputs) + noise
-                if self._scale_actions:
-                    next_actions = torch.clamp(next_actions, -1, 1)
-                else:
-                    next_actions = torch.clamp(
-                        next_actions, self._action_min_tensor, self._action_max_tensor
-                    )
 
-                next_q_vals = torch.cat(
-                    self._target_critic(*next_state_inputs, next_actions), dim=1
-                )
-                next_q_vals, _ = torch.min(next_q_vals, dim=1, keepdim=True)
-                target_q_values = (
-                    batch["reward"][:, None]
-                    + (1 - batch["done"][:, None]) * self._discount_rate * next_q_vals
-                )
+            next_q_vals = torch.cat(
+                self._target_critic(*next_state_inputs, next_actions), dim=1
+            )
+            next_q_vals, _ = torch.min(next_q_vals, dim=1, keepdim=True)
+            target_q_values = (
+                batch["reward"][:, None]
+                + (1 - batch["done"][:, None]) * self._discount_rate * next_q_vals
+            )
 
         pred_qvals = self._critic(*current_state_inputs, batch["action"])
         critic_loss = sum(
@@ -381,14 +380,11 @@ class TD3(Agent):
         self._critic_optimizer.zero_grad()
         critic_loss.backward()
         if self._grad_clip is not None:
-            torch.nn.utils.clip_grad_norm_(
-                self._critic.parameters(), self._grad_clip
-            )
+            torch.nn.utils.clip_grad_norm_(self._critic.parameters(), self._grad_clip)
         self._critic_optimizer.step()
         if self._logger.update_step(self._timescale):
             self._logger.log_scalar("critic_loss", critic_loss, self._timescale)
 
-    
     def _update_actor_on_batch(self, current_state_inputs):
         if self._policy_update_schedule.update():
             actor_loss = -torch.mean(
@@ -406,7 +402,6 @@ class TD3(Agent):
             self._update_target()
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar("actor_loss", actor_loss, self._timescale)
-    
 
     def _update_target(self):
         """Update the target network."""
