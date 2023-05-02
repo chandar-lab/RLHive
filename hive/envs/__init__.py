@@ -1,11 +1,13 @@
 from hive.envs.base import BaseEnv, ParallelEnv
 from hive.envs.env_spec import EnvSpec
 from hive.envs.gym_env import GymEnv
-
-try:
-    from hive.envs.minigrid import MiniGridEnv
-except ImportError:
-    MiniGridEnv = None
+from minigrid import (
+    FlatObsWrapper,
+    FullyObsWrapper,
+    ImgObsWrapper,
+    RGBImgObsWrapper,
+    RGBImgPartialObsWrapper,
+)
 
 try:
     from hive.envs.atari import AtariEnv
@@ -28,7 +30,11 @@ registry.register_all(
     BaseEnv,
     {
         "GymEnv": GymEnv,
-        "MiniGridEnv": MiniGridEnv,
+        "minigrid.FullyObsWrapper": FullyObsWrapper,
+        "minigrid.FlatObsWrapper": FlatObsWrapper,
+        "minigrid.ImgObsWrapper": ImgObsWrapper,
+        "minigrid.RGBImgObsWrapper": RGBImgObsWrapper,
+        "minigrid.RGBImgPartialObsWrapper": RGBImgPartialObsWrapper,
         "MarlGridEnv": MarlGridEnv,
         "AtariEnv": AtariEnv,
         "PettingZooEnv": PettingZooEnv,
