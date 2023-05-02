@@ -4,6 +4,7 @@ from hive.agents.ddpg import DDPG
 from hive.agents.dqn import DQNAgent
 from hive.agents.drqn import DRQNAgent
 from hive.agents.legal_moves_rainbow import LegalMovesRainbowAgent
+from hive.agents.ppo import PPOAgent
 from hive.agents.rainbow import RainbowDQNAgent
 from hive.agents.random import RandomAgent
 from hive.agents.td3 import TD3
@@ -16,6 +17,7 @@ registry.register_all(
         "DQNAgent": DQNAgent,
         "DRQNAgent": DRQNAgent,
         "LegalMovesRainbowAgent": LegalMovesRainbowAgent,
+        "PPOAgent": PPOAgent,
         "RainbowDQNAgent": RainbowDQNAgent,
         "RandomAgent": RandomAgent,
         "TD3": TD3,
