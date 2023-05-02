@@ -240,16 +240,21 @@ class DRQNAgent(DQNAgent):
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(**self.preprocess_update_info(update_info))
 
-        # Sample a batch from the replay buffer
-        batch = self._replay_buffer.sample(batch_size=self._batch_size)
-        (
-            current_state_inputs,
-            next_state_inputs,
-            batch,
-        ) = self.preprocess_update_batch(batch)
+        if (
+            self._learn_schedule.update()
+            and self._replay_buffer.size() > 0
+            and self._update_period_schedule.update()
+        ):
+            # Sample a batch from the replay buffer
+            batch = self._replay_buffer.sample(batch_size=self._batch_size)
+            (
+                current_state_inputs,
+                next_state_inputs,
+                batch,
+            ) = self.preprocess_update_batch(batch)
 
-        # Update the agent based on it
-        self._update_on_batch(batch, current_state_inputs, next_state_inputs)
+            # Update the agent based on it
+            self._update_on_batch(batch, current_state_inputs, next_state_inputs)
 
         # Update target network
         if self._target_net_update_schedule.update():
@@ -258,42 +263,34 @@ class DRQNAgent(DQNAgent):
         return agent_traj_state
 
     def _update_on_batch(self, batch, current_state_inputs, next_state_inputs):
-        if (
-            self._learn_schedule.update()
-            and self._replay_buffer.size() > 0
-            and self._update_period_schedule.update()
-        ):
+        hidden_state = self._qnet.init_hidden(
+            batch_size=self._batch_size,
+        )
+        target_hidden_state = self._target_qnet.init_hidden(
+            batch_size=self._batch_size,
+        )
+        # Compute predicted Q values
+        self._optimizer.zero_grad()
+        pred_qvals, _ = self._qnet(*current_state_inputs, hidden_state)
+        pred_qvals = pred_qvals.view(self._batch_size, self._max_seq_len, -1)
+        actions = batch["action"].long()
+        pred_qvals = torch.gather(pred_qvals, -1, actions.unsqueeze(-1)).squeeze(-1)
 
-            hidden_state = self._qnet.init_hidden(
-                batch_size=self._batch_size,
-            )
-            target_hidden_state = self._target_qnet.init_hidden(
-                batch_size=self._batch_size,
-            )
-            # Compute predicted Q values
-            self._optimizer.zero_grad()
-            pred_qvals, _ = self._qnet(*current_state_inputs, hidden_state)
-            pred_qvals = pred_qvals.view(self._batch_size, self._max_seq_len, -1)
-            actions = batch["action"].long()
-            pred_qvals = torch.gather(pred_qvals, -1, actions.unsqueeze(-1)).squeeze(-1)
+        # Compute 1-step Q targets
+        next_qvals, _ = self._target_qnet(*next_state_inputs, target_hidden_state)
+        next_qvals = next_qvals.view(self._batch_size, self._max_seq_len, -1)
+        next_qvals, _ = torch.max(next_qvals, dim=-1)
 
-            # Compute 1-step Q targets
-            next_qvals, _ = self._target_qnet(*next_state_inputs, target_hidden_state)
-            next_qvals = next_qvals.view(self._batch_size, self._max_seq_len, -1)
-            next_qvals, _ = torch.max(next_qvals, dim=-1)
+        q_targets = batch["reward"] + self._discount_rate * next_qvals * (
+            1 - batch["done"]
+        )
 
-            q_targets = batch["reward"] + self._discount_rate * next_qvals * (
-                1 - batch["done"]
-            )
+        loss = self._loss_fn(pred_qvals, q_targets).mean()
 
-            loss = self._loss_fn(pred_qvals, q_targets).mean()
+        if self._logger.should_log(self._timescale):
+            self._logger.log_scalar("train_loss", loss, self._timescale)
 
-            if self._logger.should_log(self._timescale):
-                self._logger.log_scalar("train_loss", loss, self._timescale)
-
-            loss.backward()
-            if self._grad_clip is not None:
-                torch.nn.utils.clip_grad_value_(
-                    self._qnet.parameters(), self._grad_clip
-                )
-            self._optimizer.step()
+        loss.backward()
+        if self._grad_clip is not None:
+            torch.nn.utils.clip_grad_value_(self._qnet.parameters(), self._grad_clip)
+        self._optimizer.step()
