@@ -276,7 +276,7 @@ class RainbowDQNAgent(DQNAgent):
             update_info: dictionary containing all the necessary information
                 from the environment to update the agent. Should contain a full
                 transition, with keys for "observation", "action", "reward",
-                "next_observation", and "done".
+                "next_observation", "terminated", and "truncated".
             agent_traj_state: Contains necessary state information for the agent
                 to process current trajectory. This should be updated and returned.
 
@@ -323,7 +323,10 @@ class RainbowDQNAgent(DQNAgent):
                 log_p = torch.log(probs)
                 with torch.no_grad():
                     target_prob = self.target_projection(
-                        next_state_inputs, next_action, batch["reward"], batch["done"]
+                        next_state_inputs,
+                        next_action,
+                        batch["reward"],
+                        batch["terminated"],
                     )
 
                 loss = -(target_prob * log_p).sum(-1)
@@ -335,7 +338,7 @@ class RainbowDQNAgent(DQNAgent):
                 next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
 
                 q_targets = batch["reward"] + self._discount_rate * next_qvals * (
-                    1 - batch["done"]
+                    1 - batch["terminated"]
                 )
 
                 loss = self._loss_fn(pred_qvals, q_targets)
@@ -364,7 +367,7 @@ class RainbowDQNAgent(DQNAgent):
             self._update_target()
         return agent_traj_state
 
-    def target_projection(self, target_net_inputs, next_action, reward, done):
+    def target_projection(self, target_net_inputs, next_action, reward, terminated):
         """Project distribution of target Q-values.
 
         Args:
@@ -374,17 +377,17 @@ class RainbowDQNAgent(DQNAgent):
             next_action (~torch.Tensor): Tensor containing next actions used to
                 compute target distribution.
             reward (~torch.Tensor): Tensor containing rewards for the current batch.
-            done (~torch.Tensor): Tensor containing whether the states in the current
-                batch are terminal.
+            terminated (~torch.Tensor): Tensor containing whether the states in
+            the current batch are terminal.
 
         """
         reward = reward.reshape(-1, 1)
-        not_done = 1 - done.reshape(-1, 1)
+        not_terminated = 1 - terminated.reshape(-1, 1)
         batch_size = reward.size(0)
         next_dist = self._target_qnet.dist(*target_net_inputs)
         next_dist = next_dist[torch.arange(batch_size), next_action]
 
-        dist_supports = reward + not_done * self._discount_rate * self._supports
+        dist_supports = reward + not_terminated * self._discount_rate * self._supports
         dist_supports = dist_supports.clamp(min=self._v_min, max=self._v_max)
         dist_supports = dist_supports.unsqueeze(1)
         dist_supports = dist_supports.tile([1, self._atoms, 1])

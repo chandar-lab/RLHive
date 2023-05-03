@@ -19,7 +19,14 @@ def initial_buffer():
             action
         )
         done = terminated or truncated
-        buffer.add(observation=observation, action=action, reward=reward, done=done)
+        buffer.add(
+            observation=observation,
+            next_observation=next_observation,
+            action=action,
+            reward=reward,
+            terminated=terminated,
+            truncated=truncated,
+        )
         observation = next_observation
         if done:
             observation, _ = environment.reset()
@@ -38,9 +45,14 @@ def test_add_to_buffer(initial_buffer):
     next_observation, reward, terminated, truncated, turn, info = environment.step(
         action
     )
-    done = terminated or truncated
-    buffer.add(observation=observation, action=action, reward=reward, done=done)
-    assert buffer.size() == 400
+    buffer.add(
+        observation=observation,
+        next_observation=next_observation,
+        action=action,
+        reward=reward,
+        terminated=terminated,
+        truncated=truncated,
+    )
 
 
 @pytest.mark.parametrize("batch_size", [32])
@@ -54,7 +66,8 @@ def test_sample_from_buffer(batch_size, initial_buffer):
     assert batch["action"].shape == (batch_size,)
     assert batch["reward"].shape == (batch_size,)
     assert batch["next_observation"].shape == (batch_size, 4)
-    assert batch["done"].shape == (batch_size,)
+    assert batch["terminated"].shape == (batch_size,)
+    assert batch["truncated"].shape == (batch_size,)
     batch = buffer.sample(batch_size=buffer.size())
     assert batch["observation"].shape == (buffer.size(), 4)
 
@@ -79,10 +92,11 @@ def test_loading_buffer(tmpdir, batch_size, initial_buffer):
 
     buffer_loaded = replays.SimpleReplayBuffer(capacity=500, compress=True, seed=seed)
     buffer_loaded.load(tmpdir / "saved_test_buffer")
-    assert buffer.size() == 399
+    assert buffer.size() == 400
     batch = buffer_loaded.sample(batch_size)
     assert batch["observation"].shape == (batch_size, 4)
     assert batch["action"].shape == (batch_size,)
     assert batch["reward"].shape == (batch_size,)
     assert batch["next_observation"].shape == (batch_size, 4)
-    assert batch["done"].shape == (batch_size,)
+    assert batch["terminated"].shape == (batch_size,)
+    assert batch["truncated"].shape == (batch_size,)

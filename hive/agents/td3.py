@@ -267,9 +267,11 @@ class TD3(Agent):
             )
         preprocessed_update_info = {
             "observation": update_info["observation"],
+            "next_observation": update_info["next_observation"],
             "action": self.scale_action(update_info["action"]),
             "reward": update_info["reward"],
-            "done": update_info["terminated"] or update_info["truncated"],
+            "terminated": update_info["terminated"],
+            "truncated": update_info["truncated"],
         }
         if "agent_id" in update_info:
             preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
@@ -331,7 +333,7 @@ class TD3(Agent):
             update_info: dictionary containing all the necessary information
                 from the environment to update the agent. Should contain a full
                 transition, with keys for "observation", "action", "reward",
-                "next_observation", and "done".
+                "next_observation", "terminated", and "truncated
             agent_traj_state: Contains necessary state information for the agent
                 to process current trajectory. This should be updated and returned.
 
@@ -377,7 +379,9 @@ class TD3(Agent):
                 next_q_vals, _ = torch.min(next_q_vals, dim=1, keepdim=True)
                 target_q_values = (
                     batch["reward"][:, None]
-                    + (1 - batch["done"][:, None]) * self._discount_rate * next_q_vals
+                    + (1 - batch["terminated"][:, None])
+                    * self._discount_rate
+                    * next_q_vals
                 )
 
             # Critic losses

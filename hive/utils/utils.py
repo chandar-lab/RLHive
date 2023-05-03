@@ -56,8 +56,9 @@ class Seeder:
         Args:
             group (str): The name of the group to get the seed for.
         """
+        seed = self._current_seeds[group]
         self._current_seeds[group] += 1
-        return self._current_seeds[group]
+        return seed
 
 
 seeder = Seeder()

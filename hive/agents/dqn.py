@@ -222,9 +222,11 @@ class DQNAgent(Agent):
             )
         preprocessed_update_info = {
             "observation": update_info["observation"],
+            "next_observation": update_info["next_observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
-            "done": update_info["terminated"] or update_info["truncated"],
+            "terminated": update_info["terminated"],
+            "truncated": update_info["truncated"],
         }
         if "agent_id" in update_info:
             preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
@@ -304,7 +306,7 @@ class DQNAgent(Agent):
             update_info: dictionary containing all the necessary information
                 from the environment to update the agent. Should contain a full
                 transition, with keys for "observation", "action", "reward",
-                "next_observation", and "done".
+                "next_observation", "terminated", and "truncated".
             agent_traj_state: Contains necessary state information for the agent
                 to process current trajectory. This should be updated and returned.
 
@@ -344,7 +346,7 @@ class DQNAgent(Agent):
             next_qvals, _ = torch.max(next_qvals, dim=1)
 
             q_targets = batch["reward"] + self._discount_rate * next_qvals * (
-                1 - batch["done"]
+                1 - batch["terminated"]
             )
 
             loss = self._loss_fn(pred_qvals, q_targets).mean()
