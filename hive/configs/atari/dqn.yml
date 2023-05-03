@@ -28,7 +28,9 @@ kwargs:
             frame_skip: 4
             grayscale_newaxis: True
             screen_size: 84
-        - name: PermuteImageWrapper
+        # This wrapper converts image from the TF format (channels last)
+        # to the PyTorch format (channels first)
+        - name: PermuteImageWrapper 
 
   agent:
     name: 'DQNAgent'
