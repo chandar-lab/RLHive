@@ -18,7 +18,8 @@ kwargs:
   environment:
     name: 'AtariEnv'
     kwargs:
-      env_name: 'Asterix'
+      env_name: 'Pong'
+      flicker_prob: 0.2
 
   agent:
     name: 'DRQNAgent'

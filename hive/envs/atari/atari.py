@@ -5,6 +5,7 @@ import numpy as np
 
 from hive.envs.env_spec import EnvSpec
 from hive.envs.gym_env import GymEnv
+from hive.envs.wrappers.gym_wrappers import FlickeringWrapper
 
 
 class AtariEnv(GymEnv):
@@ -22,6 +23,7 @@ class AtariEnv(GymEnv):
         frame_skip=4,
         screen_size=84,
         sticky_actions=True,
+        **kwargs,
     ):
         """
         Args:
@@ -47,7 +49,12 @@ class AtariEnv(GymEnv):
         self.frame_skip = frame_skip
         self.screen_size = screen_size
 
-        super().__init__(full_env_name)
+        super().__init__(full_env_name, **kwargs)
+
+    def create_env(self, env_name, flicker_prob=0, **kwargs):
+        super().create_env(env_name, **kwargs)
+        if flicker_prob:
+            self._env = FlickeringWrapper(self._env, flicker_prob=flicker_prob)
 
     def create_env_spec(self, env_name, **kwargs):
         observation_shape = self._env.observation_space.shape
