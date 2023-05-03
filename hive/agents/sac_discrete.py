@@ -5,14 +5,12 @@ import numpy as np
 import torch
 
 from hive.agents.qnets.base import FunctionApproximator
-from hive.agents.qnets.utils import (
-    InitializationFn,
-    calculate_output_dim,
-)
+from hive.agents.qnets.sac_heads import SACActorNetwork, SACDiscreteCriticNetwork
+from hive.agents.qnets.utils import InitializationFn, calculate_output_dim
+from hive.agents.sac import SACAgent
 from hive.replays import BaseReplayBuffer
 from hive.utils.loggers import Logger
 from hive.utils.utils import LossFn, OptimizerFn
-from hive.agents.qnets.sac_heads import SACActorNetwork, SACDiscreteCriticNetwork
 
 
 class DiscreteSACAgent(SACAgent):

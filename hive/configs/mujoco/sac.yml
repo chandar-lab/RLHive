@@ -68,6 +68,4 @@ kwargs:
         name: *run_name
         resume: "allow"
         start_method: "fork"
-        tags: 
-          - benchmark_sac
         

@@ -8,6 +8,7 @@ import torch
 
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
+from hive.agents.qnets.sac_heads import SACActorNetwork, SACContinuousCriticNetwork
 from hive.agents.qnets.utils import (
     InitializationFn,
     calculate_output_dim,
@@ -17,7 +18,6 @@ from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.loggers import Logger, NullLogger
 from hive.utils.schedule import DoublePeriodicSchedule, PeriodicSchedule, SwitchSchedule
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
-from hive.agents.qnets.sac_heads import SACActorNetwork, SACContinuousCriticNetwork
 
 
 @dataclass
@@ -319,7 +319,6 @@ class SACAgent(Agent):
         action, _, _ = self._actor(observation)
         action = action.cpu().detach().numpy()
         action = self.unscale_actions(action)
-        # action = action
         return action[0], agent_traj_state
 
     def update(self, update_info, agent_traj_state=None):

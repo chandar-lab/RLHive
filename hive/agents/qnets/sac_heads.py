@@ -1,10 +1,11 @@
 from typing import Tuple, Union
-import torch
+
+import gymnasium as gym
 import numpy as np
+import torch
+
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.utils import calculate_output_dim
-import gymnasium as gym
-
 
 MIN_LOG_STD = -5
 MAX_LOG_STD = 2
@@ -64,7 +65,7 @@ class GaussianPolicyHead(torch.nn.Module):
 
 class CategoricalPolicyHead(torch.nn.Module):
     """A module that implements a discrete actor head. It uses the ouput from
-    the :obj:`actor_net`, and adds creates a
+    the :obj:`actor_net`, and adds a
     :py:class:`~torch.distributions.categorical.Categorical` object to compute
     the action distribution."""
 
