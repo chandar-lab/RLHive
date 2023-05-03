@@ -253,7 +253,7 @@ class DRQNAgent(DQNAgent):
                 batch,
             ) = self.preprocess_update_batch(batch)
 
-            # Update the agent based on it
+            # Updates Q-network parameters based on a batch of experiences sampled from the replay buffer
             self._update_on_batch(batch, current_state_inputs, next_state_inputs)
 
         # Update target network
