@@ -16,9 +16,11 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
     def preprocess_update_info(self, update_info):
         preprocessed_update_info = {
             "observation": update_info["observation"]["observation"],
+            "next_observation": update_info["next_observation"]["observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
-            "done": update_info["terminated"] or update_info["truncated"],
+            "terminated": update_info["terminated"],
+            "truncated": update_info["truncated"],
             "action_mask": action_encoding(update_info["observation"]["action_mask"]),
         }
         if "agent_id" in update_info:
