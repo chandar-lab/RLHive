@@ -41,6 +41,14 @@ kwargs:
           hidden_units: [64, 64]
           initialization_fn:
             name: 'actor_critic_init'
+      actor_head_init_fn:
+        name: 'actor_critic_init'
+        kwargs:
+          std: 0.01
+      critic_head_init_fn:
+        name: 'actor_critic_init'
+        kwargs:
+          std: 1.0
       observation_normalizer:
         name: 'MovingAvgNormalizer'
         kwargs:

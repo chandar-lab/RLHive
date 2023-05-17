@@ -37,6 +37,14 @@ kwargs:
           hidden_units: [256, 256]
         initialization_fn:
             name: 'actor_critic_init'
+      actor_head_init_fn:
+        name: 'actor_critic_init'
+        kwargs:
+          std: 0.01
+      critic_head_init_fn:
+        name: 'actor_critic_init'
+        kwargs:
+          std: 1.0
       replay_buffer:
         name: 'OnPolicyReplayBuffer'
         kwargs:

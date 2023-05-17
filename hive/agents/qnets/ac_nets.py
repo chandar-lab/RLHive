@@ -17,9 +17,6 @@ def actor_critic_init_fn(layer, std=np.sqrt(2), bias_const=0.0):
         torch.nn.init.constant_(layer.bias, bias_const)
 
 
-registry.register("actor_critic_init", actor_critic_init_fn, InitializationFn)
-
-
 class CategoricalHead(torch.nn.Module):
     """A module that implements a discrete actor head. It uses the ouput from
     the :obj:`actor_net`, and adds creates a
@@ -138,3 +135,6 @@ class ActorCriticNetwork(torch.nn.Module):
         if self._continuous_action:
             logprob, entropy = logprob.sum(dim=-1), entropy.sum(dim=-1)
         return action, logprob, entropy, value
+
+
+registry.register("actor_critic_init", actor_critic_init_fn, InitializationFn)
