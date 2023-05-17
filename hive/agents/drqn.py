@@ -269,7 +269,7 @@ class DRQNAgent(DQNAgent):
             update_info: dictionary containing all the necessary information
                 from the environment to update the agent. Should contain a full
                 transition, with keys for "observation", "action", "reward",
-                "next_observation", and "done".
+                "next_observation", "terminated", and "truncated".
             agent_traj_state: Contains necessary state information for the agent
                 to process current trajectory. This should be updated and returned.
         Returns:
@@ -313,7 +313,7 @@ class DRQNAgent(DQNAgent):
             next_qvals, _ = torch.max(next_qvals, dim=-1)
 
             q_targets = batch["reward"] + self._discount_rate * next_qvals * (
-                1 - batch["done"]
+                1 - batch["terminated"]
             )
 
             if self._burn_frames > 0:
