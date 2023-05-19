@@ -33,6 +33,14 @@ kwargs:
           strides: [4, 2, 1]
           paddings: [2, 2, 1]
           mlp_layers: [512]
+      actor_head_init_fn:
+        name: 'actor_critic_init'
+        kwargs:
+          std: 0.01
+      critic_head_init_fn:
+        name: 'actor_critic_init'
+        kwargs:
+          std: 1.0
       optimizer_fn:
         name: 'Adam'
         kwargs:
