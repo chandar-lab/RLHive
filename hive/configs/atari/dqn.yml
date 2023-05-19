@@ -17,9 +17,20 @@ kwargs:
   max_steps_per_episode: 27000
   stack_size: &stack_size 4
   environment:
-    name: 'AtariEnv'
+    name: 'GymEnv'
     kwargs:
-      env_name: 'Asterix'
+      env_name: 'ALE/Asterix-v5'
+      repeat_action_probability: 0.25 # probality = 1 / sticky_action_number
+      frameskip: 1 # this is required to be set to expose frameskip in wrapper 
+      env_wrappers:
+        - name: AtariPreprocessing
+          kwargs:
+            frame_skip: 4
+            grayscale_newaxis: True
+            screen_size: 84
+        # This wrapper converts image from the TF format (channels last)
+        # to the PyTorch format (channels first)
+        - name: PermuteImageWrapper 
 
   agent:
     name: 'DQNAgent'
