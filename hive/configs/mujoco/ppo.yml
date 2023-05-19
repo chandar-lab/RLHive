@@ -33,10 +33,22 @@ kwargs:
           hidden_units: [64, 64]
           activation_fn:
             name: 'Tanh'
+          initialization_fn:
+            name: 'actor_critic_init'
       critic_net:
         name: 'MLPNetwork'
         kwargs: 
           hidden_units: [64, 64]
+          initialization_fn:
+            name: 'actor_critic_init'
+      actor_head_init_fn:
+        name: 'actor_critic_init'
+        kwargs:
+          std: 0.01
+      critic_head_init_fn:
+        name: 'actor_critic_init'
+        kwargs:
+          std: 1.0
       observation_normalizer:
         name: 'MovingAvgNormalizer'
         kwargs:
@@ -75,10 +87,6 @@ kwargs:
       batch_size: 64
       device: 'cuda'
       id: 'agent'
-      init_fn: 
-        name: 'orthogonal'
-        kwargs:
-          gain: 1.414
 
   # List of logger configs used.
   loggers:

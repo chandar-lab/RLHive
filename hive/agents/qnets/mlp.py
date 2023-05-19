@@ -7,6 +7,7 @@ from torch import nn
 
 from hive.agents.qnets.noisy_linear import NoisyLinear
 from hive.utils.utils import ActivationFn
+from hive.agents.qnets.utils import InitializationFn
 
 
 class MLPNetwork(nn.Module):
@@ -24,6 +25,7 @@ class MLPNetwork(nn.Module):
         activation_fn: ActivationFn = None,
         noisy: bool = False,
         std_init: float = 0.5,
+        initialization_fn: InitializationFn = lambda x: x,
     ):
         """
         Args:
@@ -46,7 +48,8 @@ class MLPNetwork(nn.Module):
         for i in range(len(hidden_units) - 1):
             modules.append(linear_fn(hidden_units[i], hidden_units[i + 1]))
             modules.append(activation_fn())
-        self.network = torch.nn.Sequential(*modules)
+
+        self.network = torch.nn.Sequential(*modules).apply(initialization_fn)
 
     def forward(self, x):
         x = x.float()
