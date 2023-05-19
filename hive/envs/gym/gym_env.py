@@ -6,7 +6,7 @@ from gymnasium import wrappers
 
 from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
-from hive.envs.env_wrapper import EnvWrapper, apply_wrappers
+from hive.envs.env_wrapper import GymWrapper, apply_wrappers
 from hive.utils.registry import registry
 
 
@@ -18,7 +18,7 @@ class GymEnv(BaseEnv):
     def __init__(
         self,
         env_name: str,
-        env_wrappers: List[EnvWrapper] = None,
+        env_wrappers: List[GymWrapper] = None,
         num_players: int = 1,
         render_mode: str = None,
         **kwargs
@@ -27,7 +27,7 @@ class GymEnv(BaseEnv):
         Args:
             env_name (str): Name of the environment (NOTE: make sure it is available
                 in gym.envs.registry.all())
-            env_wrappers (List[EnvWrapper]): List of environment wrappers to apply.
+            env_wrappers (List[GymWrapper]): List of environment wrappers to apply.
             num_players (int): Number of players for the environment.
             render_mode (str): One of None, "human", "rgb_array", "ansi", or
                 "rgb_array_list". See gym documentation for details.
@@ -101,6 +101,6 @@ wrappers = [
 ]
 
 registry.register_all(
-    EnvWrapper,
+    GymWrapper,
     {wrapper.__name__: wrapper for wrapper in wrappers},
 )
