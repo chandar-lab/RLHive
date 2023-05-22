@@ -74,17 +74,11 @@ class DRQNNetwork(nn.Module):
         self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
         self.output_layer = self._linear_fn(hidden_dim, out_dim)
 
-    def forward(self, x, hidden_state=None):
-        x, hidden_state = self.base_network(x, hidden_state)
+    def forward(self, x, agent_traj_state=None):
+        x, agent_traj_state = self.base_network(x, agent_traj_state)
 
         x = x.flatten(start_dim=1)
-        return self.output_layer(x), hidden_state
-
-    def init_hidden(self, batch_size):
-        return self.base_network.init_hidden(batch_size)
-
-    def update_rnn_device(self):
-        self.base_network.update_rnn_device()
+        return self.output_layer(x), agent_traj_state
 
 
 class DuelingNetwork(nn.Module):
