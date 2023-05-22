@@ -26,6 +26,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         num_players_sharing_buffer: int = None,
         rnn_type: str = "lstm",
         rnn_hidden_size: int = 0,
+        num_rnn_layers: int = 0,
         store_hidden: bool = False,
     ):
         """Constructor for RecurrentReplayBuffer.
@@ -61,12 +62,12 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         if store_hidden == True:
             extra_storage_types["hidden_state"] = (
                 np.float32,
-                (1, 1, rnn_hidden_size),
+                (num_rnn_layers, 1, rnn_hidden_size),
             )
             if rnn_type == "lstm":
                 extra_storage_types["cell_state"] = (
                     np.float32,
-                    (1, 1, rnn_hidden_size),
+                    (num_rnn_layers, 1, rnn_hidden_size),
                 )
             elif rnn_type != "gru":
                 raise ValueError(
@@ -245,16 +246,22 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                     num_to_access=self._max_seq_len,
                 )
             elif key == "hidden_state":
-                batch[key] = self._get_from_storage(
-                    "hidden_state",
-                    indices - self._max_seq_len + 1,
-                    num_to_access=self._max_seq_len,
-                )
+                batch[key] = {
+                    "hidden_state": self._get_from_storage(
+                        "hidden_state",
+                        indices - self._max_seq_len + 1,
+                        num_to_access=1,
+                    )
+                }
             elif key == "cell_state":
-                batch[key] = self._get_from_storage(
-                    "cell_state",
-                    indices - self._max_seq_len + 1,
-                    num_to_access=self._max_seq_len,
+                batch["hidden_state"].update(
+                    {
+                        "cell_state": self._get_from_storage(
+                            "cell_state",
+                            indices - self._max_seq_len + 1,
+                            num_to_access=1,
+                        )
+                    }
                 )
             elif key == "done":
                 batch["done"] = is_terminal
@@ -296,22 +303,28 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         )
 
         if self._store_hidden == True:
-            batch["next_hidden_state"] = self._get_from_storage(
-                "hidden_state",
-                batch["indices"]
-                + batch["trajectory_lengths"]
-                - self._max_seq_len
-                + 1,  # just return batch["indices"]
-                num_to_access=self._max_seq_len,
-            )
-            if self._rnn_type == "lstm":
-                batch["next_cell_state"] = self._get_from_storage(
-                    "cell_state",
+            batch["next_hidden_state"] = {
+                "hidden_state": self._get_from_storage(
+                    "hidden_state",
                     batch["indices"]
                     + batch["trajectory_lengths"]
                     - self._max_seq_len
-                    + 1,
-                    num_to_access=self._max_seq_len,
+                    + 1,  # just return batch["indices"]
+                    num_to_access=1,
+                )
+            }
+            if self._rnn_type == "lstm":
+                batch["next_hidden_state"].update(
+                    {
+                        "cell_state": self._get_from_storage(
+                            "cell_state",
+                            batch["indices"]
+                            + batch["trajectory_lengths"]
+                            - self._max_seq_len
+                            + 1,
+                            num_to_access=1,
+                        )
+                    }
                 )
 
         return batch

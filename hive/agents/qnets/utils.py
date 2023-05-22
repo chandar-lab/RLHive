@@ -22,6 +22,8 @@ def calculate_output_dim(net, input_shape):
         input_shape = (input_shape,)
     placeholder = torch.zeros((1,) + tuple(input_shape))
     output = net(placeholder)
+    if isinstance(output, tuple):
+        output = output[0]
     return extract_shape(output)
 
 
