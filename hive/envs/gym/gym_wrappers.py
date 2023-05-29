@@ -1,3 +1,4 @@
+import inspect
 import operator
 from functools import reduce
 
@@ -85,3 +86,21 @@ registry.register_all(
     GymWrapper,
     {"PermuteImageWrapper": PermuteImageWrapper, "FlattenWrapper": FlattenWrapper},
 )
+
+try:
+    from minigrid import wrappers
+
+    wrappers = [
+        getattr(wrappers, x)
+        for x in dir(wrappers)
+        if inspect.isclass(getattr(wrappers, x))
+        and issubclass(getattr(wrappers, x), gym.Wrapper)
+    ]
+
+    registry.register_all(
+        GymWrapper,
+        {'minigrid.{}'.format(wrapper.__name__): wrapper for wrapper in wrappers},
+    )
+
+except:
+    pass

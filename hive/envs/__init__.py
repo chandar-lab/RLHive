@@ -3,16 +3,6 @@ from hive.envs.env_spec import EnvSpec
 from hive.envs.gym.gym_env import GymEnv
 
 try:
-    from hive.envs.minigrid import MiniGridEnv
-except ImportError:
-    MiniGridEnv = None
-
-try:
-    from hive.envs.atari import AtariEnv
-except ImportError:
-    AtariEnv = None
-
-try:
     from hive.envs.marlgrid import MarlGridEnv
 except ImportError:
     MarlGridEnv = None
@@ -28,9 +18,7 @@ registry.register_all(
     BaseEnv,
     {
         "GymEnv": GymEnv,
-        "MiniGridEnv": MiniGridEnv,
         "MarlGridEnv": MarlGridEnv,
-        "AtariEnv": AtariEnv,
         "PettingZooEnv": PettingZooEnv,
     },
 )

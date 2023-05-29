@@ -9,7 +9,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 atari = ["gymnasium[atari,accept-rom-license]~=0.27.0", "opencv-python~=4.0"]
-gym_minigrid = ["gym-minigrid~=1.2.2"]
+minigrid = ["minigrid~=2.1.0"]
 minatar = ["MinAtar>=1.0.10"]
 petting_zoo = ["pettingzoo[sisl,atari,classic]~=1.22"]
 visualization = ["pandas~=1.0"]
@@ -47,11 +47,11 @@ setuptools.setup(
     ],
     extras_require={
         "atari": atari,
-        "gym_minigrid": gym_minigrid,
+        "minigrid": minigrid,
         "minatar": minatar,
         "petting_zoo": petting_zoo,
         "test": test,
-        "all": atari + gym_minigrid + minatar + petting_zoo + test,
+        "all": atari + minigrid + minatar + petting_zoo + test,
     },
     entry_points={
         "console_scripts": [
