@@ -5,14 +5,8 @@ from hive.utils.registry import Registrable, registry
 
 class Schedule(abc.ABC, Registrable):
     @abc.abstractmethod
-    def get_value(self):
-        """Returns the current value of the variable we are tracking"""
-        pass
-
-    @abc.abstractmethod
-    def update(self, num_steps=1):
-        """Update the value of the variable we are tracking and return the updated value.
-        The first call to update will return the initial value of the schedule."""
+    def get_value(self, step):
+        """Queries the value of the schedule at a given step."""
         pass
 
     @classmethod
@@ -23,7 +17,7 @@ class Schedule(abc.ABC, Registrable):
 class LinearSchedule(Schedule):
     """Defines a linear schedule between two values over some number of steps.
 
-    If updated more than the defined number of steps, the schedule stays at the
+    When queried with a step value greater than `steps`, the schedule stays at the
     end value.
     """
 
@@ -35,29 +29,22 @@ class LinearSchedule(Schedule):
             steps (int): Number of steps for schedule. Should be positive.
         """
         steps = max(int(steps), 1)
-        self._delta = (end_value - init_value) / steps
+        self._init_value = init_value
+        self._steps = steps
         self._end_value = end_value
-        self._value = init_value - self._delta
+        self._delta = (end_value - init_value) / steps
 
-    def get_value(self):
-        return self._value
-
-    def update(self, num_steps=1):
-        if self._value == self._end_value:
-            return self._value
-
-        self._value += self._delta * num_steps
-
-        # Check if value is over the end_value
-        if ((self._value - self._end_value) > 0) == (self._delta > 0):
-            self._value = self._end_value
-        return self._value
+    def get_value(self, step):
+        if self._end_value > self._init_value:
+            return min(self._init_value + self._delta * step, self._end_value)
+        else:
+            return max(self._init_value + self._delta * step, self._end_value)
 
     def __repr__(self):
         return (
             f"<class {type(self).__name__}"
-            f" value={self.get_value()}"
-            f" delta={self._delta}"
+            f" init_value={self._init_value}"
+            f" steps={self._steps}"
             f" end_value={self._end_value}>"
         )
 
@@ -72,14 +59,11 @@ class ConstantSchedule(Schedule):
         """
         self._value = value
 
-    def get_value(self):
-        return self._value
-
-    def update(self, num_steps=1):
+    def get_value(self, step):
         return self._value
 
     def __repr__(self):
-        return f"<class {type(self).__name__} value={self.get_value()}>"
+        return f"<class {type(self).__name__} value={self._value}>"
 
 
 class SwitchSchedule(Schedule):
@@ -96,27 +80,19 @@ class SwitchSchedule(Schedule):
                 value to the on value.
         """
 
-        self._steps = 0
         self._flip_step = steps
         self._off_value = off_value
         self._on_value = on_value
 
-    def get_value(self):
-        if self._steps <= self._flip_step:
+    def get_value(self, step):
+        if step <= self._flip_step:
             return self._off_value
         else:
             return self._on_value
 
-    def update(self, num_steps=1):
-        self._steps += num_steps
-        value = self.get_value()
-        return value
-
     def __repr__(self):
         return (
             f"<class {type(self).__name__}"
-            f" value={self.get_value()}"
-            f" steps={self._steps}"
             f" off_value={self._off_value}"
             f" on_value={self._on_value}"
             f" flip_step={self._flip_step}>"
@@ -136,27 +112,20 @@ class DoublePeriodicSchedule(Schedule):
             on_period (int): the number of steps in the on period.
             off_period (int): the number of steps in the off period.
         """
-        self._steps = -1
         self._off_period = off_period
         self._total_period = self._off_period + on_period
         self._off_value = off_value
         self._on_value = on_value
 
-    def get_value(self):
-        if (self._steps % self._total_period) < self._off_period:
+    def get_value(self, step):
+        if (step % self._total_period) < self._off_period:
             return self._off_value
         else:
             return self._on_value
 
-    def update(self, num_steps=1):
-        self._steps += num_steps
-        return self.get_value()
-
     def __repr__(self):
         return (
             f"<class {type(self).__name__}"
-            f" value={self.get_value()}"
-            f" steps={self._steps}"
             f" off_value={self._off_value}"
             f" on_value={self._on_value}"
             f" off_period={self._off_period}"
@@ -181,8 +150,6 @@ class PeriodicSchedule(DoublePeriodicSchedule):
     def __repr__(self):
         return (
             f"<class {type(self).__name__}"
-            f" value={self.get_value()}"
-            f" steps={self._steps}"
             f" off_value={self._off_value}"
             f" on_value={self._on_value}"
             f" period={self._off_period + 1}>"
