@@ -99,7 +99,7 @@ try:
 
     registry.register_all(
         GymWrapper,
-        {'minigrid.{}'.format(wrapper.__name__): wrapper for wrapper in wrappers},
+        {"minigrid.{}".format(wrapper.__name__): wrapper for wrapper in wrappers},
     )
 
 except:
