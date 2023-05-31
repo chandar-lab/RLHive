@@ -273,19 +273,20 @@ class DRQNAgent(DQNAgent):
         observation = torch.tensor(
             np.expand_dims(observation, axis=(0, 1)), device=self._device
         ).float()
-
-        qvals, agent_traj_state = self._qnet(observation, agent_traj_state)
+        hidden_state = (
+            None if agent_traj_state is None else agent_traj_state["hidden_state"]
+        )
+        qvals, hidden_state = self._qnet(observation, hidden_state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._action_space.n)
         else:
             # Note: not explicitly handling the ties
             action = torch.argmax(qvals).item()
         if agent_traj_state is None:
-            agent_traj_state = {}
             if self._training and self._logger.should_log(self._timescale):
                 self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
 
-        return action, agent_traj_state
+        return action, {"hidden_state": hidden_state}
 
     def update(self, update_info, agent_traj_state=None):
         """
