@@ -31,7 +31,7 @@ class LSTMModel(SequenceFn):
 
     def __init__(
         self,
-        rnn_input_size=256,
+        rnn_input_size,
         rnn_hidden_size=128,
         num_rnn_layers=1,
         batch_first=True,
@@ -91,7 +91,7 @@ class GRUModel(SequenceFn):
 
     def __init__(
         self,
-        rnn_input_size=256,
+        rnn_input_size,
         rnn_hidden_size=128,
         num_rnn_layers=1,
         batch_first=True,
