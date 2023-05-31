@@ -133,7 +133,6 @@ class ParallelEnv(BaseEnv):
         self._actions = []
         self._obs = None
         self._info = None
-        self._done = False
         self._termination = False
         self._truncation = False
 

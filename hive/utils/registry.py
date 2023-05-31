@@ -81,7 +81,7 @@ class Registry:
                 name = object_or_config["name"]
                 kwargs = object_or_config.get("kwargs", {})
                 expanded_config = deepcopy(object_or_config)
-                if name in self._registry[type.type_name()]:
+                try:
                     object_class = self._registry[type.type_name()][name]
                     parsed_args = get_callable_parsed_args(object_class, prefix=prefix)
                     kwargs.update(parsed_args)
@@ -90,8 +90,8 @@ class Registry:
                     )
                     expanded_config["kwargs"] = kwargs_config
                     return partial(object_class, **kwargs), expanded_config
-                else:
-                    raise ValueError(f"{name} class not found")
+                except:
+                    raise ValueError(f"Error creating {name} class")
 
             setattr(self.__class__, f"get_{type.type_name()}", getter)
         self._registry[type.type_name()][name] = constructor

@@ -4,6 +4,9 @@ from functools import reduce
 import gymnasium as gym
 import numpy as np
 
+from hive.utils.registry import registry
+from hive.envs.env_wrapper import GymWrapper
+
 
 class FlattenWrapper(gym.core.ObservationWrapper):
     """
@@ -76,3 +79,9 @@ class PermuteImageWrapper(gym.core.ObservationWrapper):
             return tuple(np.transpose(o, [2, 1, 0]) for o in obs)
         else:
             return np.transpose(obs, [2, 1, 0])
+
+
+registry.register_all(
+    GymWrapper,
+    {"PermuteImageWrapper": PermuteImageWrapper, "FlattenWrapper": FlattenWrapper},
+)

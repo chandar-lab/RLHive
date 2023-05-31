@@ -44,9 +44,11 @@ def full_buffer(buffer):
     for i in range(CAPACITY + 20):
         buffer.add(
             observation=np.ones(OBS_SHAPE) * i,
+            next_observation=np.ones(OBS_SHAPE) * (i + 1),
             action=i,
             reward=i % 10,
-            done=((i + 1) % 15) == 0,
+            truncated=((i + 1) % 15) == 0,
+            terminated=((i + 1) % 15) == 0,
             priority=(i % 10) + 1,
         )
     return buffer
@@ -88,9 +90,11 @@ def full_stacked_buffer(stacked_buffer):
     for i in range(CAPACITY + 20):
         stacked_buffer.add(
             observation=np.ones(OBS_SHAPE) * i,
+            next_observation=np.ones(OBS_SHAPE) * (i + 1),
             action=i,
             reward=i % 10,
-            done=((i + 1) % 15) == 0,
+            truncated=((i + 1) % 15) == 0,
+            terminated=((i + 1) % 15) == 0,
             priority=(i % 10) + 1,
         )
     return stacked_buffer
@@ -108,9 +112,11 @@ def full_n_step_buffer():
     for i in range(CAPACITY + 20):
         n_step_buffer.add(
             observation=np.ones(OBS_SHAPE) * i,
+            next_observation=np.ones(OBS_SHAPE) * (i + 1),
             action=i,
             reward=i % 10,
-            done=((i + 1) % 15) == 0,
+            truncated=((i + 1) % 15) == 0,
+            terminated=((i + 1) % 15) == 0,
         )
     return n_step_buffer
 
@@ -161,9 +167,11 @@ def test_add(buffer):
     for i in range(CAPACITY):
         buffer.add(
             observation=np.ones(OBS_SHAPE) * i,
+            next_observation=np.ones(OBS_SHAPE) * (i + 1),
             action=i,
             reward=i % 10,
-            done=((i + 1) % 15) == 0,
+            truncated=((i + 1) % 15) == 0,
+            terminated=((i + 1) % 15) == 0,
             priority=(i % 10) + 1,
         )
         assert buffer.size() == i
@@ -172,9 +180,11 @@ def test_add(buffer):
     for i in range(20):
         buffer.add(
             observation=np.ones(OBS_SHAPE) * i,
+            next_observation=np.ones(OBS_SHAPE) * (i + 1),
             action=i,
             reward=i % 10,
-            done=((i + 1) % 15) == 0,
+            truncated=((i + 1) % 15) == 0,
+            terminated=((i + 1) % 15) == 0,
             priority=(i % 10) + 1,
         )
         assert buffer.size() == CAPACITY - 1
@@ -187,13 +197,11 @@ def test_sample(full_buffer):
     for i in range(CAPACITY - 1):
         timestep = batch["action"][i]
         assert batch["reward"][i] == timestep % 10
-        # assert batch["foo"][i] == timestep % 5
-        assert batch["done"][i] == (((timestep + 1) % 15) == 0)
+        assert batch["terminated"][i] == (((timestep + 1) % 15) == 0)
         assert batch["observation"][i] == pytest.approx(np.ones(OBS_SHAPE) * timestep)
-        if not batch["done"][i]:
-            assert batch["observation"][i] + 1 == pytest.approx(
-                batch["next_observation"][i]
-            )
+        assert batch["observation"][i] + 1 == pytest.approx(
+            batch["next_observation"][i]
+        )
 
 
 @pytest.mark.xfail(raises=ValueError)
@@ -215,7 +223,14 @@ def test_sample_few_transitions(stack_size, n_step, num_added):
         observation_dtype=np.float32,
     )
     for i in range(num_added):
-        buffer.add(np.ones(OBS_SHAPE) * i, action=i, reward=i % 10, done=(i + 1) % 15)
+        buffer.add(
+            np.ones(OBS_SHAPE) * i,
+            np.ones(OBS_SHAPE) * (i + 1),
+            action=i,
+            reward=i % 10,
+            truncated=(i + 1) % 15,
+            terminated=(i + 1) % 15,
+        )
     buffer.sample(1)
 
 
@@ -251,9 +266,11 @@ def test_stacked_buffer_add(stacked_buffer):
     for i in range(CAPACITY):
         stacked_buffer.add(
             observation=np.ones(OBS_SHAPE) * i,
+            next_observation=np.ones(OBS_SHAPE) * (i + 1),
             action=i,
             reward=i % 10,
-            done=((i + 1) % 15) == 0,
+            truncated=((i + 1) % 15) == 0,
+            terminated=((i + 1) % 15) == 0,
             priority=(i % 10) + 1,
         )
         assert (
@@ -264,9 +281,11 @@ def test_stacked_buffer_add(stacked_buffer):
     for i in range(20):
         stacked_buffer.add(
             observation=np.ones(OBS_SHAPE) * i,
+            next_observation=np.ones(OBS_SHAPE) * (i + 1),
             action=i,
             reward=i % 10,
-            done=((i + 1) % 15) == 0,
+            truncated=((i + 1) % 15) == 0,
+            terminated=((i + 1) % 15) == 0,
             priority=(i % 10) + 1,
         )
         assert stacked_buffer.size() == CAPACITY - STACK_SIZE
@@ -283,8 +302,8 @@ def test_stacked_buffer_sample(full_stacked_buffer):
             (STACK_SIZE * OBS_SHAPE[0],) + OBS_SHAPE[1:]
         )
         assert batch["reward"][i] == timestep % 10
-        assert batch["done"][i] == (((timestep + 1) % 15) == 0)
-        if not batch["done"][i]:
+        assert batch["terminated"][i] == (((timestep + 1) % 15) == 0)
+        if not batch["terminated"][i]:
             assert batch["observation"][i, -OBS_SHAPE[0] :] == pytest.approx(
                 batch["next_observation"][i, : OBS_SHAPE[0]]
             )
@@ -305,9 +324,11 @@ def test_n_step_buffer(full_n_step_buffer):
             if (timestep + delta_t + 1) % 15 == 0:
                 break
         assert batch["reward"][i] == pytest.approx(expected_reward)
-        assert batch["done"][i] == (((timestep + N_STEP_HORIZON) % 15) < N_STEP_HORIZON)
+        assert batch["terminated"][i] == (
+            ((timestep + N_STEP_HORIZON) % 15) < N_STEP_HORIZON
+        )
         assert batch["observation"][i] == pytest.approx(np.ones(OBS_SHAPE) * timestep)
-        if not batch["done"][i]:
+        if not batch["terminated"][i]:
             assert batch["observation"][i] + N_STEP_HORIZON == pytest.approx(
                 batch["next_observation"][i]
             )

@@ -3,13 +3,15 @@ from hive.agents.qnets.atari import NatureAtariDQNModel
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.conv import ConvNetwork
 from hive.agents.qnets.mlp import MLPNetwork
-from hive.agents.qnets.rnn import ConvRNNNetwork
+from hive.agents.qnets.sequence_models import (
+    SequenceModel,
+    SequenceFn,
+)
 
 registry.register_all(
     FunctionApproximator,
     {
         "ConvNetwork": ConvNetwork,
-        "ConvRNNNetwork": ConvRNNNetwork,
         "MLPNetwork": MLPNetwork,
         "NatureAtariDQNModel": NatureAtariDQNModel,
     },

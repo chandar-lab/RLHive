@@ -5,6 +5,7 @@ import numpy as np
 
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.utils import create_folder, seeder
+import copy
 
 
 class CircularReplayBuffer(BaseReplayBuffer):
@@ -26,6 +27,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         reward_dtype=np.float32,
         extra_storage_types=None,
         num_players_sharing_buffer: int = None,
+        optimize_storage: bool = True,
     ):
         """Constructor for CircularReplayBuffer.
 
@@ -56,14 +58,23 @@ class CircularReplayBuffer(BaseReplayBuffer):
                 (type, shape) tuple.
             num_players_sharing_buffer (int): Number of agents that share their
                 buffers. It is used for self-play.
+            optimize_storage (bool): If True, the buffer will only store each
+                observation once. Otherwise, next_observation will be stored for
+                each transition. Note, if optimize_storage is True, the
+                next_observation for a transition where terminated OR truncated
+                is True will not be correct.
         """
         self._capacity = capacity
+        self._optimize_storage = optimize_storage
         self._specs = {
             "observation": (observation_dtype, observation_shape),
             "done": (np.uint8, ()),
+            "terminated": (np.uint8, ()),
             "action": (action_dtype, action_shape),
             "reward": (reward_dtype, reward_shape),
         }
+        if not optimize_storage:
+            self._specs["next_observation"] = (observation_dtype, observation_shape)
         if extra_storage_types is not None:
             self._specs.update(extra_storage_types)
         self._storage = self._create_storage(capacity, self._specs)
@@ -123,7 +134,16 @@ class CircularReplayBuffer(BaseReplayBuffer):
             }
             self._add_transition(**transition)
 
-    def add(self, observation, action, reward, done, **kwargs):
+    def add(
+        self,
+        observation,
+        next_observation,
+        action,
+        reward,
+        terminated,
+        truncated,
+        **kwargs,
+    ):
         """Adds a transition to the buffer.
         The required components of a transition are given as positional arguments. The
         user can pass additional components to store in the buffer as kwargs as long as
@@ -133,12 +153,16 @@ class CircularReplayBuffer(BaseReplayBuffer):
         if self._episode_start:
             self._pad_buffer(self._stack_size - 1)
             self._episode_start = False
+        done = terminated or truncated
         transition = {
             "observation": observation,
             "action": action,
             "reward": reward,
             "done": done,
+            "terminated": terminated,
         }
+        if not self._optimize_storage:
+            transition["next_observation"] = next_observation
         transition.update(kwargs)
         for key in self._specs:
             obj_type = (
@@ -238,15 +262,17 @@ class CircularReplayBuffer(BaseReplayBuffer):
         indices = self._sample_indices(batch_size)
         batch = {}
         batch["indices"] = indices
-        terminals = self._get_from_storage("done", indices, self._n_step)
+        dones = self._get_from_storage("done", indices, self._n_step)
+        terminated = self._get_from_storage("terminated", indices, self._n_step)
 
         if self._n_step == 1:
-            is_terminal = terminals
+            is_terminal = dones
             trajectory_lengths = np.ones(batch_size)
         else:
-            is_terminal = terminals.any(axis=1).astype(int)
+            is_terminal = dones.any(axis=1).astype(int)
+            terminated = terminated.any(axis=1).astype(int)
             trajectory_lengths = (
-                np.argmax(terminals.astype(bool), axis=1) + 1
+                np.argmax(dones.astype(bool), axis=1) + 1
             ) * is_terminal + self._n_step * (1 - is_terminal)
         trajectory_lengths = trajectory_lengths.astype(np.int64)
 
@@ -257,8 +283,17 @@ class CircularReplayBuffer(BaseReplayBuffer):
                     indices - self._stack_size + 1,
                     num_to_access=self._stack_size,
                 )
+            elif key == "next_observation":
+                batch[key] = self._get_from_storage(
+                    "next_observation",
+                    indices - self._stack_size + 1,
+                    num_to_access=self._stack_size,
+                )
             elif key == "done":
-                batch["done"] = is_terminal
+                pass
+            elif key == "terminated":
+                batch["terminated"] = terminated
+                batch["truncated"] = is_terminal - terminated
             elif key == "reward":
                 rewards = self._get_from_storage("reward", indices, self._n_step)
                 if self._n_step == 1:
@@ -273,11 +308,12 @@ class CircularReplayBuffer(BaseReplayBuffer):
                 batch[key] = self._get_from_storage(key, indices)
 
         batch["trajectory_lengths"] = trajectory_lengths
-        batch["next_observation"] = self._get_from_storage(
-            "observation",
-            indices + trajectory_lengths - self._stack_size + 1,
-            num_to_access=self._stack_size,
-        )
+        if "next_observation" not in batch:
+            batch["next_observation"] = self._get_from_storage(
+                "observation",
+                indices + trajectory_lengths - self._stack_size + 1,
+                num_to_access=self._stack_size,
+            )
         return batch
 
     def save(self, dname):
@@ -343,7 +379,8 @@ class SimpleReplayBuffer(BaseReplayBuffer):
             "action": "int8",
             "reward": "int8" if self._compress else "float32",
             "next_observation": "int8" if self._compress else "float32",
-            "done": "int8" if self._compress else "float32",
+            "truncated": "int8",
+            "terminated": "int8",
         }
 
         self._data = {}
@@ -352,32 +389,45 @@ class SimpleReplayBuffer(BaseReplayBuffer):
 
         self._write_index = -1
         self._n = 0
-        self._previous_transition = None
+        self.transition = None
 
-    def add(self, observation, action, reward, done, **kwargs):
+    def add(
+        self,
+        observation,
+        next_observation,
+        action,
+        reward,
+        terminated,
+        truncated,
+        **kwargs,
+    ):
         """
         Adds transition to the buffer
 
         Args:
             observation: The current observation
+            next_observation: The next observation
             action: The action taken on the current observation
             reward: The reward from taking action at current observation
-            done: If current observation was the last observation in the episode
+            terminated: If the trajectory was terminated at the current
+                transition
+            truncated: If the trajectory was truncated at the current transition
         """
-        if self._previous_transition is not None:
-            self._previous_transition["next_observation"] = observation
-            self._write_index = (self._write_index + 1) % self._capacity
-            self._n = int(min(self._capacity, self._n + 1))
-            for key in self._data:
-                self._data[key][self._write_index] = np.asarray(
-                    self._previous_transition[key], dtype=self._dtype[key]
-                )
-        self._previous_transition = {
+        # if self._previous_transition is not None:
+        transition = {
             "observation": observation,
             "action": action,
             "reward": reward,
-            "done": done,
+            "terminated": terminated,
+            "truncated": truncated,
+            "next_observation": next_observation,
         }
+        self._write_index = (self._write_index + 1) % self._capacity
+        self._n = int(min(self._capacity, self._n + 1))
+        for key in self._data:
+            self._data[key][self._write_index] = np.asarray(
+                transition[key], dtype=self._dtype[key]
+            )
 
     def sample(self, batch_size=32):
         """

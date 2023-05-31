@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 from hive.envs import GymEnv, ParallelEnv
-from hive.envs.wrappers.gym_wrappers import FlattenWrapper, PermuteImageWrapper
+from hive.envs.gym.gym_wrappers import FlattenWrapper, PermuteImageWrapper
 from marlgrid import envs
 from gym.wrappers.compatibility import EnvCompatibility
 

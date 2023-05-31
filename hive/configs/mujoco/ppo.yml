@@ -1,0 +1,101 @@
+name: 'SingleAgentRunner'
+kwargs:
+  experiment_manager:
+    name: 'Experiment'
+    kwargs:
+      name: &run_name 'mujoco-ppo'
+      save_dir: 'experiment'
+      saving_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 500000
+
+  train_steps: 1000000
+  test_frequency: 10000
+  test_episodes: 5
+  max_steps_per_episode: 100000
+  stack_size: &stack_size 1
+  environment:
+    name: 'GymEnv'
+    kwargs:
+      env_name: 'HalfCheetah-v4'
+      env_wrappers:
+        -
+          name: 'ClipAction'
+  agent:
+    name: 'PPOAgent'
+    kwargs:
+      actor_net:
+        name: 'MLPNetwork'
+        kwargs: 
+          hidden_units: [64, 64]
+          activation_fn:
+            name: 'Tanh'
+          initialization_fn:
+            name: 'actor_critic_init'
+      critic_net:
+        name: 'MLPNetwork'
+        kwargs: 
+          hidden_units: [64, 64]
+          initialization_fn:
+            name: 'actor_critic_init'
+      actor_head_init_fn:
+        name: 'actor_critic_init'
+        kwargs:
+          std: 0.01
+      critic_head_init_fn:
+        name: 'actor_critic_init'
+        kwargs:
+          std: 1.0
+      observation_normalizer:
+        name: 'MovingAvgNormalizer'
+        kwargs:
+          clip: 10
+      reward_normalizer:
+        name: 'RewardNormalizer'
+        kwargs:
+          clip: 10
+      replay_buffer:
+        name: 'OnPolicyReplayBuffer'
+        kwargs:
+          compute_advantage_fn:
+            name: "gae_advantages"
+            kwargs:
+              gae_lambda: 0.95
+      optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr: .0003
+          eps: 1.e-5
+      anneal_lr_schedule: 
+        name: LinearSchedule
+        kwargs:
+          init_value: 1.0
+          end_value: 0.0
+          steps: 488 # 1,000,000 // 2048
+      discount_rate: .99
+      grad_clip: .5
+      clip_coefficient: .2
+      entropy_coefficient: .0
+      clip_value_loss: True
+      value_fn_coefficient: .5
+      transitions_per_update: 2048
+      num_epochs_per_update: 10
+      normalize_advantages: True
+      batch_size: 64
+      device: 'cuda'
+      id: 'agent'
+
+  # List of logger configs used.
+  loggers:
+    -
+      name: ChompLogger
+    -
+      name: WandbLogger
+      kwargs:
+        project: Hive
+        name: *run_name
+        resume: "allow"
+        start_method: "fork"

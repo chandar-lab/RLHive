@@ -1,6 +1,13 @@
+import inspect
+from typing import List
+
 import gymnasium as gym
+from gymnasium import wrappers
+
 from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
+from hive.envs.env_wrapper import GymWrapper, apply_wrappers
+from hive.utils.registry import registry
 
 
 class GymEnv(BaseEnv):
@@ -8,11 +15,19 @@ class GymEnv(BaseEnv):
     Class for loading gym environments.
     """
 
-    def __init__(self, env_name, num_players=1, render_mode=None, **kwargs):
+    def __init__(
+        self,
+        env_name: str,
+        env_wrappers: List[GymWrapper] = None,
+        num_players: int = 1,
+        render_mode: str = None,
+        **kwargs
+    ):
         """
         Args:
             env_name (str): Name of the environment (NOTE: make sure it is available
                 in gym.envs.registry.all())
+            env_wrappers (List[GymWrapper]): List of environment wrappers to apply.
             num_players (int): Number of players for the environment.
             render_mode (str): One of None, "human", "rgb_array", "ansi", or
                 "rgb_array_list". See gym documentation for details.
@@ -20,11 +35,11 @@ class GymEnv(BaseEnv):
                 :py:meth:`create_env_spec` can be passed as keyword arguments to this
                 constructor.
         """
-        self.create_env(env_name, render_mode=render_mode, **kwargs)
+        self.create_env(env_name, env_wrappers, render_mode=render_mode, **kwargs)
         super().__init__(self.create_env_spec(env_name, **kwargs), num_players)
         self._seed = None
 
-    def create_env(self, env_name, **kwargs):
+    def create_env(self, env_name, env_wrappers, **kwargs):
         """Function used to create the environment. Subclasses can override this method
         if they are using a gym style environment that needs special logic.
 
@@ -32,6 +47,9 @@ class GymEnv(BaseEnv):
             env_name (str): Name of the environment
         """
         self._env = gym.make(env_name, **kwargs)
+
+        if env_wrappers is not None:
+            self._env = apply_wrappers(self._env, env_wrappers)
 
     def create_env_spec(self, env_name, **kwargs):
         """Function used to create the specification. Subclasses can override this method
@@ -73,3 +91,16 @@ class GymEnv(BaseEnv):
 
     def close(self):
         self._env.close()
+
+
+wrappers = [
+    getattr(wrappers, x)
+    for x in dir(wrappers)
+    if inspect.isclass(getattr(wrappers, x))
+    and issubclass(getattr(wrappers, x), gym.Wrapper)
+]
+
+registry.register_all(
+    GymWrapper,
+    {wrapper.__name__: wrapper for wrapper in wrappers},
+)

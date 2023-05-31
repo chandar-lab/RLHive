@@ -4,7 +4,7 @@ import gymnasium as gym
 import numpy as np
 import pytest
 
-from hive.envs.gym_env import GymEnv
+from hive.envs.gym.gym_env import GymEnv
 
 test_environments = ["CartPole-v0", "MountainCar-v0"]
 

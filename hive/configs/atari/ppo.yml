@@ -1,0 +1,81 @@
+name: 'SingleAgentRunner'
+kwargs:
+  experiment_manager:
+    name: 'Experiment'
+    kwargs:
+      name: &run_name 'atari-ppo'
+      save_dir: 'experiment'
+      saving_schedule:
+        name: 'PeriodicSchedule'
+        kwargs:
+          off_value: False
+          on_value: True
+          period: 1000000
+
+  train_steps: 10000000
+  test_frequency: 250000
+  test_episodes: 10
+  max_steps_per_episode: 27000
+  stack_size: &stack_size 4
+  environment:
+    name: 'AtariEnv'
+    kwargs:
+      env_name: 'Breakout'
+
+  agent:
+    name: 'PPOAgent'
+    kwargs:
+      representation_net:
+        name: 'ConvNetwork'
+        kwargs:
+          channels: [32, 64, 64]
+          kernel_sizes: [8, 4, 3]
+          strides: [4, 2, 1]
+          paddings: [2, 2, 1]
+          mlp_layers: [512]
+      actor_head_init_fn:
+        name: 'actor_critic_init'
+        kwargs:
+          std: 0.01
+      critic_head_init_fn:
+        name: 'actor_critic_init'
+        kwargs:
+          std: 1.0
+      optimizer_fn:
+        name: 'Adam'
+        kwargs:
+          lr: .00025
+      init_fn: 
+        name: 'orthogonal'
+      replay_buffer:
+        name: 'OnPolicyReplayBuffer'
+        kwargs:
+          stack_size: *stack_size
+          compute_advantage_fn:
+            name: "gae_advantages"
+            kwargs:
+              gae_lambda: 0.95
+              
+      discount_rate: .99
+      grad_clip: .5
+      clip_coefficient: .1
+      entropy_coefficient: .0
+      clip_value_loss: True
+      value_fn_coefficient: .5
+      transitions_per_update: 4096
+      num_epochs_per_update: 4
+      normalize_advantages: True
+      batch_size: 256
+      device: 'cuda'
+      id: 'agent'
+  # List of logger configs used.
+  loggers:
+    -
+      name: ChompLogger
+    -
+      name: WandbLogger
+      kwargs:
+        project: Hive
+        name: *run_name
+        resume: "allow"
+        start_method: "fork"
