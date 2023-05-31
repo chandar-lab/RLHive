@@ -22,19 +22,28 @@ def calculate_output_dim(net, input_shape):
         input_shape = (input_shape,)
     placeholder = torch.zeros((1,) + tuple(input_shape))
     output = net(placeholder)
-    if isinstance(output, tuple):
-        return tuple(extract_shape(y) for y in output)
-    else:
-        return extract_shape(output)
+    return apply_to_tensor(output, lambda y: y.size()[1:])
 
 
-def extract_shape(x):
+def apply_to_tensor(x, fn):
+    """Applies a function to a tensor or a tuple/list of tensors.
+
+    Args:
+        x (torch.Tensor | tuple | list | dict): The tensor or tuple/list/dict of
+            tensors to apply the function to.
+        fn (callable): The function to apply to the tensor or tuple/list/dict of
+            tensors.
+    Returns:
+        The result of applying the function to the tensor or tuple/list/dict of tensors.
+    """
     if isinstance(x, torch.Tensor):
-        return x.size()[1:]
+        return fn(x)
     elif isinstance(x, tuple) or isinstance(x, list):
-        return tuple(extract_shape(y) for y in x)
+        return type(x)(apply_to_tensor(y, fn) for y in x)
+    elif isinstance(x, dict):
+        return {k: apply_to_tensor(v, fn) for k, v in x.items()}
     else:
-        raise ValueError("Invalid argument shape")
+        raise ValueError("Invalid argument type")
 
 
 def create_init_weights_fn(initialization_fn):

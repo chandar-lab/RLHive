@@ -11,6 +11,7 @@ from hive.agents.qnets.utils import (
     InitializationFn,
     calculate_output_dim,
     create_init_weights_fn,
+    apply_to_tensor,
 )
 from hive.replays.recurrent_replay import RecurrentReplayBuffer
 from hive.utils.loggers import Logger, NullLogger
@@ -114,7 +115,7 @@ class DRQNAgent(DQNAgent):
             log_frequency (int): How often to log the agent's metrics.
         """
         self._max_seq_len = max_seq_len
-        super().__init__(
+        super(DQNAgent, self).__init__(
             observation_space=observation_space, action_space=action_space, id=id
         )
         self._state_size = (
@@ -128,7 +129,15 @@ class DRQNAgent(DQNAgent):
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
         self._rng = np.random.default_rng(seed=seeder.get_new_seed("agent"))
-        store_hidden = store_hidden and self._qnet.get_hidden_size() is not None
+        hidden_spec = self._qnet.get_hidden_spec()
+
+        if not store_hidden or hidden_spec is None:
+            store_hidden = False
+            self._hidden_replay_spec = None
+            self._hidden_batch_spec = None
+        else:
+            self._hidden_replay_spec = {key: hidden_spec[key][0] for key in hidden_spec}
+            self._hidden_batch_spec = {key: hidden_spec[key][1] for key in hidden_spec}
         if replay_buffer is None:
             replay_buffer = RecurrentReplayBuffer
         self._replay_buffer = replay_buffer(
@@ -137,10 +146,7 @@ class DRQNAgent(DQNAgent):
             action_shape=self._action_space.shape,
             action_dtype=self._action_space.dtype,
             max_seq_len=max_seq_len,
-            store_hidden=store_hidden,
-            extra_storage_types={
-                "hidden_state": (np.float32, self._qnet.get_hidden_size())
-            },
+            hidden_spec=self._hidden_replay_spec,
         )
         self._discount_rate = discount_rate**n_step
         self._grad_clip = grad_clip
@@ -191,7 +197,6 @@ class DRQNAgent(DQNAgent):
         network = SequenceModel(
             self._state_size, representation_net(self._state_size), sequence_fn
         )
-
         network_output_dim = np.prod(
             calculate_output_dim(network, (1,) + self._state_size)[0]
         )
@@ -211,9 +216,9 @@ class DRQNAgent(DQNAgent):
         """
         preprocessed_update_info = super().preprocess_update_info(update_info)
 
-        if self._store_hidden == True:
-            preprocessed_update_info["hidden_state"] = (
-                update_info["hidden_state"].detach().cpu().numpy()
+        if self._store_hidden:
+            preprocessed_update_info.update(
+                apply_to_tensor(hidden_state, lambda x: x.detach().cpu().numpy())
             )
 
         return preprocessed_update_info
@@ -234,9 +239,26 @@ class DRQNAgent(DQNAgent):
             batch[key] = torch.tensor(batch[key], device=self._device)
 
         if self._store_hidden:
+            for key in self._hidden_replay_spec:
+                if self._hidden_batch_spec[key] >= 0:
+                    # Replay batches on the first dimension, network expects
+                    # batch on different dimension
+                    batch[key] = torch.cat(
+                        list(batch[key]), dim=self._hidden_batch_spec[key]
+                    )
+                    batch[f"next_{key}"] = torch.cat(
+                        list(batch[f"next_{key}"]), dim=self._hidden_batch_spec[key]
+                    )
+
             return (
-                (batch["observation"], batch["hidden_state"]),
-                (batch["next_observation"], batch["next_hidden_state"]),
+                (
+                    batch["observation"],
+                    {key: batch[key] for key in self._hidden_replay_spec},
+                ),
+                (
+                    batch["next_observation"],
+                    {key: batch[f"next_{key}"] for key in self._hidden_replay_spec},
+                ),
                 batch,
             )
         else:
@@ -330,6 +352,7 @@ class DRQNAgent(DQNAgent):
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
+
             pred_qvals, _ = self._qnet(*current_state_inputs)
             pred_qvals = pred_qvals.view(self._batch_size, self._max_seq_len, -1)
             actions = batch["action"].long()
