@@ -39,48 +39,6 @@ class DQNNetwork(nn.Module):
         return self.output_layer(x)
 
 
-class DRQNNetwork(nn.Module):
-    """Implements the standard DRQN value computation. This module returns two outputs,
-    which correspond to the two outputs from :obj:`base_network`. In particular, it
-    transforms the first output from :obj:`base_network` with output dimension
-    :obj:`hidden_dim` to dimension :obj:`out_dim`, which should be equal to the
-    number of actions. The second output of this module is the second output from
-    :obj:`base_network`, which is the hidden state that will be used as the initial
-    hidden state when computing the next action in the trajectory.
-    """
-
-    def __init__(
-        self,
-        base_network: nn.Module,
-        hidden_dim: int,
-        out_dim: int,
-        linear_fn: nn.Module = None,
-    ):
-        """
-        Args:
-            base_network (torch.nn.Module): Backbone network that returns two outputs,
-                one is the representation used to compute action values, and the
-                other one is the hidden state used as input hidden state later.
-            hidden_dim (int): Dimension of the output of the :obj:`network`.
-            out_dim (int): Output dimension of the DRQN. Should be equal to the
-                number of actions that you are computing values for.
-            linear_fn (torch.nn.Module): Function that will create the
-                :py:class:`torch.nn.Module` that will take the output of
-                :obj:`network` and produce the final action values. If
-                :obj:`None`, a :py:class:`torch.nn.Linear` layer will be used.
-        """
-        super().__init__()
-        self.base_network = base_network
-        self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
-        self.output_layer = self._linear_fn(hidden_dim, out_dim)
-
-    def forward(self, x, agent_traj_state=None):
-        x, agent_traj_state = self.base_network(x, agent_traj_state)
-
-        x = x.flatten(start_dim=1)
-        return self.output_layer(x), agent_traj_state
-
-
 class DuelingNetwork(nn.Module):
     """Computes action values using Dueling Networks (https://arxiv.org/abs/1511.06581).
     In dueling, we have two heads---one for estimating advantage function and one for

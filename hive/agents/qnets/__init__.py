@@ -4,8 +4,8 @@ from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.conv import ConvNetwork
 from hive.agents.qnets.mlp import MLPNetwork
 from hive.agents.qnets.sequence_models import (
-    SequenceNetwork,
-    SequenceFunctionApproximator,
+    SequenceModel,
+    SequenceFn,
 )
 
 registry.register_all(
@@ -18,10 +18,3 @@ registry.register_all(
 )
 
 get_qnet = getattr(registry, f"get_{FunctionApproximator.type_name()}")
-
-registry.register_all(
-    SequenceFunctionApproximator,
-    {"SequenceNetwork": SequenceNetwork},
-)
-
-get_qnet = getattr(registry, f"get_{SequenceFunctionApproximator.type_name()}")

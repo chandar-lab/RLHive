@@ -1,22 +1,30 @@
+import abc
+
 import numpy as np
 import torch
 from torch import nn
 
-from hive.utils.registry import registry, Registrable
-
 from hive.agents.qnets.mlp import MLPNetwork
 from hive.agents.qnets.utils import calculate_output_dim
+from hive.utils.registry import Registrable, registry
 
 
-class SequenceFunctionApproximator(Registrable):
+class SequenceFn(Registrable, nn.Module):
     """A wrapper for callables that produce sequence functions."""
 
     @classmethod
     def type_name(cls):
-        return "SequenceFunctionApproximator"
+        return "SequenceFn"
+
+    @abc.abstractmethod
+    def init_hidden(self, batch_size):
+        raise NotImplementedError
+
+    def get_hidden_size(self):
+        return None
 
 
-class LSTMModel(nn.Module):
+class LSTMModel(SequenceFn):
     """
     A multi-layer long short-term memory (LSTM) RNN.
     """
@@ -27,7 +35,6 @@ class LSTMModel(nn.Module):
         rnn_hidden_size=128,
         num_rnn_layers=1,
         batch_first=True,
-        device="cpu",
     ):
         """
         Args:
@@ -40,42 +47,34 @@ class LSTMModel(nn.Module):
         super().__init__()
         self._rnn_hidden_size = rnn_hidden_size
         self._num_rnn_layers = num_rnn_layers
-        self._device = device
         self.core = nn.LSTM(
             input_size=rnn_input_size,
             hidden_size=self._rnn_hidden_size,
             num_layers=self._num_rnn_layers,
             batch_first=batch_first,
         )
-
-    def forward(self, x, hidden_state=None):
-        x, hidden_state = self.core(x, hidden_state)
-        return x, hidden_state
-
-    def _update_device(self):
         self._device = next(self.core.parameters()).device
 
+    def forward(self, x, hidden_state=None):
+        x, hidden_state = self.core(x, (hidden_state[0], hidden_state[1]))
+        return x, hidden_state
+
+    def to(self, device, *args, **kwargs):
+        self._device = device
+        return super().to(device, *args, **kwargs)
+
     def init_hidden(self, batch_size):
-        hidden_state = (
-            torch.zeros(
-                (self._num_rnn_layers, batch_size, self._rnn_hidden_size),
-                dtype=torch.float32,
-                device=self._device,
-            ),
-            torch.zeros(
-                (self._num_rnn_layers, batch_size, self._rnn_hidden_size),
-                dtype=torch.float32,
-                device=self._device,
-            ),
+        return torch.zeros(
+            (2, self._num_rnn_layers, batch_size, self._rnn_hidden_size),
+            dtype=torch.float32,
+            device=self._device,
         )
 
-        return hidden_state
-
-    def update_device(self):
-        self._update_device()
+    def get_hidden_size(self):
+        return (2, self._num_rnn_layers, self._rnn_hidden_size)
 
 
-class GRUModel(nn.Module):
+class GRUModel(SequenceFn):
     """
     A multi-layer gated recurrent unit (GRU) RNN.
     """
@@ -86,7 +85,6 @@ class GRUModel(nn.Module):
         rnn_hidden_size=128,
         num_rnn_layers=1,
         batch_first=True,
-        device="cpu",
     ):
         """
         Args:
@@ -99,35 +97,34 @@ class GRUModel(nn.Module):
         super().__init__()
         self._rnn_hidden_size = rnn_hidden_size
         self._num_rnn_layers = num_rnn_layers
-        self._device = device
         self.core = nn.GRU(
             input_size=rnn_input_size,
             hidden_size=self._rnn_hidden_size,
             num_layers=self._num_rnn_layers,
             batch_first=batch_first,
         )
+        self._device = next(self.core.parameters()).device
 
     def forward(self, x, hidden_state=None):
         x, hidden_state = self.core(x, hidden_state)
         return x, hidden_state
 
-    def _update_device(self):
-        self._device = next(self.core.parameters()).device
+    def to(self, device, *args, **kwargs):
+        self._device = device
+        return super().to(device, *args, **kwargs)
 
     def init_hidden(self, batch_size):
-        hidden_state = torch.zeros(
+        return torch.zeros(
             (self._num_rnn_layers, batch_size, self._rnn_hidden_size),
             dtype=torch.float32,
             device=self._device,
         )
 
-        return hidden_state
-
-    def update_device(self):
-        self._update_device()
+    def get_hidden_size(self):
+        return (self._num_rnn_layers, self._rnn_hidden_size)
 
 
-class SequenceNetwork(nn.Module):
+class SequenceModel(Registrable, nn.Module):
     """
     Basic convolutional recurrent neural network architecture. Applies a number of
     convolutional layers (each followed by a ReLU activation), recurrent layers, and then
@@ -144,7 +141,7 @@ class SequenceNetwork(nn.Module):
         self,
         in_dim,
         representation_network: torch.nn.Module,
-        sequence_fn: SequenceFunctionApproximator,
+        sequence_fn: SequenceFn,
         mlp_layers=None,
         normalization_factor=255,
         noisy=False,
@@ -177,17 +174,13 @@ class SequenceNetwork(nn.Module):
             rnn_input_size=np.prod(conv_output_size),
         )
 
-        if isinstance(self.sequence_fn.core, torch.nn.LSTM):
-            self._rnn_type = "lstm"
-        elif isinstance(self.sequence_fn.core, torch.nn.GRU):
-            self._rnn_type = "gru"
-        else:
-            self._rnn_type = "none"
-
         if mlp_layers is not None:
             # MLP Layers
+            sequence_output_size, _ = calculate_output_dim(
+                self.sequence_fn, conv_output_size
+            )
             self.mlp = MLPNetwork(
-                sequence_fn.keywords["rnn_hidden_size"],
+                sequence_output_size,
                 mlp_layers,
                 noisy=noisy,
                 std_init=std_init,
@@ -195,66 +188,82 @@ class SequenceNetwork(nn.Module):
         else:
             self.mlp = nn.Identity()
 
-    def forward(self, x, agent_traj_state=None):
+    def forward(self, x, hidden_state=None):
         B, L = x.shape[0], x.shape[1]
         x = x.reshape(B * L, *x.shape[2:])
         x = self.representation_network(x)
         x = x.view(B, L, -1)
 
         # Sequence models with hidden state
-        if self.sequence_fn._rnn_hidden_size is not None:
-            if agent_traj_state is not None:
-                assert "hidden_state" in agent_traj_state.keys()
-                if isinstance(agent_traj_state["hidden_state"], dict):
-                    hidden_state = tuple(
-                        torch.tensor(array)
-                        for array in agent_traj_state["hidden_state"].values()
-                    )
-                else:
-                    hidden_state = tuple(
-                        torch.tensor(array).view(
-                            self.sequence_fn._num_rnn_layers, B, -1
-                        )
-                        for array in agent_traj_state.values()
-                    )
+        if hidden_state is None:
+            hidden_state = self.sequence_fn.init_hidden(batch_size=B)
 
-            else:
-                hidden_state = self.sequence_fn.init_hidden(batch_size=1)
-                agent_traj_state = {}
-
-            x, hidden_state = self.sequence_fn(x, hidden_state)
-            agent_traj_state["hidden_state"] = self._unpack_hidden_state(hidden_state)
-
-        else:
-            x = self.sequence_fn(x)
-
+        x, hidden_state = self.sequence_fn(x, hidden_state)
         out = self.mlp(x.reshape((B * L, -1)))
+        return out, hidden_state
 
-        return out, agent_traj_state
+    def get_hidden_size(self):
+        return self.sequence_fn.get_hidden_size()
 
-    def _unpack_hidden_state(self, hidden_state):
-        if self._rnn_type == "lstm":
-            hidden_state = {
-                "hidden_state": hidden_state[0].detach().cpu().numpy(),
-                "cell_state": hidden_state[1].detach().cpu().numpy(),
-            }
+    @classmethod
+    def type_name(cls):
+        return "SequenceModel"
 
-        elif self._rnn_type == "gru":
-            hidden_state = {
-                "hidden_state": hidden_state[0].detach().cpu().numpy(),
-            }
-        else:
-            hidden_state = None
 
-        return hidden_state
+class DRQNNetwork(nn.Module):
+    """Implements the standard DRQN value computation. This module returns two outputs,
+    which correspond to the two outputs from :obj:`base_network`. In particular, it
+    transforms the first output from :obj:`base_network` with output dimension
+    :obj:`hidden_dim` to dimension :obj:`out_dim`, which should be equal to the
+    number of actions. The second output of this module is the second output from
+    :obj:`base_network`, which is the hidden state that will be used as the initial
+    hidden state when computing the next action in the trajectory.
+    """
+
+    def __init__(
+        self,
+        base_network: SequenceModel,
+        hidden_dim: int,
+        out_dim: int,
+        linear_fn: nn.Module = None,
+    ):
+        """
+        Args:
+            base_network (torch.nn.Module): Backbone network that returns two outputs,
+                one is the representation used to compute action values, and the
+                other one is the hidden state used as input hidden state later.
+            hidden_dim (int): Dimension of the output of the :obj:`network`.
+            out_dim (int): Output dimension of the DRQN. Should be equal to the
+                number of actions that you are computing values for.
+            linear_fn (torch.nn.Module): Function that will create the
+                :py:class:`torch.nn.Module` that will take the output of
+                :obj:`network` and produce the final action values. If
+                :obj:`None`, a :py:class:`torch.nn.Linear` layer will be used.
+        """
+        super().__init__()
+        self.base_network = base_network
+        self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
+        self.output_layer = self._linear_fn(hidden_dim, out_dim)
+
+    def forward(self, x, hidden_state=None):
+        x, hidden_state = self.base_network(x, hidden_state)
+
+        x = x.flatten(start_dim=1)
+        return self.output_layer(x), hidden_state
+
+    def get_hidden_size(self):
+        return self.base_network.get_hidden_size()
 
 
 registry.register_all(
-    SequenceFunctionApproximator,
+    SequenceFn,
     {
         "LSTM": LSTMModel,
         "GRU": GRUModel,
     },
 )
 
-get_sequence_fn = getattr(registry, f"get_{SequenceFunctionApproximator.type_name()}")
+registry.register("SequenceModel", SequenceModel, SequenceModel)
+
+get_sequence_fn = getattr(registry, f"get_{SequenceFn.type_name()}")
+get_sequence_model = getattr(registry, f"get_{SequenceModel.type_name()}")

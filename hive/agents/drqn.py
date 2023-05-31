@@ -1,25 +1,17 @@
 import copy
-import os
-from functools import partial
 
 import gymnasium as gym
 import numpy as np
 import torch
 
-from hive.agents.agent import Agent
 from hive.agents.dqn import DQNAgent
 from hive.agents.qnets.base import FunctionApproximator
-from hive.agents.qnets.sequence_models import (
-    SequenceFunctionApproximator,
-    SequenceNetwork,
-)
-from hive.agents.qnets.qnet_heads import DRQNNetwork
+from hive.agents.qnets.sequence_models import DRQNNetwork, SequenceFn, SequenceModel
 from hive.agents.qnets.utils import (
     InitializationFn,
     calculate_output_dim,
     create_init_weights_fn,
 )
-from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.replays.recurrent_replay import RecurrentReplayBuffer
 from hive.utils.loggers import Logger, NullLogger
 from hive.utils.schedule import (
@@ -28,7 +20,7 @@ from hive.utils.schedule import (
     Schedule,
     SwitchSchedule,
 )
-from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder
+from hive.utils.utils import LossFn, OptimizerFn, seeder
 
 
 class DRQNAgent(DQNAgent):
@@ -41,12 +33,12 @@ class DRQNAgent(DQNAgent):
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Discrete,
         representation_net: FunctionApproximator,
-        sequence_fn: SequenceFunctionApproximator,
+        sequence_fn: SequenceFn,
         id=0,
         optimizer_fn: OptimizerFn = None,
         loss_fn: LossFn = None,
         init_fn: InitializationFn = None,
-        replay_buffer: BaseReplayBuffer = None,
+        replay_buffer: RecurrentReplayBuffer = None,
         max_seq_len: int = 1,
         discount_rate: float = 0.99,
         n_step: int = 1,
@@ -121,42 +113,74 @@ class DRQNAgent(DQNAgent):
             logger (ScheduledLogger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
         """
+        self._max_seq_len = max_seq_len
+        super().__init__(
+            observation_space=observation_space, action_space=action_space, id=id
+        )
+        self._state_size = (
+            self._observation_space.shape[0],
+            *self._observation_space.shape[1:],
+        )
+        self._init_fn = create_init_weights_fn(init_fn)
+        self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
+        self.create_q_networks(representation_net, sequence_fn)
+        if optimizer_fn is None:
+            optimizer_fn = torch.optim.Adam
+        self._optimizer = optimizer_fn(self._qnet.parameters())
+        self._rng = np.random.default_rng(seed=seeder.get_new_seed("agent"))
+        store_hidden = store_hidden and self._qnet.get_hidden_size() is not None
         if replay_buffer is None:
             replay_buffer = RecurrentReplayBuffer
-        replay_buffer = partial(
-            replay_buffer, max_seq_len=max_seq_len, store_hidden=store_hidden
+        self._replay_buffer = replay_buffer(
+            observation_shape=self._observation_space.shape,
+            observation_dtype=self._observation_space.dtype,
+            action_shape=self._action_space.shape,
+            action_dtype=self._action_space.dtype,
+            max_seq_len=max_seq_len,
+            store_hidden=store_hidden,
+            extra_storage_types={
+                "hidden_state": (np.float32, self._qnet.get_hidden_size())
+            },
         )
-        self._max_seq_len = max_seq_len
-        self.sequence_fn = sequence_fn
-        super().__init__(
-            observation_space=observation_space,
-            action_space=action_space,
-            representation_net=representation_net,
-            id=id,
-            optimizer_fn=optimizer_fn,
-            loss_fn=loss_fn,
-            init_fn=init_fn,
-            replay_buffer=replay_buffer,
-            discount_rate=discount_rate,
-            n_step=n_step,
-            grad_clip=grad_clip,
-            reward_clip=reward_clip,
-            update_period_schedule=update_period_schedule,
-            target_net_soft_update=target_net_soft_update,
-            target_net_update_fraction=target_net_update_fraction,
-            target_net_update_schedule=target_net_update_schedule,
-            epsilon_schedule=epsilon_schedule,
-            test_epsilon=test_epsilon,
-            min_replay_history=min_replay_history,
-            batch_size=batch_size,
-            device=device,
-            logger=logger,
-            log_frequency=log_frequency,
+        self._discount_rate = discount_rate**n_step
+        self._grad_clip = grad_clip
+        self._reward_clip = reward_clip
+        self._target_net_soft_update = target_net_soft_update
+        self._target_net_update_fraction = target_net_update_fraction
+        if loss_fn is None:
+            loss_fn = torch.nn.SmoothL1Loss
+        self._loss_fn = loss_fn(reduction="none")
+        self._batch_size = batch_size
+        self._logger = logger
+        if self._logger is None:
+            self._logger = NullLogger([])
+        self._timescale = self.id
+        self._logger.register_timescale(
+            self._timescale, PeriodicSchedule(False, True, log_frequency)
         )
+        if update_period_schedule is None:
+            self._update_period_schedule = PeriodicSchedule(False, True, 1)
+        else:
+            self._update_period_schedule = update_period_schedule()
+
+        if target_net_update_schedule is None:
+            self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
+        else:
+            self._target_net_update_schedule = target_net_update_schedule()
+
+        if epsilon_schedule is None:
+            self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
+        else:
+            self._epsilon_schedule = epsilon_schedule()
+
+        self._test_epsilon = test_epsilon
+        self._learn_schedule = SwitchSchedule(False, True, min_replay_history)
+
+        self._training = False
         self._store_hidden = store_hidden
         self._burn_frames = burn_frames
 
-    def create_q_networks(self, representation_net):
+    def create_q_networks(self, representation_net, sequence_fn):
         """Creates the Q-network and target Q-network.
 
         Args:
@@ -164,8 +188,8 @@ class DRQNAgent(DQNAgent):
                 be used to compute Q-values (e.g. everything except the final layer
                 of the DRQN).
         """
-        network = SequenceNetwork(
-            self._state_size, representation_net(self._state_size), self.sequence_fn
+        network = SequenceModel(
+            self._state_size, representation_net(self._state_size), sequence_fn
         )
 
         network_output_dim = np.prod(
@@ -174,35 +198,23 @@ class DRQNAgent(DQNAgent):
         self._qnet = DRQNNetwork(network, network_output_dim, self._action_space.n).to(
             self._device
         )
-        self._qnet.base_network.sequence_fn.update_device()
 
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
-    def preprocess_update_info(self, update_info):
+    def preprocess_update_info(self, update_info, hidden_state):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
         Clips the reward in update_info.
         Args:
             update_info: Contains the information from the current timestep that the
                 agent should use to update itself.
         """
-        if self._reward_clip is not None:
-            update_info["reward"] = np.clip(
-                update_info["reward"], -self._reward_clip, self._reward_clip
-            )
-
-        preprocessed_update_info = {
-            "observation": update_info["observation"],
-            "action": update_info["action"],
-            "reward": update_info["reward"],
-            "done": update_info["terminated"] or update_info["truncated"],
-        }
+        preprocessed_update_info = super().preprocess_update_info(update_info)
 
         if self._store_hidden == True:
-            preprocessed_update_info.update(update_info["hidden_state"])
-
-        if "agent_id" in update_info:
-            preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
+            preprocessed_update_info["hidden_state"] = (
+                update_info["hidden_state"].detach().cpu().numpy()
+            )
 
         return preprocessed_update_info
 
@@ -219,11 +231,7 @@ class DRQNAgent(DQNAgent):
                 - Preprocessed batch.
         """
         for key in batch:
-            if key == "hidden_state" or key == "next_hidden_state":
-                for k, v in batch[key].items():
-                    batch[key][k] = torch.tensor(v, device=self._device)
-            else:
-                batch[key] = torch.tensor(batch[key], device=self._device)
+            batch[key] = torch.tensor(batch[key], device=self._device)
 
         if self._store_hidden:
             return (
@@ -298,8 +306,11 @@ class DRQNAgent(DQNAgent):
             return
 
         # Add the most recent transition to the replay buffer.
-        update_info.update(agent_traj_state)
-        self._replay_buffer.add(**self.preprocess_update_info(update_info))
+        self._replay_buffer.add(
+            **self.preprocess_update_info(
+                update_info, hidden_state=agent_traj_state["hidden_state"]
+            )
+        )
 
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
