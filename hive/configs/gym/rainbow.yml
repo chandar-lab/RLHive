@@ -28,21 +28,17 @@ kwargs:
         name: 'MLPNetwork'
         kwargs:
           hidden_units: [256, 256]
+      stack_size: 1
       optimizer_fn:
         name: 'Adam'
         kwargs: {}
       loss_fn:
         name: "SmoothL1Loss"
-      n_step: &n_step 1
       replay_buffer:
         name: 'CircularReplayBuffer'
         kwargs:
-          observation_dtype: np.float64
           capacity: 10000
-          stack_size: *stack_size
-          gamma: &gamma .99
-          n_step: *n_step
-      discount_rate: *gamma
+      discount_rate: .99
       reward_clip: 1
       target_net_update_schedule:
         name: 'PeriodicSchedule'

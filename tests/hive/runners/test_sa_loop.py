@@ -118,7 +118,6 @@ def test_run_step(initial_runner):
         single_agent_loop._train_environment,
         observation,
         episode_metrics,
-        TransitionInfo(single_agent_loop._agents, single_agent_loop._stack_size),
         None,
     )
     assert episode_metrics[agent.id]["episode_length"] == 1

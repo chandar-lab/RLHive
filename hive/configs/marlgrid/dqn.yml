@@ -17,7 +17,6 @@ kwargs:
   test_episodes: 10
   self_play: False
   num_agents: &num_agents 3
-  stack_size: &stack_size 3
 
   # Environment config
   environment:
@@ -40,6 +39,7 @@ kwargs:
             strides: [ 4, 2, 1 ]
             paddings: [ 0, 1, 1 ]
             mlp_layers: [ 512 ]
+        stack_size: &stack_size 3
         optimizer_fn:
           name: 'Adam'
           kwargs: {}
@@ -48,7 +48,6 @@ kwargs:
           name: 'CircularReplayBuffer'
           kwargs:
             capacity: 10000
-            stack_size: *stack_size
         discount_rate: .9
         target_net_update_schedule:
           name: 'PeriodicSchedule'
@@ -77,6 +76,7 @@ kwargs:
             strides: [ 4, 2, 1 ]
             paddings: [ 0, 1, 1 ]
             mlp_layers: [ 512 ]
+        stack_size: *stack_size
         optimizer_fn:
           name: 'Adam'
           kwargs: {}
@@ -85,7 +85,6 @@ kwargs:
           name: 'CircularReplayBuffer'
           kwargs:
             capacity: 10000
-            stack_size: *stack_size
         discount_rate: .9
         target_net_update_schedule:
           name: 'PeriodicSchedule'

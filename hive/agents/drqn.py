@@ -117,6 +117,7 @@ class DRQNAgent(DQNAgent):
         if replay_buffer is None:
             replay_buffer = RecurrentReplayBuffer
         replay_buffer = partial(replay_buffer, max_seq_len=max_seq_len)
+        replay_buffer = lambda stack_size, **kwargs: replay_buffer(**kwargs)
         self._max_seq_len = max_seq_len
 
         super().__init__(
@@ -163,6 +164,18 @@ class DRQNAgent(DQNAgent):
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
+    def preprocess_observation(self, observation, agent_traj_state):
+        # Reset hidden state if it is episode beginning.
+        if agent_traj_state is None:
+            hidden_state = self._qnet.init_hidden(batch_size=1)
+        else:
+            hidden_state = agent_traj_state["hidden_state"]
+
+        state = torch.tensor(
+            np.expand_dims(observation, axis=(0, 1)), device=self._device
+        ).float()
+        return state, hidden_state
+
     @torch.no_grad()
     def act(self, observation, agent_traj_state=None):
         """Returns the action for the agent. If in training mode, follows an epsilon
@@ -178,12 +191,6 @@ class DRQNAgent(DQNAgent):
             - agent trajectory state
         """
 
-        # Reset hidden state if it is episode beginning.
-        if agent_traj_state is None:
-            hidden_state = self._qnet.init_hidden(batch_size=1)
-        else:
-            hidden_state = agent_traj_state["hidden_state"]
-
         # Determine and log the value of epsilon
         if self._training:
             if not self._learn_schedule.get_value():
@@ -198,9 +205,7 @@ class DRQNAgent(DQNAgent):
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
         # Insert batch_size and sequence_len dimensions to observation
-        observation = torch.tensor(
-            np.expand_dims(observation, axis=(0, 1)), device=self._device
-        ).float()
+        state, hidden_state = self.preprocess_observation(observation, agent_traj_state)
         qvals, hidden_state = self._qnet(observation, hidden_state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._action_space.n)
@@ -214,8 +219,7 @@ class DRQNAgent(DQNAgent):
             and agent_traj_state is None
         ):
             self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
-            agent_traj_state = {}
-        agent_traj_state["hidden_state"] = hidden_state
+        agent_traj_state = {"hidden_state": hidden_state}
         return action, agent_traj_state
 
     def update(self, update_info, agent_traj_state=None):
