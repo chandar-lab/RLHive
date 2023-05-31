@@ -176,7 +176,7 @@ class RMSpropTF(optim.Optimizer):
 
 
 registry.register_all(
-    OptimizerFn,
+    optim.Optimizer,
     {
         "Adadelta": optim.Adadelta,
         "Adagrad": optim.Adagrad,

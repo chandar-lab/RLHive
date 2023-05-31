@@ -39,7 +39,7 @@ class GymEnv(BaseEnv):
         super().__init__(self.create_env_spec(env_name, **kwargs), num_players)
         self._seed = None
 
-    def create_env(self, env_name, env_wrappers, **kwargs):
+    def create_env(self, env_name, env_wrappers=None, **kwargs):
         """Function used to create the environment. Subclasses can override this method
         if they are using a gym style environment that needs special logic.
 

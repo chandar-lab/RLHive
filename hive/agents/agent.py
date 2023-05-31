@@ -2,15 +2,18 @@ import abc
 
 import gymnasium as gym
 
-from hive.utils.registry import Registrable
+from typing import TypeVar, Generic
+
+OSpace = TypeVar("OSpace", bound=gym.Space)
+ASpace = TypeVar("ASpace", bound=gym.Space)
 
 
-class Agent(abc.ABC, Registrable):
+class Agent(Generic[OSpace, ASpace], abc.ABC):
     """Base class for agents. Every implemented agent should be a subclass of
     this class.
     """
 
-    def __init__(self, observation_space: gym.Space, action_space: gym.Space, id=0):
+    def __init__(self, observation_space: OSpace, action_space: ASpace, id=0):
         """
         Args:
             observation_space (gym.Space): Observation space for agent.

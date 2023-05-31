@@ -4,8 +4,8 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.utils import calculate_output_dim
+from hive.utils.registry import Creates, default, OCreates
 
 MIN_LOG_STD = -5
 MAX_LOG_STD = 2
@@ -20,7 +20,7 @@ class GaussianPolicyHead(torch.nn.Module):
     a dummy value to keep a consistent interface with the discrete actor head.
     """
 
-    def __init__(self, feature_dim: Tuple[int], action_space: gym.spaces.Box) -> None:
+    def __init__(self, feature_dim: int, action_space: gym.spaces.Box) -> None:
         """
         Args:
             feature dim: Expected output shape of the actor network.
@@ -28,11 +28,11 @@ class GaussianPolicyHead(torch.nn.Module):
         """
         super().__init__()
         self._action_shape = action_space.shape
-        self._policy_mean = torch.nn.Sequential(
-            torch.nn.Linear(feature_dim, np.prod(self._action_shape))
+        self._policy_mean = torch.nn.Linear(
+            feature_dim, int(np.prod(self._action_shape))
         )
-        self._policy_logstd = torch.nn.Sequential(
-            torch.nn.Linear(feature_dim, np.prod(self._action_shape))
+        self._policy_logstd = torch.nn.Linear(
+            feature_dim, int(np.prod(self._action_shape))
         )
         self._distribution = torch.distributions.normal.Normal
 
@@ -69,14 +69,15 @@ class CategoricalPolicyHead(torch.nn.Module):
     :py:class:`~torch.distributions.categorical.Categorical` object to compute
     the action distribution."""
 
-    def __init__(self, input_shape: Tuple[int], num_actions: int) -> None:
+    def __init__(self, input_shape: int, action_space: gym.spaces.Discrete) -> None:
         """
         Args:
             input_shape: Expected output shape of the actor network.
             num_actions: Number of actions.
         """
         super().__init__()
-        self._network = torch.nn.Linear(input_shape, num_actions)
+        self._num_actions = int(action_space.n)
+        self._network = torch.nn.Linear(input_shape, self._num_actions)
         self._distribution = torch.distributions.categorical.Categorical
 
     def forward(self, x):
@@ -95,7 +96,7 @@ class SACActorNetwork(torch.nn.Module):
     def __init__(
         self,
         representation_network: torch.nn.Module,
-        actor_net: FunctionApproximator,
+        actor_net: OCreates[torch.nn.Module],
         representation_network_output_shape: Union[int, Tuple[int]],
         action_space: Union[gym.spaces.Box, gym.spaces.Discrete],
     ) -> None:
@@ -114,24 +115,20 @@ class SACActorNetwork(torch.nn.Module):
         super().__init__()
 
         self._action_shape = action_space.shape
-        if actor_net is None:
-            actor_network = torch.nn.Identity()
-        else:
-            actor_network = actor_net(representation_network_output_shape)
+        actor_net = default(actor_net, lambda x: torch.nn.Identity())
+        actor_network = actor_net(representation_network_output_shape)
         feature_dim = np.prod(
-            calculate_output_dim(actor_network, representation_network_output_shape)
+            calculate_output_dim(actor_network, representation_network_output_shape)  # type: ignore
         )
         actor_modules = [
             representation_network,
             actor_network,
             torch.nn.Flatten(),
         ]
-        policy_head_fn = (
-            GaussianPolicyHead
-            if isinstance(action_space, gym.spaces.Box)
-            else CategoricalPolicyHead
-        )
-        actor_modules.append(policy_head_fn(feature_dim, action_space))
+        if isinstance(action_space, gym.spaces.Box):
+            actor_modules.append(GaussianPolicyHead(feature_dim, action_space))
+        else:
+            actor_modules.append(CategoricalPolicyHead(feature_dim, action_space))
         self.actor = torch.nn.Sequential(*actor_modules)
 
     def forward(self, x):
@@ -142,7 +139,7 @@ class SACContinuousCriticNetwork(torch.nn.Module):
     def __init__(
         self,
         representation_network: torch.nn.Module,
-        critic_net: FunctionApproximator,
+        critic_net: OCreates[torch.nn.Module],
         network_output_shape: Union[int, Tuple[int]],
         action_space: Union[gym.spaces.Box, gym.spaces.Discrete],
         n_critics: int = 2,
@@ -163,12 +160,11 @@ class SACContinuousCriticNetwork(torch.nn.Module):
         """
         super().__init__()
         self.network = representation_network
-        if critic_net is None:
-            critic_net = lambda x: torch.nn.Identity()
+        critic_net = default(critic_net, lambda x: torch.nn.Identity())
         self._n_critics = n_critics
-        input_shape = (np.prod(network_output_shape) + np.prod(action_space.shape),)
+        input_shape = (np.prod(network_output_shape) + np.prod(action_space.shape),)  # type: ignore
         critics = [critic_net(input_shape) for _ in range(n_critics)]
-        feature_dim = np.prod(calculate_output_dim(critics[0], input_shape=input_shape))
+        feature_dim = np.prod(calculate_output_dim(critics[0], input_shape=input_shape))  # type: ignore
         self._critics = torch.nn.ModuleList(
             [
                 torch.nn.Sequential(
@@ -192,7 +188,7 @@ class SACDiscreteCriticNetwork(torch.nn.Module):
     def __init__(
         self,
         representation_network: torch.nn.Module,
-        critic_net: FunctionApproximator,
+        critic_net: OCreates[torch.nn.Module],
         network_output_shape: Union[int, Tuple[int]],
         action_space: gym.spaces.Discrete,
         n_critics: int = 2,
@@ -213,18 +209,17 @@ class SACDiscreteCriticNetwork(torch.nn.Module):
         """
         super().__init__()
         self.network = representation_network
-        if critic_net is None:
-            critic_net = lambda x: torch.nn.Identity()
+        critic_net = default(critic_net, lambda x: torch.nn.Identity())
         self._n_critics = n_critics
         input_shape = np.prod(network_output_shape)
         critics = [critic_net(input_shape) for _ in range(n_critics)]
-        feature_dim = np.prod(calculate_output_dim(critics[0], input_shape=input_shape))
+        feature_dim = np.prod(calculate_output_dim(critics[0], input_shape=input_shape))  # type: ignore
         self._critics = torch.nn.ModuleList(
             [
                 torch.nn.Sequential(
                     critic,
                     torch.nn.Flatten(),
-                    torch.nn.Linear(feature_dim, action_space.n),
+                    torch.nn.Linear(feature_dim, int(action_space.n)),
                 )
                 for critic in critics
             ]

@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
 
-from hive.utils.registry import Registrable
 
-
-class BaseEnv(ABC, Registrable):
+class BaseEnv(ABC):
     """
     Base class for environments.
     """
@@ -131,7 +129,7 @@ class ParallelEnv(BaseEnv):
     def __init__(self, env_name, num_players, **kwargs):
         super().__init__(env_name, num_players, **kwargs)
         self._actions = []
-        self._obs = None
+        self._obs = [None] * self._num_players
         self._info = None
         self._termination = False
         self._truncation = False

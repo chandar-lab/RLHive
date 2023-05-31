@@ -3,6 +3,12 @@ from torch import nn
 
 from hive.agents.qnets.mlp import MLPNetwork
 from hive.agents.qnets.utils import calculate_output_dim
+from typing import Optional, TypeVar, Union
+from collections.abc import Sequence
+
+T = TypeVar("T")
+
+SeqOrSingle = Union[Sequence[T], T]
 
 
 class ConvNetwork(nn.Module):
@@ -21,14 +27,14 @@ class ConvNetwork(nn.Module):
     def __init__(
         self,
         in_dim,
-        channels=None,
-        mlp_layers=None,
-        kernel_sizes=1,
-        strides=1,
-        paddings=0,
-        normalization_factor=255,
-        noisy=False,
-        std_init=0.5,
+        channels: Optional[Sequence[int]] = None,
+        mlp_layers: Optional[Sequence[int]] = None,
+        kernel_sizes: SeqOrSingle[int] = 1,
+        strides: SeqOrSingle[int] = 1,
+        paddings: SeqOrSingle[int] = 0,
+        normalization_factor: int = 255,
+        noisy: bool = False,
+        std_init: float = 0.5,
     ):
         """
         Args:

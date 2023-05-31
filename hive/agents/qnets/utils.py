@@ -1,12 +1,12 @@
 import math
+from typing import Protocol
 
 import torch
 
 from hive.utils.registry import registry
-from hive.utils.utils import Registrable
 
 
-def calculate_output_dim(net, input_shape):
+def calculate_output_dim(net, input_shape: "int | tuple[int]"):
     """Calculates the resulting output shape for a given input shape and network.
 
     Args:
@@ -123,20 +123,25 @@ def variance_scaling_(tensor, scale=1.0, mode="fan_in", distribution="uniform"):
         raise ValueError(f"Distribution {distribution} not supported")
 
 
-class InitializationFn(Registrable):
-    """A wrapper for callables that produce initialization functions.
+# class InitializationFn(Registrable):
+#     """A wrapper for callables that produce initialization functions.
 
-    These wrapped callables can be partially initialized through configuration
-    files or command line arguments.
-    """
+#     These wrapped callables can be partially initialized through configuration
+#     files or command line arguments.
+#     """
 
-    @classmethod
-    def type_name(cls):
-        """
-        Returns:
-            "init_fn"
-        """
-        return "init_fn"
+#     @classmethod
+#     def type_name(cls):
+#         """
+#         Returns:
+#             "init_fn"
+#         """
+#         return "init_fn"
+
+
+class InitializationFn(Protocol):
+    def __call__(self, tensor: torch.Tensor):
+        ...
 
 
 registry.register_all(
@@ -158,5 +163,3 @@ registry.register_all(
         "variance_scaling": variance_scaling_,
     },
 )
-
-get_optimizer_fn = getattr(registry, f"get_{InitializationFn.type_name()}")

@@ -25,10 +25,13 @@ from hive.utils.schedule import (
     Schedule,
     SwitchSchedule,
 )
-from hive.utils.utils import LossFn, OptimizerFn, create_folder, seeder, DL_to_LD
+from hive.utils.utils import LossFn, create_folder, seeder, DL_to_LD
+from hive.utils.registry import Creates, OCreates, default
+from typing import Optional
+from functools import partial
 
 
-class DQNAgent(Agent):
+class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
     """An agent implementing the DQN algorithm. Uses an epsilon greedy
     exploration policy
     """
@@ -37,22 +40,22 @@ class DQNAgent(Agent):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Discrete,
-        representation_net: FunctionApproximator,
+        representation_net: Creates[FunctionApproximator],
         stack_size: int = 1,
         id=0,
-        optimizer_fn: OptimizerFn = None,
-        loss_fn: LossFn = None,
-        init_fn: InitializationFn = None,
-        replay_buffer: BaseReplayBuffer = None,
+        optimizer_fn: OCreates[torch.optim.Optimizer] = None,
+        loss_fn: OCreates[LossFn] = None,
+        init_fn: OCreates[InitializationFn] = None,
+        replay_buffer: OCreates[BaseReplayBuffer] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
-        grad_clip: float = None,
-        reward_clip: float = None,
-        update_period_schedule: Schedule = None,
+        grad_clip: Optional[float] = None,
+        reward_clip: Optional[float] = None,
+        update_period_schedule: OCreates[Schedule] = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
-        target_net_update_schedule: Schedule = None,
-        epsilon_schedule: Schedule = None,
+        target_net_update_schedule: OCreates[Schedule] = None,
+        epsilon_schedule: OCreates[Schedule] = None,
         test_epsilon: float = 0.001,
         min_replay_history: int = 5000,
         batch_size: int = 32,
@@ -119,17 +122,15 @@ class DQNAgent(Agent):
         self._init_fn = create_init_weights_fn(init_fn)
         self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
         self.create_q_networks(representation_net)
-        if optimizer_fn is None:
-            optimizer_fn = torch.optim.Adam
+        optimizer_fn = default(optimizer_fn, torch.optim.Adam)
         self._optimizer = optimizer_fn(self._qnet.parameters())
         self._rng = np.random.default_rng(seed=seeder.get_new_seed("agent"))
-        if replay_buffer is None:
-            replay_buffer = CircularReplayBuffer
+        replay_buffer = default(replay_buffer, CircularReplayBuffer)
         self._replay_buffer = replay_buffer(
             observation_shape=self._observation_space.shape,
-            observation_dtype=self._observation_space.dtype,
+            observation_dtype=self._observation_space.dtype,  # type: ignore
             action_shape=self._action_space.shape,
-            action_dtype=self._action_space.dtype,
+            action_dtype=self._action_space.dtype,  # type: ignore
             stack_size=stack_size,
             gamma=discount_rate,
             n_step=n_step,
@@ -139,26 +140,24 @@ class DQNAgent(Agent):
         self._reward_clip = reward_clip
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
-        if loss_fn is None:
-            loss_fn = torch.nn.SmoothL1Loss
+        loss_fn = default(loss_fn, torch.nn.SmoothL1Loss)
         self._loss_fn = loss_fn(reduction="none")
         self._batch_size = batch_size
         self._log_schedule = PeriodicSchedule(False, True, log_frequency)
-        if update_period_schedule is None:
-            self._update_period_schedule = PeriodicSchedule(False, True, 1)
-        else:
-            self._update_period_schedule = update_period_schedule()
+        update_period_schedule = default(
+            update_period_schedule, lambda: PeriodicSchedule(False, True, 1)
+        )
+        self._update_period_schedule = update_period_schedule()
 
-        if target_net_update_schedule is None:
-            self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
-        else:
-            self._target_net_update_schedule = target_net_update_schedule()
+        target_net_update_schedule = default(
+            target_net_update_schedule, lambda: PeriodicSchedule(False, True, 10000)
+        )
+        self._target_net_update_schedule = target_net_update_schedule()
 
-        if epsilon_schedule is None:
-            self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
-        else:
-            self._epsilon_schedule = epsilon_schedule()
-
+        epsilon_schedule = default(
+            epsilon_schedule, lambda: LinearSchedule(1, 0.1, 100000)
+        )
+        self._epsilon_schedule = epsilon_schedule()
         self._test_epsilon = test_epsilon
         self._learn_schedule = SwitchSchedule(False, True, min_replay_history)
 
@@ -173,10 +172,10 @@ class DQNAgent(Agent):
                 of the DQN).
         """
         network = representation_net(self._state_size)
-        network_output_dim = np.prod(calculate_output_dim(network, self._state_size))
-        self._qnet = DQNNetwork(network, network_output_dim, self._action_space.n).to(
-            self._device
-        )
+        network_output_dim = np.prod(calculate_output_dim(network, self._state_size))  # type: ignore
+        self._qnet = DQNNetwork(
+            network, network_output_dim, int(self._action_space.n)
+        ).to(self._device)
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 

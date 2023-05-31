@@ -2,23 +2,103 @@ import argparse
 import inspect
 from copy import deepcopy
 from functools import partial
-from typing import List, Mapping, Sequence, _GenericAlias
+from typing import _GenericAlias  # type: ignore
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import yaml
 
+R = TypeVar("R", covariant=True)
 
-class Registrable:
-    """Class used to denote which types of objects can be registered in the RLHive
-    Registry. These objects can also be configured directly from the command line, and
-    recursively built from the config, assuming type annotations are present.
-    """
+SeqOrSingle = Union[Sequence[R], R]
 
-    @classmethod
-    def type_name(cls):
-        """This should represent a string that denotes the which type of class you are
-        creating. For example, "logger", "agent", or "env".
-        """
-        raise ValueError
+from typing import Protocol
+
+
+class Creates(Protocol[R]):
+    def __call__(self, *args, **kwargs) -> R:
+        ...
+
+
+class PartialCreates(Creates[R]):
+    # class Creates(Generic[R], Protocol):
+    #     return super().__call__(*args, **kwds)
+    def __init__(self, creator: Callable[..., R]):
+        self._creator = creator
+
+    def update_args(self, *args, **kwargs):
+        self._creator = partial(self._creator, *args, **kwargs)
+
+    def __call__(self, *args: Any, **kwds: Any) -> R:
+        return self._creator(*args, **kwds)
+
+    def signature(self):
+        return inspect.signature(self._creator)
+
+
+OCreates = Optional[Creates[R]]
+import numpy as np
+
+Float = Union[float, np.float32, np.float64]
+Int = Union[int, np.int32, np.int64]
+
+
+def default(fn: OCreates[R], default_fn: Callable) -> Creates[R]:
+    if fn is None:
+        return cast(Creates[R], default_fn)
+    else:
+        return fn
+
+
+# Creates = NewType('Creates', Callable)
+# [Callable[..., Union[R_co, Any]]]
+T = TypeVar("T")
+U = TypeVar("U")
+import pprint
+from typing import cast
+
+
+class RegistryTree(Generic[T]):
+    def __init__(self) -> None:
+        self.creators: Dict[str, Callable[..., T]] = {}
+        self.subtrees: Dict[Type, "RegistryTree"] = {}
+
+    def get_tree(self, ty: Type[U]) -> "RegistryTree[U]":
+        for registry_type in self.subtrees:
+            if ty == registry_type:
+                return self.subtrees[registry_type]
+            elif issubclass(ty, registry_type):
+                return self.subtrees[registry_type].get_tree(ty)
+        self.subtrees[ty] = RegistryTree[ty]()
+        return self.subtrees[ty]
+
+    def register_creator(self, name: str, creator: Callable[..., T]) -> None:
+        self.creators[name] = creator
+
+    def get_constructors(self) -> Dict[str, Callable[..., T]]:
+        constructors: Dict[str, Callable[..., T]] = {}
+        for subtree in self.subtrees.values():
+            constructors.update(subtree.get_constructors())
+        constructors.update(self.creators)
+        return constructors
+
+    def __repr__(self) -> str:
+        return pprint.pformat(
+            (self.creators, self.subtrees),
+            indent=2,
+        )
 
 
 class Registry:
@@ -55,9 +135,9 @@ class Registry:
     """
 
     def __init__(self) -> None:
-        self._registry = {}
+        self._registry = RegistryTree[object]()
 
-    def register(self, name, constructor, type):
+    def register(self, name: str, constructor: Callable[..., U], type: Type[U]) -> None:
         """Register a Registrable class/object with RLHive.
 
         Args:
@@ -68,35 +148,61 @@ class Registry:
                 Registrable.
 
         """
-        if not issubclass(type, Registrable):
-            raise ValueError(f"{type} is not Registrable")
-        if type.type_name() not in self._registry:
-            self._registry[type.type_name()] = {}
+        # if not issubclass(type, Registrable):
+        #     raise ValueError(f"{type} is not Registrable")
+        registry_tree = self._registry.get_tree(type)
+        registry_tree.register_creator(name, constructor)
+        # if type.type_name() not in self._registry:
+        #     self._registry[type.type_name()] = {}
 
-            def getter(self, object_or_config, prefix=None):
-                if object_or_config is None:
-                    return None, {}
-                elif isinstance(object_or_config, type):
-                    return object_or_config, {}
-                name = object_or_config["name"]
-                kwargs = object_or_config.get("kwargs", {})
-                expanded_config = deepcopy(object_or_config)
-                try:
-                    object_class = self._registry[type.type_name()][name]
-                    parsed_args = get_callable_parsed_args(object_class, prefix=prefix)
-                    kwargs.update(parsed_args)
-                    kwargs, kwargs_config = construct_objects(
-                        object_class, kwargs, prefix
-                    )
-                    expanded_config["kwargs"] = kwargs_config
-                    return partial(object_class, **kwargs), expanded_config
-                except:
-                    raise ValueError(f"Error creating {name} class")
+        #     def getter(self, object_or_config, prefix=None):
+        #         if object_or_config is None:
+        #             return None, {}
+        #         elif isinstance(object_or_config, type):
+        #             return object_or_config, {}
+        #         name = object_or_config["name"]
+        #         kwargs = object_or_config.get("kwargs", {})
+        #         expanded_config = deepcopy(object_or_config)
+        #         try:
+        #             object_class = self._registry[type.type_name()][name]
+        #             parsed_args = get_callable_parsed_args(object_class, prefix=prefix)
+        #             kwargs.update(parsed_args)
+        #             kwargs, kwargs_config = construct_objects(
+        #                 object_class, kwargs, prefix
+        #             )
+        #             expanded_config["kwargs"] = kwargs_config
+        #             return partial(object_class, **kwargs), expanded_config
+        #         except:
+        #             raise ValueError(f"Error creating {name} class")
 
-            setattr(self.__class__, f"get_{type.type_name()}", getter)
-        self._registry[type.type_name()][name] = constructor
+        #     setattr(self.__class__, f"get_{type.type_name()}", getter)
+        # self._registry[type.type_name()][name] = constructor
 
-    def register_all(self, base_class, class_dict):
+    def get(
+        self, config: Dict[str, Any], type: Type[U], prefix: Optional[str] = None
+    ) -> Tuple[PartialCreates[U], Dict[str, Any]]:
+        if config is None:
+            raise ValueError(f"Config for {type} is None")
+        name = config["name"]
+        kwargs = config.get("kwargs", {})
+        expanded_config = deepcopy(config)
+        try:
+            object_creator = self._registry.get_tree(type).creators[name]
+            object_creator = PartialCreates(object_creator)
+            parsed_args, unused_args = get_callable_parsed_args(
+                object_creator, prefix=prefix
+            )
+            kwargs.update(parsed_args)
+            kwargs, kwargs_config = construct_objects(object_creator, kwargs)
+            expanded_config["kwargs"] = kwargs_config
+            object_creator.update_args(**kwargs)
+            return object_creator, expanded_config
+        except:
+            raise ValueError(f"Error creating {name} class")
+
+    def register_all(
+        self, base_class: Type[U], class_dict: Dict[str, Callable[..., U]]
+    ):
         """Bulk register function.
 
         Args:
@@ -111,7 +217,11 @@ class Registry:
         return str(self._registry)
 
 
-def construct_objects(object_constructor, config, prefix=None):
+def construct_objects(
+    object_constructor: PartialCreates,
+    config: Dict[str, Any],
+    prefix: Optional[str] = None,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Helper function that constructs any objects specified in the config that
     are registrable.
 
@@ -129,50 +239,55 @@ def construct_objects(object_constructor, config, prefix=None):
         prefix (str): Prefix that is attached to the argument names when looking for
             command line arguments.
     """
-    signature = inspect.signature(object_constructor)
+    signature = object_constructor.signature()
     prefix = "" if prefix is None else f"{prefix}."
     expanded_config = deepcopy(config)
     for argument in signature.parameters:
-        if argument not in config:
-            continue
+        # if argument not in config:
+        #     continue
         expected_type = signature.parameters[argument].annotation
 
-        if isinstance(expected_type, type) and issubclass(expected_type, Registrable):
-            config[argument], expanded_config[argument] = registry.__getattribute__(
-                f"get_{expected_type.type_name()}"
-            )(config[argument], f"{prefix}{argument}")
+        # if isinstance(expected_type, type) and issubclass(expected_type, Creates):
+        #     config[argument], expanded_config[argument] = registry.__getattribute__(
+        #         f"get_{expected_type.type_name()}"
+        #     )(config[argument], f"{prefix}{argument}")
+        if is_creates(expected_type):
+            object_type = expected_type.__args__[0]
+            config[argument], expanded_config[argument] = registry.get(
+                config[argument], object_type, f"{prefix}{argument}"
+            )
         if isinstance(expected_type, _GenericAlias):
             origin = expected_type.__origin__
             args = expected_type.__args__
             if (
                 (origin == List or origin == list)
                 and len(args) == 1
-                and isinstance(args[0], type)
-                and issubclass(args[0], Registrable)
+                and is_creates(args[0])
                 and isinstance(config[argument], Sequence)
             ):
                 objs = []
                 expanded_config[argument] = []
+                object_type = args[0].__args__[0]
                 for idx, item in enumerate(config[argument]):
-                    obj, obj_config = registry.__getattribute__(
-                        f"get_{args[0].type_name()}"
-                    )(item, f"{prefix}{argument}.{idx}")
+                    obj, obj_config = registry.get(
+                        item, object_type, f"{prefix}{argument}.{idx}"
+                    )
                     objs.append(obj)
                     expanded_config[argument].append(obj_config)
                 config[argument] = objs
             elif (
                 origin == dict
                 and len(args) == 2
-                and isinstance(args[1], type)
-                and issubclass(args[1], Registrable)
+                and is_creates(args[1])
                 and isinstance(config[argument], Mapping)
             ):
                 objs = {}
                 expanded_config[argument] = {}
+                object_type = args[1].__args__[0]
                 for key, val in config[argument].items():
-                    obj, obj_config = registry.__getattribute__(
-                        f"get_{args[1].type_name()}"
-                    )(val, f"{prefix}{argument}.{key}")
+                    obj, obj_config = registry.get(
+                        val, object_type, f"{prefix}{argument}.{key}"
+                    )
                     objs[key] = obj
                     expanded_config[argument][key] = obj_config
                 config[argument] = objs
@@ -180,7 +295,16 @@ def construct_objects(object_constructor, config, prefix=None):
     return config, expanded_config
 
 
-def get_callable_parsed_args(callable, prefix=None):
+def is_creates(annotation) -> bool:
+    return (
+        isinstance(annotation, _GenericAlias)
+        and annotation.__origin__ == PartialCreates
+    )
+
+
+def get_callable_parsed_args(
+    callable: Callable, prefix=None
+) -> Tuple[Dict[str, Any], List[str]]:
     """Helper function that extracts the command line arguments for a given function.
 
     Args:
@@ -198,7 +322,9 @@ def get_callable_parsed_args(callable, prefix=None):
     return get_parsed_args(arguments, prefix)
 
 
-def get_parsed_args(arguments, prefix=None):
+def get_parsed_args(
+    arguments: Dict[str, inspect.Parameter], prefix=None
+) -> Tuple[Dict[str, Any], List[str]]:
     """Helper function that takes a dictionary mapping argument names to types, and
     extracts command line arguments for those arguments. If the dictionary contains
     a key-value pair "bar": int, and the prefix passed is "foo", this function will
@@ -217,7 +343,7 @@ def get_parsed_args(arguments, prefix=None):
     parser = argparse.ArgumentParser()
     for argument in arguments:
         parser.add_argument(f"--{prefix}{argument}")
-    parsed_args, _ = parser.parse_known_args()
+    parsed_args, unused_args = parser.parse_known_args()
     parsed_args = vars(parsed_args)
 
     # Strip the prefix from the parsed arguments and remove arguments not present
@@ -239,7 +365,7 @@ def get_parsed_args(arguments, prefix=None):
         else:
             parsed_args[argument] = yaml.safe_load(parsed_args[argument])
 
-    return parsed_args
+    return parsed_args, unused_args
 
 
 registry = Registry()

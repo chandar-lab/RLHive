@@ -3,6 +3,7 @@ import os
 import pickle
 
 import numpy as np
+import numpy.typing as npt
 
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.utils import create_folder, seeder
@@ -134,6 +135,30 @@ class CircularReplayBuffer(BaseReplayBuffer):
                 key: np.zeros_like(self._storage[key][0]) for key in self._storage
             }
             self._add_transition(**transition)
+
+    def add_transitions(
+        self,
+        observations,
+        next_observations,
+        actions,
+        rewards,
+        terminateds,
+        truncateds,
+        sources,
+        **kwargs,
+    ):
+        for i in range(len(observations)):
+            single_kwargs = {k: v[i] for k, v in kwargs.items()}
+            self.add(
+                observations[i],
+                next_observations[i],
+                actions[i],
+                rewards[i],
+                terminateds[i],
+                truncateds[i],
+                sources[i],
+                **single_kwargs,
+            )
 
     def add(
         self,

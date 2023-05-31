@@ -1,18 +1,14 @@
-from hive.utils.registry import registry
-from hive.agents.qnets.base import FunctionApproximator
+import torch
+
 from hive.agents.qnets.conv import ConvNetwork
 from hive.agents.qnets.mlp import MLPNetwork
-from hive.agents.qnets.sequence_models import (
-    SequenceModel,
-    SequenceFn,
-)
+from hive.agents.qnets.sequence_models import SequenceFn, SequenceModel
+from hive.utils.registry import registry
 
 registry.register_all(
-    FunctionApproximator,
+    torch.nn.Module,
     {
         "ConvNetwork": ConvNetwork,
         "MLPNetwork": MLPNetwork,
     },
 )
-
-get_qnet = getattr(registry, f"get_{FunctionApproximator.type_name()}")

@@ -5,8 +5,8 @@ import random
 
 import numpy as np
 import torch
+from typing import TypeVar, Callable
 
-from hive.utils.registry import Registrable
 
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 
@@ -44,7 +44,7 @@ class Seeder:
         torch.manual_seed(self._seed)
         random.seed(self._seed)
         np.random.seed(self._seed)
-        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.benchmark = False  # type: ignore
         torch.use_deterministic_algorithms(True)
 
     def get_new_seed(self, group=None):
@@ -105,52 +105,48 @@ class Chomp(dict):
         self.update(pickle.load(open(filename, "rb")))
 
 
-class OptimizerFn(Registrable):
-    """A wrapper for callables that produce optimizer functions.
+# class OptimizerFn(torch.optim.Optimizer):
+#     """A wrapper for callables that produce optimizer functions.
 
-    These wrapped callables can be partially initialized through configuration
-    files or command line arguments.
-    """
+#     These wrapped callables can be partially initialized through configuration
+#     files or command line arguments.
+#     """
 
-    @classmethod
-    def type_name(cls):
-        """
-        Returns:
-            "optimizer_fn"
-        """
-        return "optimizer_fn"
-
-
-class LossFn(Registrable):
-    """A wrapper for callables that produce loss functions.
-
-    These wrapped callables can be partially initialized through configuration
-    files or command line arguments.
-    """
-
-    @classmethod
-    def type_name(cls):
-        """
-        Returns:
-            "loss_fn"
-        """
-        return "loss_fn"
+#     @classmethod
+#     def type_name(cls):
+#         """
+#         Returns:
+#             "optimizer_fn"
+#         """
+#         return "optimizer_fn"
 
 
-class ActivationFn(Registrable):
-    """A wrapper for callables that produce activation functions.
+# class LossFn(Registrable):
+#     """A wrapper for callables that produce loss functions.
 
-    These wrapped callables can be partially initialized through configuration
-    files or command line arguments.
-    """
+#     These wrapped callables can be partially initialized through configuration
+#     files or command line arguments.
+#     """
 
-    @classmethod
-    def type_name(cls):
-        """
-        Returns:
-            "activation_fn"
-        """
-        return "activation_fn"
+#     @classmethod
+#     def type_name(cls):
+#         """
+#         Returns:
+#             "loss_fn"
+#         """
+#         return "loss_fn"
+from typing import NewType
+
+LossFn = NewType("LossFn", torch.nn.Module)
+# LossFn = TypeVar("LossFn", bound=torch.nn.Module)
+ActivationFn = TypeVar("ActivationFn", bound=torch.nn.Module)
+LossFn = TypeVar("LossFn", bound=Callable)
+# class ActivationFn(Registrable):
+#     """A wrapper for callables that produce activation functions.
+
+#     These wrapped callables can be partially initialized through configuration
+#     files or command line arguments.
+#     """
 
 
 class Counter:

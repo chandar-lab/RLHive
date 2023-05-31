@@ -17,6 +17,16 @@ class BaseReplayBuffer(abc.ABC, Registrable):
         """
 
     @abc.abstractmethod
+    def add_transitions(self, **data):
+        """
+        Adds multiple transitions to the buffer.
+
+        Args:
+            data: data to add to the replay buffer. Subclasses can define this class
+                signature based on use case.
+        """
+
+    @abc.abstractmethod
     def sample(self, batch_size):
         """
         sample a minibatch

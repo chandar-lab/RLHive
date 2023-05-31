@@ -1,9 +1,9 @@
 import abc
-from typing import Tuple
+from typing import Tuple, TypeVar, Generic
 
 import numpy as np
 
-from hive.utils.registry import Registrable, registry
+from hive.utils.registry import registry, Float
 
 
 # taken from https://github.com/openai/baselines/blob/master/baselines/common/vec_env/vec_normalize.py
@@ -11,7 +11,7 @@ class MeanStd:
     """Tracks the mean, variance and count of values."""
 
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
-    def __init__(self, epsilon=1e-4, shape=()):
+    def __init__(self, epsilon: Float = 1e-4, shape=()):
         """Tracks the mean, variance and count of values."""
         self.mean = np.zeros(shape, "float64")
         self.var = np.ones(shape, "float64")
@@ -58,20 +58,19 @@ class MeanStd:
         self.count = state_dict["count"]
 
 
-class Normalizer(Registrable):
+T = TypeVar("T")
+
+
+class Normalizer(Generic[T]):
     """A wrapper for callables that produce normalization functions.
 
     These wrapped callables can be partially initialized through configuration
     files or command line arguments.
     """
 
-    @classmethod
-    def type_name(cls):
-        """
-        Returns:
-            "norm_fn"
-        """
-        return "norm_fn"
+    @abc.abstractmethod
+    def __call__(self, input: T) -> T:
+        ...
 
     @abc.abstractmethod
     def state_dict(self):
@@ -89,7 +88,7 @@ class MovingAvgNormalizer(Normalizer):
     """
 
     def __init__(
-        self, shape: Tuple[int, ...], epsilon: float = 1e-4, clip: np.float32 = np.inf
+        self, shape: Tuple[int, ...], epsilon: Float = 1e-4, clip: Float = np.inf
     ):
         """
         Args:
@@ -129,7 +128,7 @@ class RewardNormalizer(Normalizer):
     specified range.
     """
 
-    def __init__(self, gamma: float, epsilon: float = 1e-4, clip: np.float32 = np.inf):
+    def __init__(self, gamma: float, epsilon: Float = 1e-4, clip: Float = np.inf):
         """
         Args:
             gamma (float): discount factor for the agent.
@@ -173,5 +172,3 @@ registry.register_all(
         "MovingAvgNormalizer": MovingAvgNormalizer,
     },
 )
-
-get_norm_fn = getattr(registry, f"get_{Normalizer.type_name()}")

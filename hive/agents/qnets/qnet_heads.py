@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 from torch import nn
+from typing import Optional
 
 
 class DQNNetwork(nn.Module):
@@ -14,7 +15,7 @@ class DQNNetwork(nn.Module):
         base_network: nn.Module,
         hidden_dim: int,
         out_dim: int,
-        linear_fn: nn.Module = None,
+        linear_fn: Optional[nn.Module] = None,
     ):
         """
         Args:
@@ -50,7 +51,7 @@ class DuelingNetwork(nn.Module):
         base_network: nn.Module,
         hidden_dim: int,
         out_dim: int,
-        linear_fn: nn.Module = None,
+        linear_fn: Optional[nn.Module] = None,
         atoms: int = 1,
     ):
         """
