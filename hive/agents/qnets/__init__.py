@@ -1,5 +1,4 @@
 from hive.utils.registry import registry
-from hive.agents.qnets.atari import NatureAtariDQNModel
 from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.conv import ConvNetwork
 from hive.agents.qnets.mlp import MLPNetwork
@@ -11,7 +10,6 @@ registry.register_all(
         "ConvNetwork": ConvNetwork,
         "ConvRNNNetwork": ConvRNNNetwork,
         "MLPNetwork": MLPNetwork,
-        "NatureAtariDQNModel": NatureAtariDQNModel,
     },
 )
 
