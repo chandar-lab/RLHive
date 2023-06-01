@@ -23,6 +23,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         reward_shape=(),
         reward_dtype=np.float32,
         extra_storage_types=None,
+        hidden_spec=None,
         num_players_sharing_buffer: int = None,
     ):
         """Constructor for RecurrentReplayBuffer.
@@ -53,9 +54,14 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
             num_players_sharing_buffer (int): Number of agents that share their
                 buffers. It is used for self-play.
         """
+        if hidden_spec is not None:
+            if extra_storage_types is None:
+                extra_storage_types = {}
+            extra_storage_types.update(hidden_spec)
+        self._hidden_spec = hidden_spec
         super().__init__(
             capacity=capacity,
-            stack_size=1,
+            stack_size=max_seq_len,
             n_step=n_step,
             gamma=gamma,
             observation_shape=observation_shape,
@@ -69,53 +75,6 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         )
         self._max_seq_len = max_seq_len
 
-    def size(self):
-        """Returns the number of transitions stored in the buffer."""
-        return max(
-            min(self._num_added, self._capacity) - self._max_seq_len - self._n_step + 1,
-            0,
-        )
-
-    def add(self, observation, action, reward, done, **kwargs):
-        """Adds a transition to the buffer.
-        The required components of a transition are given as positional arguments. The
-        user can pass additional components to store in the buffer as kwargs as long as
-        they were defined in the specification in the constructor.
-        """
-
-        if self._episode_start:
-            self._pad_buffer(self._max_seq_len - 1)
-            self._episode_start = False
-        transition = {
-            "observation": observation,
-            "action": action,
-            "reward": reward,
-            "done": done,
-        }
-        transition.update(kwargs)
-        for key in self._specs:
-            obj_type = (
-                transition[key].dtype
-                if hasattr(transition[key], "dtype")
-                else type(transition[key])
-            )
-            if not np.can_cast(obj_type, self._specs[key][0], casting="same_kind"):
-                raise ValueError(
-                    f"Key {key} has wrong dtype. Expected {self._specs[key][0]},"
-                    f"received {type(transition[key])}."
-                )
-        if self._num_players_sharing_buffer is None:
-            self._add_transition(**transition)
-        else:
-            self._episode_storage[kwargs["agent_id"]].append(transition)
-            if done:
-                for transition in self._episode_storage[kwargs["agent_id"]]:
-                    self._add_transition(**transition)
-                self._episode_storage[kwargs["agent_id"]] = []
-
-        if done:
-            self._episode_start = True
-
     def _get_from_array(self, array, indices, num_to_access=1):
         """Retrieves consecutive elements in the array, wrapping around if necessary.
         If more than 1 element is being accessed, the elements are concatenated along
@@ -127,56 +86,10 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         """
         full_indices = np.indices((indices.shape[0], num_to_access))[1]
         full_indices = (full_indices + np.expand_dims(indices, axis=1)) % (
-            self.size() + self._max_seq_len + self._n_step - 1
+            self.size() + self._stack_size + self._n_step - 1
         )
         elements = array[full_indices]
-        elements = elements.reshape(indices.shape[0], -1, *elements.shape[2:])
         return elements
-
-    def _get_from_storage(self, key, indices, num_to_access=1):
-        """Gets values from storage.
-        Args:
-            key: The name of the component to retrieve.
-            indices: This can be a single int or a 1D numpyp array. The indices are
-                adjusted to fall within the current bounds of the buffer.
-            num_to_access: how many consecutive elements to access
-        """
-        if not isinstance(indices, np.ndarray):
-            indices = np.array([indices])
-        if num_to_access == 0:
-            return np.array([])
-        elif num_to_access == 1:
-            return self._storage[key][
-                indices % (self.size() + self._max_seq_len + self._n_step - 1)
-            ]
-        else:
-            return self._get_from_array(
-                self._storage[key], indices, num_to_access=num_to_access
-            )
-
-    def _sample_indices(self, batch_size):
-        """Samples valid indices that can be used by the replay."""
-        indices = np.array([], dtype=np.int32)
-        while len(indices) < batch_size:
-            start_index = (
-                self._rng.integers(self.size(), size=batch_size - len(indices))
-                + self._cursor
-            )
-            start_index = self._filter_transitions(start_index)
-            indices = np.concatenate([indices, start_index])
-        return indices + self._max_seq_len - 1
-
-    def _filter_transitions(self, indices):
-        """Filters invalid indices."""
-        if self._max_seq_len == 1:
-            return indices
-        done = self._get_from_storage("done", indices, self._max_seq_len - 1)
-        done = done.astype(bool)
-        if self._max_seq_len == 2:
-            indices = indices[~done]
-        else:
-            indices = indices[~done.any(axis=1)]
-        return indices
 
     def sample(self, batch_size):
         """Sample transitions from the buffer. For a given transition, if it's
@@ -191,21 +104,27 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         indices = self._sample_indices(batch_size)
         batch = {}
         batch["indices"] = indices
-        terminals = self._get_from_storage(
+        dones = self._get_from_storage(
+            "done",
+            indices - self._max_seq_len + 1,
+            num_to_access=self._max_seq_len + self._n_step - 1,
+        )
+        terminated = self._get_from_storage(
             "done",
             indices - self._max_seq_len + 1,
             num_to_access=self._max_seq_len + self._n_step - 1,
         )
 
         if self._n_step == 1:
-            is_terminal = terminals
+            is_terminal = dones
             trajectory_lengths = np.ones(batch_size)
         else:
-            is_terminal = terminals.any(axis=1).astype(int)
+            is_terminal = dones.any(axis=1).astype(int)
+            terminated = terminated.any(axis=1).astype(int)
             trajectory_lengths = (
-                np.argmax(terminals.astype(bool), axis=1) + 1
+                np.argmax(dones.astype(bool), axis=1) + 1
             ) * is_terminal + self._n_step * (1 - is_terminal)
-            is_terminal = terminals[:, 1 : self._n_step - 1]
+            is_terminal = dones[:, 1 : self._n_step - 1]
         trajectory_lengths = trajectory_lengths.astype(np.int64)
 
         for key in self._specs:
@@ -222,7 +141,10 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                     num_to_access=self._max_seq_len,
                 )
             elif key == "done":
-                batch["done"] = is_terminal
+                pass
+            elif key == "terminated":
+                batch["terminated"] = terminated
+                batch["truncated"] = is_terminal - terminated
             elif key == "reward":
                 rewards = self._get_from_storage(
                     "reward",
@@ -250,6 +172,20 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                     rewards = disc_rewards
 
                 batch["reward"] = rewards
+            elif key in self._hidden_spec:
+                batch[key] = self._get_from_storage(
+                    key,
+                    indices - self._max_seq_len + 1,
+                    num_to_access=1,
+                )
+                batch[f"next_{key}"] = self._get_from_storage(
+                    key,
+                    batch["indices"]
+                    + trajectory_lengths
+                    - self._max_seq_len
+                    + 1,  # just return batch["indices"]
+                    num_to_access=1,
+                )
             else:
                 batch[key] = self._get_from_storage(key, indices)
 
@@ -259,4 +195,5 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
             indices + trajectory_lengths - self._max_seq_len + 1,
             num_to_access=self._max_seq_len,
         )
+
         return batch
