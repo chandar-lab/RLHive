@@ -75,7 +75,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         )
         self._max_seq_len = max_seq_len
 
-def add(
+    def add(
         self,
         observation,
         next_observation,
@@ -245,5 +245,4 @@ def add(
 
         mask = np.cumsum(batch["done"], axis=1, dtype=bool)
         batch["mask"] = mask
-
         return batch
