@@ -6,15 +6,11 @@ from torch import nn
 
 from hive.agents.qnets.mlp import MLPNetwork
 from hive.agents.qnets.utils import calculate_output_dim
-from hive.utils.registry import Registrable, registry
+from hive.utils.registry import registry, OCreates, Creates, default
 
 
-class SequenceFn(Registrable, nn.Module):
+class SequenceFn(nn.Module):
     """A wrapper for callables that produce sequence functions."""
-
-    @classmethod
-    def type_name(cls):
-        return "SequenceFn"
 
     @abc.abstractmethod
     def init_hidden(self, batch_size):
@@ -53,13 +49,28 @@ class LSTMModel(SequenceFn):
             num_layers=self._num_rnn_layers,
             batch_first=batch_first,
         )
+        self._batch_first = batch_first
         self._device = next(self.core.parameters()).device
 
-    def forward(self, x, hidden_state):
-        x, hidden_state = self.core(
+    def forward(self, x, full_hidden_state):
+        hidden_state, cell_state = (
+            full_hidden_state["hidden_state"],
+            full_hidden_state["cell_state"],
+        )
+        if not self._batch_first:
+            x = x.transpose(0, 1)
+            hidden_state = hidden_state.transpose(0, 1)
+            cell_state = cell_state.transpose(0, 1)
+
+        x, (hidden_state, cell_state) = self.core(
             x, (hidden_state["hidden_state"], hidden_state["cell_state"])
         )
-        return x, {"hidden_state": hidden_state[0], "cell_state": hidden_state[1]}
+        if not self._batch_first:
+            x = x.transpose(0, 1)
+            hidden_state = hidden_state.transpose(0, 1)
+            cell_state = cell_state.transpose(0, 1)
+
+        return x, {"hidden_state": hidden_state, "cell_state": cell_state}
 
     def _apply(self, *args, **kwargs):
         ret = super()._apply(*args, **kwargs)
@@ -69,12 +80,12 @@ class LSTMModel(SequenceFn):
     def init_hidden(self, batch_size):
         return {
             "hidden_state": torch.zeros(
-                (self._num_rnn_layers, batch_size, self._rnn_hidden_size),
+                (batch_size, self._num_rnn_layers, self._rnn_hidden_size),
                 dtype=torch.float32,
                 device=self._device,
             ),
             "cell_state": torch.zeros(
-                (self._num_rnn_layers, batch_size, self._rnn_hidden_size),
+                (batch_size, self._num_rnn_layers, self._rnn_hidden_size),
                 dtype=torch.float32,
                 device=self._device,
             ),
@@ -83,18 +94,12 @@ class LSTMModel(SequenceFn):
     def get_hidden_spec(self):
         return {
             "hidden_state": (
-                (
-                    np.float32,
-                    (self._num_rnn_layers, 1, self._rnn_hidden_size),
-                ),
-                1,
+                np.float32,
+                (self._num_rnn_layers, self._rnn_hidden_size),
             ),
             "cell_state": (
-                (
-                    np.float32,
-                    (self._num_rnn_layers, 1, self._rnn_hidden_size),
-                ),
-                1,
+                np.float32,
+                (self._num_rnn_layers, self._rnn_hidden_size),
             ),
         }
 
@@ -128,10 +133,18 @@ class GRUModel(SequenceFn):
             num_layers=self._num_rnn_layers,
             batch_first=batch_first,
         )
+        self._batch_first = batch_first
         self._device = next(self.core.parameters()).device
 
-    def forward(self, x, hidden_state):
+    def forward(self, x, full_hidden_state):
+        hidden_state = full_hidden_state["hidden_state"]
+        if not self._batch_first:
+            x = x.transpose(0, 1)
+            hidden_state = hidden_state.transpose(0, 1)
         x, hidden_state = self.core(x, hidden_state)
+        if not self._batch_first:
+            x = x.transpose(0, 1)
+            hidden_state = hidden_state.transpose(0, 1)
         return x, {"hidden_state": hidden_state}
 
     def _apply(self, *args, **kwargs):
@@ -149,17 +162,12 @@ class GRUModel(SequenceFn):
         }
 
     def get_hidden_spec(self):
-        return (
-            {
-                "hidden_state": (
-                    (
-                        np.float32,
-                        (self._num_rnn_layers, 1, self._rnn_hidden_size),
-                    ),
-                    1,
-                )
-            },
-        )
+        return {
+            "hidden_state": (
+                np.float32,
+                (self._num_rnn_layers, 1, self._rnn_hidden_size),
+            )
+        }
 
 
 class SequenceModel(Registrable, nn.Module):

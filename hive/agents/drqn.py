@@ -128,15 +128,11 @@ class DRQNAgent(DQNAgent):
             optimizer_fn = torch.optim.Adam
         self._optimizer = optimizer_fn(self._qnet.parameters())
         self._rng = np.random.default_rng(seed=seeder.get_new_seed("agent"))
-        hidden_spec = self._qnet.get_hidden_spec()
+        self._hidden_spec = self._qnet.get_hidden_spec()
 
-        if not store_hidden or hidden_spec is None:
+        if not store_hidden or self._hidden_spec is None:
             store_hidden = False
-            self._hidden_replay_spec = None
-            self._hidden_batch_spec = None
-        else:
-            self._hidden_replay_spec = {key: hidden_spec[key][0] for key in hidden_spec}
-            self._hidden_batch_spec = {key: hidden_spec[key][1] for key in hidden_spec}
+            self._hidden_spec = None
         if replay_buffer is None:
             replay_buffer = RecurrentReplayBuffer
         self._replay_buffer = replay_buffer(
@@ -145,7 +141,7 @@ class DRQNAgent(DQNAgent):
             action_shape=self._action_space.shape,
             action_dtype=self._action_space.dtype,
             max_seq_len=max_seq_len,
-            hidden_spec=self._hidden_replay_spec,
+            hidden_spec=self._hidden_spec,
         )
         self._discount_rate = discount_rate**n_step
         self._grad_clip = grad_clip
@@ -244,25 +240,14 @@ class DRQNAgent(DQNAgent):
             batch[key] = torch.tensor(batch[key], device=self._device)
 
         if self._store_hidden:
-            for key in self._hidden_replay_spec:
-                if self._hidden_batch_spec[key] >= 0:
-                    # Replay batches on the first dimension, network expects
-                    # batch on different dimension
-                    batch[key] = torch.cat(
-                        list(batch[key]), dim=self._hidden_batch_spec[key]
-                    )
-                    batch[f"next_{key}"] = torch.cat(
-                        list(batch[f"next_{key}"]), dim=self._hidden_batch_spec[key]
-                    )
-
             return (
                 (
                     batch["observation"],
-                    {key: batch[key] for key in self._hidden_replay_spec},
+                    {key: batch[key] for key in self._hidden_spec},
                 ),
                 (
                     batch["next_observation"],
-                    {key: batch[f"next_{key}"] for key in self._hidden_replay_spec},
+                    {key: batch[f"next_{key}"] for key in self._hidden_spec},
                 ),
                 batch,
             )
