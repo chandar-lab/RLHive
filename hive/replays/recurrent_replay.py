@@ -75,6 +75,53 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         )
         self._max_seq_len = max_seq_len
 
+    def add(
+        self,
+        observation,
+        next_observation,
+        action,
+        reward,
+        terminated,
+        truncated,
+        **kwargs,
+    ):
+        """Adds a transition to the buffer.
+        The required components of a transition are given as positional arguments. The
+        user can pass additional components to store in the buffer as kwargs as long as
+        they were defined in the specification in the constructor.
+        """
+
+        done = terminated or truncated
+        transition = {
+            "observation": observation,
+            "action": action,
+            "reward": reward,
+            "done": done,
+            "terminated": terminated,
+        }
+        if not self._optimize_storage:
+            transition["next_observation"] = next_observation
+        transition.update(kwargs)
+        for key in self._specs:
+            obj_type = (
+                transition[key].dtype
+                if hasattr(transition[key], "dtype")
+                else type(transition[key])
+            )
+            if not np.can_cast(obj_type, self._specs[key][0], casting="same_kind"):
+                raise ValueError(
+                    f"Key {key} has wrong dtype. Expected {self._specs[key][0]},"
+                    f"received {type(transition[key])}."
+                )
+        if self._num_players_sharing_buffer is None:
+            self._add_transition(**transition)
+        else:
+            self._episode_storage[kwargs["agent_id"]].append(transition)
+            if done:
+                for transition in self._episode_storage[kwargs["agent_id"]]:
+                    self._add_transition(**transition)
+                self._episode_storage[kwargs["agent_id"]] = []
+
     def _get_from_array(self, array, indices, num_to_access=1):
         """Retrieves consecutive elements in the array, wrapping around if necessary.
         If more than 1 element is being accessed, the elements are concatenated along
@@ -196,4 +243,6 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
             num_to_access=self._max_seq_len,
         )
 
+        mask = np.cumsum(batch["done"], axis=1, dtype=bool)
+        batch["mask"] = mask
         return batch

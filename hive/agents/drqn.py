@@ -385,12 +385,15 @@ class DRQNAgent(DQNAgent):
                     dtype=torch.float,
                 )
                 mask[self._burn_frames :] = 1.0
-                mask = mask.view(1, -1)
+                mask = mask.unsqueeze(0).repeat(len(batch["reward"]), 1)
+                mask = mask & batch["mask"]
                 interm_loss *= mask
-                loss = interm_loss.mean()
+                loss = interm_loss.sum() / mask.sum()
 
             else:
-                loss = self._loss_fn(pred_qvals, q_targets).mean()
+                interm_loss = self._loss_fn(pred_qvals, q_targets)
+                interm_loss *= batch["mask"]
+                loss = interm_loss.sum() / batch["mask"].sum()
 
             if self._logger.should_log(self._timescale):
                 self._logger.log_scalar("train_loss", loss, self._timescale)
