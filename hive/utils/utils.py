@@ -1,5 +1,5 @@
 from collections import defaultdict
-import os
+from pathlib import Path
 import pickle
 import random
 
@@ -8,7 +8,7 @@ import torch
 
 from hive.utils.registry import Registrable
 
-PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 
 
 def create_folder(folder):
@@ -17,8 +17,7 @@ def create_folder(folder):
     Args:
         folder (str): Folder to create.
     """
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+    Path(folder).mkdir(parents=True, exist_ok=True)
 
 
 class Seeder:
@@ -62,16 +61,6 @@ class Seeder:
 
 
 seeder = Seeder()
-
-
-def DL_to_LD(x, list_size):
-    """Turns a dictionary of lists to a list of dictionaries."""
-    return [{k: v[i] for k, v in x.items()} for i in range(list_size)]
-
-
-def LD_to_DL(x):
-    """Turns a list of dictionaries to a dictionary of lists."""
-    return {k: [d[k] for d in x] for k in x[0]}
 
 
 class Chomp(dict):
@@ -152,3 +141,65 @@ class ActivationFn(Registrable):
             "activation_fn"
         """
         return "activation_fn"
+
+
+class Counter:
+    """A wrapper for int that allows for incrementing and decrementing."""
+
+    def __init__(self, value=0):
+        self._value = value
+
+    @property
+    def value(self):
+        """Returns the value of the counter."""
+        return self._value
+
+    def increment(self, steps=1):
+        """Increments the counter."""
+        self._value += steps
+
+    def decrement(self, steps=1):
+        """Decrements the counter."""
+        self._value -= steps
+
+    def __repr__(self) -> str:
+        return str(self._value)
+
+    def __lt__(self, other):
+        return self._value < other
+
+    def __le__(self, other):
+        return self._value <= other
+
+    def __eq__(self, other):
+        return self._value == other
+
+    def __ne__(self, other):
+        return self._value != other
+
+    def __gt__(self, other):
+        return self._value > other
+
+    def __ge__(self, other):
+        return self._value >= other
+
+    def __mod__(self, other):
+        return self._value % other
+
+    def __add__(self, other):
+        return self._value + other
+
+    def __sub__(self, other):
+        return self._value - other
+
+    def __mul__(self, other):
+        return self._value * other
+
+    def __pow__(self, other):
+        return self._value**other
+
+    def __floordiv__(self, other):
+        return self._value // other
+
+    def __truediv__(self, other):
+        return self._value / other

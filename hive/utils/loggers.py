@@ -1,23 +1,22 @@
 import abc
 import os
-from typing import List
+from typing import Any, List
 
 import torch
 
 import wandb
 from hive.utils.registry import Registrable, registry
-from hive.utils.utils import Chomp, create_folder
+from hive.utils.utils import Chomp, create_folder, Counter
 
 
 class Logger(abc.ABC, Registrable):
     """Abstract class for logging in hive."""
 
     def __init__(self) -> None:
-        self._global_step = 0
+        self._global_step = Counter()
 
-    def increment_step(self, num_steps=1):
-        """Update the global step."""
-        self._global_step += num_steps
+    def set_global_step(self, global_step: Counter):
+        self._global_step = global_step
 
     @abc.abstractmethod
     def log_config(self, config):
@@ -49,7 +48,6 @@ class Logger(abc.ABC, Registrable):
         """
         pass
 
-    @abc.abstractmethod
     def save(self, dir_name):
         """Saves the current state of the log files.
 
@@ -58,7 +56,6 @@ class Logger(abc.ABC, Registrable):
         """
         pass
 
-    @abc.abstractmethod
     def load(self, dir_name):
         """Loads the log files from given directory.
 
@@ -86,12 +83,6 @@ class NullLogger(Logger):
         pass
 
     def log_metrics(self, metrics, prefix):
-        pass
-
-    def save(self, dir_name):
-        pass
-
-    def load(self, dir_name):
         pass
 
 
@@ -164,13 +155,13 @@ class WandbLogger(Logger):
         wandb.config.update(config)
 
     def log_scalar(self, name, value, prefix):
-        metrics = {f"{prefix}/{name}": value, "global_step": self._global_step}
-        wandb.log(metrics, step=self._global_step)
+        metrics = {f"{prefix}/{name}": value, "global_step": self._global_step.value}
+        wandb.log(metrics, step=self._global_step.value)
 
     def log_metrics(self, metrics, prefix):
         metrics = {f"{prefix}/{name}": value for (name, value) in metrics.items()}
-        metrics["global_step"] = self._global_step
-        wandb.log(metrics, step=self._global_step)
+        metrics["global_step"] = self._global_step.value
+        wandb.log(metrics, step=self._global_step.value)
 
 
 class ChompLogger(Logger):
@@ -187,22 +178,24 @@ class ChompLogger(Logger):
 
     def log_scalar(self, name, value, prefix):
         metric_name = f"{prefix}/{name}"
-        if self._global_step not in self._log_data:
-            self._log_data[self._global_step] = {}
+        if self._global_step.value not in self._log_data:
+            self._log_data[self._global_step.value] = {}
         if isinstance(value, torch.Tensor):
-            self._log_data[self._global_step][metric_name] = value.item()
+            self._log_data[self._global_step.value][metric_name] = value.item()
         else:
-            self._log_data[self._global_step][metric_name] = value
+            self._log_data[self._global_step.value][metric_name] = value
 
     def log_metrics(self, metrics, prefix):
-        if self._global_step not in self._log_data:
-            self._log_data[self._global_step] = {}
+        if self._global_step.value not in self._log_data:
+            self._log_data[self._global_step.value] = {}
         for name in metrics:
             metric_name = f"{prefix}/{name}"
             if isinstance(metrics[name], torch.Tensor):
-                self._log_data[self._global_step][metric_name] = metrics[name].item()
+                self._log_data[self._global_step.value][metric_name] = metrics[
+                    name
+                ].item()
             else:
-                self._log_data[self._global_step][metric_name] = metrics[name]
+                self._log_data[self._global_step.value][metric_name] = metrics[name]
 
     def save(self, dir_name):
         super().save(dir_name)
@@ -226,6 +219,11 @@ class CompositeLogger(Logger):
         super().__init__()
         self._logger_list = [logger_fn() for logger_fn in logger_list]
 
+    def set_global_step(self, global_step: Counter):
+        super().set_global_step(global_step)
+        for logger in self._logger_list:
+            logger.set_global_step(global_step)
+
     def log_config(self, config):
         for logger in self._logger_list:
             logger.log_config(config)
@@ -237,12 +235,6 @@ class CompositeLogger(Logger):
     def log_metrics(self, metrics, prefix):
         for logger in self._logger_list:
             logger.log_metrics(metrics, prefix=prefix)
-
-    def increment_step(self, num_steps=1):
-        """Update the global step."""
-        self._global_step += num_steps
-        for logger in self._logger_list:
-            logger.increment_step(num_steps)
 
     def save(self, dir_name):
         for idx, logger in enumerate(self._logger_list):
@@ -267,3 +259,33 @@ registry.register_all(
 )
 
 get_logger = getattr(registry, f"get_{Logger.type_name()}")
+
+
+class GlobalLoggerWrapper(Logger):
+    def __init__(self):
+        self._logger: Logger = NullLogger()
+
+    def set_logger(self, logger: Logger):
+        self._logger = logger
+
+    def set_global_step(self, global_step: Counter):
+        self._global_step = global_step
+        self._logger.set_global_step(global_step)
+
+    def log_config(self, config):
+        self._logger.log_config(config)
+
+    def log_scalar(self, name, value, prefix):
+        self._logger.log_scalar(name, value, prefix)
+
+    def log_metrics(self, metrics, prefix):
+        self._logger.log_metrics(metrics, prefix)
+
+    def save(self, dir_name):
+        self._logger.save(dir_name)
+
+    def load(self, dir_name):
+        self._logger.load(dir_name)
+
+
+logger: GlobalLoggerWrapper = GlobalLoggerWrapper()

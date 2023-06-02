@@ -161,11 +161,7 @@ class TD3(Agent):
         self._batch_size = batch_size
         self._logger = logger
         if self._logger is None:
-            self._logger = NullLogger([])
-        self._timescale = self.id
-        self._logger.register_timescale(
-            self._timescale, PeriodicSchedule(False, True, log_frequency)
-        )
+            self._logger = NullLogger()
         self._update_schedule = PeriodicSchedule(False, True, update_frequency)
         self._policy_update_schedule = PeriodicSchedule(
             False, True, policy_update_frequency

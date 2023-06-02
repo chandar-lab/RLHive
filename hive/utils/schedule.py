@@ -5,7 +5,7 @@ from hive.utils.registry import Registrable, registry
 
 class Schedule(abc.ABC, Registrable):
     @abc.abstractmethod
-    def get_value(self, step):
+    def __call__(self, step):
         """Queries the value of the schedule at a given step."""
         pass
 
@@ -34,7 +34,7 @@ class LinearSchedule(Schedule):
         self._end_value = end_value
         self._delta = (end_value - init_value) / steps
 
-    def get_value(self, step):
+    def __call__(self, step):
         if self._end_value > self._init_value:
             return min(self._init_value + self._delta * step, self._end_value)
         else:
@@ -59,7 +59,7 @@ class ConstantSchedule(Schedule):
         """
         self._value = value
 
-    def get_value(self, step):
+    def __call__(self, step):
         return self._value
 
     def __repr__(self):
@@ -84,7 +84,7 @@ class SwitchSchedule(Schedule):
         self._off_value = off_value
         self._on_value = on_value
 
-    def get_value(self, step):
+    def __call__(self, step):
         if step <= self._flip_step:
             return self._off_value
         else:
@@ -117,7 +117,7 @@ class DoublePeriodicSchedule(Schedule):
         self._off_value = off_value
         self._on_value = on_value
 
-    def get_value(self, step):
+    def __call__(self, step):
         if (step % self._total_period) < self._off_period:
             return self._off_value
         else:

@@ -8,22 +8,9 @@ from hive.runners import Runner
 # from hive.runners.utils import TransitionInfo
 from hive.utils import utils
 from hive.utils.experiment import Experiment
-from hive.utils.loggers import CompositeLogger, NullLogger, ScheduledLogger
+from hive.utils.loggers import CompositeLogger, NullLogger, Logger
 from gymnasium.vector.utils.numpy_utils import create_empty_array, concatenate
 import numpy as np
-
-
-def batch_input(x):
-    if isinstance(x, np.ndarray):
-        return np.expand_dims(x, axis=0)
-    elif isinstance(x, dict):
-        return {k: batch_input(v) for k, v in x.items()}
-    elif isinstance(x, list):
-        return [batch_input(item) for item in x]
-    elif isinstance(x, tuple):
-        return tuple(batch_input(item) for item in x)
-    else:
-        return [x]
 
 
 class SingleAgentRunner(Runner):
@@ -33,7 +20,7 @@ class SingleAgentRunner(Runner):
         self,
         environment: BaseEnv,
         agent: Agent,
-        loggers: List[ScheduledLogger],
+        loggers: List[Logger],
         experiment_manager: Experiment,
         train_steps: int,
         eval_environment: BaseEnv = None,
@@ -72,16 +59,10 @@ class SingleAgentRunner(Runner):
         environment = environment()
         eval_environment = eval_environment() if test_frequency != -1 else None
         env_spec = environment.env_spec
-        # Set up loggers
-        if loggers is None:
-            logger = NullLogger()
-        else:
-            logger = CompositeLogger(loggers)
 
         agent = agent(
             observation_space=env_spec.observation_space[0],
             action_space=env_spec.action_space[0],
-            logger=logger,
         )
 
         # Set up experiment manager
@@ -90,7 +71,7 @@ class SingleAgentRunner(Runner):
             environment=environment,
             eval_environment=eval_environment,
             agents=[agent],
-            logger=logger,
+            loggers=loggers,
             experiment_manager=experiment_manager,
             train_steps=train_steps,
             test_frequency=test_frequency,
@@ -100,7 +81,7 @@ class SingleAgentRunner(Runner):
 
     def run_one_step(
         self,
-        environment,
+        environment: BaseEnv,
         observation,
         episode_metrics,
         agent_traj_state,
@@ -113,7 +94,9 @@ class SingleAgentRunner(Runner):
             episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
         agent = self._agents[0]
-        action, agent_traj_state = agent.act(batch_input(observation), agent_traj_state)
+        action, agent_traj_state = agent.act(
+            observation, agent_traj_state, self._train_steps
+        )
         (
             next_observation,
             reward,
@@ -135,7 +118,7 @@ class SingleAgentRunner(Runner):
         }
         if self._training:
             agent_traj_state = agent.update(
-                copy.deepcopy(batch_input(info)), agent_traj_state
+                copy.deepcopy(info), agent_traj_state, self._train_steps
             )
 
         episode_metrics[agent.id]["reward"] += info["reward"]
@@ -207,7 +190,7 @@ class SingleAgentRunner(Runner):
         while (
             not (terminated or truncated)
             and steps < self._max_steps_per_episode - 1
-            and (not self._training or self._train_schedule.get_value())
+            and (not self._training or self._train_schedule(self._train_steps))
         ):
             terminated, truncated, observation, agent_traj_state = self.run_one_step(
                 environment,

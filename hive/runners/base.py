@@ -1,14 +1,19 @@
 from abc import ABC
-from typing import List
+from typing import Union, Sequence
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 
 from hive.runners.utils import Metrics
 from hive.utils import schedule
 from hive.utils.experiment import Experiment
-from hive.utils.loggers import ScheduledLogger
+from hive.utils.loggers import (
+    Logger,
+    NullLogger,
+    CompositeLogger,
+    logger,
+)
 from hive.utils.registry import Registrable
-from hive.utils.utils import seeder
+from hive.utils.utils import seeder, Counter
 
 
 class Runner(ABC, Registrable):
@@ -21,8 +26,8 @@ class Runner(ABC, Registrable):
     def __init__(
         self,
         environment: BaseEnv,
-        agents: List[Agent],
-        logger: ScheduledLogger,
+        agents: Sequence[Agent],
+        loggers: Union[Logger, Sequence[Logger]],
         experiment_manager: Experiment,
         train_steps: int,
         eval_environment: BaseEnv = None,
@@ -54,7 +59,7 @@ class Runner(ABC, Registrable):
             self._agents = agents
         else:
             self._agents = [agents]
-        self._logger = logger
+
         self._experiment_manager = experiment_manager
         if train_steps == -1:
             self._train_schedule = schedule.ConstantSchedule(True)
@@ -66,28 +71,35 @@ class Runner(ABC, Registrable):
             self._test_schedule = schedule.PeriodicSchedule(False, True, test_frequency)
         self._test_episodes = test_episodes
         self._max_steps_per_episode = max_steps_per_episode
+        self._train_steps = Counter()
+        self._test_steps = Counter()
+        # Set up loggers
+        if loggers is None:
+            logger.set_logger(NullLogger())
+        elif not isinstance(loggers, Sequence):
+            logger.set_logger(loggers())
+        else:
+            logger.set_logger(CompositeLogger(loggers))
+        logger.set_global_step(self._train_steps)
 
         self._experiment_manager.register_experiment(
-            logger=self._logger,
             agents=self._agents,
             environment=self._train_environment,
             eval_environment=self._eval_environment,
         )
         self._experiment_manager.experiment_state.update(
             {
-                "train_schedule": self._train_schedule,
-                "test_schedule": self._test_schedule,
+                "train_steps": self._train_steps,
+                "test_steps": self._test_steps,
             }
         )
-        self._logger.register_timescale("train")
-        self._logger.register_timescale("test")
         self._training = True
         self._save_experiment = False
         self._run_testing = False
 
     def register_config(self, config):
         self._experiment_manager.register_config(config)
-        self._logger.log_config(config)
+        logger.log_config(config)
 
     def train_mode(self, training):
         """If training is true, sets all agents to training mode. If training is false,
@@ -111,13 +123,11 @@ class Runner(ABC, Registrable):
     def update_step(self):
         """Update steps for various schedules. Run testing if appropriate."""
         if self._training:
-            self._train_schedule.update()
-            self._logger.update_step("train")
-            if self._test_schedule.update():
+            self._train_steps.increment()
+            if self._test_schedule(self._train_steps):
                 self.run_testing()
-            self._save_experiment = (
-                self._experiment_manager.update_step() or self._save_experiment
-            )
+            if self._experiment_manager.should_save(self._train_steps):
+                self._experiment_manager.save(self._train_steps)
 
     def run_episode(self, environment):
         """Run a single episode of the environment.
@@ -137,23 +147,17 @@ class Runner(ABC, Registrable):
         self.run_testing()
 
         self.train_mode(True)
-        while self._train_schedule.get_value():
+        while self._train_schedule(self._train_steps):
             # Run training episode
             if not self._training:
                 self.train_mode(True)
             episode_metrics = self.run_episode(self._train_environment)
-            if self._logger.should_log("train"):
-                episode_metrics = episode_metrics.get_flat_dict()
-                self._logger.log_metrics(episode_metrics, "train")
-
-            # Save experiment state
-            if self._save_experiment:
-                self._experiment_manager.save()
-                self._save_experiment = False
+            episode_metrics = episode_metrics.get_flat_dict()
+            logger.log_metrics(episode_metrics, "train")
 
         # Run a final test episode and save the experiment.
         self.run_testing()
-        self._experiment_manager.save()
+        self._experiment_manager.save(self._train_steps)
 
     def run_testing(self):
         """Run a testing phase."""
@@ -165,8 +169,9 @@ class Runner(ABC, Registrable):
             episode_metrics = self.run_episode(self._eval_environment)
             for metric, value in episode_metrics.get_flat_dict().items():
                 aggregated_episode_metrics[metric] += value / self._test_episodes
-        self._logger.update_step("test")
-        self._logger.log_metrics(aggregated_episode_metrics, "test")
+        self._test_steps.increment()
+        aggregated_episode_metrics["test_steps"] = self._test_steps.value
+        logger.log_metrics(aggregated_episode_metrics, "test")
         self._run_testing = False
         self.train_mode(True)
 
@@ -174,10 +179,8 @@ class Runner(ABC, Registrable):
         """Resume a saved experiment."""
         if self._experiment_manager.is_resumable():
             self._experiment_manager.resume()
-        self._train_schedule = self._experiment_manager.experiment_state[
-            "train_schedule"
-        ]
-        self._test_schedule = self._experiment_manager.experiment_state["test_schedule"]
+        self._train_steps = self._experiment_manager.experiment_state["train_steps"]
+        self._test_steps = self._experiment_manager.experiment_state["test_steps"]
 
     @classmethod
     def type_name(cls):

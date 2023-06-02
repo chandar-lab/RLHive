@@ -7,7 +7,7 @@ from hive.runners.base import Runner
 from hive.runners.utils import TransitionInfo
 from hive.utils import utils
 from hive.utils.experiment import Experiment
-from hive.utils.loggers import CompositeLogger, NullLogger, ScheduledLogger
+from hive.utils.loggers import CompositeLogger, NullLogger, Logger
 
 
 class MultiAgentRunner(Runner):
@@ -17,7 +17,7 @@ class MultiAgentRunner(Runner):
         self,
         environment: BaseEnv,
         agents: List[Agent],
-        loggers: List[ScheduledLogger],
+        loggers: List[Logger],
         experiment_manager: Experiment,
         train_steps: int,
         num_agents: int,
