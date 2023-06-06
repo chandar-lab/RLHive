@@ -42,7 +42,6 @@ class PPOAgent(Agent):
         n_step: int = 1,
         grad_clip: float = None,
         batch_size: int = 64,
-        logger: Logger = None,
         log_frequency: int = 1,
         clip_coefficient: float = 0.2,
         entropy_coefficient: float = 0.01,
@@ -147,7 +146,7 @@ class PPOAgent(Agent):
             anneal_lr_schedule = anneal_lr_schedule()
 
         self._lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self._optimizer, lambda x: anneal_lr_schedule.update()
+            self._optimizer, lambda global_step: anneal_lr_schedule(global_step)
         )
         if replay_buffer is None:
             replay_buffer = OnPolicyReplayBuffer
@@ -414,7 +413,7 @@ class PPOAgent(Agent):
                         "clip_fraction": clip_fraction / num_updates,
                         "lr": self._lr_scheduler.get_last_lr()[0],
                     },
-                    prefix=self._timescale,
+                    prefix=self.id,
                 )
             self._lr_scheduler.step()
         return agent_traj_state

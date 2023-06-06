@@ -85,7 +85,7 @@ class SwitchSchedule(Schedule):
         self._on_value = on_value
 
     def __call__(self, step):
-        if step <= self._flip_step:
+        if step < self._flip_step:
             return self._off_value
         else:
             return self._on_value

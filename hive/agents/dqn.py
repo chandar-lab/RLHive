@@ -15,7 +15,7 @@ from hive.agents.qnets.utils import (
     calculate_output_dim,
     create_init_weights_fn,
 )
-from hive.agents.utils import get_stacked_state, roll_state
+from hive.agents.utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.loggers import logger
 from hive.utils.schedule import (

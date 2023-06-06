@@ -222,7 +222,7 @@ class MultiAgentRunner(Runner):
         while (
             not (terminated or truncated)
             and steps < self._max_steps_per_episode
-            and (not self._training or self._train_schedule.get_value())
+            and (not self._training or self._train_schedule(global_step))
         ):
             (
                 terminated,

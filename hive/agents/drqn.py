@@ -270,7 +270,7 @@ class DRQNAgent(DQNAgent):
             return (batch["observation"]), (batch["next_observation"]), batch
 
     @torch.no_grad()
-    def act(self, observation, agent_traj_state=None):
+    def act(self, observation, agent_traj_state, global_step):
         """Returns the action for the agent. If in training mode, follows an epsilon
         greedy policy. Otherwise, returns the action with the highest Q-value.
 
@@ -285,12 +285,12 @@ class DRQNAgent(DQNAgent):
 
         # Determine and log the value of epsilon
         if self._training:
-            if not self._learn_schedule.get_value():
+            if not self._learn_schedule(global_step):
                 epsilon = 1.0
             else:
-                epsilon = self._epsilon_schedule.update()
-            if logger.update_step(self._timescale):
-                logger.log_scalar("epsilon", epsilon, self._timescale)
+                epsilon = self._epsilon_schedule(global_step)
+            if self._log_schedule(global_step):
+                logger.log_scalar("epsilon", epsilon, self.id)
         else:
             epsilon = self._test_epsilon
 
@@ -305,18 +305,18 @@ class DRQNAgent(DQNAgent):
             # Note: not explicitly handling the ties
             action = torch.argmax(qvals).item()
         if agent_traj_state is None:
-            if self._training and self._logger.should_log(self._timescale):
-                self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
+            if self._training and self._log_schedule(global_step):
+                logger.log_scalar("train_qval", torch.max(qvals), self.id)
 
         if (
             self._training
-            and logger.should_log(self._timescale)
+            and self._log_schedule(global_step)
             and agent_traj_state is None
         ):
             logger.log_scalar("train_qval", torch.max(qvals), self.id)
         return action, {"hidden_state": hidden_state}
 
-    def update(self, update_info, agent_traj_state=None):
+    def update(self, update_info, agent_traj_state, global_step):
         """
         Updates the DRQN agent.
 
@@ -345,9 +345,9 @@ class DRQNAgent(DQNAgent):
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
         if (
-            self._learn_schedule.update()
+            self._learn_schedule(global_step)
             and self._replay_buffer.size() > 0
-            and self._update_period_schedule.update()
+            and self._update_period_schedule(global_step)
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             (
@@ -391,8 +391,8 @@ class DRQNAgent(DQNAgent):
                 interm_loss *= batch["mask"]
                 loss = interm_loss.sum() / batch["mask"].sum()
 
-            if logger.should_log(self._timescale):
-                logger.log_scalar("train_loss", loss, self._timescale)
+            if self._log_schedule(global_step):
+                logger.log_scalar("train_loss", loss, self.id)
 
             loss.backward()
             if self._grad_clip is not None:
@@ -402,6 +402,6 @@ class DRQNAgent(DQNAgent):
             self._optimizer.step()
 
         # Update target network
-        if self._target_net_update_schedule.update():
+        if self._target_net_update_schedule(global_step):
             self._update_target()
         return agent_traj_state

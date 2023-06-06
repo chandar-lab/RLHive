@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import gymnasium as gym
 import numpy as np
 import torch
+from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
@@ -14,15 +15,11 @@ from hive.agents.qnets.utils import (
     calculate_output_dim,
     create_init_weights_fn,
 )
+from hive.agents.utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
 from hive.utils.loggers import logger
 from hive.utils.schedule import DoublePeriodicSchedule, PeriodicSchedule, SwitchSchedule
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
-
-
-@dataclass
-class SACAgentState:
-    ...
 
 
 class SACAgent(Agent):
@@ -246,6 +243,21 @@ class SACAgent(Agent):
         """Unscales actions from [-1, 1] to expected scale."""
         return ((actions + 1.0) * self._action_scaling) + self._action_min
 
+    def preprocess_observation(self, observation, agent_traj_state):
+        if agent_traj_state is None:
+            observation_stack = create_empty_array(
+                self._observation_space, n=self._stack_size
+            )
+        else:
+            observation_stack = agent_traj_state["observation_stack"]
+        observation_stack = roll_state(observation, observation_stack)
+        state = (
+            torch.tensor(observation_stack, device=self._device, dtype=torch.float32)
+            .flatten(0, 1)
+            .unsqueeze(0)
+        )
+        return state, observation_stack
+
     def preprocess_update_info(self, update_info):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
         Scales the action to [-1, 1].
@@ -301,18 +313,20 @@ class SACAgent(Agent):
             - action
             - agent trajectory state
         """
-
+        state, observation_stack = self.preprocess_observation(
+            observation, agent_traj_state
+        )
         # Calculate action
-        if self._training and not self._learn_schedule.get_value():
-            return (self._action_space.sample(), SACAgentState())
+        if self._training and not self._learn_schedule(global_step):
+            return (
+                self._action_space.sample(),
+                {"observation_stack": observation_stack},
+            )
 
-        observation = torch.tensor(
-            np.expand_dims(observation, axis=0), device=self._device
-        ).float()
-        action, _, _ = self._actor(observation)
+        action, _, _ = self._actor(state)
         action = action.cpu().detach().numpy()
         action = self.unscale_actions(action)
-        return action[0], agent_traj_state
+        return action[0], {"observation_stack": observation_stack}
 
     def update(self, update_info, agent_traj_state, global_step):
         """
@@ -338,9 +352,9 @@ class SACAgent(Agent):
         self._replay_buffer.add(**self.preprocess_update_info(update_info))
         # Update the agent based on a sample batch from the replay buffer.
         if (
-            self._learn_schedule.update()
+            self._learn_schedule(global_step)
             and self._replay_buffer.size() > 0
-            and self._update_schedule.update()
+            and self._update_schedule(global_step)
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             (
@@ -354,12 +368,12 @@ class SACAgent(Agent):
                 batch, current_state_inputs, next_state_inputs, metrics=metrics
             )
             # Update policy with policy delay
-            while self._policy_update_schedule.update():
+            while self._policy_update_schedule(global_step):
                 self._update_actor(current_state_inputs, metrics)
-            if self._target_net_update_schedule.update():
+            if self._target_net_update_schedule(global_step):
                 self._update_target()
             if self._log_schedule(global_step):
-                logger.log_metrics(metrics, self._timescale)
+                logger.log_metrics(metrics, self.id)
         return agent_traj_state
 
     def _update_actor(self, current_state_inputs, metrics):
@@ -447,10 +461,6 @@ class SACAgent(Agent):
                 "actor_optimizer": self._actor_optimizer.state_dict(),
                 "alpha": self._alpha,
                 "alpha_optimizer": self._alpha_optimizer.state_dict(),
-                "update_schedule": self._update_schedule,
-                "target_net_update_schedule": self._target_net_update_schedule,
-                "policy_update_schedule": self._policy_update_schedule,
-                "learn_schedule": self._learn_schedule,
             },
         )
         if self._auto_alpha:
@@ -470,7 +480,4 @@ class SACAgent(Agent):
         self._critic_optimizer.load_state_dict(checkpoint["critic_optimizer"])
         self._actor.load_state_dict(checkpoint["actor"])
         self._actor_optimizer.load_state_dict(checkpoint["actor_optimizer"])
-        self._learn_schedule = checkpoint["learn_schedule"]
-        self._update_schedule = checkpoint["update_schedule"]
-        self._policy_update_schedule = checkpoint["policy_update_schedule"]
         self._replay_buffer.load(os.path.join(dname, "replay"))

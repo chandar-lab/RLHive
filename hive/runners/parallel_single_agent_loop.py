@@ -118,7 +118,6 @@ class ParallelSingleAgentRunner(Runner):
         agent = agent(
             observation_space=self._env_spec.observation_space[0],
             action_space=self._env_spec.action_space[0],
-            logger=logger,
         )
         # Set up experiment manager
         experiment_manager = experiment_manager()
@@ -159,7 +158,7 @@ class ParallelSingleAgentRunner(Runner):
         self.train_mode(True)
         self._train_environment.reset()
         all_agent_traj_states = np.empty(self._num_envs, dtype=object)
-        while self._train_schedule.get_value():
+        while self._train_schedule(global_step):
             finished = self.run_step(
                 all_agent_traj_states=all_agent_traj_states,
                 metrics=self._metrics,
@@ -301,8 +300,8 @@ class ParallelSingleAgentRunner(Runner):
 
     def update_step(self):
         if self._training:
-            self._train_schedule.update()
+            self._train_schedule(global_step)
             if self._experiment_manager.update_step():
                 self._experiment_manager.save()
-            if self._test_schedule.update():
+            if self._test_schedule(global_step):
                 self.run_testing()

@@ -306,11 +306,15 @@ class TD3(Agent):
             - action
             - agent trajectory state
         """
-
         # Calculate action and add noise if training.
         state, observation_stack = self.preprocess_observation(
             observation, agent_traj_state
         )
+        if self._training and not self._learn_schedule(global_step):
+            return (
+                self._action_space.sample(),
+                {"observation_stack": observation_stack},
+            )
         action = self._actor(state)
         if self._training:
             noise = torch.randn_like(action, requires_grad=False) * self._action_noise
@@ -319,9 +323,7 @@ class TD3(Agent):
         if self._scale_actions:
             action = self.unscale_actions(action)
         action = np.clip(action, self._action_min, self._action_max)
-        observation_stack.append(observation)
-        agent_traj_state = {"observation_stack": observation_stack}
-        return np.squeeze(action, axis=0), agent_traj_state
+        return np.squeeze(action, axis=0), {"observation_stack": observation_stack}
 
     def update(self, update_info, agent_traj_state, global_step):
         """
@@ -439,9 +441,6 @@ class TD3(Agent):
                 "actor": self._actor.state_dict(),
                 "target_actor": self._target_actor.state_dict(),
                 "actor_optimizer": self._actor_optimizer.state_dict(),
-                "learn_schedule": self._learn_schedule,
-                "update_schedule": self._update_schedule,
-                "policy_update_schedule": self._policy_update_schedule,
             },
             os.path.join(dname, "agent.pt"),
         )
@@ -457,7 +456,4 @@ class TD3(Agent):
         self._actor.load_state_dict(checkpoint["actor"])
         self._target_actor.load_state_dict(checkpoint["target_actor"])
         self._actor_optimizer.load_state_dict(checkpoint["actor_optimizer"])
-        self._learn_schedule = checkpoint["learn_schedule"]
-        self._update_schedule = checkpoint["update_schedule"]
-        self._policy_update_schedule = checkpoint["policy_update_schedule"]
         self._replay_buffer.load(os.path.join(dname, "replay"))

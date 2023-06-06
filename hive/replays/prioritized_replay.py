@@ -29,7 +29,8 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
         reward_shape: Tuple = (),
         reward_dtype: type = np.float32,
         extra_storage_types: Dict = None,
-        num_players_sharing_buffer=None,
+        optimize_storage: bool = True,
+        commit_at_done: bool = True,
     ):
         """
         Args:
@@ -74,7 +75,8 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
             reward_shape=reward_shape,
             reward_dtype=reward_dtype,
             extra_storage_types=extra_storage_types,
-            num_players_sharing_buffer=num_players_sharing_buffer,
+            optimize_storage=optimize_storage,
+            commit_at_done=commit_at_done,
         )
         self._sum_tree = SumTree(self._capacity)
         self._alpha = alpha

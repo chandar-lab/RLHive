@@ -164,6 +164,7 @@ class SingleAgentRunner(Runner):
             "terminated": terminated,
             "truncated": truncated,
             "info": other_info,
+            "source": 0,
         }
         if self._training:
             agent_traj_state = agent.update(
@@ -202,7 +203,9 @@ class SingleAgentRunner(Runner):
             steps += 1
             self.update_step()
 
-        if not (terminated or truncated):
+        if not (terminated or truncated) and (
+            not self._training or self._train_schedule(self._train_steps)
+        ):
             self.run_end_step(
                 environment,
                 observation,
