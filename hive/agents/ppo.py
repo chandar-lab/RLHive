@@ -165,11 +165,11 @@ class PPOAgent(Agent):
             critic_loss_fn = torch.nn.MSELoss
         self._critic_loss_fn = critic_loss_fn(reduction="none")
         self._batch_size = batch_size
-        self._logger = logger
-        if self._logger is None:
-            self._logger = NullLogger([])
+        logger = logger
+        if logger is None:
+            logger = NullLogger([])
         self._timescale = self.id
-        self._logger.register_timescale(
+        logger.register_timescale(
             self._timescale, PeriodicSchedule(False, True, log_frequency)
         )
         self._clip_coefficient = clip_coefficient
@@ -408,8 +408,8 @@ class PPOAgent(Agent):
                 if self._target_kl is not None and self._target_kl < approx_kl:
                     break
             self._replay_buffer.reset()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_metrics(
+            if logger.update_step(self._timescale):
+                logger.log_metrics(
                     {
                         "loss": loss,
                         "actor_loss": actor_loss,

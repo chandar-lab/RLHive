@@ -175,11 +175,11 @@ class SACAgent(Agent):
             critic_loss_fn = torch.nn.MSELoss
         self._critic_loss_fn = critic_loss_fn(reduction="mean")
         self._batch_size = batch_size
-        self._logger = logger
-        if self._logger is None:
-            self._logger = NullLogger([])
+        logger = logger
+        if logger is None:
+            logger = NullLogger([])
         self._timescale = self.id
-        self._logger.register_timescale(
+        logger.register_timescale(
             self._timescale, PeriodicSchedule(False, True, log_frequency)
         )
         self._update_schedule = PeriodicSchedule(False, True, update_frequency)
@@ -365,8 +365,8 @@ class SACAgent(Agent):
                 self._update_actor(current_state_inputs, metrics)
             if self._target_net_update_schedule.update():
                 self._update_target()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_metrics(metrics, self._timescale)
+            if logger.update_step(self._timescale):
+                logger.log_metrics(metrics, self._timescale)
         return agent_traj_state
 
     def _update_actor(self, current_state_inputs, metrics):

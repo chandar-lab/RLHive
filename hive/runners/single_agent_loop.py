@@ -5,12 +5,9 @@ from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.runners import Runner
 
-# from hive.runners.utils import TransitionInfo
 from hive.utils import utils
 from hive.utils.experiment import Experiment
-from hive.utils.loggers import CompositeLogger, NullLogger, Logger
-from gymnasium.vector.utils.numpy_utils import create_empty_array, concatenate
-import numpy as np
+from hive.utils.loggers import Logger
 
 
 class SingleAgentRunner(Runner):
@@ -151,7 +148,9 @@ class SingleAgentRunner(Runner):
         """
         agent = self._agents[0]
 
-        action, agent_traj_state = agent.act(observation, agent_traj_state)
+        action, agent_traj_state = agent.act(
+            observation, agent_traj_state, self._train_steps
+        )
         next_observation, reward, terminated, _, _, other_info = environment.step(
             action
         )
@@ -167,7 +166,9 @@ class SingleAgentRunner(Runner):
             "info": other_info,
         }
         if self._training:
-            agent_traj_state = agent.update(copy.deepcopy(info), agent_traj_state)
+            agent_traj_state = agent.update(
+                copy.deepcopy(info), agent_traj_state, self._train_steps
+            )
 
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1

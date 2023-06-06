@@ -222,8 +222,8 @@ class ParallelSingleAgentRunner(Runner):
             step_metrics["episode_length"][finished_step] = 0
             transition_info.finish(finished_step)
             finished = np.append(finished, newly_finished)
-        self._logger.update_step("test")
-        self._logger.log_metrics(
+        logger.update_step("test")
+        logger.log_metrics(
             {
                 "return": np.mean(eval_metrics["return"]),
                 "episode_length": np.mean(eval_metrics["episode_length"]),
@@ -287,8 +287,8 @@ class ParallelSingleAgentRunner(Runner):
         timescale="train",
     ):
         for env_id in finished:
-            if self._logger.update_step(timescale):
-                self._logger.log_metrics(
+            if logger.update_step(timescale):
+                logger.log_metrics(
                     {
                         "return": self._metrics["return"][env_id],
                         "episode_length": self._metrics["episode_length"][env_id],

@@ -5,6 +5,7 @@ import torch
 
 from hive.agents.rainbow import RainbowDQNAgent
 from hive.agents.utils import get_stacked_state
+from hive.utils.loggers import logger
 
 
 class LegalMovesRainbowAgent(RainbowDQNAgent):
@@ -56,16 +57,16 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         )
 
     @torch.no_grad()
-    def act(self, observation, agent_traj_state=None):
+    def act(self, observation, agent_traj_state, global_step):
         if self._training:
             if not self._learn_schedule.get_value():
                 epsilon = 1.0
             elif not self._use_eps_greedy:
                 epsilon = 0.0
             else:
-                epsilon = self._epsilon_schedule.update()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_scalar("epsilon", epsilon, self._timescale)
+                epsilon = self._epsilon_schedule(global_step)
+            if self._log_schedule(global_step):
+                logger.log_scalar("epsilon", epsilon, self._timescale)
         else:
             epsilon = self._test_epsilon
 
@@ -84,12 +85,11 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
 
         if (
             self._training
-            and self._logger.should_log(self._timescale)
+            and self._log_schedule(global_step)
             and agent_traj_state is None
         ):
-            self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
+            logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
 
-        observation_stack.append(observation["observation"])
         agent_traj_state = {"observation_stack": observation_stack}
         return action, agent_traj_state
 

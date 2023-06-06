@@ -3,7 +3,6 @@ from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.utils import InitializationFn
 from hive.agents.td3 import TD3
 from hive.replays import BaseReplayBuffer
-from hive.utils.loggers import Logger
 from hive.utils.utils import LossFn, OptimizerFn
 
 
@@ -33,7 +32,6 @@ class DDPG(TD3):
         reward_clip: float = None,
         soft_update_fraction: float = 0.005,
         batch_size: int = 64,
-        logger: Logger = None,
         log_frequency: int = 100,
         update_frequency: int = 1,
         action_noise: float = 0,
@@ -112,7 +110,6 @@ class DDPG(TD3):
             reward_clip=reward_clip,
             soft_update_fraction=soft_update_fraction,
             batch_size=batch_size,
-            logger=logger,
             log_frequency=log_frequency,
             update_frequency=update_frequency,
             policy_update_frequency=1,

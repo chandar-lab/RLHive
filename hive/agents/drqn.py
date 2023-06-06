@@ -14,7 +14,7 @@ from hive.agents.qnets.utils import (
     apply_to_tensor,
 )
 from hive.replays.recurrent_replay import RecurrentReplayBuffer
-from hive.utils.loggers import Logger, NullLogger
+from hive.utils.loggers import logger
 from hive.utils.schedule import (
     LinearSchedule,
     PeriodicSchedule,
@@ -54,7 +54,6 @@ class DRQNAgent(DQNAgent):
         min_replay_history: int = 5000,
         batch_size: int = 32,
         device="cpu",
-        logger: Logger = None,
         log_frequency: int = 100,
         store_hidden: bool = True,
         burn_frames: int = 0,
@@ -157,11 +156,11 @@ class DRQNAgent(DQNAgent):
             loss_fn = torch.nn.SmoothL1Loss
         self._loss_fn = loss_fn(reduction="none")
         self._batch_size = batch_size
-        self._logger = logger
-        if self._logger is None:
-            self._logger = NullLogger([])
+        logger = logger
+        if logger is None:
+            logger = NullLogger([])
         self._timescale = self.id
-        self._logger.register_timescale(
+        logger.register_timescale(
             self._timescale, PeriodicSchedule(False, True, log_frequency)
         )
         if update_period_schedule is None:
@@ -296,8 +295,8 @@ class DRQNAgent(DQNAgent):
                 epsilon = 1.0
             else:
                 epsilon = self._epsilon_schedule.update()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_scalar("epsilon", epsilon, self._timescale)
+            if logger.update_step(self._timescale):
+                logger.log_scalar("epsilon", epsilon, self._timescale)
         else:
             epsilon = self._test_epsilon
 
@@ -314,10 +313,10 @@ class DRQNAgent(DQNAgent):
 
         if (
             self._training
-            and self._logger.should_log(self._timescale)
+            and logger.should_log(self._timescale)
             and agent_traj_state is None
         ):
-            self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
+            logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
         return action, {"hidden_state": hidden_state}
 
     def update(self, update_info, agent_traj_state=None):
@@ -395,8 +394,8 @@ class DRQNAgent(DQNAgent):
                 interm_loss *= batch["mask"]
                 loss = interm_loss.sum() / batch["mask"].sum()
 
-            if self._logger.should_log(self._timescale):
-                self._logger.log_scalar("train_loss", loss, self._timescale)
+            if logger.should_log(self._timescale):
+                logger.log_scalar("train_loss", loss, self._timescale)
 
             loss.backward()
             if self._grad_clip is not None:

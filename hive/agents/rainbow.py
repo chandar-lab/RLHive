@@ -16,7 +16,7 @@ from hive.agents.qnets.qnet_heads import (
 from hive.agents.qnets.utils import InitializationFn, calculate_output_dim
 from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
-from hive.utils.loggers import Logger
+from hive.utils.loggers import logger
 from hive.utils.schedule import Schedule
 from hive.utils.utils import LossFn, OptimizerFn
 
@@ -48,7 +48,6 @@ class RainbowDQNAgent(DQNAgent):
         min_replay_history: int = 5000,
         batch_size: int = 32,
         device="cpu",
-        logger: Logger = None,
         log_frequency: int = 100,
         noisy: bool = True,
         std_init: float = 0.5,
@@ -240,8 +239,8 @@ class RainbowDQNAgent(DQNAgent):
                 epsilon = 1.0
             else:
                 epsilon = self._epsilon_schedule.update()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_scalar("epsilon", epsilon, self._timescale)
+            if logger.update_step(self._timescale):
+                logger.log_scalar("epsilon", epsilon, self._timescale)
         else:
             epsilon = self._test_epsilon
 
@@ -260,10 +259,10 @@ class RainbowDQNAgent(DQNAgent):
 
         if (
             self._training
-            and self._logger.should_log(self._timescale)
+            and logger.should_log(self._timescale)
             and agent_traj_state is None
         ):
-            self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
+            logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
         observation_stack.append(observation)
         agent_traj_state = {"observation_stack": observation_stack}
         return action, agent_traj_state
@@ -349,8 +348,8 @@ class RainbowDQNAgent(DQNAgent):
                 loss *= batch["weights"]
             loss = loss.mean()
 
-            if self._logger.should_log(self._timescale):
-                self._logger.log_scalar(
+            if logger.should_log(self._timescale):
+                logger.log_scalar(
                     "train_loss",
                     loss,
                     self._timescale,

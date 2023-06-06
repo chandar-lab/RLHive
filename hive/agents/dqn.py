@@ -5,7 +5,7 @@ from collections import deque
 import gymnasium as gym
 import numpy as np
 import torch
-from gymnasium.vector.utils.numpy_utils import concatenate, create_empty_array
+from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
@@ -192,20 +192,13 @@ class DQNAgent(Agent):
         self._target_qnet.eval()
 
     def preprocess_observation(self, observation, agent_traj_state):
-        # observation_stacks = []
-        # for agent_traj_state in agent_traj_states:
         if agent_traj_state is None:
             observation_stack = create_empty_array(
                 self._observation_space, n=self._stack_size
             )
         else:
             observation_stack = agent_traj_state["observation_stack"]
-        # observation_stacks.append(observation_stack)
-        observation_stack = roll_state(
-            # concatenate(self._observation_space, observation, None),
-            observation,
-            observation_stack,
-        )
+        observation_stack = roll_state(observation, observation_stack)
         state = (
             torch.tensor(observation_stack, device=self._device, dtype=torch.float32)
             .flatten(0, 1)
@@ -253,17 +246,6 @@ class DQNAgent(Agent):
             batch[key] = torch.tensor(batch[key], device=self._device)
         return (batch["observation"],), (batch["next_observation"],), batch
 
-    def preprocess_observation(self, observation, agent_traj_state):
-        if agent_traj_state is None:
-            observation_stack = deque(maxlen=self._stack_size - 1)
-        else:
-            observation_stack = agent_traj_state["observation_stack"]
-        state, observation_stack = get_stacked_state(
-            observation, observation_stack, self._stack_size
-        )
-        state = torch.tensor(state, device=self._device).unsqueeze(0).float()
-        return state, observation_stack
-
     @torch.no_grad()
     def act(self, observation, agent_traj_state, global_step):
         """Returns the action for the agent. If in training mode, follows an epsilon
@@ -302,10 +284,10 @@ class DQNAgent(Agent):
 
         if (
             self._training
-            and self._logger.should_log(self._timescale)
+            and self._log_schedule(global_step)
             and agent_traj_state is None
         ):
-            self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
+            logger.log_scalar("train_qval", torch.max(qvals), self.id)
         agent_traj_state = {"observation_stack": observation_stack}
         return action, agent_traj_state
 
