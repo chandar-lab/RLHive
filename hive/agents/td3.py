@@ -16,10 +16,13 @@ from hive.agents.qnets.utils import (
     create_init_weights_fn,
 )
 from hive.agents.utils import roll_state
-from hive.replays import BaseReplayBuffer, CircularReplayBuffer
+from hive.replays import BaseReplayBuffer, CircularReplayBuffer, ReplayItemSpec
 from hive.utils.loggers import logger
 from hive.utils.schedule import PeriodicSchedule, SwitchSchedule
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
+
+from hive.utils.registry import OCreates, default
+from typing import Optional
 
 
 class TD3(Agent):
@@ -29,20 +32,20 @@ class TD3(Agent):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Box,
-        representation_net: FunctionApproximator = None,
-        actor_net: FunctionApproximator = None,
-        critic_net: FunctionApproximator = None,
-        init_fn: InitializationFn = None,
-        actor_optimizer_fn: OptimizerFn = None,
-        critic_optimizer_fn: OptimizerFn = None,
-        critic_loss_fn: LossFn = None,
+        representation_net: OCreates[FunctionApproximator] = None,
+        actor_net: OCreates[FunctionApproximator] = None,
+        critic_net: OCreates[FunctionApproximator] = None,
+        init_fn: OCreates[InitializationFn] = None,
+        actor_optimizer_fn: OCreates[OptimizerFn] = None,
+        critic_optimizer_fn: OCreates[OptimizerFn] = None,
+        critic_loss_fn: OCreates[LossFn] = None,
         n_critics: int = 2,
         stack_size: int = 1,
-        replay_buffer: BaseReplayBuffer = None,
+        replay_buffer: OCreates[BaseReplayBuffer] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
-        grad_clip: float = None,
-        reward_clip: float = None,
+        grad_clip: Optional[float] = None,
+        reward_clip: Optional[float] = None,
         soft_update_fraction: float = 0.005,
         batch_size: int = 64,
         log_frequency: int = 100,
@@ -135,19 +138,18 @@ class TD3(Agent):
         self._init_fn = create_init_weights_fn(init_fn)
         self._n_critics = n_critics
         self.create_networks(representation_net, actor_net, critic_net)
-        if critic_optimizer_fn is None:
-            critic_optimizer_fn = torch.optim.Adam
-        if actor_optimizer_fn is None:
-            actor_optimizer_fn = torch.optim.Adam
+        critic_optimizer_fn = default(critic_optimizer_fn, torch.optim.Adam)
+        actor_optimizer_fn = default(actor_optimizer_fn, torch.optim.Adam)
         self._critic_optimizer = critic_optimizer_fn(self._critic.parameters())
         self._actor_optimizer = actor_optimizer_fn(self._actor.parameters())
-        if replay_buffer is None:
-            replay_buffer = CircularReplayBuffer
+        replay_buffer = default(replay_buffer, CircularReplayBuffer)
         self._replay_buffer = replay_buffer(
-            observation_shape=self._observation_space.shape,
-            observation_dtype=self._observation_space.dtype,
-            action_shape=self._action_space.shape,
-            action_dtype=self._action_space.dtype,
+            observation_spec=ReplayItemSpec.create(
+                shape=self._observation_space.shape, dtype=self._observation_space.dtype
+            ),
+            action_spec=ReplayItemSpec.create(
+                shape=self._action_space.shape, dtype=self._action_space.dtype
+            ),
             stack_size=stack_size,
             gamma=discount_rate,
         )
@@ -155,8 +157,7 @@ class TD3(Agent):
         self._grad_clip = grad_clip
         self._reward_clip = reward_clip
         self._soft_update_fraction = soft_update_fraction
-        if critic_loss_fn is None:
-            critic_loss_fn = torch.nn.MSELoss
+        critic_loss_fn = default(critic_loss_fn, torch.nn.MSELoss)
         self._critic_loss_fn = critic_loss_fn(reduction="mean")
         self._batch_size = batch_size
         self._log_schedule = PeriodicSchedule(False, True, log_frequency)

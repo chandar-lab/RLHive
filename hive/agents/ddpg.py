@@ -1,9 +1,11 @@
 import gymnasium as gym
-from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.utils import InitializationFn
 from hive.agents.td3 import TD3
 from hive.replays import BaseReplayBuffer
 from hive.utils.utils import LossFn, OptimizerFn
+from hive.utils.registry import OCreates
+from hive.agents.qnets import FunctionApproximator
+from typing import Optional
 
 
 class DDPG(TD3):
@@ -17,19 +19,19 @@ class DDPG(TD3):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Box,
-        representation_net: FunctionApproximator = None,
-        actor_net: FunctionApproximator = None,
-        critic_net: FunctionApproximator = None,
-        init_fn: InitializationFn = None,
-        actor_optimizer_fn: OptimizerFn = None,
-        critic_optimizer_fn: OptimizerFn = None,
-        critic_loss_fn: LossFn = None,
+        representation_net: OCreates[FunctionApproximator] = None,
+        actor_net: OCreates[FunctionApproximator] = None,
+        critic_net: OCreates[FunctionApproximator] = None,
+        init_fn: OCreates[InitializationFn] = None,
+        actor_optimizer_fn: OCreates[OptimizerFn] = None,
+        critic_optimizer_fn: OCreates[OptimizerFn] = None,
+        critic_loss_fn: OCreates[LossFn] = None,
         stack_size: int = 1,
-        replay_buffer: BaseReplayBuffer = None,
+        replay_buffer: OCreates[BaseReplayBuffer] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
-        grad_clip: float = None,
-        reward_clip: float = None,
+        grad_clip: Optional[float] = None,
+        reward_clip: Optional[float] = None,
         soft_update_fraction: float = 0.005,
         batch_size: int = 64,
         log_frequency: int = 100,

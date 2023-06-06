@@ -3,7 +3,7 @@ from hive.replays.legal_moves_replay import LegalMovesBuffer
 from hive.replays.on_policy_replay import OnPolicyReplayBuffer
 from hive.replays.prioritized_replay import PrioritizedReplayBuffer
 from hive.replays.recurrent_replay import RecurrentReplayBuffer
-from hive.replays.replay_buffer import BaseReplayBuffer
+from hive.replays.replay_buffer import BaseReplayBuffer, ReplayItemSpec
 from hive.utils.registry import registry
 
 registry.register_all(

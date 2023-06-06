@@ -21,7 +21,7 @@ class MLPNetwork(nn.Module):
 
     def __init__(
         self,
-        in_dim: Sequence[int],
+        in_dim: Union[int, Sequence[int]],
         hidden_units: Union[int, Sequence[int]] = 256,
         activation_fn: OCreates[nn.Module] = None,
         noisy: bool = False,

@@ -1,13 +1,15 @@
-from collections import defaultdict
+import copy
 import os
 import pickle
+from collections import defaultdict
+from collections.abc import Mapping
+from typing import Any, Optional
 
 import numpy as np
 import numpy.typing as npt
 
-from hive.replays.replay_buffer import BaseReplayBuffer
+from hive.replays.replay_buffer import BaseReplayBuffer, ReplayItemSpec
 from hive.utils.utils import create_folder, seeder
-import copy
 
 
 class CircularReplayBuffer(BaseReplayBuffer):
@@ -21,13 +23,10 @@ class CircularReplayBuffer(BaseReplayBuffer):
         stack_size: int = 1,
         n_step: int = 1,
         gamma: float = 0.99,
-        observation_shape=(),
-        observation_dtype=np.uint8,
-        action_shape=(),
-        action_dtype=np.int8,
-        reward_shape=(),
-        reward_dtype=np.float32,
-        extra_storage_types=None,
+        observation_spec: ReplayItemSpec = ReplayItemSpec.create((), np.uint8),
+        action_spec: ReplayItemSpec = ReplayItemSpec.create((), np.int8),
+        reward_spec: ReplayItemSpec = ReplayItemSpec.create((), np.float32),
+        extra_storage_specs: Optional[Mapping[str, ReplayItemSpec]] = None,
         optimize_storage: bool = True,
         commit_at_done: bool = True,
     ):
@@ -69,23 +68,23 @@ class CircularReplayBuffer(BaseReplayBuffer):
         self._capacity = capacity
         self._optimize_storage = optimize_storage
         self._specs = {
-            "observation": (observation_dtype, observation_shape),
-            "done": (np.uint8, ()),
-            "terminated": (np.uint8, ()),
-            "action": (action_dtype, action_shape),
-            "reward": (reward_dtype, reward_shape),
+            "observation": observation_spec,
+            "done": ReplayItemSpec.create((), np.uint8),
+            "terminated": ReplayItemSpec.create((), np.uint8),
+            "action": action_spec,
+            "reward": reward_spec,
         }
         if not optimize_storage:
-            self._specs["next_observation"] = (observation_dtype, observation_shape)
-        if extra_storage_types is not None:
-            self._specs.update(extra_storage_types)
+            self._specs["next_observation"] = observation_spec
+        if extra_storage_specs is not None:
+            self._specs.update(extra_storage_specs)
         self._storage = self._create_storage(capacity, self._specs)
         self._stack_size = stack_size
         self._n_step = n_step
         self._gamma = gamma
         self._discount = np.asarray(
             [self._gamma**i for i in range(self._n_step)],
-            dtype=self._specs["reward"][0],
+            dtype=self._specs["reward"].dtype,
         )
         self._episode_start = True
         self._cursor = 0
@@ -95,14 +94,16 @@ class CircularReplayBuffer(BaseReplayBuffer):
         if commit_at_done:
             self._episode_storage = defaultdict(lambda: [])
 
-    def size(self):
+    def size(self) -> int:
         """Returns the number of transitions stored in the buffer."""
         return max(
             min(self._num_added, self._capacity) - self._stack_size - self._n_step + 1,
             0,
         )
 
-    def _create_storage(self, capacity, specs):
+    def _create_storage(
+        self, capacity: int, specs: Mapping[str, ReplayItemSpec]
+    ) -> Mapping[str, npt.NDArray]:
         """Creates the storage buffer for each type of item in the buffer.
         Args:
             capacity: The capacity of the buffer.
@@ -110,15 +111,12 @@ class CircularReplayBuffer(BaseReplayBuffer):
                 the items to be stored in the buffer.
         """
         storage = {}
-        for key in specs:
-            dtype, shape = specs[key]
-            dtype = str_to_dtype(dtype)
-            specs[key] = dtype, shape
-            shape = (capacity,) + tuple(shape)
-            storage[key] = np.zeros(shape, dtype=dtype)
+        for key, spec in specs.items():
+            shape = (capacity,) + spec.shape
+            storage[key] = np.zeros(shape, dtype=spec.dtype)
         return storage
 
-    def _add_transition(self, **transition):
+    def _add_transition(self, **transition: Mapping[str, Any]):
         """Internal method to add a transition to the buffer."""
         for key in transition:
             if key in self._storage:
@@ -126,7 +124,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
         self._num_added += 1
         self._cursor = (self._cursor + 1) % self._capacity
 
-    def _pad_buffer(self, pad_length):
+    def _pad_buffer(self, pad_length: int):
         """Adds padding to the buffer. Used when stack_size > 1, and padding needs to
         be added to the beginning of the episode.
         """
@@ -197,9 +195,9 @@ class CircularReplayBuffer(BaseReplayBuffer):
                 if hasattr(transition[key], "dtype")
                 else type(transition[key])
             )
-            if not np.can_cast(obj_type, self._specs[key][0], casting="same_kind"):
+            if not np.can_cast(obj_type, self._specs[key].dtype, casting="same_kind"):
                 raise ValueError(
-                    f"Key {key} has wrong dtype. Expected {self._specs[key][0]},"
+                    f"Key {key} has wrong dtype. Expected {self._specs[key].dtype},"
                     f"received {type(transition[key])}."
                 )
         if not self._commit_at_done:
@@ -276,7 +274,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
             indices = indices[~done.any(axis=1)]
         return indices
 
-    def sample(self, batch_size):
+    def sample(self, batch_size: int) -> Mapping[str, npt.NDArray]:
         """Sample transitions from the buffer. For a given transition, if it's
         done is True, the next_observation value should not be taken to have any
         meaning.
@@ -343,7 +341,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
             )
         return batch
 
-    def save(self, dname):
+    def save(self, dname: str):
         """Save the replay buffer.
 
         Args:
@@ -367,17 +365,17 @@ class CircularReplayBuffer(BaseReplayBuffer):
         with open(os.path.join(dname, "replay.pkl"), "wb") as f:
             pickle.dump(state, f)
 
-    def load(self, dname):
+    def load(self, dname: str):
         """Load the replay buffer.
 
         Args:
             dname (str): directory where to load buffer from.
         """
         storage_path = os.path.join(dname, "storage")
-        for key in self._specs:
-            self._storage[key] = np.load(
-                os.path.join(storage_path, f"{key}.npy"), allow_pickle=False
-            )
+        self._storage = {
+            key: np.load(os.path.join(storage_path, f"{key}.npy"), allow_pickle=False)
+            for key in self._specs
+        }
         with open(os.path.join(dname, "replay.pkl"), "rb") as f:
             state = pickle.load(f)
         self._episode_start = state["episode_start"]
@@ -396,18 +394,29 @@ class SimpleReplayBuffer(BaseReplayBuffer):
             seed (int): Seed for a pseudo-random number generator.
     """
 
-    def __init__(self, capacity=1e5, compress=False, seed=42, **kwargs):
+    def __init__(
+        self,
+        capacity: int = 100000,
+        compress: bool = False,
+        seed: int = 42,
+        observation_spec: ReplayItemSpec = ReplayItemSpec.create((), np.uint8),
+        action_spec: ReplayItemSpec = ReplayItemSpec.create((), np.int8),
+        reward_spec: ReplayItemSpec = ReplayItemSpec.create((), np.float32),
+        extra_storage_specs: Optional[Mapping[str, ReplayItemSpec]] = None,
+        **kwargs,
+    ):
         self._numpy_rng = np.random.default_rng(seed)
         self._capacity = int(capacity)
         self._compress = compress
-
+        extra_storage_specs = {} if extra_storage_specs is None else extra_storage_specs
         self._dtype = {
-            "observation": "int8" if self._compress else "float32",
-            "action": "int8",
-            "reward": "int8" if self._compress else "float32",
-            "next_observation": "int8" if self._compress else "float32",
-            "truncated": "int8",
-            "terminated": "int8",
+            "observation": observation_spec,
+            "action": action_spec,
+            "reward": reward_spec,
+            "next_observation": observation_spec,
+            "truncated": ReplayItemSpec.create((), np.int8),
+            "terminated": ReplayItemSpec.create((), np.int8),
+            **extra_storage_specs,
         }
 
         self._data = {}
@@ -448,12 +457,13 @@ class SimpleReplayBuffer(BaseReplayBuffer):
             "terminated": terminated,
             "truncated": truncated,
             "next_observation": next_observation,
+            **kwargs,
         }
         self._write_index = (self._write_index + 1) % self._capacity
         self._n = int(min(self._capacity, self._n + 1))
         for key in self._data:
             self._data[key][self._write_index] = np.asarray(
-                transition[key], dtype=self._dtype[key]
+                transition[key], dtype=self._dtype[key].dtype
             )
 
     def sample(self, batch_size=32):
@@ -470,7 +480,7 @@ class SimpleReplayBuffer(BaseReplayBuffer):
         rval = {}
         for key in self._data:
             rval[key] = np.asarray(
-                [self._data[key][idx] for idx in indices], dtype="float32"
+                [self._data[key][idx] for idx in indices], dtype=self._dtype[key].dtype
             )
 
         return rval
@@ -518,18 +528,3 @@ class SimpleReplayBuffer(BaseReplayBuffer):
         self._write_index = sdict["write_index"]
         self._n = sdict["n"]
         self._data = sdict["data"]
-
-
-def str_to_dtype(dtype):
-    if isinstance(dtype, type) or isinstance(dtype, np.dtype):
-        return dtype
-    elif dtype.startswith("np.") or dtype.startswith("numpy."):
-        return np.sctypeDict[dtype.split(".")[1]]
-    else:
-        type_dict = {
-            "int": int,
-            "float": float,
-            "str": str,
-            "bool": bool,
-        }
-        return type_dict[dtype]

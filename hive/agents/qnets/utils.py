@@ -1,12 +1,17 @@
 import math
-from typing import Protocol
-
+from typing import Any, Callable, Protocol, Union, TypeVar
+from collections.abc import Sequence, Mapping
 import torch
-
+import optree
 from hive.utils.registry import registry
 
+T = TypeVar("T")
+NestedType = Union[T, Sequence["NestedType[T]"], Mapping[str, "NestedType[T]"]]
 
-def calculate_output_dim(net, input_shape: "int | tuple[int]"):
+
+def calculate_output_dim(
+    net: Callable[..., NestedType[torch.Tensor]], input_shape: Union[int, Sequence[int]]
+):
     """Calculates the resulting output shape for a given input shape and network.
 
     Args:
@@ -22,10 +27,16 @@ def calculate_output_dim(net, input_shape: "int | tuple[int]"):
         input_shape = (input_shape,)
     placeholder = torch.zeros((1,) + tuple(input_shape))
     output = net(placeholder)
-    return apply_to_tensor(output, lambda y: y.size()[1:])
+
+    def get_size(y: torch.Tensor) -> Sequence[int]:
+        return y.size()[1:]
+
+    return apply_to_tensor(output, get_size)
 
 
-def apply_to_tensor(x, fn):
+def apply_to_tensor(
+    x: NestedType[torch.Tensor], fn: Callable[[torch.Tensor], T]
+) -> NestedType[T]:
     """Applies a function to a tensor or a tuple/list of tensors.
 
     Args:
@@ -38,8 +49,10 @@ def apply_to_tensor(x, fn):
     """
     if isinstance(x, torch.Tensor):
         return fn(x)
-    elif isinstance(x, tuple) or isinstance(x, list):
-        return type(x)(apply_to_tensor(y, fn) for y in x)
+    elif isinstance(x, tuple):
+        return tuple(apply_to_tensor(y, fn) for y in x)
+    elif isinstance(x, list):
+        return list(apply_to_tensor(y, fn) for y in x)
     elif isinstance(x, dict):
         return {k: apply_to_tensor(v, fn) for k, v in x.items()}
     else:

@@ -135,12 +135,28 @@ class Chomp(dict):
 #             "loss_fn"
 #         """
 #         return "loss_fn"
-from typing import NewType
+from typing import NewType, Protocol, TypeVar
 
-LossFn = NewType("LossFn", torch.nn.Module)
+T = TypeVar("T")
+
+# LossFn = NewType("LossFn", torch.nn.Module)
+# ActivationFn = NewType("ActivationFn", torch.nn.Module)
+
+OptimizerFn = NewType("OptimizerFn", torch.optim.Optimizer)
+
+
+class ActivationFn(Protocol):
+    def __call__(self, x: T) -> T:
+        ...
+
+
+class LossFn(Protocol):
+    def __call__(self, pred, target):
+        ...
+
+
 # LossFn = TypeVar("LossFn", bound=torch.nn.Module)
-ActivationFn = TypeVar("ActivationFn", bound=torch.nn.Module)
-LossFn = TypeVar("LossFn", bound=Callable)
+# LossFn = TypeVar("LossFn", bound=Callable)
 # class ActivationFn(Registrable):
 #     """A wrapper for callables that produce activation functions.
 

@@ -183,9 +183,7 @@ class DRQNAgent(DQNAgent):
                 be used to compute Q-values (e.g. everything except the final layer
                 of the DRQN).
         """
-        network = SequenceModel(
-            self._state_size, representation_net(self._state_size), sequence_fn
-        )
+        network = SequenceModel(self._state_size, representation_net, sequence_fn)
         network_output_dim = np.prod(
             calculate_output_dim(network, (1,) + self._state_size)[0]
         )

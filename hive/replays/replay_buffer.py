@@ -1,9 +1,37 @@
 import abc
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Union, Tuple
 
-from hive.utils.registry import Registrable
+import numpy as np
 
 
-class BaseReplayBuffer(abc.ABC, Registrable):
+@dataclass(frozen=True)
+class ReplayItemSpec:
+    shape: Tuple[int, ...]
+    dtype: Union[type, np.dtype]
+
+    @classmethod
+    def create(cls, shape: Sequence[int], dtype: Union[type, np.dtype, str]):
+        return cls(tuple(shape), str_to_dtype(dtype))
+
+
+def str_to_dtype(dtype: Union[type, np.dtype, str]) -> Union[type, np.dtype]:
+    if isinstance(dtype, type) or isinstance(dtype, np.dtype):
+        return dtype
+    elif dtype.startswith("np.") or dtype.startswith("numpy."):
+        return np.sctypeDict[dtype.split(".")[1]]
+    else:
+        type_dict = {
+            "int": int,
+            "float": float,
+            "str": str,
+            "bool": bool,
+        }
+        return type_dict[dtype]
+
+
+class BaseReplayBuffer(abc.ABC):
     """Base class for replay buffers. Every implemented buffer should be a subclass of this class."""
 
     @abc.abstractmethod

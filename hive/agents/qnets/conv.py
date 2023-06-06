@@ -3,8 +3,8 @@ from torch import nn
 
 from hive.agents.qnets.mlp import MLPNetwork
 from hive.agents.qnets.utils import calculate_output_dim
-from typing import Optional, TypeVar, Union
-from collections.abc import Sequence
+from typing import Optional, TypeVar, Union, Callable, cast
+from collections.abc import Sequence, Mapping
 
 T = TypeVar("T")
 
@@ -58,6 +58,7 @@ class ConvNetwork(nn.Module):
         """
         super().__init__()
         self._normalization_factor = normalization_factor
+        self.conv: Callable[..., torch.Tensor] = torch.nn.Identity()
         if channels is not None:
             if isinstance(kernel_sizes, int):
                 kernel_sizes = [kernel_sizes] * len(channels)
@@ -91,7 +92,10 @@ class ConvNetwork(nn.Module):
 
         if mlp_layers is not None:
             # MLP Layers
-            conv_output_size = calculate_output_dim(self.conv, in_dim)
+            conv_output_size = cast(
+                Sequence[int], calculate_output_dim(self.conv, in_dim)
+            )
+
             self.mlp = MLPNetwork(
                 conv_output_size, mlp_layers, noisy=noisy, std_init=std_init
             )

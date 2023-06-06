@@ -1,9 +1,10 @@
-from typing import Tuple, Union
+from typing import Tuple, Union, cast
 import numpy as np
 import torch
 
-from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.utils import calculate_output_dim
+from hive.types import Shape
+from hive.utils.registry import OCreates, default
 
 
 class TD3ActorNetwork(torch.nn.Module):
@@ -14,9 +15,9 @@ class TD3ActorNetwork(torch.nn.Module):
     def __init__(
         self,
         representation_network: torch.nn.Module,
-        actor_net: FunctionApproximator,
-        network_output_shape: Union[int, Tuple[int]],
-        action_shape: Tuple[int],
+        network_output_shape: Shape,
+        action_shape: Shape,
+        actor_net: OCreates[torch.nn.Module] = None,
         use_tanh=True,
     ) -> None:
         """
@@ -34,16 +35,17 @@ class TD3ActorNetwork(torch.nn.Module):
         super().__init__()
 
         self._action_shape = action_shape
-        if actor_net is None:
-            actor_network = torch.nn.Identity()
-        else:
-            actor_network = actor_net(network_output_shape)
-        feature_dim = np.prod(calculate_output_dim(actor_network, network_output_shape))
+        actor_network = default(actor_net, torch.nn.Identity)(network_output_shape)
+        feature_dim = int(
+            np.prod(
+                cast(Shape, calculate_output_dim(actor_network, network_output_shape))
+            )
+        )
         actor_modules = [
             representation_network,
             actor_network,
             torch.nn.Flatten(),
-            torch.nn.Linear(feature_dim, np.prod(action_shape)),
+            torch.nn.Linear(feature_dim, int(np.prod(action_shape))),
         ]
         if use_tanh:
             actor_modules.append(torch.nn.Tanh())
@@ -58,10 +60,10 @@ class TD3CriticNetwork(torch.nn.Module):
     def __init__(
         self,
         representation_network: torch.nn.Module,
-        critic_net: FunctionApproximator,
-        network_output_shape: Union[int, Tuple[int]],
+        network_output_shape: Shape,
         n_critics: int,
-        action_shape: Tuple[int],
+        action_shape: Shape,
+        critic_net: OCreates[torch.nn.Module] = None,
     ) -> None:
         """
         Args:
@@ -79,12 +81,15 @@ class TD3CriticNetwork(torch.nn.Module):
         """
         super().__init__()
         self.network = representation_network
-        if critic_net is None:
-            critic_net = lambda x: torch.nn.Identity()
+        critic_net = default(critic_net, torch.nn.Identity)
         self._n_critics = n_critics
-        input_shape = (np.prod(network_output_shape) + np.prod(action_shape),)
+        input_shape = (int(np.prod(network_output_shape) + np.prod(action_shape)),)
         critics = [critic_net(input_shape) for _ in range(n_critics)]
-        feature_dim = np.prod(calculate_output_dim(critics[0], input_shape=input_shape))
+        feature_dim = int(
+            np.prod(
+                cast(Shape, calculate_output_dim(critics[0], input_shape=input_shape))
+            )
+        )
         self._critics = torch.nn.ModuleList(
             [
                 torch.nn.Sequential(

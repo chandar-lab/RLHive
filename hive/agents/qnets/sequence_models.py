@@ -1,4 +1,5 @@
 import abc
+from typing import Optional, cast
 
 import numpy as np
 import torch
@@ -6,7 +7,8 @@ from torch import nn
 
 from hive.agents.qnets.mlp import MLPNetwork
 from hive.agents.qnets.utils import calculate_output_dim
-from hive.utils.registry import registry, OCreates, Creates, default
+from hive.types import Shape
+from hive.utils.registry import Creates, default, registry
 
 
 class SequenceFn(nn.Module):
@@ -27,10 +29,10 @@ class LSTMModel(SequenceFn):
 
     def __init__(
         self,
-        rnn_input_size,
-        rnn_hidden_size=128,
-        num_rnn_layers=1,
-        batch_first=True,
+        rnn_input_size: int,
+        rnn_hidden_size: int = 128,
+        num_rnn_layers: int = 1,
+        batch_first: bool = True,
     ):
         """
         Args:
@@ -77,7 +79,7 @@ class LSTMModel(SequenceFn):
         self._device = next(self.core.parameters()).device
         return ret
 
-    def init_hidden(self, batch_size):
+    def init_hidden(self, batch_size: int):
         return {
             "hidden_state": torch.zeros(
                 (batch_size, self._num_rnn_layers, self._rnn_hidden_size),
@@ -170,7 +172,7 @@ class GRUModel(SequenceFn):
         }
 
 
-class SequenceModel(Registrable, nn.Module):
+class SequenceModel(nn.Module):
     """
     Basic convolutional recurrent neural network architecture. Applies a number of
     convolutional layers (each followed by a ReLU activation), recurrent layers, and then
@@ -183,15 +185,11 @@ class SequenceModel(Registrable, nn.Module):
     :py:class:`torch.nn.Identity` module.
     """
 
-    @classmethod
-    def type_name(cls):
-        return "SequenceModel"
-
     def __init__(
         self,
         in_dim,
-        representation_network: torch.nn.Module,
-        sequence_fn: SequenceFn,
+        representation_network: Creates[torch.nn.Module],
+        sequence_fn: Creates[SequenceFn],
         mlp_layers=None,
         normalization_factor=255,
         noisy=False,
@@ -216,10 +214,12 @@ class SequenceModel(Registrable, nn.Module):
         super().__init__()
 
         self._normalization_factor = normalization_factor
-        self.representation_network = representation_network
+        self.representation_network = representation_network(in_dim)
 
         # RNN Layers
-        conv_output_size = calculate_output_dim(self.representation_network, in_dim)
+        conv_output_size = cast(
+            Shape, calculate_output_dim(self.representation_network, in_dim)
+        )
         self.sequence_fn = sequence_fn(
             rnn_input_size=np.prod(conv_output_size),
         )
@@ -230,7 +230,7 @@ class SequenceModel(Registrable, nn.Module):
                 self.sequence_fn, conv_output_size
             )
             self.mlp = MLPNetwork(
-                sequence_output_size,
+                cast(Shape, sequence_output_size),
                 mlp_layers,
                 noisy=noisy,
                 std_init=std_init,
@@ -271,7 +271,7 @@ class DRQNNetwork(nn.Module):
         base_network: SequenceModel,
         hidden_dim: int,
         out_dim: int,
-        linear_fn: nn.Module = None,
+        linear_fn: Optional[nn.Module] = None,
     ):
         """
         Args:
@@ -310,6 +310,3 @@ registry.register_all(
 )
 
 registry.register("SequenceModel", SequenceModel, SequenceModel)
-
-get_sequence_fn = getattr(registry, f"get_{SequenceFn.type_name()}")
-get_sequence_model = getattr(registry, f"get_{SequenceModel.type_name()}")
