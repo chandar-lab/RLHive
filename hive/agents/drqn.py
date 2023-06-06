@@ -156,13 +156,7 @@ class DRQNAgent(DQNAgent):
             loss_fn = torch.nn.SmoothL1Loss
         self._loss_fn = loss_fn(reduction="none")
         self._batch_size = batch_size
-        logger = logger
-        if logger is None:
-            logger = NullLogger([])
-        self._timescale = self.id
-        logger.register_timescale(
-            self._timescale, PeriodicSchedule(False, True, log_frequency)
-        )
+        self._log_schedule = PeriodicSchedule(False, True, log_frequency)
         if update_period_schedule is None:
             self._update_period_schedule = PeriodicSchedule(False, True, 1)
         else:
@@ -310,13 +304,16 @@ class DRQNAgent(DQNAgent):
         else:
             # Note: not explicitly handling the ties
             action = torch.argmax(qvals).item()
+        if agent_traj_state is None:
+            if self._training and self._logger.should_log(self._timescale):
+                self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
 
         if (
             self._training
             and logger.should_log(self._timescale)
             and agent_traj_state is None
         ):
-            logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
+            logger.log_scalar("train_qval", torch.max(qvals), self.id)
         return action, {"hidden_state": hidden_state}
 
     def update(self, update_info, agent_traj_state=None):

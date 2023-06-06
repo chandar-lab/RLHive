@@ -15,7 +15,7 @@ from hive.agents.qnets.utils import (
     create_init_weights_fn,
 )
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
-from hive.utils.loggers import Logger, NullLogger
+from hive.utils.loggers import logger
 from hive.utils.schedule import DoublePeriodicSchedule, PeriodicSchedule, SwitchSchedule
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
 
@@ -51,7 +51,6 @@ class SACAgent(Agent):
         reward_clip: float = None,
         soft_update_fraction: float = 0.005,
         batch_size: int = 64,
-        logger: Logger = None,
         log_frequency: int = 1,
         update_frequency: int = 1,
         policy_update_frequency: int = 2,
@@ -175,13 +174,7 @@ class SACAgent(Agent):
             critic_loss_fn = torch.nn.MSELoss
         self._critic_loss_fn = critic_loss_fn(reduction="mean")
         self._batch_size = batch_size
-        logger = logger
-        if logger is None:
-            logger = NullLogger([])
-        self._timescale = self.id
-        logger.register_timescale(
-            self._timescale, PeriodicSchedule(False, True, log_frequency)
-        )
+        self._log_schedule = PeriodicSchedule(False, True, log_frequency)
         self._update_schedule = PeriodicSchedule(False, True, update_frequency)
         self._target_net_update_schedule = PeriodicSchedule(
             False, True, target_net_update_frequency
@@ -295,7 +288,7 @@ class SACAgent(Agent):
         return (batch["observation"],), (batch["next_observation"],), batch
 
     @torch.no_grad()
-    def act(self, observation, agent_traj_state=None):
+    def act(self, observation, agent_traj_state, global_step):
         """Returns the action for the agent. If in training mode, adds noise with
         standard deviation :py:obj:`self._action_noise`.
 
@@ -321,7 +314,7 @@ class SACAgent(Agent):
         action = self.unscale_actions(action)
         return action[0], agent_traj_state
 
-    def update(self, update_info, agent_traj_state=None):
+    def update(self, update_info, agent_traj_state, global_step):
         """
         Updates the SAC agent.
 
@@ -365,7 +358,7 @@ class SACAgent(Agent):
                 self._update_actor(current_state_inputs, metrics)
             if self._target_net_update_schedule.update():
                 self._update_target()
-            if logger.update_step(self._timescale):
+            if self._log_schedule(global_step):
                 logger.log_metrics(metrics, self._timescale)
         return agent_traj_state
 

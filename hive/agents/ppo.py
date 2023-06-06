@@ -14,7 +14,7 @@ from hive.agents.qnets.normalizer import (
 from hive.agents.qnets.ac_nets import ActorCriticNetwork
 from hive.agents.qnets.utils import calculate_output_dim, InitializationFn
 from hive.replays.on_policy_replay import OnPolicyReplayBuffer
-from hive.utils.loggers import Logger, NullLogger
+from hive.utils.loggers import logger
 from hive.utils.schedule import PeriodicSchedule, Schedule, ConstantSchedule
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
 
@@ -165,13 +165,7 @@ class PPOAgent(Agent):
             critic_loss_fn = torch.nn.MSELoss
         self._critic_loss_fn = critic_loss_fn(reduction="none")
         self._batch_size = batch_size
-        logger = logger
-        if logger is None:
-            logger = NullLogger([])
-        self._timescale = self.id
-        logger.register_timescale(
-            self._timescale, PeriodicSchedule(False, True, log_frequency)
-        )
+        self._log_schedule = PeriodicSchedule(False, True, log_frequency)
         self._clip_coefficient = clip_coefficient
         self._entropy_coefficient = entropy_coefficient
         self._clip_value_loss = clip_value_loss
@@ -289,7 +283,7 @@ class PPOAgent(Agent):
         return action, logprob, value
 
     @torch.no_grad()
-    def act(self, observation, agent_traj_state=None):
+    def act(self, observation, agent_traj_state, global_step):
         """Returns the action for the agent.
 
         Args:
@@ -305,7 +299,7 @@ class PPOAgent(Agent):
         agent_traj_state["value"] = value
         return action, agent_traj_state
 
-    def update(self, update_info, agent_traj_state=None):
+    def update(self, update_info, agent_traj_state, global_step):
         """
         Updates the PPO agent.
 
@@ -408,7 +402,7 @@ class PPOAgent(Agent):
                 if self._target_kl is not None and self._target_kl < approx_kl:
                     break
             self._replay_buffer.reset()
-            if logger.update_step(self._timescale):
+            if self._log_schedule(global_step):
                 logger.log_metrics(
                     {
                         "loss": loss,
