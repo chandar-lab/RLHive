@@ -6,7 +6,6 @@ import gymnasium as gym
 import numpy as np
 
 from hive.utils.registry import registry
-from hive.envs.env_wrapper import GymWrapper
 
 
 class FlattenWrapper(gym.ObservationWrapper):
@@ -85,7 +84,7 @@ class PermuteImageWrapper(gym.ObservationWrapper):
 
 
 registry.register_all(
-    GymWrapper,
+    gym.Wrapper,
     {"PermuteImageWrapper": PermuteImageWrapper, "FlattenWrapper": FlattenWrapper},
 )
 
@@ -100,9 +99,9 @@ try:
     ]
 
     registry.register_all(
-        GymWrapper,
+        gym.Wrapper,
         {"minigrid.{}".format(wrapper.__name__): wrapper for wrapper in wrappers},
     )
 
-except:
+except ImportError:
     pass

@@ -16,36 +16,39 @@ from hive.agents.qnets.utils import (
     create_init_weights_fn,
 )
 from hive.agents.utils import roll_state
-from hive.replays import BaseReplayBuffer, CircularReplayBuffer
+from hive.replays import BaseReplayBuffer, CircularReplayBuffer, ReplayItemSpec
 from hive.utils.loggers import logger
 from hive.utils.schedule import DoublePeriodicSchedule, PeriodicSchedule, SwitchSchedule
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
+from hive.utils.registry import OCreates, default
+from typing import Optional, cast
+from hive.types import Shape
 
 
-class SACAgent(Agent):
+class SACAgent(Agent[gym.spaces.Box, gym.spaces.Box]):
     """An agent implementing the SAC algorithm."""
 
     def __init__(
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Box,
-        representation_net: FunctionApproximator = None,
-        actor_net: FunctionApproximator = None,
-        critic_net: FunctionApproximator = None,
-        init_fn: InitializationFn = None,
-        actor_optimizer_fn: OptimizerFn = None,
-        critic_optimizer_fn: OptimizerFn = None,
-        alpha_optimizer_fn: OptimizerFn = None,
-        critic_loss_fn: LossFn = None,
+        representation_net: OCreates[FunctionApproximator] = None,
+        actor_net: OCreates[FunctionApproximator] = None,
+        critic_net: OCreates[FunctionApproximator] = None,
+        init_fn: OCreates[InitializationFn] = None,
+        actor_optimizer_fn: OCreates[OptimizerFn] = None,
+        critic_optimizer_fn: OCreates[OptimizerFn] = None,
+        alpha_optimizer_fn: OCreates[OptimizerFn] = None,
+        critic_loss_fn: OCreates[LossFn] = None,
         auto_alpha: bool = True,
         alpha: float = 0.2,
         n_critics: int = 2,
         stack_size: int = 1,
-        replay_buffer: BaseReplayBuffer = None,
+        replay_buffer: OCreates[BaseReplayBuffer] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
-        grad_clip: float = None,
-        reward_clip: float = None,
+        grad_clip: Optional[float] = None,
+        reward_clip: Optional[float] = None,
         soft_update_fraction: float = 0.005,
         batch_size: int = 64,
         log_frequency: int = 1,
@@ -131,6 +134,7 @@ class SACAgent(Agent):
             stack_size * self._observation_space.shape[0],
             *self._observation_space.shape[1:],
         )
+        self._stack_size = stack_size
         self._action_min = self._action_space.low
         self._action_max = self._action_space.high
         self._action_scaling = 0.5 * (self._action_max - self._action_min)
@@ -140,12 +144,9 @@ class SACAgent(Agent):
         self._n_critics = n_critics
         self._auto_alpha = auto_alpha
         self.create_networks(representation_net, actor_net, critic_net)
-        if critic_optimizer_fn is None:
-            critic_optimizer_fn = torch.optim.Adam
-        if actor_optimizer_fn is None:
-            actor_optimizer_fn = torch.optim.Adam
-        if auto_alpha and alpha_optimizer_fn is None:
-            alpha_optimizer_fn = torch.optim.Adam
+        critic_optimizer_fn = default(critic_optimizer_fn, torch.optim.Adam)
+        actor_optimizer_fn = default(actor_optimizer_fn, torch.optim.Adam)
+        alpha_optimizer_fn = default(alpha_optimizer_fn, torch.optim.Adam)
         self._critic_optimizer = critic_optimizer_fn(self._critic.parameters())
         self._actor_optimizer = actor_optimizer_fn(self._actor.parameters())
         if auto_alpha:
@@ -153,22 +154,22 @@ class SACAgent(Agent):
             self._alpha = self._log_alpha.detach().exp()
         else:
             self._alpha = alpha
-        if replay_buffer is None:
-            replay_buffer = CircularReplayBuffer
+        replay_buffer = default(replay_buffer, CircularReplayBuffer)
         self._replay_buffer = replay_buffer(
-            observation_shape=self._observation_space.shape,
-            observation_dtype=self._observation_space.dtype,
-            action_shape=self._action_space.shape,
-            action_dtype=self._action_space.dtype,
+            observation_spec=ReplayItemSpec.create(
+                shape=self._observation_space.shape, dtype=self._observation_space.dtype
+            ),
+            action_spec=ReplayItemSpec.create(
+                shape=self._action_space.shape, dtype=self._action_space.dtype
+            ),
+            stack_size=stack_size,
             gamma=discount_rate,
-            extra_storage_types={"terminated": (np.uint8, ())},
         )
         self._discount_rate = discount_rate**n_step
         self._grad_clip = grad_clip
         self._reward_clip = reward_clip
         self._soft_update_fraction = soft_update_fraction
-        if critic_loss_fn is None:
-            critic_loss_fn = torch.nn.MSELoss
+        critic_loss_fn = default(critic_loss_fn, torch.nn.MSELoss)
         self._critic_loss_fn = critic_loss_fn(reduction="mean")
         self._batch_size = batch_size
         self._log_schedule = PeriodicSchedule(False, True, log_frequency)
@@ -197,13 +198,14 @@ class SACAgent(Agent):
             network = torch.nn.Identity()
         else:
             network = representation_net(self._state_size)
-        network_output_shape = calculate_output_dim(network, self._state_size)
+        network_output_shape = cast(
+            Shape, calculate_output_dim(network, self._state_size)
+        )
         self._actor = SACActorNetwork(
             network,
             actor_net,
             network_output_shape,
             self._action_space,
-            self._cleanrl_correction,
         ).to(self._device)
         self._critic = SACContinuousCriticNetwork(
             network,
@@ -357,45 +359,49 @@ class SACAgent(Agent):
             and self._update_schedule(global_step)
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            (
-                current_state_inputs,
-                next_state_inputs,
-                batch,
-            ) = self.preprocess_update_batch(batch)
-
-            metrics = {}
-            self._update_critics(
-                batch, current_state_inputs, next_state_inputs, metrics=metrics
-            )
-            # Update policy with policy delay
-            while self._policy_update_schedule(global_step):
-                self._update_actor(current_state_inputs, metrics)
-            if self._target_net_update_schedule(global_step):
-                self._update_target()
+            metrics = self.update_on_batch(batch, global_step)
             if self._log_schedule(global_step):
                 logger.log_metrics(metrics, self.id)
         return agent_traj_state
 
-    def _update_actor(self, current_state_inputs, metrics):
-        actions, log_probs, _ = self._actor(*current_state_inputs)
-        action_values = self._critic(*current_state_inputs, actions)
+    def update_on_batch(self, batch, global_step):
+        (
+            current_state_inputs,
+            next_state_inputs,
+            batch,
+        ) = self.preprocess_update_batch(batch)
+
+        metrics = {}
+        metrics.update(
+            self._update_critics(batch, current_state_inputs, next_state_inputs)
+        )
+        # Update policy with policy delay
+        while self._policy_update_schedule(global_step):
+            metrics.update(self._update_actor(current_state_inputs))
+        if self._target_net_update_schedule(global_step):
+            self._update_target()
+        return metrics
+
+    def _update_actor(self, current_state_inputs):
+        actions, log_probs, _ = self._actor(current_state_inputs)
+        action_values = self._critic(current_state_inputs, actions)
         min_action_values = torch.min(action_values[0], action_values[1]).view(-1)
         actor_loss = torch.mean(self._alpha * log_probs - min_action_values)
         self._actor_optimizer.zero_grad()
         actor_loss.backward()
         if self._grad_clip is not None:
-            torch.nn.utils.clip_grad_norm_(self._actor.parameters(), self._grad_clip)
+            torch.nn.utils.clip_grad_norm_(  # pyright: ignore reportPrivateImportUsage
+                self._actor.parameters(), self._grad_clip
+            )
         self._actor_optimizer.step()
+        metrics = {"actor_loss": actor_loss}
         if self._auto_alpha:
-            alpha_loss = self._update_alpha(current_state_inputs, metrics)
-        else:
-            alpha_loss = 0
-        metrics["actor_loss"] = actor_loss
-        metrics["alpha_loss"] = alpha_loss
+            metrics.update(self._update_alpha(current_state_inputs))
+        return metrics
 
-    def _update_alpha(self, current_state_inputs, metrics):
+    def _update_alpha(self, current_state_inputs):
         with torch.no_grad():
-            _, log_probs, _ = self._actor(*current_state_inputs)
+            _, log_probs, _ = self._actor(current_state_inputs)
         alpha_loss = (
             -self._log_alpha * (log_probs + self._target_entropy).detach()
         ).mean()
@@ -403,35 +409,36 @@ class SACAgent(Agent):
         alpha_loss.backward()
         self._alpha_optimizer.step()
         self._alpha = self._log_alpha.exp().item()
-        metrics["alpha"] = self._alpha
-        metrics["alpha_loss"] = alpha_loss
+        return {"alpha": self._alpha, "alpha_loss": alpha_loss}
 
-    def _update_critics(self, batch, current_state_inputs, next_state_inputs, metrics):
+    def _update_critics(self, batch, current_state_inputs, next_state_inputs):
         target_q_values = self._calculate_target_q_values(batch, next_state_inputs)
 
         # Critic losses
-        pred_qvals = self._critic(*current_state_inputs, batch["action"])
-        critic_losses = [
-            self._critic_loss_fn(qvals, target_q_values) for qvals in pred_qvals
-        ]
-        critic_loss = sum(critic_losses)
+        pred_qvals = self._critic(current_state_inputs, batch["action"])
+        critic_losses = torch.stack(
+            [self._critic_loss_fn(qvals, target_q_values) for qvals in pred_qvals]
+        )
+        critic_loss = critic_losses.sum()
         self._critic_optimizer.zero_grad()
         critic_loss.backward()
         if self._grad_clip is not None:
-            torch.nn.utils.clip_grad_norm_(self._critic.parameters(), self._grad_clip)
+            torch.nn.utils.clip_grad_norm_(  # pyright: ignore reportPrivateImportUsage
+                self._critic.parameters(), self._grad_clip
+            )
         self._critic_optimizer.step()
-        metrics["critic_loss"] = critic_loss
+        metrics = {"critic_loss": critic_loss, "target_q_value": target_q_values.mean()}
         metrics.update(
             {f"critic_{idx}_value": x.mean() for idx, x in enumerate(pred_qvals)}
         )
         metrics.update({f"critic_{idx}_loss": x for idx, x in enumerate(critic_losses)})
-        metrics.update({"target_q_value": target_q_values.mean()})
+        return metrics
 
     def _calculate_target_q_values(self, batch, next_state_inputs):
         with torch.no_grad():
-            next_actions, next_log_prob, _ = self._actor(*next_state_inputs)
+            next_actions, next_log_prob, _ = self._actor(next_state_inputs)
             next_q_vals = torch.stack(
-                self._target_critic(*next_state_inputs, next_actions)
+                self._target_critic(next_state_inputs, next_actions)
             )
             next_q_vals = torch.min(next_q_vals, dim=0)[0] - self._alpha * next_log_prob
             target_q_values = (
@@ -452,17 +459,16 @@ class SACAgent(Agent):
         self._target_critic.load_state_dict(target_params)
 
     def save(self, dname):
-        state_dict = (
-            {
-                "critic": self._critic.state_dict(),
-                "target_critic": self._target_critic.state_dict(),
-                "critic_optimizer": self._critic_optimizer.state_dict(),
-                "actor": self._actor.state_dict(),
-                "actor_optimizer": self._actor_optimizer.state_dict(),
-                "alpha": self._alpha,
-                "alpha_optimizer": self._alpha_optimizer.state_dict(),
-            },
-        )
+        state_dict = {
+            "critic": self._critic.state_dict(),
+            "target_critic": self._target_critic.state_dict(),
+            "critic_optimizer": self._critic_optimizer.state_dict(),
+            "actor": self._actor.state_dict(),
+            "actor_optimizer": self._actor_optimizer.state_dict(),
+            "alpha": self._alpha,
+            "alpha_optimizer": self._alpha_optimizer.state_dict(),
+        }
+
         if self._auto_alpha:
             state_dict["log_alpha"] = self._log_alpha
         torch.save(

@@ -2,26 +2,26 @@
 import logging
 from pathlib import Path
 import shutil
-from typing import Union, Sequence
+from typing import Union, Sequence, Mapping
 
 import yaml
 
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.utils.loggers import logger
-from hive.utils.registry import Registrable, registry
+from hive.utils.registry import registry, Creates
 from hive.utils.schedule import Schedule
 from hive.utils.utils import Chomp, Counter, create_folder
 
 
-class Experiment(Registrable):
+class Experiment:
     """Implementation of a simple experiment class."""
 
     def __init__(
         self,
         name: str,
         save_dir: str,
-        saving_schedule: Schedule,
+        saving_schedule: Creates[Schedule[bool]],
         num_checkpoints_to_save: int = 1,
     ):
         """Initializes an experiment object.

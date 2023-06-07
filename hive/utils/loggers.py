@@ -1,25 +1,28 @@
 import abc
-import os
-from typing import Any, List
+from pathlib import Path
+from typing import Any, Optional
 
 import torch
 
 import wandb
-from hive.utils.registry import Registrable, registry
+from hive.utils.registry import registry, Creates
 from hive.utils.utils import Chomp, create_folder, Counter
+from hive.types import PathLike
+
+from collections.abc import Mapping, Sequence
 
 
-class Logger(abc.ABC, Registrable):
+class Logger(abc.ABC):
     """Abstract class for logging in hive."""
 
     def __init__(self) -> None:
         self._global_step = Counter()
 
-    def set_global_step(self, global_step: Counter):
+    def set_global_step(self, global_step: Counter) -> None:
         self._global_step = global_step
 
     @abc.abstractmethod
-    def log_config(self, config):
+    def log_config(self, config: Mapping) -> None:
         """Log the config.
 
         Args:
@@ -28,7 +31,7 @@ class Logger(abc.ABC, Registrable):
         pass
 
     @abc.abstractmethod
-    def log_scalar(self, name, value, prefix):
+    def log_scalar(self, name: str, value: Any, prefix: str) -> None:
         """Log a scalar variable.
 
         Args:
@@ -39,7 +42,7 @@ class Logger(abc.ABC, Registrable):
         pass
 
     @abc.abstractmethod
-    def log_metrics(self, metrics, prefix):
+    def log_metrics(self, metrics: Mapping[str, Any], prefix: str) -> None:
         """Log a dictionary of values.
 
         Args:
@@ -48,7 +51,7 @@ class Logger(abc.ABC, Registrable):
         """
         pass
 
-    def save(self, dir_name):
+    def save(self, dir_name: PathLike) -> None:
         """Saves the current state of the log files.
 
         Args:
@@ -56,17 +59,13 @@ class Logger(abc.ABC, Registrable):
         """
         pass
 
-    def load(self, dir_name):
+    def load(self, dir_name: PathLike) -> None:
         """Loads the log files from given directory.
 
         Args:
             dir_name (str): Name of the directory to load the log file from.
         """
         pass
-
-    @classmethod
-    def type_name(cls):
-        return "logger"
 
 
 class NullLogger(Logger):
@@ -97,13 +96,13 @@ class WandbLogger(Logger):
 
     def __init__(
         self,
-        project=None,
-        name=None,
-        dir=None,
-        mode=None,
-        id=None,
-        resume=None,
-        start_method=None,
+        project: Optional[str] = None,
+        name: Optional[str] = None,
+        dir: Optional[str] = None,
+        mode: Optional[str] = None,
+        id: Optional[str] = None,
+        resume: Optional[bool] = None,
+        start_method: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -146,13 +145,7 @@ class WandbLogger(Logger):
 
     def log_config(self, config):
         # Convert list parameters to nested dictionary
-        for k, v in config.items():
-            if isinstance(v, list):
-                config[k] = {}
-                for idx, param in enumerate(v):
-                    config[k][idx] = param
-
-        wandb.config.update(config)
+        wandb.config.update(dictify(config))
 
     def log_scalar(self, name, value, prefix):
         metrics = {f"{prefix}/{name}": value, "global_step": self._global_step.value}
@@ -162,6 +155,15 @@ class WandbLogger(Logger):
         metrics = {f"{prefix}/{name}": value for (name, value) in metrics.items()}
         metrics["global_step"] = self._global_step.value
         wandb.log(metrics, step=self._global_step.value)
+
+
+def dictify(config):
+    if isinstance(config, list):
+        return {idx: dictify(param) for idx, param in enumerate(config)}
+    elif isinstance(config, dict):
+        return {k: dictify(v) for k, v in config.items()}
+    else:
+        return config
 
 
 class ChompLogger(Logger):
@@ -199,11 +201,11 @@ class ChompLogger(Logger):
 
     def save(self, dir_name):
         super().save(dir_name)
-        self._log_data.save(os.path.join(dir_name, "log_data.p"))
+        self._log_data.save(Path(dir_name) / "log_data.p")
 
     def load(self, dir_name):
         super().load(dir_name)
-        self._log_data.load(os.path.join(dir_name, "log_data.p"))
+        self._log_data.load(Path(dir_name) / "log_data.p")
 
 
 class CompositeLogger(Logger):
@@ -215,7 +217,7 @@ class CompositeLogger(Logger):
     logging, logs to each of its component loggers.
     """
 
-    def __init__(self, logger_list: List[Logger]):
+    def __init__(self, logger_list: Sequence[Creates[Logger]]):
         super().__init__()
         self._logger_list = [logger_fn() for logger_fn in logger_list]
 
@@ -237,15 +239,16 @@ class CompositeLogger(Logger):
             logger.log_metrics(metrics, prefix=prefix)
 
     def save(self, dir_name):
+        path = Path(dir_name)
         for idx, logger in enumerate(self._logger_list):
-            save_dir = os.path.join(dir_name, f"logger_{idx}")
+            save_dir = path / f"logger_{idx}"
             create_folder(save_dir)
             logger.save(save_dir)
 
     def load(self, dir_name):
+        path = Path(dir_name)
         for idx, logger in enumerate(self._logger_list):
-            load_dir = os.path.join(dir_name, f"logger_{idx}")
-            logger.load(load_dir)
+            logger.load(path / f"logger_{idx}")
 
 
 registry.register_all(
@@ -257,8 +260,6 @@ registry.register_all(
         "CompositeLogger": CompositeLogger,
     },
 )
-
-get_logger = getattr(registry, f"get_{Logger.type_name()}")
 
 
 class GlobalLoggerWrapper(Logger):

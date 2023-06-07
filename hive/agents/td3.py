@@ -22,7 +22,8 @@ from hive.utils.schedule import PeriodicSchedule, SwitchSchedule
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
 
 from hive.utils.registry import OCreates, default
-from typing import Optional
+from typing import Optional, cast
+from hive.types import Shape
 
 
 class TD3(Agent):
@@ -182,11 +183,11 @@ class TD3(Agent):
             critic_net: The network that will be used to compute values of state action
                 pairs.
         """
-        if representation_net is None:
-            network = torch.nn.Identity()
-        else:
-            network = representation_net(self._state_size)
-        network_output_shape = calculate_output_dim(network, self._state_size)
+        representation_net = default(representation_net, torch.nn.Identity)
+        network = representation_net(self._state_size)
+        network_output_shape = cast(
+            Shape, calculate_output_dim(network, self._state_size)
+        )
         self._actor = TD3ActorNetwork(
             network,
             actor_net,
@@ -196,10 +197,10 @@ class TD3(Agent):
         ).to(self._device)
         self._critic = TD3CriticNetwork(
             network,
-            critic_net,
             network_output_shape,
             self._n_critics,
             self._action_space.shape,
+            critic_net,
         ).to(self._device)
 
         self._actor.apply(self._init_fn)
@@ -366,7 +367,7 @@ class TD3(Agent):
                 noise = torch.clamp(
                     noise, -self._target_noise_clip, self._target_noise_clip
                 )
-                next_actions = self._target_actor(*next_state_inputs) + noise
+                next_actions = self._target_actor(next_state_inputs) + noise
                 if self._scale_actions:
                     next_actions = torch.clamp(next_actions, -1, 1)
                 else:
@@ -375,7 +376,7 @@ class TD3(Agent):
                     )
 
                 next_q_vals = torch.cat(
-                    self._target_critic(*next_state_inputs, next_actions), dim=1
+                    self._target_critic(next_state_inputs, next_actions), dim=1
                 )
                 next_q_vals, _ = torch.min(next_q_vals, dim=1, keepdim=True)
                 target_q_values = (
@@ -386,14 +387,14 @@ class TD3(Agent):
                 )
 
             # Critic losses
-            pred_qvals = self._critic(*current_state_inputs, batch["action"])
-            critic_loss = sum(
+            pred_qvals = self._critic(current_state_inputs, batch["action"])
+            critic_loss = torch.stack(
                 [self._critic_loss_fn(qvals, target_q_values) for qvals in pred_qvals]
-            )
+            ).sum()
             self._critic_optimizer.zero_grad()
             critic_loss.backward()
             if self._grad_clip is not None:
-                torch.nn.utils.clip_grad_norm_(
+                torch.nn.utils.clip_grad_norm_(  # pyright: ignore ReportPrivateImportUsage
                     self._critic.parameters(), self._grad_clip
                 )
             self._critic_optimizer.step()
@@ -404,13 +405,13 @@ class TD3(Agent):
             if self._policy_update_schedule(global_step):
                 actor_loss = -torch.mean(
                     self._critic.q1(
-                        *current_state_inputs, self._actor(*current_state_inputs)
+                        current_state_inputs, self._actor(current_state_inputs)
                     )
                 )
                 self._actor_optimizer.zero_grad()
                 actor_loss.backward()
                 if self._grad_clip is not None:
-                    torch.nn.utils.clip_grad_norm_(
+                    torch.nn.utils.clip_grad_norm_(  # pyright: ignore ReportPrivateImportUsage
                         self._actor.parameters(), self._grad_clip
                     )
                 self._actor_optimizer.step()

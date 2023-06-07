@@ -9,12 +9,14 @@ from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.sequence_models import DRQNNetwork, SequenceFn, SequenceModel
 from hive.agents.qnets.utils import (
     InitializationFn,
+    apply_to_tensor,
     calculate_output_dim,
     create_init_weights_fn,
-    apply_to_tensor,
 )
 from hive.replays.recurrent_replay import RecurrentReplayBuffer
+from hive.replays import ReplayItemSpec
 from hive.utils.loggers import logger
+from hive.utils.registry import Creates, OCreates, default
 from hive.utils.schedule import (
     LinearSchedule,
     PeriodicSchedule,
@@ -22,6 +24,7 @@ from hive.utils.schedule import (
     SwitchSchedule,
 )
 from hive.utils.utils import LossFn, OptimizerFn, seeder
+from typing import Optional, Mapping, Any
 
 
 class DRQNAgent(DQNAgent):
@@ -33,23 +36,23 @@ class DRQNAgent(DQNAgent):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Discrete,
-        representation_net: FunctionApproximator,
-        sequence_fn: SequenceFn,
+        representation_net: Creates[FunctionApproximator],
+        sequence_fn: Creates[SequenceFn],
         id=0,
-        optimizer_fn: OptimizerFn = None,
-        loss_fn: LossFn = None,
-        init_fn: InitializationFn = None,
-        replay_buffer: RecurrentReplayBuffer = None,
+        optimizer_fn: OCreates[OptimizerFn] = None,
+        loss_fn: OCreates[LossFn] = None,
+        init_fn: OCreates[InitializationFn] = None,
+        replay_buffer: OCreates[RecurrentReplayBuffer] = None,
         max_seq_len: int = 1,
         discount_rate: float = 0.99,
         n_step: int = 1,
-        grad_clip: float = None,
-        reward_clip: float = None,
-        update_period_schedule: Schedule = None,
+        grad_clip: Optional[float] = None,
+        reward_clip: Optional[float] = None,
+        update_period_schedule: OCreates[Schedule[bool]] = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
-        target_net_update_schedule: Schedule = None,
-        epsilon_schedule: Schedule = None,
+        target_net_update_schedule: OCreates[Schedule[bool]] = None,
+        epsilon_schedule: OCreates[Schedule[float]] = None,
         test_epsilon: float = 0.001,
         min_replay_history: int = 5000,
         batch_size: int = 32,
@@ -124,53 +127,56 @@ class DRQNAgent(DQNAgent):
         self._init_fn = create_init_weights_fn(init_fn)
         self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
         self.create_q_networks(representation_net, sequence_fn)
-        if optimizer_fn is None:
-            optimizer_fn = torch.optim.Adam
+        optimizer_fn = default(optimizer_fn, torch.optim.Adam)
         self._optimizer = optimizer_fn(self._qnet.parameters())
         self._rng = np.random.default_rng(seed=seeder.get_new_seed("agent"))
-        self._hidden_spec = self._qnet.get_hidden_spec()
+        hidden_spec = self._qnet.get_hidden_spec()
 
-        if not store_hidden or self._hidden_spec is None:
+        if not store_hidden or hidden_spec is None:
             store_hidden = False
-            self._hidden_spec = None
-        if replay_buffer is None:
-            replay_buffer = RecurrentReplayBuffer
+            self._hidden_spec = {}
+        else:
+            self._hidden_spec = hidden_spec
+        replay_buffer = default(replay_buffer, RecurrentReplayBuffer)
         self._replay_buffer = replay_buffer(
-            observation_shape=self._observation_space.shape,
-            observation_dtype=self._observation_space.dtype,
-            action_shape=self._action_space.shape,
-            action_dtype=self._action_space.dtype,
+            observation_spec=ReplayItemSpec.create(
+                shape=self._observation_space.shape, dtype=self._observation_space.dtype
+            ),
+            action_spec=ReplayItemSpec.create(
+                shape=self._action_space.shape, dtype=self._action_space.dtype
+            ),
             max_seq_len=max_seq_len,
             hidden_spec=self._hidden_spec,
+            gamma=discount_rate,
+            n_step=n_step,
         )
         self._discount_rate = discount_rate**n_step
         self._grad_clip = grad_clip
         self._reward_clip = reward_clip
         self._target_net_soft_update = target_net_soft_update
         self._target_net_update_fraction = target_net_update_fraction
-        if loss_fn is None:
-            loss_fn = torch.nn.SmoothL1Loss
+        loss_fn = default(loss_fn, torch.nn.SmoothL1Loss)
         self._loss_fn = loss_fn(reduction="none")
         self._batch_size = batch_size
         self._log_schedule = PeriodicSchedule(False, True, log_frequency)
-        if update_period_schedule is None:
-            self._update_period_schedule = PeriodicSchedule(False, True, 1)
-        else:
-            self._update_period_schedule = update_period_schedule()
 
-        if target_net_update_schedule is None:
-            self._target_net_update_schedule = PeriodicSchedule(False, True, 10000)
-        else:
-            self._target_net_update_schedule = target_net_update_schedule()
+        update_period_schedule = default(
+            update_period_schedule, lambda: PeriodicSchedule(False, True, 1)
+        )
+        self._update_period_schedule = update_period_schedule()
 
-        if epsilon_schedule is None:
-            self._epsilon_schedule = LinearSchedule(1, 0.1, 100000)
-        else:
-            self._epsilon_schedule = epsilon_schedule()
+        target_net_update_schedule = default(
+            target_net_update_schedule, lambda: PeriodicSchedule(False, True, 10000)
+        )
+        self._target_net_update_schedule = target_net_update_schedule()
 
+        epsilon_schedule = default(
+            epsilon_schedule, lambda: LinearSchedule(1, 0.1, 100000)
+        )
+        self._epsilon_schedule = epsilon_schedule()
         self._test_epsilon = test_epsilon
-        self._learn_schedule = SwitchSchedule(False, True, min_replay_history)
 
+        self._learn_schedule = SwitchSchedule(False, True, min_replay_history)
         self._training = False
         self._store_hidden = store_hidden
         self._burn_frames = burn_frames
@@ -185,11 +191,11 @@ class DRQNAgent(DQNAgent):
         """
         network = SequenceModel(self._state_size, representation_net, sequence_fn)
         network_output_dim = np.prod(
-            calculate_output_dim(network, (1,) + self._state_size)[0]
+            calculate_output_dim(network, (1,) + self._state_size)[0]  # type: ignore
         )
-        self._qnet = DRQNNetwork(network, network_output_dim, self._action_space.n).to(
-            self._device
-        )
+        self._qnet = DRQNNetwork(
+            network, network_output_dim, int(self._action_space.n)
+        ).to(self._device)
 
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
@@ -197,7 +203,7 @@ class DRQNAgent(DQNAgent):
     def preprocess_observation(self, observation, agent_traj_state):
         # Reset hidden state if it is episode beginning.
         if agent_traj_state is None:
-            hidden_state = self._qnet.init_hidden(batch_size=1)
+            hidden_state = None
         else:
             hidden_state = agent_traj_state["hidden_state"]
 
@@ -206,7 +212,7 @@ class DRQNAgent(DQNAgent):
         ).float()
         return state, hidden_state
 
-    def preprocess_update_info(self, update_info, hidden_state):
+    def preprocess_update_info(self, update_info, hidden_state: Mapping[str, Any]):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
         Clips the reward in update_info.
         Args:
@@ -217,7 +223,7 @@ class DRQNAgent(DQNAgent):
 
         if self._store_hidden:
             preprocessed_update_info.update(
-                apply_to_tensor(hidden_state, lambda x: x.detach().cpu().numpy())
+                apply_to_tensor(hidden_state, lambda x: x.detach().cpu().numpy())  # type: ignore
             )
 
         return preprocessed_update_info
@@ -342,13 +348,13 @@ class DRQNAgent(DQNAgent):
             # Compute predicted Q values
             self._optimizer.zero_grad()
 
-            pred_qvals, _ = self._qnet(*current_state_inputs)
+            pred_qvals, _ = self._qnet(current_state_inputs)
             pred_qvals = pred_qvals.view(self._batch_size, self._max_seq_len, -1)
             actions = batch["action"].long()
             pred_qvals = torch.gather(pred_qvals, -1, actions.unsqueeze(-1)).squeeze(-1)
 
             # Compute 1-step Q targets
-            next_qvals, _ = self._target_qnet(*next_state_inputs)
+            next_qvals, _ = self._target_qnet(next_state_inputs)
             next_qvals = next_qvals.view(self._batch_size, self._max_seq_len, -1)
             next_qvals, _ = torch.max(next_qvals, dim=-1)
 
@@ -379,7 +385,7 @@ class DRQNAgent(DQNAgent):
 
             loss.backward()
             if self._grad_clip is not None:
-                torch.nn.utils.clip_grad_value_(
+                torch.nn.utils.clip_grad_value_(  # pyright: ignore reportPrivateImportUsage
                     self._qnet.parameters(), self._grad_clip
                 )
             self._optimizer.step()

@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from typing import Optional
+from hive.utils.registry import OCreates, default
 
 
 class DQNNetwork(nn.Module):
@@ -15,7 +16,7 @@ class DQNNetwork(nn.Module):
         base_network: nn.Module,
         hidden_dim: int,
         out_dim: int,
-        linear_fn: Optional[nn.Module] = None,
+        linear_fn: OCreates[nn.Module] = None,
     ):
         """
         Args:
@@ -31,11 +32,11 @@ class DQNNetwork(nn.Module):
         """
         super().__init__()
         self.base_network = base_network
-        self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
-        self.output_layer = self._linear_fn(hidden_dim, out_dim)
+        linear_fn = default(linear_fn, nn.Linear)
+        self.output_layer = linear_fn(hidden_dim, out_dim)
 
     def forward(self, x):
-        x = self.base_network(x)
+        x = self.base_network(*x)
         x = x.flatten(start_dim=1)
         return self.output_layer(x)
 
@@ -51,7 +52,7 @@ class DuelingNetwork(nn.Module):
         base_network: nn.Module,
         hidden_dim: int,
         out_dim: int,
-        linear_fn: Optional[nn.Module] = None,
+        linear_fn: OCreates[nn.Module] = None,
         atoms: int = 1,
     ):
         """
@@ -74,7 +75,7 @@ class DuelingNetwork(nn.Module):
         self._hidden_dim = hidden_dim
         self._out_dim = out_dim
         self._atoms = atoms
-        self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
+        self._linear_fn = default(linear_fn, nn.Linear)
         self.init_networks()
 
     def init_networks(self):
@@ -85,7 +86,7 @@ class DuelingNetwork(nn.Module):
         self.output_layer_val = self._linear_fn(self._hidden_dim, 1 * self._atoms)
 
     def forward(self, x):
-        x = self.base_network(x)
+        x = self.base_network(*x)
         x = x.flatten(start_dim=1)
         adv = self.output_layer_adv(x)
         val = self.output_layer_val(x)
@@ -140,7 +141,7 @@ class DistributionalNetwork(nn.Module):
 
     def dist(self, x):
         """Computes a categorical distribution over values for each action."""
-        x = self.base_network(x)
+        x = self.base_network(*x)
         x = x.view(-1, self._out_dim, self._atoms)
         x = F.softmax(x, dim=-1)
         return x

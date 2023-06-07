@@ -1,5 +1,6 @@
 import os
 from collections import deque
+from typing import Optional
 import sys
 
 import numpy as np
@@ -10,11 +11,11 @@ from hive.utils.utils import PACKAGE_ROOT
 
 
 def load_config(
-    config=None,
-    preset_config=None,
-    agent_config=None,
-    env_config=None,
-    logger_config=None,
+    config: Optional[str] = None,
+    preset_config: Optional[str] = None,
+    agent_config: Optional[str] = None,
+    env_config: Optional[str] = None,
+    logger_config: Optional[str] = None,
 ):
     """Used to load config for experiments. Agents, environment, and loggers components
     in main config file can be overrided based on other log files.
@@ -35,9 +36,11 @@ def load_config(
     if config is not None:
         with open(config) as f:
             yaml_config = yaml.safe_load(f)
-    else:
-        with open(os.path.join(PACKAGE_ROOT, "configs", preset_config)) as f:
+    elif preset_config is not None:
+        with (PACKAGE_ROOT / "configs" / preset_config).open() as f:
             yaml_config = yaml.safe_load(f)
+    else:
+        raise ValueError("Either config or preset_config must be passed.")
     if agent_config is not None:
         with open(agent_config) as f:
             if "agents" in yaml_config["kwargs"]:

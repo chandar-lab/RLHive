@@ -52,7 +52,7 @@ class TD3ActorNetwork(torch.nn.Module):
         self.actor = torch.nn.Sequential(*actor_modules)
 
     def forward(self, x):
-        x = self.actor(x)
+        x = self.actor(*x)
         return torch.reshape(x, (x.size(0), *self._action_shape))
 
 
@@ -102,7 +102,7 @@ class TD3CriticNetwork(torch.nn.Module):
         )
 
     def forward(self, obs, actions):
-        obs = self.network(obs)
+        obs = self.network(*obs)
         obs = torch.flatten(obs, start_dim=1)
         actions = torch.flatten(actions, start_dim=1)
         x = torch.cat([obs, actions], dim=1)
@@ -110,6 +110,6 @@ class TD3CriticNetwork(torch.nn.Module):
 
     def q1(self, obs, actions):
         """Returns the value according to only the first critic."""
-        obs = self.network(obs)
+        obs = self.network(*obs)
         x = torch.cat([obs, actions], dim=1)
         return self._critics[0](x)

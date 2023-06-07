@@ -1,5 +1,6 @@
 import abc
-from typing import Optional, cast
+from collections.abc import Mapping
+from typing import Any, Optional, Tuple, cast
 
 import numpy as np
 import torch
@@ -18,7 +19,7 @@ class SequenceFn(nn.Module):
     def init_hidden(self, batch_size):
         raise NotImplementedError
 
-    def get_hidden_spec(self):
+    def get_hidden_spec(self) -> Optional[Mapping[str, Shape]]:
         return None
 
 
@@ -226,9 +227,10 @@ class SequenceModel(nn.Module):
 
         if mlp_layers is not None:
             # MLP Layers
-            sequence_output_size, _ = calculate_output_dim(
+            sequence_output_size, _ = calculate_output_dim(  # type: ignore
                 self.sequence_fn, conv_output_size
             )
+            x = calculate_output_dim(self.sequence_fn, conv_output_size)
             self.mlp = MLPNetwork(
                 cast(Shape, sequence_output_size),
                 mlp_layers,
@@ -238,7 +240,7 @@ class SequenceModel(nn.Module):
         else:
             self.mlp = nn.Identity()
 
-    def forward(self, x, hidden_state=None):
+    def forward(self, x, hidden_state=None) -> Tuple[torch.Tensor, Any]:
         B, L = x.shape[0], x.shape[1]
         x = x.reshape(B * L, *x.shape[2:])
         x = self.representation_network(x)

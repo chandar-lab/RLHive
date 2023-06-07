@@ -252,7 +252,3 @@ registry.register_all(
         "AdaptiveLogSoftmaxWithLoss": torch.nn.AdaptiveLogSoftmaxWithLoss,
     },
 )
-
-get_optimizer_fn = getattr(registry, f"get_{OptimizerFn.type_name()}")
-get_loss_fn = getattr(registry, f"get_{LossFn.type_name()}")
-get_activation_fn = getattr(registry, f"get_{ActivationFn.type_name()}")

@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Tuple, Union
+from typing import Tuple, Union, Sequence
 
 import gymnasium as gym
 import numpy as np
@@ -79,7 +79,7 @@ class ActorCriticNetwork(torch.nn.Module):
         self,
         action_space: Union[Box, Discrete],
         representation_network: torch.nn.Module,
-        network_output_dim: Union[int, Tuple[int]],
+        network_output_dim: Union[int, Sequence[int]],
         actor_net: OCreates[torch.nn.Module] = None,
         critic_net: OCreates[torch.nn.Module] = None,
         actor_head_init_fn: OCreates[InitializationFn] = None,

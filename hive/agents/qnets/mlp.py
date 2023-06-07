@@ -30,7 +30,7 @@ class MLPNetwork(nn.Module):
     ):
         """
         Args:
-            in_dim (tuple[int]): The shape of input observations.
+            in_dim (Sequence[int]): The shape of input observations.
             hidden_units (int | list[int]): The number of neurons for each mlp layer.
             noisy (bool): Whether the MLP should use
                 :py:class:`~hive.agents.qnets.noisy_linear.NoisyLinear` layers or normal

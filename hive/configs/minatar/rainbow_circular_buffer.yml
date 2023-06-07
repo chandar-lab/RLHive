@@ -23,7 +23,11 @@ kwargs:
     name: 'GymEnv'
     kwargs:
       env_name: 'MinAtar/Breakout-v0'
-
+      env_wrappers:
+        # This wrapper converts image from the TF format (channels last)
+        # to the PyTorch format (channels first)
+        - name: PermuteImageWrapper 
+        
   # Agent config
   agent:
     name: 'RainbowDQNAgent'

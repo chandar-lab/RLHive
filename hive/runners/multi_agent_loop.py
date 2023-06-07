@@ -1,6 +1,8 @@
 import copy
 from typing import List
-
+from typing import Optional, Union, cast
+from collections.abc import Sequence
+from hive.utils.registry import Creates, OCreates, default
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.runners.base import Runner
@@ -15,18 +17,18 @@ class MultiAgentRunner(Runner):
 
     def __init__(
         self,
-        environment: BaseEnv,
-        agents: List[Agent],
-        loggers: List[Logger],
-        experiment_manager: Experiment,
+        environment: Creates[BaseEnv],
+        agents: Sequence[Creates[Agent]],
+        loggers: Optional[Union[Creates[Logger], Sequence[Creates[Logger]]]],
+        experiment_manager: Creates[Experiment],
         train_steps: int,
         num_agents: int,
-        eval_environment: BaseEnv = None,
+        eval_environment: OCreates[BaseEnv] = None,
         test_frequency: int = -1,
         test_episodes: int = 1,
         self_play: bool = False,
-        max_steps_per_episode: int = 1e9,
-        seed: int = None,
+        max_steps_per_episode: int = 1_000_000_000,
+        seed: Optional[int] = None,
     ):
         """Initializes the MultiAgentRunner object.
 
@@ -58,16 +60,10 @@ class MultiAgentRunner(Runner):
         """
         if seed is not None:
             utils.seeder.set_global_seed(seed)
-        if eval_environment is None:
-            eval_environment = environment
-        environment = environment()
-        eval_environment = eval_environment() if test_frequency != -1 else None
-        env_spec = environment.env_spec
-        # Set up loggers
-        if loggers is None:
-            logger = NullLogger()
-        else:
-            logger = CompositeLogger(loggers)
+        eval_environment = default(eval_environment, environment)
+        created_environment = environment()
+        created_eval_environment = eval_environment() if test_frequency != -1 else None
+        env_spec = created_environment.env_spec
 
         agent_list = []
         num_agents = num_agents if self_play else len(agents)
@@ -77,7 +73,6 @@ class MultiAgentRunner(Runner):
                 agent = agent_fn(
                     observation_space=env_spec.observation_space[idx],
                     action_space=env_spec.action_space[idx],
-                    logger=logger,
                 )
                 agent_list.append(agent)
             else:
@@ -86,14 +81,13 @@ class MultiAgentRunner(Runner):
         if self_play:
             agent_list[0]._id = f"{agent_list[0]._id}_{0}"
         # Set up experiment manager
-        experiment_manager = experiment_manager()
 
         super().__init__(
-            environment=environment,
-            eval_environment=eval_environment,
+            environment=created_environment,
+            eval_environment=created_eval_environment,
             agents=agent_list,
-            logger=logger,
-            experiment_manager=experiment_manager,
+            loggers=loggers,
+            experiment_manager=experiment_manager(),
             train_steps=train_steps,
             test_frequency=test_frequency,
             test_episodes=test_episodes,
@@ -134,7 +128,9 @@ class MultiAgentRunner(Runner):
         if transition_info.is_started(agent):
             info = transition_info.get_info(agent)
             if self._training:
-                agent_traj_state = agent.update(copy.deepcopy(info), agent_traj_state)
+                agent_traj_state = agent.update(
+                    copy.deepcopy(info), agent_traj_state, self._train_steps
+                )
             episode_metrics[agent.id]["reward"] += info["reward"]
             episode_metrics[agent.id]["episode_length"] += 1
             episode_metrics["full_episode_length"] += 1
@@ -199,7 +195,7 @@ class MultiAgentRunner(Runner):
                 agent_traj_state = agent_traj_states[idx]
                 if self._training:
                     agent_traj_state = agent.update(
-                        copy.deepcopy(info), agent_traj_state
+                        copy.deepcopy(info), agent_traj_state, self._train_steps
                     )
                 episode_metrics[agent.id]["episode_length"] += 1
                 episode_metrics[agent.id]["reward"] += info["reward"]
@@ -222,7 +218,7 @@ class MultiAgentRunner(Runner):
         while (
             not (terminated or truncated)
             and steps < self._max_steps_per_episode
-            and (not self._training or self._train_schedule(global_step))
+            and (not self._training or self._train_schedule(self._train_steps))
         ):
             (
                 terminated,
@@ -244,10 +240,15 @@ class MultiAgentRunner(Runner):
             if steps == self._max_steps_per_episode:
                 truncated = not terminated
 
-        # Run the final update.
-        self.run_end_step(
-            episode_metrics, transition_info, agent_traj_states, terminated, truncated
-        )
-        self.update_step()
+        if self._train_schedule(self._train_steps):
+            # Run the final update.
+            self.run_end_step(
+                episode_metrics,
+                transition_info,
+                agent_traj_states,
+                terminated,
+                truncated,
+            )
+            self.update_step()
 
         return episode_metrics

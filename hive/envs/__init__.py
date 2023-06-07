@@ -1,27 +1,20 @@
+from hive.utils.registry import registry
+
 from hive.envs.base import BaseEnv, ParallelEnv
 from hive.envs.env_spec import EnvSpec
 from hive.envs.gym.gym_env import GymEnv
 
+registry.register("GymEnv", GymEnv, BaseEnv)
+
 try:
     from hive.envs.marlgrid import MarlGridEnv
-except ImportError:
-    MarlGridEnv = None
 
+    registry.register("MarlGridEnv", MarlGridEnv, BaseEnv)
+except ImportError:
+    pass
 try:
     from hive.envs.pettingzoo import PettingZooEnv
+
+    registry.register("PettingZooEnv", PettingZooEnv, BaseEnv)
 except ImportError:
-    PettingZooEnv = None
-
-
-from hive.utils.registry import registry
-
-registry.register_all(
-    BaseEnv,
-    {
-        "GymEnv": GymEnv,
-        "MarlGridEnv": MarlGridEnv,
-        "PettingZooEnv": PettingZooEnv,
-    },
-)
-
-get_env = getattr(registry, f"get_{BaseEnv.type_name()}")
+    pass

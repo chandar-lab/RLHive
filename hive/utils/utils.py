@@ -6,12 +6,12 @@ import random
 import numpy as np
 import torch
 from typing import TypeVar, Callable
-
+from hive.types import PathLike
 
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 
 
-def create_folder(folder):
+def create_folder(folder: PathLike):
     """Creates a folder.
 
     Args:
@@ -135,7 +135,8 @@ class Chomp(dict):
 #             "loss_fn"
 #         """
 #         return "loss_fn"
-from typing import NewType, Protocol, TypeVar
+from typing import NewType, Protocol, TypeVar, Union, Any
+import os
 
 T = TypeVar("T")
 
@@ -151,7 +152,7 @@ class ActivationFn(Protocol):
 
 
 class LossFn(Protocol):
-    def __call__(self, pred, target):
+    def __call__(self, pred, target) -> Any:
         ...
 
 

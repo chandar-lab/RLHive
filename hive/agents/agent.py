@@ -30,7 +30,7 @@ class Agent(Generic[OSpace, ASpace], abc.ABC):
         return self._id
 
     @abc.abstractmethod
-    def act(self, observation, agent_traj_state):
+    def act(self, observation, agent_traj_state, global_step):
         """Returns an action for the agent to perform based on the observation.
 
         Args:
@@ -41,10 +41,10 @@ class Agent(Generic[OSpace, ASpace], abc.ABC):
             - Action for the current timestep.
             - Agent trajectory state.
         """
-        pass
+        raise NotImplementedError
 
     @abc.abstractmethod
-    def update(self, update_info, agent_traj_state):
+    def update(self, update_info, agent_traj_state, global_step):
         """
         Updates the agent.
 
@@ -57,7 +57,7 @@ class Agent(Generic[OSpace, ASpace], abc.ABC):
         Returns:
             Agent trajectory state.
         """
-        pass
+        raise NotImplementedError
 
     def train(self):
         """Changes the agent to training mode."""
@@ -75,7 +75,7 @@ class Agent(Generic[OSpace, ASpace], abc.ABC):
         Args:
             dname (str): directory where agent should save all relevant info.
         """
-        pass
+        raise NotImplementedError
 
     @abc.abstractmethod
     def load(self, dname):
@@ -85,7 +85,7 @@ class Agent(Generic[OSpace, ASpace], abc.ABC):
         Args:
             dname (str): directory where agent checkpoint info is stored.
         """
-        pass
+        raise NotImplementedError
 
     @classmethod
     def type_name(cls):

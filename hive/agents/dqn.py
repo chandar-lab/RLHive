@@ -17,7 +17,7 @@ from hive.agents.qnets.utils import (
     create_init_weights_fn,
 )
 from hive.agents.utils import roll_state
-from hive.replays import BaseReplayBuffer, CircularReplayBuffer
+from hive.replays import BaseReplayBuffer, CircularReplayBuffer, ReplayItemSpec
 from hive.utils.loggers import logger
 from hive.utils.schedule import (
     LinearSchedule,
@@ -51,11 +51,11 @@ class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
         n_step: int = 1,
         grad_clip: Optional[float] = None,
         reward_clip: Optional[float] = None,
-        update_period_schedule: OCreates[Schedule] = None,
+        update_period_schedule: OCreates[Schedule[bool]] = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
-        target_net_update_schedule: OCreates[Schedule] = None,
-        epsilon_schedule: OCreates[Schedule] = None,
+        target_net_update_schedule: OCreates[Schedule[bool]] = None,
+        epsilon_schedule: OCreates[Schedule[float]] = None,
         test_epsilon: float = 0.001,
         min_replay_history: int = 5000,
         batch_size: int = 32,
@@ -127,10 +127,12 @@ class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
         self._rng = np.random.default_rng(seed=seeder.get_new_seed("agent"))
         replay_buffer = default(replay_buffer, CircularReplayBuffer)
         self._replay_buffer = replay_buffer(
-            observation_shape=self._observation_space.shape,
-            observation_dtype=self._observation_space.dtype,  # type: ignore
-            action_shape=self._action_space.shape,
-            action_dtype=self._action_space.dtype,  # type: ignore
+            observation_spec=ReplayItemSpec.create(
+                shape=self._observation_space.shape, dtype=self._observation_space.dtype
+            ),
+            action_spec=ReplayItemSpec.create(
+                shape=self._action_space.shape, dtype=self._action_space.dtype
+            ),
             stack_size=stack_size,
             gamma=discount_rate,
             n_step=n_step,
@@ -331,12 +333,12 @@ class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(*current_state_inputs)
+            pred_qvals = self._qnet(current_state_inputs)
             actions = batch["action"].long()
             pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
             # Compute 1-step Q targets
-            next_qvals = self._target_qnet(*next_state_inputs)
+            next_qvals = self._target_qnet(next_state_inputs)
             next_qvals, _ = torch.max(next_qvals, dim=1)
 
             q_targets = batch["reward"] + self._discount_rate * next_qvals * (
@@ -350,7 +352,7 @@ class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
 
             loss.backward()
             if self._grad_clip is not None:
-                torch.nn.utils.clip_grad_value_(
+                torch.nn.utils.clip_grad_value_(  # type: ignore
                     self._qnet.parameters(), self._grad_clip
                 )
             self._optimizer.step()

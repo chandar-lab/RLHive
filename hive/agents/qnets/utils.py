@@ -1,23 +1,24 @@
 import math
-from typing import Any, Callable, Protocol, Union, TypeVar
+from typing import Any, Callable, Protocol, Union, TypeVar, cast
 from collections.abc import Sequence, Mapping
 import torch
 import optree
 from hive.utils.registry import registry
 
 T = TypeVar("T")
-NestedType = Union[T, Sequence["NestedType[T]"], Mapping[str, "NestedType[T]"]]
+# NestedType = Union[T, Sequence["NestedType[T]"], Mapping[str, "NestedType[T]"]]
 
 
 def calculate_output_dim(
-    net: Callable[..., NestedType[torch.Tensor]], input_shape: Union[int, Sequence[int]]
+    net: Callable[..., optree.PyTree[torch.Tensor]],
+    input_shape: Union[int, Sequence[int]],
 ):
     """Calculates the resulting output shape for a given input shape and network.
 
     Args:
         net (torch.nn.Module): The network which you want to calculate the output
             dimension for.
-        input_shape (int | tuple[int]): The shape of the input being fed into the
+        input_shape (int | Sequence[int]): The shape of the input being fed into the
             :obj:`net`. Batch dimension should not be included.
     Returns:
         The shape of the output of a network given an input shape.
@@ -31,32 +32,39 @@ def calculate_output_dim(
     def get_size(y: torch.Tensor) -> Sequence[int]:
         return y.size()[1:]
 
-    return apply_to_tensor(output, get_size)
+    return optree.tree_map(get_size, output)
+
+
+# NestedType = Union[T, Sequence["SubNestedType[T]"], Mapping[str, "SubNestedType[T]"]]
+# SubNestedType = NestedType[T]
 
 
 def apply_to_tensor(
-    x: NestedType[torch.Tensor], fn: Callable[[torch.Tensor], T]
-) -> NestedType[T]:
-    """Applies a function to a tensor or a tuple/list of tensors.
+    x: optree.PyTree[torch.Tensor], fn: Callable[[torch.Tensor], T]
+) -> optree.PyTree[T]:
+    return optree.tree_map(fn, x)
 
-    Args:
-        x (torch.Tensor | tuple | list | dict): The tensor or tuple/list/dict of
-            tensors to apply the function to.
-        fn (callable): The function to apply to the tensor or tuple/list/dict of
-            tensors.
-    Returns:
-        The result of applying the function to the tensor or tuple/list/dict of tensors.
-    """
-    if isinstance(x, torch.Tensor):
-        return fn(x)
-    elif isinstance(x, tuple):
-        return tuple(apply_to_tensor(y, fn) for y in x)
-    elif isinstance(x, list):
-        return list(apply_to_tensor(y, fn) for y in x)
-    elif isinstance(x, dict):
-        return {k: apply_to_tensor(v, fn) for k, v in x.items()}
-    else:
-        raise ValueError("Invalid argument type")
+
+#     """Applies a function to a tensor or a tuple/list of tensors.
+
+#     Args:
+#         x (torch.Tensor | tuple | list | dict): The tensor or tuple/list/dict of
+#             tensors to apply the function to.
+#         fn (callable): The function to apply to the tensor or tuple/list/dict of
+#             tensors.
+#     Returns:
+#         The result of applying the function to the tensor or tuple/list/dict of tensors.
+#     """
+#     if isinstance(x, torch.Tensor):
+#         return fn(x)
+#     elif isinstance(x, tuple):
+#         return tuple(apply_to_tensor(y, fn) for y in x)
+#     elif isinstance(x, list):
+#         return list(apply_to_tensor(y, fn) for y in x)
+#     elif isinstance(x, dict):
+#         return {k: apply_to_tensor(v, fn) for k, v in x.items()}
+#     else:
+#         raise ValueError("Invalid argument type")
 
 
 def create_init_weights_fn(initialization_fn):

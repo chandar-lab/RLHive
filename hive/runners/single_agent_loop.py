@@ -1,13 +1,14 @@
 import copy
-from typing import List
+from collections.abc import Sequence
+from typing import List, Optional, Union
 
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.runners import Runner
-
 from hive.utils import utils
 from hive.utils.experiment import Experiment
 from hive.utils.loggers import Logger
+from hive.utils.registry import Creates, OCreates, default
 
 
 class SingleAgentRunner(Runner):
@@ -15,16 +16,16 @@ class SingleAgentRunner(Runner):
 
     def __init__(
         self,
-        environment: BaseEnv,
-        agent: Agent,
-        loggers: List[Logger],
-        experiment_manager: Experiment,
+        environment: Creates[BaseEnv],
+        agent: Creates[Agent],
+        loggers: Optional[Union[Creates[Logger], Sequence[Creates[Logger]]]],
+        experiment_manager: Creates[Experiment],
         train_steps: int,
-        eval_environment: BaseEnv = None,
+        eval_environment: OCreates[BaseEnv] = None,
         test_frequency: int = -1,
         test_episodes: int = 1,
-        max_steps_per_episode: int = 1e9,
-        seed: int = None,
+        max_steps_per_episode: int = 1_000_000_000,
+        seed: Optional[int] = None,
     ):
         """Initializes the SingleAgentRunner.
 
@@ -51,25 +52,22 @@ class SingleAgentRunner(Runner):
         """
         if seed is not None:
             utils.seeder.set_global_seed(seed)
-        if eval_environment is None:
-            eval_environment = environment
-        environment = environment()
-        eval_environment = eval_environment() if test_frequency != -1 else None
-        env_spec = environment.env_spec
+        eval_environment = default(eval_environment, environment)
+        created_environment = environment()
+        created_eval_environment = eval_environment() if test_frequency != -1 else None
+        env_spec = created_environment.env_spec
 
-        agent = agent(
+        created_agent = agent(
             observation_space=env_spec.observation_space[0],
             action_space=env_spec.action_space[0],
         )
 
-        # Set up experiment manager
-        experiment_manager = experiment_manager()
         super().__init__(
-            environment=environment,
-            eval_environment=eval_environment,
-            agents=[agent],
+            environment=created_environment,
+            eval_environment=created_eval_environment,
+            agents=[created_agent],
             loggers=loggers,
-            experiment_manager=experiment_manager,
+            experiment_manager=experiment_manager(),
             train_steps=train_steps,
             test_frequency=test_frequency,
             test_episodes=test_episodes,

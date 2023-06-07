@@ -1,10 +1,12 @@
 from copy import deepcopy
 from functools import partial
 from unittest.mock import Mock
+
 import gymnasium as gym
 import numpy as np
 import pytest
 import torch
+from pytest_lazyfixture import lazy_fixture
 from torch.optim import Adam
 
 from hive.agents import DQNAgent, RainbowDQNAgent, get_agent
@@ -28,9 +30,9 @@ ddnd = double, dueling, noisy, distributional. x = False.
 
 @pytest.fixture(
     params=[
-        pytest.lazy_fixture("xxxx_agent_with_mock_optimizer"),
-        pytest.lazy_fixture("dxxx_agent_with_mock_optimizer"),
-        pytest.lazy_fixture("xdxx_agent_with_mock_optimizer"),
+        lazy_fixture("xxxx_agent_with_mock_optimizer"),
+        lazy_fixture("dxxx_agent_with_mock_optimizer"),
+        lazy_fixture("xdxx_agent_with_mock_optimizer"),
     ]
 )
 def agent_with_mock_optimizer(request):

@@ -1,7 +1,7 @@
 import abc
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 
 import numpy as np
 
@@ -12,7 +12,9 @@ class ReplayItemSpec:
     dtype: Union[type, np.dtype]
 
     @classmethod
-    def create(cls, shape: Sequence[int], dtype: Union[type, np.dtype, str]):
+    def create(
+        cls, shape: Optional[Sequence[int]], dtype: Optional[Union[type, np.dtype, str]]
+    ):
         return cls(tuple(shape), str_to_dtype(dtype))
 
 
@@ -43,6 +45,7 @@ class BaseReplayBuffer(abc.ABC):
             data: data to add to the replay buffer. Subclasses can define this class
                 signature based on use case.
         """
+        raise NotImplementedError
 
     @abc.abstractmethod
     def add_transitions(self, **data):
@@ -53,6 +56,7 @@ class BaseReplayBuffer(abc.ABC):
             data: data to add to the replay buffer. Subclasses can define this class
                 signature based on use case.
         """
+        raise NotImplementedError
 
     @abc.abstractmethod
     def sample(self, batch_size):
@@ -62,12 +66,14 @@ class BaseReplayBuffer(abc.ABC):
         Args:
             batch_size (int): the number of transitions to sample.
         """
+        raise NotImplementedError
 
     @abc.abstractmethod
     def size(self):
         """
         Returns the number of transitions stored in the buffer.
         """
+        raise NotImplementedError
 
     @abc.abstractmethod
     def save(self, dname):
@@ -77,6 +83,7 @@ class BaseReplayBuffer(abc.ABC):
         Args:
             dname (str): directory where agent should save all relevant info.
         """
+        raise NotImplementedError
 
     @abc.abstractmethod
     def load(self, dname):
@@ -89,10 +96,4 @@ class BaseReplayBuffer(abc.ABC):
         Returns:
             True if successfully loaded the buffer. False otherwise.
         """
-
-    @classmethod
-    def type_name(cls):
-        """
-        Returns: "replay"
-        """
-        return "replay"
+        raise NotImplementedError

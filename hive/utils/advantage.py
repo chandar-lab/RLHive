@@ -1,25 +1,28 @@
 import numpy as np
+from typing import Protocol, Tuple
 
 from hive.utils.registry import registry
-from hive.utils.utils import Registrable
 
 
-class AdvantageComputationFn(Registrable):
+class AdvantageComputationFn(Protocol):
     """A wrapper for callables that produce Advantage Computation Functions."""
 
-    @classmethod
-    def type_name(cls):
-        """
-        Returns:
-            "advantage_computation_fn"
-        """
-        return "advantage_computation_fn"
+    def __call__(
+        self,
+        values: np.ndarray,
+        last_values: np.ndarray,
+        terminated: np.ndarray,
+        rewards: np.ndarray,
+        gamma: float,
+        **kwargs
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        ...
 
 
 def compute_gae_advantages(
     values: np.ndarray,
     last_values: np.ndarray,
-    dones: np.ndarray,
+    terminated: np.ndarray,
     rewards: np.ndarray,
     gamma: float,
     gae_lambda: float,
@@ -39,7 +42,7 @@ def compute_gae_advantages(
     advantages = np.zeros_like(rewards)
     for t in reversed(range(num_steps)):
         next_values = last_values if t == num_steps - 1 else values[t + 1]
-        next_non_terminal = 1.0 - dones[t]
+        next_non_terminal = 1.0 - terminated[t]
         delta = rewards[t] + gamma * next_values * next_non_terminal - values[t]
         advantages[t] = last_gae_lambda = (
             delta + gamma * gae_lambda * next_non_terminal * last_gae_lambda
@@ -51,7 +54,7 @@ def compute_gae_advantages(
 def compute_standard_advantages(
     values: np.ndarray,
     last_values: np.ndarray,
-    dones: np.ndarray,
+    terminated: np.ndarray,
     rewards: np.ndarray,
     gamma: float,
 ):
@@ -69,7 +72,7 @@ def compute_standard_advantages(
     returns = np.zeros_like(rewards)
     for t in reversed(range(num_steps)):
         next_return = last_values if t == num_steps - 1 else returns[t + 1]
-        next_non_terminal = 1.0 - dones[t]
+        next_non_terminal = 1.0 - terminated[t]
         returns[t] = rewards[t] + gamma * next_non_terminal * next_return
     advantages = returns - values
     return advantages, returns

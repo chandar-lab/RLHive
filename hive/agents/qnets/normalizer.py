@@ -4,6 +4,7 @@ from typing import Tuple, TypeVar, Generic
 import numpy as np
 
 from hive.utils.registry import registry, Float
+from hive.types import Shape
 
 
 # taken from https://github.com/openai/baselines/blob/master/baselines/common/vec_env/vec_normalize.py
@@ -87,13 +88,11 @@ class MovingAvgNormalizer(Normalizer):
     within the specified range.
     """
 
-    def __init__(
-        self, shape: Tuple[int, ...], epsilon: Float = 1e-4, clip: Float = np.inf
-    ):
+    def __init__(self, shape: Shape, epsilon: Float = 1e-4, clip: Float = np.inf):
         """
         Args:
             epsilon (float): minimum value of variance to avoid division by 0.
-            shape (tuple[int]): The shape of input data.
+            shape (Shape): The shape of input data.
             clip (np.float32): The clip value for the normalised data.
         """
         super().__init__()

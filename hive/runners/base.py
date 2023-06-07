@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Union, Sequence
+from typing import Union, Sequence, Optional, cast
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 
@@ -12,11 +12,12 @@ from hive.utils.loggers import (
     CompositeLogger,
     logger,
 )
-from hive.utils.registry import Registrable
 from hive.utils.utils import seeder, Counter
+from hive.utils.registry import Creates
+from hive.runners.utils import Metrics
 
 
-class Runner(ABC, Registrable):
+class Runner(ABC):
     """Base Runner class used to implement a training loop.
 
     Different types of training loops can be created by overriding the relevant
@@ -27,13 +28,13 @@ class Runner(ABC, Registrable):
         self,
         environment: BaseEnv,
         agents: Sequence[Agent],
-        loggers: Union[Logger, Sequence[Logger]],
+        loggers: Optional[Union[Creates[Logger], Sequence[Creates[Logger]]]],
         experiment_manager: Experiment,
         train_steps: int,
-        eval_environment: BaseEnv = None,
+        eval_environment: Optional[BaseEnv] = None,
         test_frequency: int = -1,
         test_episodes: int = 1,
-        max_steps_per_episode: int = 1e9,
+        max_steps_per_episode: int = 1_000_000_000,
     ):
         """
         Args:
@@ -55,10 +56,10 @@ class Runner(ABC, Registrable):
         if self._eval_environment is not None:
             self._eval_environment.seed(seeder.get_new_seed("environment"))
 
-        if isinstance(agents, list):
+        if isinstance(agents, Sequence):
             self._agents = agents
         else:
-            self._agents = [agents]
+            self._agents = cast(Sequence[Agent], [agents])
 
         self._experiment_manager = experiment_manager
         if train_steps == -1:
@@ -127,15 +128,15 @@ class Runner(ABC, Registrable):
             if self._test_schedule(self._train_steps):
                 self.run_testing()
             if self._experiment_manager.should_save(self._train_steps):
-                self._experiment_manager.save(self._train_steps)
+                self._experiment_manager.save(str(self._train_steps))
 
-    def run_episode(self, environment):
+    def run_episode(self, environment) -> Metrics:
         """Run a single episode of the environment.
 
         Args:
             environment (BaseEnv): Environment in which the agent will take a step in.
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def run_training(self):
         """Run the training loop. Note, to ensure that the test phase is run during
@@ -157,7 +158,7 @@ class Runner(ABC, Registrable):
 
         # Run a final test episode and save the experiment.
         self.run_testing()
-        self._experiment_manager.save(self._train_steps)
+        self._experiment_manager.save(str(self._train_steps))
 
     def run_testing(self):
         """Run a testing phase."""
@@ -179,8 +180,15 @@ class Runner(ABC, Registrable):
         """Resume a saved experiment."""
         if self._experiment_manager.is_resumable():
             self._experiment_manager.resume()
-        self._train_steps = self._experiment_manager.experiment_state["train_steps"]
-        self._test_steps = self._experiment_manager.experiment_state["test_steps"]
+        self._train_steps = cast(
+            Counter, self._experiment_manager.experiment_state["train_steps"]
+        )
+        self._test_steps = cast(
+            Counter, self._experiment_manager.experiment_state["test_steps"]
+        )
+
+        assert isinstance(self._train_steps, Counter)
+        assert isinstance(self._test_steps, Counter)
 
     @classmethod
     def type_name(cls):

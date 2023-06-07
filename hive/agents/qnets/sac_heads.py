@@ -1,4 +1,5 @@
 from typing import Tuple, Union
+from collections.abc import Sequence
 
 import gymnasium as gym
 import numpy as np
@@ -97,7 +98,7 @@ class SACActorNetwork(torch.nn.Module):
         self,
         representation_network: torch.nn.Module,
         actor_net: OCreates[torch.nn.Module],
-        representation_network_output_shape: Union[int, Tuple[int]],
+        representation_network_output_shape: Union[int, Sequence[int]],
         action_space: Union[gym.spaces.Box, gym.spaces.Discrete],
     ) -> None:
         """
@@ -115,7 +116,7 @@ class SACActorNetwork(torch.nn.Module):
         super().__init__()
 
         self._action_shape = action_space.shape
-        actor_net = default(actor_net, lambda x: torch.nn.Identity())
+        actor_net = default(actor_net, torch.nn.Identity)
         actor_network = actor_net(representation_network_output_shape)
         feature_dim = np.prod(
             calculate_output_dim(actor_network, representation_network_output_shape)  # type: ignore
@@ -132,7 +133,7 @@ class SACActorNetwork(torch.nn.Module):
         self.actor = torch.nn.Sequential(*actor_modules)
 
     def forward(self, x):
-        return self.actor(x)
+        return self.actor(*x)
 
 
 class SACContinuousCriticNetwork(torch.nn.Module):
@@ -140,7 +141,7 @@ class SACContinuousCriticNetwork(torch.nn.Module):
         self,
         representation_network: torch.nn.Module,
         critic_net: OCreates[torch.nn.Module],
-        network_output_shape: Union[int, Tuple[int]],
+        network_output_shape: Union[int, Sequence[int]],
         action_space: Union[gym.spaces.Box, gym.spaces.Discrete],
         n_critics: int = 2,
     ) -> None:
@@ -177,7 +178,7 @@ class SACContinuousCriticNetwork(torch.nn.Module):
         )
 
     def forward(self, obs, actions):
-        obs = self.network(obs)
+        obs = self.network(*obs)
         obs = torch.flatten(obs, start_dim=1)
         actions = torch.flatten(actions, start_dim=1)
         x = torch.cat([obs, actions], dim=1)
@@ -189,7 +190,7 @@ class SACDiscreteCriticNetwork(torch.nn.Module):
         self,
         representation_network: torch.nn.Module,
         critic_net: OCreates[torch.nn.Module],
-        network_output_shape: Union[int, Tuple[int]],
+        network_output_shape: Union[int, Sequence[int]],
         action_space: gym.spaces.Discrete,
         n_critics: int = 2,
     ) -> None:
@@ -226,6 +227,6 @@ class SACDiscreteCriticNetwork(torch.nn.Module):
         )
 
     def forward(self, obs):
-        obs = self.network(obs)
+        obs = self.network(*obs)
         obs = torch.flatten(obs, start_dim=1)
         return [critic(obs) for critic in self._critics]
