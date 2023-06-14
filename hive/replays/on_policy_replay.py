@@ -1,10 +1,11 @@
-import numpy as np
-from typing import Optional, MutableMapping, Mapping
-from hive.replays.circular_replay import CircularReplayBuffer
-from hive.utils.advantage import AdvantageComputationFn, compute_standard_advantages
-from hive.utils.registry import OCreates, default, Partial
+from typing import Mapping, MutableMapping, Optional
 
-from hive.replays.replay_buffer import ReplayItemSpec, BaseReplayBuffer
+import numpy as np
+
+from hive.replays.circular_replay import CircularReplayBuffer
+from hive.replays.replay_buffer import BaseReplayBuffer, ReplayItemSpec
+from hive.types import Creates, Partial, default
+from hive.utils.advantage import AdvantageComputationFn, compute_standard_advantages
 from hive.utils.utils import seeder
 
 
@@ -122,9 +123,11 @@ class OnPolicyReplayBuffer(BaseReplayBuffer):
         next_values = np.zeros(self._num_sources, dtype=np.float32)
         next_values[sources] = last_values
         terminated = self._storage["terminated"][:max_steps]
+        truncated = self._storage["truncated"][:max_steps]
+        done = terminated | truncated
         rewards = self._storage["reward"][:max_steps]
         advantages, returns = self._compute_advantage_fn(
-            values, next_values, terminated, rewards, self._gamma
+            values, next_values, terminated, done, rewards, self._gamma
         )
         self._storage["advantage"][:max_steps] = advantages
         self._storage["return"][:max_steps] = returns

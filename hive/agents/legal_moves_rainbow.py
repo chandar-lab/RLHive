@@ -6,13 +6,13 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from hive.agents.qnets.utils import ModuleInitFn
+from hive.agents.networks.utils import ModuleInitFn
 from hive.agents.rainbow import RainbowDQNAgent
 from hive.agents.utils import roll_state
 from hive.replays import PrioritizedReplayBuffer
-from hive.replays.replay_buffer import ReplayItemSpec, Alignment
+from hive.replays.replay_buffer import Alignment, ReplayItemSpec
+from hive.types import Creates, Partial, default
 from hive.utils.loggers import logger
-from hive.utils.registry import Creates, OCreates, default, Partial
 from hive.utils.schedule import Schedule
 from hive.utils.utils import LossFn
 
@@ -26,20 +26,20 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         action_space: gym.spaces.Discrete,
         representation_net: Creates[torch.nn.Module],
         stack_size: int = 1,
-        optimizer_fn: OCreates[torch.optim.Optimizer] = None,
-        loss_fn: OCreates[LossFn] = None,
+        optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
+        loss_fn: Optional[Creates[LossFn]] = None,
         init_fn: Optional[Partial[ModuleInitFn]] = None,
         id=0,
-        replay_buffer: OCreates[PrioritizedReplayBuffer] = None,
+        replay_buffer: Optional[Creates[PrioritizedReplayBuffer]] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: Optional[float] = None,
         reward_clip: Optional[float] = None,
-        update_period_schedule: OCreates[Schedule[bool]] = None,
+        update_period_schedule: Optional[Creates[Schedule[bool]]] = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
-        target_net_update_schedule: OCreates[Schedule[bool]] = None,
-        epsilon_schedule: OCreates[Schedule[float]] = None,
+        target_net_update_schedule: Optional[Creates[Schedule[bool]]] = None,
+        epsilon_schedule: Optional[Creates[Schedule[float]]] = None,
         test_epsilon: float = 0.001,
         min_replay_history: int = 5000,
         batch_size: int = 32,
@@ -99,9 +99,9 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
             atoms=atoms,
         )
 
-    def create_q_networks(self, representation_net):
+    def create_networks(self, representation_net):
         """Creates the qnet and target qnet."""
-        super().create_q_networks(representation_net)
+        super().create_networks(representation_net)
         self._qnet = LegalMovesHead(self._qnet)
         self._target_qnet = LegalMovesHead(self._target_qnet)
 

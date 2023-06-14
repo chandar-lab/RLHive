@@ -1,9 +1,9 @@
 import abc
 from dataclasses import dataclass
-from typing import Optional, Tuple, Union, Sequence
+from enum import IntEnum
+from typing import Optional, Sequence, Tuple, Union
 
 import numpy as np
-from enum import IntEnum
 
 
 class Alignment(IntEnum):

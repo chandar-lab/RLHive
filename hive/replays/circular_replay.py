@@ -1,7 +1,7 @@
 import pickle
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Optional, Mapping, MutableMapping
+from typing import Any, Mapping, MutableMapping, Optional
 
 import numpy as np
 import numpy.typing as npt

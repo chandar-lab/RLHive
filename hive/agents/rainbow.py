@@ -7,17 +7,17 @@ import numpy as np
 import torch
 
 from hive.agents.dqn import DQNAgent
-from hive.agents.qnets.noisy_linear import NoisyLinear
-from hive.agents.qnets.qnet_heads import (
+from hive.agents.networks.noisy_linear import NoisyLinear
+from hive.agents.networks.qnet_heads import (
     DistributionalNetwork,
     DQNNetwork,
     DuelingNetwork,
 )
-from hive.agents.qnets.utils import ModuleInitFn, calculate_output_dim
+from hive.agents.networks.utils import ModuleInitFn, calculate_output_dim
 from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
+from hive.types import Creates, Partial, default
 from hive.utils.loggers import logger
-from hive.utils.registry import Creates, OCreates, default, Partial
 from hive.utils.schedule import Schedule
 from hive.utils.utils import LossFn
 
@@ -31,20 +31,20 @@ class RainbowDQNAgent(DQNAgent):
         action_space: gym.spaces.Discrete,
         representation_net: Creates[torch.nn.Module],
         stack_size: int = 1,
-        optimizer_fn: OCreates[torch.optim.Optimizer] = None,
-        loss_fn: OCreates[LossFn] = None,
+        optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
+        loss_fn: Optional[Creates[LossFn]] = None,
         init_fn: Optional[Partial[ModuleInitFn]] = None,
         id=0,
-        replay_buffer: OCreates[BaseReplayBuffer] = None,
+        replay_buffer: Optional[Creates[BaseReplayBuffer]] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: Optional[float] = None,
         reward_clip: Optional[float] = None,
-        update_period_schedule: OCreates[Schedule[bool]] = None,
+        update_period_schedule: Optional[Creates[Schedule[bool]]] = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
-        target_net_update_schedule: OCreates[Schedule[bool]] = None,
-        epsilon_schedule: OCreates[Schedule[float]] = None,
+        target_net_update_schedule: Optional[Creates[Schedule[bool]]] = None,
+        epsilon_schedule: Optional[Creates[Schedule[float]]] = None,
         test_epsilon: float = 0.001,
         min_replay_history: int = 5000,
         batch_size: int = 32,
@@ -167,7 +167,7 @@ class RainbowDQNAgent(DQNAgent):
 
         self._use_eps_greedy = use_eps_greedy
 
-    def create_q_networks(self, representation_net):
+    def create_networks(self, representation_net):
         """Creates the Q-network and target Q-network. Adds the appropriate heads
         for DQN, Dueling DQN, Noisy Networks, and Distributional DQN.
 

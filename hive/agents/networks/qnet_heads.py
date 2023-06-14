@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from hive.utils.registry import OCreates, default
+from hive.types import Creates, default
 
 
 class DQNNetwork(nn.Module):
@@ -18,7 +18,7 @@ class DQNNetwork(nn.Module):
         base_network: nn.Module,
         hidden_dim: int,
         out_dim: int,
-        linear_fn: OCreates[nn.Module] = None,
+        linear_fn: Optional[Creates[nn.Module]] = None,
     ):
         """
         Args:
@@ -54,7 +54,7 @@ class DuelingNetwork(nn.Module):
         base_network: nn.Module,
         hidden_dim: int,
         out_dim: int,
-        linear_fn: OCreates[nn.Module] = None,
+        linear_fn: Optional[Creates[nn.Module]] = None,
         atoms: int = 1,
     ):
         """

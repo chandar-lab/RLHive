@@ -1,13 +1,14 @@
 from functools import partial
-from typing import Sequence, Tuple, Union, Optional
+from typing import Optional, Sequence, Union
 
 import gymnasium as gym
 import numpy as np
 import torch
 from gymnasium.spaces import Box, Discrete
 
-from hive.agents.qnets.utils import TensorInitFn, calculate_output_dim, ModuleInitFn
-from hive.utils.registry import OCreates, default, registry, Partial
+from hive.agents.networks.utils import ModuleInitFn, TensorInitFn, calculate_output_dim
+from hive.types import Creates, Partial, default
+from hive.utils.registry import registry
 
 
 def actor_critic_init_fn(module, std=np.sqrt(2), bias_const=0.0):
@@ -80,8 +81,8 @@ class ActorCriticNetwork(torch.nn.Module):
         action_space: Union[Box, Discrete],
         representation_network: torch.nn.Module,
         network_output_dim: Union[int, Sequence[int]],
-        actor_net: OCreates[torch.nn.Module] = None,
-        critic_net: OCreates[torch.nn.Module] = None,
+        actor_net: Optional[Creates[torch.nn.Module]] = None,
+        critic_net: Optional[Creates[torch.nn.Module]] = None,
         actor_head_init_fn: Optional[Partial[ModuleInitFn]] = None,
         critic_head_init_fn: Optional[Partial[ModuleInitFn]] = None,
     ) -> None:

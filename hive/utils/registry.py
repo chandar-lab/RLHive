@@ -3,18 +3,15 @@ import inspect
 import logging
 import pprint
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import partial
-from typing import _GenericAlias  # type: ignore
 from typing import (
     Any,
     Callable,
     Dict,
     Generic,
-    List,
     Mapping,
     Optional,
-    Protocol,
     Sequence,
     Set,
     Tuple,
@@ -25,88 +22,15 @@ from typing import (
     get_origin,
 )
 from typing import get_type_hints as _get_type_hints
-from typing import runtime_checkable
 
 import numpy as np
 import yaml
-from typing_extensions import Annotated
 
-R = TypeVar("R", covariant=True)
-
-SeqOrSingle = Union[Sequence[R], R]
-
-
-@dataclass
-class Config:
-    name: str
-    kwargs: dict = field(default_factory=dict)
-
-    def __repr__(self) -> str:
-        return 'Config(name="{}", kwargs={})'.format(
-            self.name, pprint.pformat(self.kwargs, indent=2, compact=False), width=40
-        )
-
-
-def config_to_dict(config):
-    if isinstance(config, Config):
-        return {
-            "name": config.name,
-            "kwargs": {k: config_to_dict(v) for k, v in config.kwargs.items()},
-        }
-    elif isinstance(config, dict):
-        return {k: config_to_dict(v) for k, v in config.items()}
-    elif isinstance(config, list):
-        return [config_to_dict(v) for v in config]
-    else:
-        return config
-
-
-def dict_to_config(dict_config: Mapping) -> Config:
-    config = Config(
-        name=dict_config["name"],
-        kwargs={k: parse_item(v) for k, v in dict_config.get("kwargs", {}).items()},
-    )
-    return config
-
-
-def parse_item(item):
-    if is_config_dict(item):
-        return dict_to_config(item)
-    elif isinstance(item, dict):
-        return {k: parse_item(v) for k, v in item.items()}
-    elif isinstance(item, list):
-        return [parse_item(v) for v in item]
-    else:
-        return item
-
-
-def is_config_dict(config):
-    return isinstance(config, dict) and set(config.keys()).issubset({"name", "kwargs"})
-
+from hive.types import Creates, Partial
+from hive.utils.config import Config
 
 T = TypeVar("T")
-
-Creates = Annotated[Callable[..., R], "configured", "creates"]
-
 C = TypeVar("C", bound=Callable)
-Partial = Annotated[C, "configured", "partial"]
-
-
-OCreates = Optional[Creates[R]]
-
-Float = Union[float, np.float32, np.float64]
-Int = Union[int, np.int32, np.int64]
-
-
-def default(fn: Optional[T], default_fn: T) -> T:
-    if fn is None:
-        return default_fn
-    else:
-        return fn
-
-
-T = TypeVar("T")
-U = TypeVar("U")
 
 
 @dataclass(frozen=True)
@@ -169,7 +93,7 @@ class Registry:
     def __init__(self) -> None:
         self._registry = RegistryStore()
 
-    def register(self, name: str, constructor: Callable[..., U], type: Type[U]) -> None:
+    def register(self, name: str, constructor: Callable[..., T], type: Type[T]) -> None:
         """Register a Registrable class/object with RLHive.
 
         Args:
@@ -196,8 +120,8 @@ class Registry:
         self._registry.add_constructor(name, type, type)
 
     def get(
-        self, config: Config, type: Type[U], prefix: Optional[str] = None
-    ) -> Tuple[Creates[U], Config]:
+        self, config: Config, type: Type[T], prefix: Optional[str] = None
+    ) -> Tuple[Creates[T], Config]:
         return self._get(config, Creates[type], prefix)  # type: ignore
 
     def _get(
@@ -205,25 +129,28 @@ class Registry:
         config: Config,
         type: Type[Union[Creates[T], Partial[C]]],
         prefix: Optional[str] = None,
-    ) -> Tuple[Union[Creates[T], Partial[C]], Config]:
+    ) -> Tuple[Union[Creates[T], Partial[C]], Config, Set[str]]:
         if config is None:
             raise ValueError(f"Config for {type} is None")
         name = config.name
         kwargs = config.kwargs
-        # expanded_config = deepcopy(config)
 
         try:
             object_creators = self._registry.get_constructors(name)
             object_creator = resolve_creator(object_creators, type)
-            # object_creator = PartialCreates(object_creator.constructor)
-            parsed_args, unused_args = get_callable_parsed_args(
+            parsed_args, all_unused_args = get_callable_parsed_args(
                 object_creator.constructor, prefix=prefix
             )
             kwargs.update(parsed_args)
-            kwargs, kwargs_config = construct_objects(object_creator, kwargs, prefix)
-            # expanded_config["kwargs"] = kwargs_config
+            kwargs, kwargs_config, unused_args = construct_objects(
+                object_creator, kwargs, prefix
+            )
             constructor = partial(object_creator.constructor, **kwargs)
-            return constructor, Config(name=config.name, kwargs=kwargs_config)
+            return (
+                constructor,
+                Config(name=config.name, kwargs=kwargs_config),
+                all_unused_args & unused_args,
+            )
         except:
             logging.error(f"Error creating {name} class")
             raise
@@ -240,7 +167,7 @@ class Registry:
             self.register_class(cls, class_dict[cls])
 
     def register_all_with_type(
-        self, base_class: Type[U], class_dict: Dict[str, Callable[..., U]]
+        self, base_class: Type[T], class_dict: Dict[str, Callable[..., T]]
     ):
         """Bulk register function.
 
@@ -330,11 +257,16 @@ def get_type_hints(fn):
         return _get_type_hints(fn)
 
 
+def get_all_arguments() -> Set[str]:
+    _, args = argparse.ArgumentParser().parse_known_args()
+    return set(args)
+
+
 def construct_objects(
     object_constructor: Creator,
     config: Dict[str, Any],
     prefix: Optional[str] = None,
-) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+) -> Tuple[Dict[str, Any], Dict[str, Any], Set[str]]:
     """Helper function that constructs any objects specified in the config that
     are registrable.
 
@@ -355,19 +287,23 @@ def construct_objects(
     type_hints = get_type_hints(object_constructor.constructor)
     prefix = "" if prefix is None else f"{prefix}."
     expanded_config = deepcopy(config)
+    all_unused_args = get_all_arguments()
     for argument in type_hints:
         if argument not in config:
             continue
         expected_type = type_hints[argument]
 
         if isinstance(config[argument], Config):
-            config[argument], expanded_config[argument] = registry._get(
-                config[argument], expected_type, f"{prefix}{argument}"
-            )
+            (
+                config[argument],
+                expanded_config[argument],
+                all_unused_args,
+            ) = registry._get(config[argument], expected_type, f"{prefix}{argument}")
         elif isinstance(config[argument], Sequence) and not isinstance(
             config[argument], str
         ):
             sequence_type = tuple(intersect_generic_types(expected_type, Sequence))
+            unused_arg_sets = []
             for idx, item in enumerate(config[argument]):
                 if isinstance(item, Config):
                     if not sequence_type:
@@ -377,30 +313,36 @@ def construct_objects(
                     (
                         config[argument][idx],
                         expanded_config[argument][idx],
+                        unused_args,
                     ) = registry._get(
                         item, Union[sequence_type], f"{prefix}{argument}.{idx}"  # type: ignore
                     )
+                    unused_arg_sets.append(unused_args)
                 else:
                     config[argument][idx] = item
+            all_unused_args = set.intersection(*unused_arg_sets)
         elif isinstance(config[argument], Mapping):
             mapping_type = tuple(intersect_generic_types(expected_type, Mapping))
+            unused_arg_sets = []
             for key, item in config[argument].items():
                 if isinstance(item, Config):
                     (
                         config[argument][key],
                         expanded_config[argument][key],
+                        unused_args,
                     ) = registry._get(
                         item, Union[mapping_type], f"{prefix}{argument}.{key}"  # type: ignore
                     )
+                    unused_arg_sets.append(unused_args)
                 else:
                     config[argument][key] = item
-
-    return config, expanded_config
+            all_unused_args = set.intersection(*unused_arg_sets)
+    return config, expanded_config, all_unused_args
 
 
 def get_callable_parsed_args(
     callable: Callable, prefix=None
-) -> Tuple[Dict[str, Any], List[str]]:
+) -> Tuple[Dict[str, Any], Set[str]]:
     """Helper function that extracts the command line arguments for a given function.
 
     Args:
@@ -421,7 +363,7 @@ def get_callable_parsed_args(
 
 def get_parsed_args(
     arguments: Dict[str, inspect.Parameter], prefix=None
-) -> Tuple[Dict[str, Any], List[str]]:
+) -> Tuple[Dict[str, Any], Set[str]]:
     """Helper function that takes a dictionary mapping argument names to types, and
     extracts command line arguments for those arguments. If the dictionary contains
     a key-value pair "bar": int, and the prefix passed is "foo", this function will
@@ -462,7 +404,7 @@ def get_parsed_args(
         else:
             parsed_args[argument] = yaml.safe_load(parsed_args[argument])
 
-    return parsed_args, unused_args
+    return parsed_args, set(unused_args)
 
 
 registry = Registry()

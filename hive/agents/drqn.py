@@ -6,17 +6,17 @@ import numpy as np
 import torch
 
 from hive.agents.dqn import DQNAgent
-from hive.agents.qnets.sequence_models import DRQNNetwork, SequenceFn, SequenceModel
-from hive.agents.qnets.utils import (
-    TensorInitFn,
+from hive.agents.networks.sequence_models import DRQNNetwork, SequenceFn, SequenceModel
+from hive.agents.networks.utils import (
+    ModuleInitFn,
     apply_to_tensor,
     calculate_output_dim,
     create_init_weights_fn,
 )
 from hive.replays import ReplayItemSpec
 from hive.replays.recurrent_replay import RecurrentReplayBuffer
+from hive.types import Creates, default, Partial
 from hive.utils.loggers import logger
-from hive.utils.registry import Creates, OCreates, default
 from hive.utils.schedule import (
     LinearSchedule,
     PeriodicSchedule,
@@ -38,20 +38,20 @@ class DRQNAgent(DQNAgent):
         representation_net: Creates[torch.nn.Module],
         sequence_fn: Creates[SequenceFn],
         id=0,
-        optimizer_fn: OCreates[torch.optim.Optimizer] = None,
-        loss_fn: OCreates[LossFn] = None,
-        init_fn: OCreates[TensorInitFn] = None,
-        replay_buffer: OCreates[RecurrentReplayBuffer] = None,
+        optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
+        loss_fn: Optional[Creates[LossFn]] = None,
+        init_fn: Optional[Partial[ModuleInitFn]] = None,
+        replay_buffer: Optional[Creates[RecurrentReplayBuffer]] = None,
         max_seq_len: int = 1,
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: Optional[float] = None,
         reward_clip: Optional[float] = None,
-        update_period_schedule: OCreates[Schedule[bool]] = None,
+        update_period_schedule: Optional[Creates[Schedule[bool]]] = None,
         target_net_soft_update: bool = False,
         target_net_update_fraction: float = 0.05,
-        target_net_update_schedule: OCreates[Schedule[bool]] = None,
-        epsilon_schedule: OCreates[Schedule[float]] = None,
+        target_net_update_schedule: Optional[Creates[Schedule[bool]]] = None,
+        epsilon_schedule: Optional[Creates[Schedule[float]]] = None,
         test_epsilon: float = 0.001,
         min_replay_history: int = 5000,
         batch_size: int = 32,
@@ -123,9 +123,9 @@ class DRQNAgent(DQNAgent):
             self._observation_space.shape[0],
             *self._observation_space.shape[1:],
         )
-        self._init_fn = create_init_weights_fn(init_fn)
+        self._init_fn = default(init_fn, lambda m: None)
         self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
-        self.create_q_networks(representation_net, sequence_fn)
+        self.create_networks(representation_net, sequence_fn)
         optimizer_fn = default(optimizer_fn, torch.optim.Adam)
         self._optimizer = optimizer_fn(self._qnet.parameters())
         self._rng = np.random.default_rng(seed=seeder.get_new_seed("agent"))
@@ -180,7 +180,7 @@ class DRQNAgent(DQNAgent):
         self._store_hidden = store_hidden
         self._burn_frames = burn_frames
 
-    def create_q_networks(self, representation_net, sequence_fn):
+    def create_networks(self, representation_net, sequence_fn):
         """Creates the Q-network and target Q-network.
 
         Args:

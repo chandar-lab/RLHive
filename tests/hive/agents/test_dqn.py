@@ -9,14 +9,14 @@ import torch
 from pytest_lazyfixture import lazy_fixture
 from torch.optim import Adam
 
-from hive.agents import DQNAgent, RainbowDQNAgent, Agent
-from hive.agents.qnets import MLPNetwork
+from hive.agents import Agent, DQNAgent, RainbowDQNAgent
+from hive.agents.networks import MLPNetwork
 from hive.envs import EnvSpec
 from hive.replays import SimpleReplayBuffer
 from hive.utils import schedule
-from hive.utils.utils import Counter
+from hive.utils.config import dict_to_config
 from hive.utils.registry import registry
-from hive.runners.utils import dict_to_config
+from hive.utils.utils import Counter
 
 
 @pytest.fixture

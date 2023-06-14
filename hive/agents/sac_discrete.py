@@ -1,6 +1,6 @@
 import copy
 import os
-from typing import Optional, Sequence, cast
+from typing import Optional, Sequence
 
 import gymnasium as gym
 import numpy as np
@@ -9,17 +9,16 @@ from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents import Agent
 from hive.agents.agent import Agent
-from hive.agents.qnets.sac_heads import SACActorNetwork, SACDiscreteCriticNetwork
-from hive.agents.qnets.utils import (
-    TensorInitFn,
+from hive.agents.networks.sac_heads import SACActorNetwork, SACDiscreteCriticNetwork
+from hive.agents.networks.utils import (
+    ModuleInitFn,
     calculate_output_dim,
     create_init_weights_fn,
 )
 from hive.agents.utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer, ReplayItemSpec
-from hive.types import Shape
+from hive.types import Creates, default, Partial
 from hive.utils.loggers import logger
-from hive.utils.registry import OCreates, default
 from hive.utils.schedule import DoublePeriodicSchedule, PeriodicSchedule, SwitchSchedule
 from hive.utils.utils import LossFn, create_folder
 
@@ -29,16 +28,16 @@ class DiscreteSACAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Discrete,
-        representation_net: OCreates[torch.nn.Module] = None,
-        actor_net: OCreates[torch.nn.Module] = None,
-        critic_net: OCreates[torch.nn.Module] = None,
-        init_fn: OCreates[TensorInitFn] = None,
-        actor_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
-        critic_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
-        critic_loss_fn: OCreates[LossFn] = None,
+        representation_net: Optional[Creates[torch.nn.Module]] = None,
+        actor_net: Optional[Creates[torch.nn.Module]] = None,
+        critic_net: Optional[Creates[torch.nn.Module]] = None,
+        init_fn: Optional[Partial[ModuleInitFn]] = None,
+        actor_optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
+        critic_optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
+        critic_loss_fn: Optional[Creates[LossFn]] = None,
         n_critics: int = 2,
         stack_size: int = 1,
-        replay_buffer: OCreates[BaseReplayBuffer] = None,
+        replay_buffer: Optional[Creates[BaseReplayBuffer]] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: Optional[float] = None,
@@ -53,7 +52,7 @@ class DiscreteSACAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
         auto_alpha: bool = True,
         alpha: float = 0.2,
         target_entropy_scale: float = 0.98,
-        alpha_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
+        alpha_optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
         device="cpu",
         id=0,
     ):
@@ -65,7 +64,7 @@ class DiscreteSACAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
             *self._observation_space.shape[1:],
         )
         self._stack_size = stack_size
-        self._init_fn = create_init_weights_fn(init_fn)
+        self._init_fn = default(init_fn, lambda m: None)
         self._n_critics = n_critics
         self._auto_alpha = auto_alpha
         self.create_networks(representation_net, actor_net, critic_net)
@@ -123,9 +122,7 @@ class DiscreteSACAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
             network = torch.nn.Identity()
         else:
             network = representation_net(self._state_size)
-        network_output_shape = cast(
-            Sequence[int], calculate_output_dim(network, self._state_size)
-        )
+        network_output_shape = calculate_output_dim(network, self._state_size)
         self._actor = SACActorNetwork(
             network,
             actor_net,

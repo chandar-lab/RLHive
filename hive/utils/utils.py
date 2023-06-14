@@ -7,7 +7,7 @@ from typing import Callable, TypeVar
 import numpy as np
 import torch
 
-from hive.types import PathLike
+from hive.types import Creates, PathLike
 
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 
@@ -106,43 +106,9 @@ class Chomp(dict):
         self.update(pickle.load(open(filename, "rb")))
 
 
-# class OptimizerFn(torch.optim.Optimizer):
-#     """A wrapper for callables that produce optimizer functions.
-
-#     These wrapped callables can be partially initialized through configuration
-#     files or command line arguments.
-#     """
-
-#     @classmethod
-#     def type_name(cls):
-#         """
-#         Returns:
-#             "optimizer_fn"
-#         """
-#         return "optimizer_fn"
-
-
-# class LossFn(Registrable):
-#     """A wrapper for callables that produce loss functions.
-
-#     These wrapped callables can be partially initialized through configuration
-#     files or command line arguments.
-#     """
-
-#     @classmethod
-#     def type_name(cls):
-#         """
-#         Returns:
-#             "loss_fn"
-#         """
-
-#         return "loss_fn"
 from typing import Any, NewType, Protocol, TypeVar, Union, runtime_checkable
 
 T = TypeVar("T")
-
-# LossFn = NewType("LossFn", torch.nn.Module)
-# ActivationFn = NewType("ActivationFn", torch.nn.Module)
 
 OptimizerFn = torch.optim.Optimizer
 
@@ -157,16 +123,6 @@ class ActivationFn(Protocol):
 class LossFn(Protocol):
     def __call__(self, pred, target) -> Any:
         ...
-
-
-# LossFn = TypeVar("LossFn", bound=torch.nn.Module)
-# LossFn = TypeVar("LossFn", bound=Callable)
-# class ActivationFn(Registrable):
-#     """A wrapper for callables that produce activation functions.
-
-#     These wrapped callables can be partially initialized through configuration
-#     files or command line arguments.
-#     """
 
 
 class Counter:

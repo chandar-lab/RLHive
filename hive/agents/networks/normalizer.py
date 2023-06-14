@@ -1,10 +1,9 @@
 import abc
-from typing import Generic, Tuple, TypeVar
+from typing import Generic, Sequence, TypeVar
 
 import numpy as np
 
-from hive.types import Shape
-from hive.utils.registry import Float, registry
+from hive.utils.registry import registry
 
 
 # taken from https://github.com/openai/baselines/blob/master/baselines/common/vec_env/vec_normalize.py
@@ -12,7 +11,7 @@ class MeanStd:
     """Tracks the mean, variance and count of values."""
 
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
-    def __init__(self, epsilon: Float = 1e-4, shape=()):
+    def __init__(self, epsilon: float = 1e-4, shape=()):
         """Tracks the mean, variance and count of values."""
         self.mean = np.zeros(shape, "float64")
         self.var = np.ones(shape, "float64")
@@ -88,11 +87,13 @@ class MovingAvgNormalizer(Normalizer):
     within the specified range.
     """
 
-    def __init__(self, shape: Shape, epsilon: Float = 1e-4, clip: Float = np.inf):
+    def __init__(
+        self, shape: Sequence[int], epsilon: float = 1e-4, clip: float = np.inf
+    ):
         """
         Args:
             epsilon (float): minimum value of variance to avoid division by 0.
-            shape (Shape): The shape of input data.
+            shape (Sequence[int]): The shape of input data.
             clip (np.float32): The clip value for the normalised data.
         """
         super().__init__()
@@ -127,7 +128,7 @@ class RewardNormalizer(Normalizer):
     specified range.
     """
 
-    def __init__(self, gamma: float, epsilon: Float = 1e-4, clip: Float = np.inf):
+    def __init__(self, gamma: float, epsilon: float = 1e-4, clip: float = np.inf):
         """
         Args:
             gamma (float): discount factor for the agent.

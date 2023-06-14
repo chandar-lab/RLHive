@@ -1,11 +1,11 @@
 import abc
 from pathlib import Path
-from typing import Any, Optional, Mapping, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 import torch
 
 import wandb
-from hive.types import PathLike
+from hive.types import Creates, PathLike
 from hive.utils.registry import Creates, registry
 from hive.utils.utils import Chomp, Counter, create_folder
 

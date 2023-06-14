@@ -1,13 +1,13 @@
 import copy
-from typing import Optional, Union, Sequence
+from typing import Optional, Sequence, Union
 
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.runners import Runner
+from hive.types import Creates, default
 from hive.utils import utils
 from hive.utils.experiment import Experiment
 from hive.utils.loggers import Logger
-from hive.utils.registry import Creates, OCreates, default
 
 
 class SingleAgentRunner(Runner):
@@ -20,7 +20,7 @@ class SingleAgentRunner(Runner):
         loggers: Optional[Union[Creates[Logger], Sequence[Creates[Logger]]]],
         experiment_manager: Creates[Experiment],
         train_steps: int,
-        eval_environment: OCreates[BaseEnv] = None,
+        eval_environment: Optional[Creates[BaseEnv]] = None,
         test_frequency: int = -1,
         test_episodes: int = 1,
         max_steps_per_episode: int = 1_000_000_000,

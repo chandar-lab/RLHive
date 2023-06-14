@@ -1,12 +1,13 @@
 from functools import partial
-from typing import Sequence, Union, Optional
+from typing import Optional, Sequence, Union
 
 import numpy as np
 import torch
 from torch import nn
-from hive.agents.qnets.noisy_linear import NoisyLinear
-from hive.agents.qnets.utils import ModuleInitFn
-from hive.utils.registry import OCreates, default, Partial
+
+from hive.agents.networks.noisy_linear import NoisyLinear
+from hive.agents.networks.utils import ModuleInitFn
+from hive.types import Creates, Partial, default
 from hive.utils.utils import ActivationFn
 
 
@@ -22,7 +23,7 @@ class MLPNetwork(nn.Module):
         self,
         in_dim: Union[int, Sequence[int]],
         hidden_units: Union[int, Sequence[int]] = 256,
-        activation_fn: OCreates[ActivationFn] = None,
+        activation_fn: Optional[Creates[ActivationFn]] = None,
         noisy: bool = False,
         std_init: float = 0.5,
         init_fn: Optional[Partial[ModuleInitFn]] = None,

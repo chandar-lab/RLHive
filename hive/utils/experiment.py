@@ -8,11 +8,12 @@ import yaml
 
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
+from hive.types import Creates
+from hive.utils.config import dict_to_config
 from hive.utils.loggers import logger
-from hive.utils.registry import Creates, registry
+from hive.utils.registry import registry
 from hive.utils.schedule import Schedule
 from hive.utils.utils import Chomp, Counter, create_folder
-from hive.runners.utils import dict_to_config
 
 
 class Experiment:

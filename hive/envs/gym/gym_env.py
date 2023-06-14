@@ -6,7 +6,8 @@ from gymnasium import wrappers
 
 from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
-from hive.utils.registry import Creates, registry
+from hive.types import Creates
+from hive.utils.registry import registry
 
 
 class GymEnv(BaseEnv):

@@ -1,4 +1,4 @@
-from hive.agents import qnets
+from hive.agents import networks
 from hive.agents.agent import Agent
 from hive.agents.ddpg import DDPG
 from hive.agents.dqn import DQNAgent

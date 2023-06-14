@@ -1,6 +1,5 @@
 from hive.replays.circular_replay import CircularReplayBuffer, SimpleReplayBuffer
 
-# from hive.replays.legal_moves_replay import LegalMovesBuffer
 from hive.replays.on_policy_replay import OnPolicyReplayBuffer
 from hive.replays.prioritized_replay import PrioritizedReplayBuffer
 from hive.replays.recurrent_replay import RecurrentReplayBuffer
@@ -10,7 +9,6 @@ from hive.utils.registry import registry
 registry.register_classes(
     {
         "CircularReplayBuffer": CircularReplayBuffer,
-        # "LegalMovesBuffer": LegalMovesBuffer,
         "OnPolicyReplayBuffer": OnPolicyReplayBuffer,
         "PrioritizedReplayBuffer": PrioritizedReplayBuffer,
         "RecurrentReplayBuffer": RecurrentReplayBuffer,

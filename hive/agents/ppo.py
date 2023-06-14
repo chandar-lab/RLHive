@@ -1,19 +1,18 @@
 import os
-from typing import Optional, Union, cast
+from typing import Optional, Union
 
 import gymnasium as gym
 import numpy as np
 import torch
 
 from hive.agents.agent import Agent
-from hive.agents.qnets.ac_nets import ActorCriticNetwork
-from hive.agents.qnets.normalizer import MovingAvgNormalizer, RewardNormalizer
-from hive.agents.qnets.utils import TensorInitFn, calculate_output_dim
+from hive.agents.networks.ac_nets import ActorCriticNetwork
+from hive.agents.networks.normalizer import MovingAvgNormalizer, RewardNormalizer
+from hive.agents.networks.utils import TensorInitFn, calculate_output_dim
 from hive.replays import ReplayItemSpec
 from hive.replays.on_policy_replay import OnPolicyReplayBuffer
-from hive.types import Shape
+from hive.types import Creates, default
 from hive.utils.loggers import logger
-from hive.utils.registry import OCreates, default
 from hive.utils.schedule import ConstantSchedule, PeriodicSchedule, Schedule
 from hive.utils.utils import LossFn, create_folder
 
@@ -25,18 +24,17 @@ class PPOAgent(Agent):
         self,
         observation_space: gym.spaces.Box,
         action_space: Union[gym.spaces.Discrete, gym.spaces.Box],
-        representation_net: OCreates[torch.nn.Module] = None,
-        actor_net: OCreates[torch.nn.Module] = None,
-        critic_net: OCreates[torch.nn.Module] = None,
-        actor_head_init_fn: OCreates[TensorInitFn] = None,
-        critic_head_init_fn: OCreates[TensorInitFn] = None,
-        optimizer_fn: OCreates[torch.optim.Optimizer] = None,
-        anneal_lr_schedule: OCreates[Schedule[float]] = None,
-        critic_loss_fn: OCreates[LossFn] = None,
-        observation_normalizer: OCreates[MovingAvgNormalizer] = None,
-        reward_normalizer: OCreates[RewardNormalizer] = None,
-        # stack_size: int = 1,
-        replay_buffer: OCreates[OnPolicyReplayBuffer] = None,
+        representation_net: Optional[Creates[torch.nn.Module]] = None,
+        actor_net: Optional[Creates[torch.nn.Module]] = None,
+        critic_net: Optional[Creates[torch.nn.Module]] = None,
+        actor_head_init_fn: Optional[Creates[TensorInitFn]] = None,
+        critic_head_init_fn: Optional[Creates[TensorInitFn]] = None,
+        optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
+        anneal_lr_schedule: Optional[Creates[Schedule[float]]] = None,
+        critic_loss_fn: Optional[Creates[LossFn]] = None,
+        observation_normalizer: Optional[Creates[MovingAvgNormalizer]] = None,
+        reward_normalizer: Optional[Creates[RewardNormalizer]] = None,
+        replay_buffer: Optional[Creates[OnPolicyReplayBuffer]] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: Optional[float] = None,
@@ -80,8 +78,6 @@ class PPOAgent(Agent):
                 normalizing observations
             reward_normalizer (RewardNormalizer): The function for normalizing
                 rewards
-            stack_size (int): Number of observations stacked to create the state fed
-                to the agent.
             replay_buffer (OnPolicyReplayBuffer): The replay buffer that the agent will
                 push observations to and sample from during learning. If None,
                 defaults to
@@ -189,8 +185,8 @@ class PPOAgent(Agent):
         else:
             network = representation_net(self._state_size)
 
-        network_output_shape = network_output_shape = cast(
-            Shape, calculate_output_dim(network, self._state_size)
+        network_output_shape = network_output_shape = calculate_output_dim(
+            network, self._state_size
         )
         self._actor_critic = ActorCriticNetwork(
             self._action_space,

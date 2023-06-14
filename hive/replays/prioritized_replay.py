@@ -1,11 +1,11 @@
 import os
 import pickle
-from typing import Optional, Mapping
+from typing import Mapping, Optional
 
 import numpy as np
 
-from hive.replays.replay_buffer import ReplayItemSpec
 from hive.replays.circular_replay import CircularReplayBuffer
+from hive.replays.replay_buffer import ReplayItemSpec
 from hive.utils.torch_utils import numpify
 from hive.utils.utils import seeder
 

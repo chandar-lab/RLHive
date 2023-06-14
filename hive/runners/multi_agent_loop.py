@@ -1,14 +1,14 @@
 import copy
-from typing import Optional, Union, cast, Sequence
+from typing import Optional, Sequence, Union
 
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.runners.base import Runner
 from hive.runners.utils import TransitionInfo
+from hive.types import Creates, default
 from hive.utils import utils
 from hive.utils.experiment import Experiment
-from hive.utils.loggers import CompositeLogger, Logger, NullLogger
-from hive.utils.registry import Creates, OCreates, default
+from hive.utils.loggers import Logger
 
 
 class MultiAgentRunner(Runner):
@@ -22,7 +22,7 @@ class MultiAgentRunner(Runner):
         experiment_manager: Creates[Experiment],
         train_steps: int,
         num_agents: int,
-        eval_environment: OCreates[BaseEnv] = None,
+        eval_environment: Optional[Creates[BaseEnv]] = None,
         test_frequency: int = -1,
         test_episodes: int = 1,
         self_play: bool = False,

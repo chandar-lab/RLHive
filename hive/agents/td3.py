@@ -1,7 +1,6 @@
 import copy
 import os
-from collections import deque
-from typing import Optional, cast
+from typing import Optional
 
 import gymnasium as gym
 import numpy as np
@@ -9,17 +8,16 @@ import torch
 from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents.agent import Agent
-from hive.agents.qnets.td3_heads import TD3ActorNetwork, TD3CriticNetwork
-from hive.agents.qnets.utils import (
-    TensorInitFn,
+from hive.agents.networks.td3_heads import TD3ActorNetwork, TD3CriticNetwork
+from hive.agents.networks.utils import (
+    ModuleInitFn,
     calculate_output_dim,
     create_init_weights_fn,
 )
 from hive.agents.utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer, ReplayItemSpec
-from hive.types import Shape
+from hive.types import Creates, Partial, default
 from hive.utils.loggers import logger
-from hive.utils.registry import OCreates, default
 from hive.utils.schedule import PeriodicSchedule, SwitchSchedule
 from hive.utils.utils import LossFn, create_folder
 
@@ -31,16 +29,16 @@ class TD3(Agent):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Box,
-        representation_net: OCreates[torch.nn.Module] = None,
-        actor_net: OCreates[torch.nn.Module] = None,
-        critic_net: OCreates[torch.nn.Module] = None,
-        init_fn: OCreates[TensorInitFn] = None,
-        actor_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
-        critic_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
-        critic_loss_fn: OCreates[LossFn] = None,
+        representation_net: Optional[Creates[torch.nn.Module]] = None,
+        actor_net: Optional[Creates[torch.nn.Module]] = None,
+        critic_net: Optional[Creates[torch.nn.Module]] = None,
+        init_fn: Optional[Partial[ModuleInitFn]] = None,
+        actor_optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
+        critic_optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
+        critic_loss_fn: Optional[Creates[LossFn]] = None,
         n_critics: int = 2,
         stack_size: int = 1,
-        replay_buffer: OCreates[BaseReplayBuffer] = None,
+        replay_buffer: Optional[Creates[BaseReplayBuffer]] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: Optional[float] = None,
@@ -134,7 +132,7 @@ class TD3(Agent):
         self._scale_actions = np.isfinite(self._action_scaling).all()
         self._action_min_tensor = torch.as_tensor(self._action_min, device=self._device)
         self._action_max_tensor = torch.as_tensor(self._action_max, device=self._device)
-        self._init_fn = create_init_weights_fn(init_fn)
+        self._init_fn = default(init_fn, lambda m: None)
         self._n_critics = n_critics
         self.create_networks(representation_net, actor_net, critic_net)
         critic_optimizer_fn = default(critic_optimizer_fn, torch.optim.Adam)
@@ -183,9 +181,7 @@ class TD3(Agent):
         """
         representation_net = default(representation_net, torch.nn.Identity)
         network = representation_net(self._state_size)
-        network_output_shape = cast(
-            Shape, calculate_output_dim(network, self._state_size)
-        )
+        network_output_shape = calculate_output_dim(network, self._state_size)
         self._actor = TD3ActorNetwork(
             network,
             actor_net,

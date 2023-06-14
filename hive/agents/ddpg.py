@@ -3,10 +3,10 @@ from typing import Optional
 import gymnasium as gym
 import torch
 
-from hive.agents.qnets.utils import TensorInitFn
+from hive.agents.networks.utils import TensorInitFn
 from hive.agents.td3 import TD3
 from hive.replays import BaseReplayBuffer
-from hive.utils.registry import OCreates
+from hive.types import Creates
 from hive.utils.utils import LossFn
 
 
@@ -21,15 +21,15 @@ class DDPG(TD3):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Box,
-        representation_net: OCreates[torch.nn.Module] = None,
-        actor_net: OCreates[torch.nn.Module] = None,
-        critic_net: OCreates[torch.nn.Module] = None,
-        init_fn: OCreates[TensorInitFn] = None,
-        actor_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
-        critic_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
-        critic_loss_fn: OCreates[LossFn] = None,
+        representation_net: Optional[Creates[torch.nn.Module]] = None,
+        actor_net: Optional[Creates[torch.nn.Module]] = None,
+        critic_net: Optional[Creates[torch.nn.Module]] = None,
+        init_fn: Optional[Creates[TensorInitFn]] = None,
+        actor_optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
+        critic_optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
+        critic_loss_fn: Optional[Creates[LossFn]] = None,
         stack_size: int = 1,
-        replay_buffer: OCreates[BaseReplayBuffer] = None,
+        replay_buffer: Optional[Creates[BaseReplayBuffer]] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
         grad_clip: Optional[float] = None,

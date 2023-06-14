@@ -1,11 +1,10 @@
-from typing import Tuple, Union, cast
+from typing import Optional, Sequence
 
 import numpy as np
 import torch
 
-from hive.agents.qnets.utils import calculate_output_dim
-from hive.types import Shape
-from hive.utils.registry import OCreates, default
+from hive.agents.networks.utils import calculate_output_dim
+from hive.types import Creates, default
 
 
 class TD3ActorNetwork(torch.nn.Module):
@@ -16,9 +15,9 @@ class TD3ActorNetwork(torch.nn.Module):
     def __init__(
         self,
         representation_network: torch.nn.Module,
-        network_output_shape: Shape,
-        action_shape: Shape,
-        actor_net: OCreates[torch.nn.Module] = None,
+        network_output_shape: Sequence[int],
+        action_shape: Sequence[int],
+        actor_net: Optional[Creates[torch.nn.Module]] = None,
         use_tanh=True,
     ) -> None:
         """
@@ -38,9 +37,7 @@ class TD3ActorNetwork(torch.nn.Module):
         self._action_shape = action_shape
         actor_network = default(actor_net, torch.nn.Identity)(network_output_shape)
         feature_dim = int(
-            np.prod(
-                cast(Shape, calculate_output_dim(actor_network, network_output_shape))
-            )
+            np.prod(calculate_output_dim(actor_network, network_output_shape))
         )
         actor_modules = [
             representation_network,
@@ -61,10 +58,10 @@ class TD3CriticNetwork(torch.nn.Module):
     def __init__(
         self,
         representation_network: torch.nn.Module,
-        network_output_shape: Shape,
+        network_output_shape: Sequence[int],
         n_critics: int,
-        action_shape: Shape,
-        critic_net: OCreates[torch.nn.Module] = None,
+        action_shape: Sequence[int],
+        critic_net: Optional[Creates[torch.nn.Module]] = None,
     ) -> None:
         """
         Args:
@@ -87,9 +84,7 @@ class TD3CriticNetwork(torch.nn.Module):
         input_shape = (int(np.prod(network_output_shape) + np.prod(action_shape)),)
         critics = [critic_net(input_shape) for _ in range(n_critics)]
         feature_dim = int(
-            np.prod(
-                cast(Shape, calculate_output_dim(critics[0], input_shape=input_shape))
-            )
+            np.prod(calculate_output_dim(critics[0], input_shape=input_shape))
         )
         self._critics = torch.nn.ModuleList(
             [

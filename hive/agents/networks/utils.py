@@ -1,27 +1,28 @@
 import math
 from typing import (
+    Any,
     Callable,
+    Optional,
     Protocol,
+    Sequence,
     TypeVar,
     Union,
     runtime_checkable,
-    Sequence,
-    Optional,
 )
 
 import optree
 import torch
 
-from hive.utils.registry import registry, Partial
+from hive.types import Partial
+from hive.utils.registry import registry
 
 T = TypeVar("T")
-# NestedType = Union[T, Sequence["NestedType[T]"], Mapping[str, "NestedType[T]"]]
 
 
 def calculate_output_dim(
     net: Callable[..., optree.PyTree[torch.Tensor]],
     input_shape: Union[int, Sequence[int]],
-):
+) -> Any:  # PyTree[Sequence[int]] Using Any to avoid checks for recursive types
     """Calculates the resulting output shape for a given input shape and network.
 
     Args:
@@ -44,41 +45,10 @@ def calculate_output_dim(
     return optree.tree_map(get_size, output)
 
 
-# NestedType = Union[T, Sequence["SubNestedType[T]"], Mapping[str, "SubNestedType[T]"]]
-# SubNestedType = NestedType[T]
-
-
 def apply_to_tensor(
     x: optree.PyTree[torch.Tensor], fn: Callable[[torch.Tensor], T]
 ) -> optree.PyTree[T]:
     return optree.tree_map(fn, x)
-
-
-def create_init_weights_fn(initialization_fn):
-    """Returns a function that wraps :func:`initialization_function` and applies
-    it to modules that have the :attr:`weight` attribute.
-
-    Args:
-        initialization_fn (callable): A function that takes in a tensor and
-            initializes it.
-    Returns:
-        Function that takes in PyTorch modules and initializes their weights.
-        Can be used as follows:
-
-        .. code-block:: python
-
-            init_fn = create_init_weights_fn(variance_scaling_)
-            network.apply(init_fn)
-    """
-    if initialization_fn is not None:
-
-        def init_weights(m):
-            if hasattr(m, "weight"):
-                initialization_fn(m.weight)
-
-        return init_weights
-    else:
-        return lambda m: None
 
 
 def calculate_correct_fan(tensor, mode):
@@ -129,22 +99,6 @@ def variance_scaling_(tensor, scale=1.0, mode="fan_in", distribution="uniform"):
         return torch.nn.init.uniform_(tensor, -limit, limit)
     else:
         raise ValueError(f"Distribution {distribution} not supported")
-
-
-# class InitializationFn(Registrable):
-#     """A wrapper for callables that produce initialization functions.
-
-#     These wrapped callables can be partially initialized through configuration
-#     files or command line arguments.
-#     """
-
-#     @classmethod
-#     def type_name(cls):
-#         """
-#         Returns:
-#             "init_fn"
-#         """
-#         return "init_fn"
 
 
 @runtime_checkable

@@ -8,7 +8,7 @@ import pytest
 import hive
 from hive import main, runners
 from hive.agents.dqn import DQNAgent
-from hive.agents.qnets import MLPNetwork
+from hive.agents.networks import MLPNetwork
 from hive.runners import Runner, single_agent_loop
 from hive.runners.utils import TransitionInfo, load_config
 from hive.utils.loggers import CompositeLogger, Logger, logger

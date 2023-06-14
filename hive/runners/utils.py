@@ -6,8 +6,8 @@ from typing import Optional
 import numpy as np
 import yaml
 
+from hive.utils.config import dict_to_config
 from hive.utils.utils import PACKAGE_ROOT
-from hive.utils.registry import dict_to_config
 
 
 def load_config(

@@ -1,10 +1,10 @@
-from typing import Callable, Optional, Sequence, TypeVar, Union, cast
+from typing import Callable, Optional, Sequence, TypeVar, Union
 
 import torch
 from torch import nn
 
-from hive.agents.qnets.mlp import MLPNetwork
-from hive.agents.qnets.utils import calculate_output_dim
+from hive.agents.networks.mlp import MLPNetwork
+from hive.agents.networks.utils import calculate_output_dim
 
 T = TypeVar("T")
 
@@ -92,10 +92,7 @@ class ConvNetwork(nn.Module):
 
         if mlp_layers is not None:
             # MLP Layers
-            conv_output_size = cast(
-                Sequence[int], calculate_output_dim(self.conv, in_dim)
-            )
-
+            conv_output_size = calculate_output_dim(self.conv, in_dim)
             self.mlp = MLPNetwork(
                 conv_output_size, mlp_layers, noisy=noisy, std_init=std_init
             )

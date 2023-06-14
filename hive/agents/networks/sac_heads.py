@@ -1,11 +1,11 @@
-from typing import Tuple, Union, Sequence
+from typing import Optional, Sequence, Union
 
 import gymnasium as gym
 import numpy as np
 import torch
 
-from hive.agents.qnets.utils import calculate_output_dim
-from hive.utils.registry import Creates, OCreates, default
+from hive.agents.networks.utils import calculate_output_dim
+from hive.types import Creates, default
 
 MIN_LOG_STD = -5
 MAX_LOG_STD = 2
@@ -96,7 +96,7 @@ class SACActorNetwork(torch.nn.Module):
     def __init__(
         self,
         representation_network: torch.nn.Module,
-        actor_net: OCreates[torch.nn.Module],
+        actor_net: Optional[Creates[torch.nn.Module]],
         representation_network_output_shape: Union[int, Sequence[int]],
         action_space: Union[gym.spaces.Box, gym.spaces.Discrete],
     ) -> None:
@@ -139,7 +139,7 @@ class SACContinuousCriticNetwork(torch.nn.Module):
     def __init__(
         self,
         representation_network: torch.nn.Module,
-        critic_net: OCreates[torch.nn.Module],
+        critic_net: Optional[Creates[torch.nn.Module]],
         network_output_shape: Union[int, Sequence[int]],
         action_space: Union[gym.spaces.Box, gym.spaces.Discrete],
         n_critics: int = 2,
@@ -188,7 +188,7 @@ class SACDiscreteCriticNetwork(torch.nn.Module):
     def __init__(
         self,
         representation_network: torch.nn.Module,
-        critic_net: OCreates[torch.nn.Module],
+        critic_net: Optional[Creates[torch.nn.Module]],
         network_output_shape: Union[int, Sequence[int]],
         action_space: gym.spaces.Discrete,
         n_critics: int = 2,

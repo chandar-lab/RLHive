@@ -1,14 +1,14 @@
 import abc
-from typing import Any, Optional, Tuple, cast, Mapping
+from typing import Any, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
 from torch import nn
 
-from hive.agents.qnets.mlp import MLPNetwork
-from hive.agents.qnets.utils import calculate_output_dim
-from hive.types import Shape
-from hive.utils.registry import Creates, registry
+from hive.agents.networks.mlp import MLPNetwork
+from hive.agents.networks.utils import calculate_output_dim
+from hive.types import Creates
+from hive.utils.registry import registry
 
 
 class SequenceFn(nn.Module):
@@ -18,7 +18,7 @@ class SequenceFn(nn.Module):
     def init_hidden(self, batch_size):
         raise NotImplementedError
 
-    def get_hidden_spec(self) -> Optional[Mapping[str, Shape]]:
+    def get_hidden_spec(self) -> Optional[Mapping[str, Sequence[int]]]:
         return None
 
 
@@ -217,9 +217,7 @@ class SequenceModel(nn.Module):
         self.representation_network = representation_network(in_dim)
 
         # RNN Layers
-        conv_output_size = cast(
-            Shape, calculate_output_dim(self.representation_network, in_dim)
-        )
+        conv_output_size = calculate_output_dim(self.representation_network, in_dim)
         self.sequence_fn = sequence_fn(
             rnn_input_size=np.prod(conv_output_size),
         )
@@ -231,7 +229,7 @@ class SequenceModel(nn.Module):
             )
             x = calculate_output_dim(self.sequence_fn, conv_output_size)
             self.mlp = MLPNetwork(
-                cast(Shape, sequence_output_size),
+                sequence_output_size,
                 mlp_layers,
                 noisy=noisy,
                 std_init=std_init,
