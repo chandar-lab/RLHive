@@ -3,10 +3,10 @@ from typing import Optional
 import gymnasium as gym
 import torch
 
-from hive.agents.networks.utils import TensorInitFn
+from hive.utils.torch_utils import ModuleInitFn
 from hive.agents.td3 import TD3
 from hive.replays import BaseReplayBuffer
-from hive.types import Creates
+from hive.types import Creates, Partial
 from hive.utils.utils import LossFn
 
 
@@ -24,7 +24,7 @@ class DDPG(TD3):
         representation_net: Optional[Creates[torch.nn.Module]] = None,
         actor_net: Optional[Creates[torch.nn.Module]] = None,
         critic_net: Optional[Creates[torch.nn.Module]] = None,
-        init_fn: Optional[Creates[TensorInitFn]] = None,
+        init_fn: Optional[Partial[ModuleInitFn]] = None,
         actor_optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
         critic_optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
         critic_loss_fn: Optional[Creates[LossFn]] = None,
@@ -84,7 +84,6 @@ class DDPG(TD3):
                 net parameters in a soft (polyak) update. Also known as tau.
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
-            logger (Logger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
             update_frequency (int): How frequently to update the agent. A value of 1
                 means the agent will be updated every time update is called.

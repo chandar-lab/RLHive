@@ -9,17 +9,14 @@ from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents import Agent
 from hive.agents.agent import Agent
-from hive.agents.networks.sac_heads import SACActorNetwork, SACDiscreteCriticNetwork
-from hive.agents.networks.utils import (
-    ModuleInitFn,
-    calculate_output_dim,
-    create_init_weights_fn,
-)
-from hive.agents.utils import roll_state
+from hive.agents.sac.sac_heads import SACActorNetwork, SACDiscreteCriticNetwork
+from hive.utils.torch_utils import calculate_output_dim
+from hive.utils.np_utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer, ReplayItemSpec
 from hive.types import Creates, default, Partial
 from hive.utils.loggers import logger
 from hive.utils.schedule import DoublePeriodicSchedule, PeriodicSchedule, SwitchSchedule
+from hive.utils.torch_utils import ModuleInitFn
 from hive.utils.utils import LossFn, create_folder
 
 

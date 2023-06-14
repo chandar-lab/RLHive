@@ -5,6 +5,8 @@ import numpy as np
 
 from hive.utils.registry import registry
 
+T = TypeVar("T")
+
 
 # taken from https://github.com/openai/baselines/blob/master/baselines/common/vec_env/vec_normalize.py
 class MeanStd:
@@ -56,9 +58,6 @@ class MeanStd:
         self.mean = state_dict["mean"]
         self.var = state_dict["var"]
         self.count = state_dict["count"]
-
-
-T = TypeVar("T")
 
 
 class Normalizer(Generic[T]):

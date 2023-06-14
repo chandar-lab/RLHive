@@ -6,12 +6,9 @@ import numpy as np
 import torch
 
 from hive.agents.dqn import DQNAgent
-from hive.agents.networks.sequence_models import DRQNNetwork, SequenceFn, SequenceModel
-from hive.agents.networks.utils import (
-    ModuleInitFn,
+from hive.agents.sequence.sequence_models import DRQNNetwork, SequenceFn, SequenceModel
+from hive.utils.torch_utils import (
     apply_to_tensor,
-    calculate_output_dim,
-    create_init_weights_fn,
 )
 from hive.replays import ReplayItemSpec
 from hive.replays.recurrent_replay import RecurrentReplayBuffer
@@ -23,6 +20,7 @@ from hive.utils.schedule import (
     Schedule,
     SwitchSchedule,
 )
+from hive.utils.torch_utils import ModuleInitFn, calculate_output_dim
 from hive.utils.utils import LossFn, seeder
 
 
@@ -112,7 +110,6 @@ class DRQNAgent(DQNAgent):
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
             device: Device on which all computations should be run.
-            logger (ScheduledLogger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
         """
         self._max_seq_len = max_seq_len

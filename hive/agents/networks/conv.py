@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from hive.agents.networks.mlp import MLPNetwork
-from hive.agents.networks.utils import calculate_output_dim
+from hive.utils.torch_utils import calculate_output_dim
 
 T = TypeVar("T")
 

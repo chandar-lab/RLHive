@@ -124,10 +124,10 @@ class DoublePeriodicSchedule(Schedule[T]):
         self._on_value = on_value
 
     def __call__(self, step):
-        if (step % self._total_period) < self._off_period:
-            return self._off_value
-        else:
+        if (step % self._total_period) == 0:
             return self._on_value
+        else:
+            return self._off_value
 
     def __repr__(self):
         return (

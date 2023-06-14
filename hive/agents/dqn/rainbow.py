@@ -8,17 +8,18 @@ import torch
 
 from hive.agents.dqn import DQNAgent
 from hive.agents.networks.noisy_linear import NoisyLinear
-from hive.agents.networks.qnet_heads import (
+from hive.agents.dqn.qnet_heads import (
     DistributionalNetwork,
     DQNNetwork,
     DuelingNetwork,
 )
-from hive.agents.networks.utils import ModuleInitFn, calculate_output_dim
+from hive.utils.torch_utils import calculate_output_dim
 from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.types import Creates, Partial, default
 from hive.utils.loggers import logger
 from hive.utils.schedule import Schedule
+from hive.utils.torch_utils import ModuleInitFn
 from hive.utils.utils import LossFn
 
 
@@ -106,7 +107,6 @@ class RainbowDQNAgent(DQNAgent):
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
             device: Device on which all computations should be run.
-            logger (ScheduledLogger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
             noisy (bool): Whether to use noisy linear layers for exploration.
             std_init (float): The range for the initialization of the standard

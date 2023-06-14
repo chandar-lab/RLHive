@@ -255,7 +255,7 @@ def test_create_agent_with_configs(env_spec):
             "device": "cpu",
         },
     }
-    agent, _ = registry.get(dict_to_config(agent_config), Agent)
+    agent, _, _ = registry.get(dict_to_config(agent_config), Agent)
     agent = agent()
     agent_traj_state = None
     action, agent_traj_state = agent.act(np.zeros(2), agent_traj_state, Counter())

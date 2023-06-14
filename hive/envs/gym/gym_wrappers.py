@@ -90,7 +90,7 @@ registry.register_classes(
 try:
     from minigrid import wrappers
 
-    wrappers = [
+    wrappers_list = [
         getattr(wrappers, x)
         for x in dir(wrappers)
         if inspect.isclass(getattr(wrappers, x))
@@ -98,7 +98,7 @@ try:
     ]
 
     registry.register_classes(
-        {"minigrid.{}".format(wrapper.__name__): wrapper for wrapper in wrappers},
+        {"minigrid.{}".format(wrapper.__name__): wrapper for wrapper in wrappers_list},
     )
 
 except ImportError:

@@ -8,9 +8,9 @@ import torch
 from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents.agent import Agent
-from hive.agents.networks.qnet_heads import DQNNetwork
-from hive.agents.networks.utils import ModuleInitFn, calculate_output_dim
-from hive.agents.utils import roll_state
+from hive.agents.dqn.qnet_heads import DQNNetwork
+from hive.utils.torch_utils import calculate_output_dim
+from hive.utils.np_utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer, ReplayItemSpec
 from hive.types import Creates, Partial, default
 from hive.utils.loggers import logger
@@ -20,6 +20,7 @@ from hive.utils.schedule import (
     Schedule,
     SwitchSchedule,
 )
+from hive.utils.torch_utils import ModuleInitFn
 from hive.utils.utils import LossFn, create_folder, seeder
 
 

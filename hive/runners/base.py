@@ -1,15 +1,16 @@
+import logging
 from abc import ABC
 from typing import Optional, Sequence, Union, cast
 
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
-from hive.runners.utils import Metrics
+from hive.utils.runner_utils import Metrics
 from hive.types import Creates
 from hive.utils import schedule
 from hive.utils.config import Config, config_to_dict
 from hive.utils.experiment import Experiment
 from hive.utils.loggers import CompositeLogger, Logger, NullLogger, logger
-from hive.utils.utils import Counter, seeder
+from hive.utils.utils import Counter, Timer, seeder
 
 
 class Runner(ABC):
@@ -68,6 +69,7 @@ class Runner(ABC):
         self._test_episodes = test_episodes
         self._max_steps_per_episode = max_steps_per_episode
         self._train_steps = Counter()
+        self._phase_steps = Counter()
         self._test_steps = Counter()
         # Set up loggers
         if loggers is None:
@@ -92,6 +94,11 @@ class Runner(ABC):
         self._training = True
         self._save_experiment = False
         self._run_testing = False
+        self._full_timer = Timer()
+        self._train_timer = Timer()
+        self._eval_timer = Timer()
+        self._full_timer.start()
+        self._train_timer.start()
 
     def register_config(self, config: Config):
         """Register the config for the experiment.
@@ -110,7 +117,14 @@ class Runner(ABC):
         Args:
             training (bool): Whether to be in training mode.
         """
+        if training and not self._training:
+            self._train_timer.start()
+            self._eval_timer.stop()
+        elif not training and self._training:
+            self._train_timer.stop()
+            self._eval_timer.start()
         self._training = training
+
         for agent in self._agents:
             agent.train() if training else agent.eval()
 
@@ -126,10 +140,26 @@ class Runner(ABC):
         """Update steps for various schedules. Run testing if appropriate."""
         if self._training:
             self._train_steps.increment()
+            self._phase_steps.increment()
             if self._test_schedule(self._train_steps):
                 self.run_testing()
+                metrics = {
+                    "current_fps": self._phase_steps / self._train_timer.get_time(),
+                    "train_time": self._train_timer.get_time(),
+                    "eval_time": self._eval_timer.get_time(),
+                    "total_fps": self._train_steps / self._full_timer.get_time(),
+                    "total_time": self._full_timer.get_time(),
+                }
+                logger.log_metrics(metrics, "progress")
+                logging.info(
+                    f"{self._train_steps.value} environment training steps completed\n"
+                    + "\n".join([f"{k}: {v}" for k, v in metrics.items()])
+                )
+                self._phase_steps = Counter()
+                self._train_timer.start()
+                self.run_testing()
             if self._experiment_manager.should_save(self._train_steps):
-                self._experiment_manager.save(str(self._train_steps))
+                self._experiment_manager.save(self._train_steps)
 
     def run_episode(self, environment) -> Metrics:
         """Run a single episode of the environment.
@@ -147,7 +177,6 @@ class Runner(ABC):
         :py:class:`~hive.runners.multi_agent_loop.MultiAgentRunner` for examples."""
         # Run an initial test episode
         self.run_testing()
-
         self.train_mode(True)
         while self._train_schedule(self._train_steps):
             # Run training episode
@@ -159,7 +188,7 @@ class Runner(ABC):
 
         # Run a final test episode and save the experiment.
         self.run_testing()
-        self._experiment_manager.save(str(self._train_steps))
+        self._experiment_manager.save(self._train_steps)
 
     def run_testing(self):
         """Run a testing phase."""

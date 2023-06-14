@@ -62,7 +62,7 @@ kwargs:
       entropy_coefficient: .0
       clip_value_loss: True
       value_fn_coefficient: .5
-      transitions_per_update: 4096
+      steps_per_update: 4096
       num_epochs_per_update: 4
       normalize_advantages: True
       batch_size: 256

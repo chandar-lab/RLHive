@@ -6,9 +6,9 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from hive.agents.networks.utils import ModuleInitFn
-from hive.agents.rainbow import RainbowDQNAgent
-from hive.agents.utils import roll_state
+from hive.utils.torch_utils import ModuleInitFn
+from hive.agents.dqn.rainbow import RainbowDQNAgent
+from hive.utils.np_utils import roll_state
 from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import Alignment, ReplayItemSpec
 from hive.types import Creates, Partial, default
@@ -59,8 +59,8 @@ class LegalMovesRainbowAgent(RainbowDQNAgent):
         replay_buffer = partial(
             replay_buffer,
             extra_storage_specs={
-                "action_mask": ReplayItemSpec(
-                    (int(action_space.n),), np.float32, True, Alignment.end, 1
+                "action_mask": ReplayItemSpec.create(
+                    (int(action_space.n),), np.float32, return_next=True
                 )
             },
         )

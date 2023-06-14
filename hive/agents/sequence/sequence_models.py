@@ -6,9 +6,10 @@ import torch
 from torch import nn
 
 from hive.agents.networks.mlp import MLPNetwork
-from hive.agents.networks.utils import calculate_output_dim
+from hive.utils.torch_utils import calculate_output_dim
 from hive.types import Creates
 from hive.utils.registry import registry
+from hive.replays import ReplayItemSpec, Alignment
 
 
 class SequenceFn(nn.Module):
@@ -95,13 +96,17 @@ class LSTMModel(SequenceFn):
 
     def get_hidden_spec(self):
         return {
-            "hidden_state": (
-                np.float32,
+            "hidden_state": ReplayItemSpec.create(
                 (self._num_rnn_layers, self._rnn_hidden_size),
+                np.float32,
+                return_next=True,
+                alignment=Alignment.start,
             ),
-            "cell_state": (
-                np.float32,
+            "cell_state": ReplayItemSpec.create(
                 (self._num_rnn_layers, self._rnn_hidden_size),
+                np.float32,
+                return_next=True,
+                alignment=Alignment.start,
             ),
         }
 

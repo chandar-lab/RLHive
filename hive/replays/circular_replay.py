@@ -8,6 +8,7 @@ import numpy.typing as npt
 
 from hive.replays.replay_buffer import Alignment, BaseReplayBuffer, ReplayItemSpec
 from hive.utils.utils import create_folder, seeder
+from numba import njit
 
 
 class CircularReplayBuffer(BaseReplayBuffer):
@@ -333,11 +334,12 @@ class CircularReplayBuffer(BaseReplayBuffer):
                 rewards = self._get_from_storage("reward", indices, self._n_step)
                 if self._n_step == 1:
                     rewards = np.expand_dims(rewards, 1)
-                rewards = rewards * np.expand_dims(self._discount, axis=0)
-
-                # Mask out rewards past trajectory length
-                mask = np.expand_dims(trajectory_lengths, 1) > np.arange(self._n_step)
-                rewards = np.sum(rewards * mask, axis=1)
+                rewards = compute_discounted_returns(
+                    trajectory_lengths,
+                    rewards,
+                    self._discount,
+                    self._n_step,
+                )
                 batch["reward"] = rewards
             else:
                 offset = (
@@ -405,6 +407,16 @@ class CircularReplayBuffer(BaseReplayBuffer):
         self._cursor = state["cursor"]
         self._num_added = state["num_added"]
         self._rng = state["rng"]
+
+
+@njit
+def compute_discounted_returns(trajectory_lengths, rewards, discount, n_step):
+    discounted_rewards = rewards * np.expand_dims(discount, axis=0)
+
+    # Mask out rewards past trajectory length
+    mask = np.expand_dims(trajectory_lengths, 1) > np.arange(n_step)
+    returns = np.sum(discounted_rewards * mask, axis=1)
+    return returns
 
 
 class SimpleReplayBuffer(BaseReplayBuffer):

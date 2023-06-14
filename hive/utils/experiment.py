@@ -2,14 +2,13 @@
 import logging
 import shutil
 from pathlib import Path
-from typing import Mapping, Sequence, Union
+from typing import Any, Sequence, Union
 
 import yaml
 
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.types import Creates
-from hive.utils.config import dict_to_config
 from hive.utils.loggers import logger
 from hive.utils.registry import registry
 from hive.utils.schedule import Schedule
@@ -49,6 +48,7 @@ class Experiment:
 
         self._config = None
         self.experiment_state = Chomp()
+        self.experiment_state["checkpoints_saved"] = self._checkpoints_saved
         self._experiment_components = {}
 
     def register_experiment(
@@ -81,12 +81,17 @@ class Experiment:
         """Returns whether you should save the experiment at the current step."""
         return self._saving_schedule(step)
 
-    def save(self, tag="current"):
+    def save(self, tag: Any = "current"):
         """Saves the experiment.
         Args:
             tag (str): Tag to prefix the folder.
         """
+        if isinstance(tag, Counter):
+            tag = tag.value
         save_dir = self._save_dir / str(tag)
+        if save_dir in self._checkpoints_saved:
+            logging.info(f"Checkpoint {save_dir} already saved.")
+            return
         create_folder(save_dir)
 
         logging.info("Saving the experiment at {}".format(save_dir))
@@ -109,7 +114,9 @@ class Experiment:
         flag_file.touch()
         self._checkpoints_saved.append(save_dir)
         if len(self._checkpoints_saved) > self._num_checkpoints_to_save:
-            shutil.rmtree(self._checkpoints_saved.pop(0))
+            old_checkpoint = self._checkpoints_saved.pop(0)
+            logging.info(f"Deleting old checkpoint {old_checkpoint}")
+            shutil.rmtree(old_checkpoint)
 
     def is_resumable(self, tag="current"):
         """Returns true if the experiment is resumable.
@@ -141,6 +148,7 @@ class Experiment:
             file_name = save_dir / "experiment_state.p"
             self.experiment_state.load(file_name)
             self._saving_schedule = self.experiment_state["saving_schedule"]
+            self._checkpoints_saved = self.experiment_state["checkpoints_saved"]
 
     @classmethod
     def type_name(cls):

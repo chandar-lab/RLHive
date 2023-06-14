@@ -4,7 +4,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from hive.agents.networks.utils import calculate_output_dim
+from hive.utils.torch_utils import calculate_output_dim
 from hive.types import Creates, default
 
 MIN_LOG_STD = -5

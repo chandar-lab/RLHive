@@ -22,7 +22,7 @@ def find_single_run_data(run_folder):
         run_folder (str): Which folder to search for the chomp logger data.
 
     Returns:
-        The Chomp object containing the logger data.
+        The dictionary object containing the logger data.
     """
     run_data_file = None
     for path, _, filenames in os.walk(run_folder):

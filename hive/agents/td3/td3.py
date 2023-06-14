@@ -8,17 +8,14 @@ import torch
 from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents.agent import Agent
-from hive.agents.networks.td3_heads import TD3ActorNetwork, TD3CriticNetwork
-from hive.agents.networks.utils import (
-    ModuleInitFn,
-    calculate_output_dim,
-    create_init_weights_fn,
-)
-from hive.agents.utils import roll_state
+from hive.agents.td3.td3_heads import TD3ActorNetwork, TD3CriticNetwork
+from hive.utils.torch_utils import calculate_output_dim
+from hive.utils.np_utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer, ReplayItemSpec
 from hive.types import Creates, Partial, default
 from hive.utils.loggers import logger
 from hive.utils.schedule import PeriodicSchedule, SwitchSchedule
+from hive.utils.torch_utils import ModuleInitFn
 from hive.utils.utils import LossFn, create_folder
 
 
@@ -101,7 +98,6 @@ class TD3(Agent):
                 net parameters in a soft (polyak) update. Also known as tau.
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
-            logger (Logger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
             update_frequency (int): How frequently to update the agent. A value of 1
                 means the agent will be updated every time update is called.

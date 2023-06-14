@@ -10,7 +10,7 @@ from hive import main, runners
 from hive.agents.dqn import DQNAgent
 from hive.agents.networks import MLPNetwork
 from hive.runners import Runner, single_agent_loop
-from hive.runners.utils import TransitionInfo, load_config
+from hive.utils.runner_utils import TransitionInfo, load_config
 from hive.utils.loggers import CompositeLogger, Logger, logger
 from hive.utils.registry import registry
 
@@ -82,8 +82,9 @@ def initial_runner(args, tmpdir):
     config.kwargs["experiment_manager"].kwargs["save_dir"] = (
         Path(tmpdir) / config.kwargs["experiment_manager"].kwargs["save_dir"]
     )
-    runner_fn, config = registry.get(config, Runner)
+    runner_fn, config, _ = registry.get(config, Runner)
     runner = runner_fn()
+    runner.train_mode(True)
     return runner, config
 
 
@@ -221,7 +222,7 @@ def test_cl_parsing(mock_seeder, args, arg_string, cl_args):
         env_config=args.env_config,
         logger_config=args.logger_config,
     )
-    runner_fn, config = registry.get(config, Runner)
+    runner_fn, config, _ = registry.get(config, Runner)
     runner = runner_fn()
     runner.register_config(config)
     full_config = runner._experiment_manager._config

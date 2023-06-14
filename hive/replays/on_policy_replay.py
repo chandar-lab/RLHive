@@ -14,8 +14,8 @@ class OnPolicyReplayBuffer(BaseReplayBuffer):
 
     def __init__(
         self,
-        num_sources: int = 1,
         steps_per_update: int = 10000,
+        num_sources: int = 1,
         n_step: int = 1,
         gamma: float = 0.99,
         compute_advantage_fn: Optional[Partial[AdvantageComputationFn]] = None,
@@ -53,12 +53,13 @@ class OnPolicyReplayBuffer(BaseReplayBuffer):
                 in the buffer. The mapping should be from the name of the item to a
                 (type, shape) tuple.
         """
+        self._num_sources = num_sources
         self._specs = {
             "observation": observation_spec,
             "next_observation": observation_spec,
             "action": action_spec,
             "reward": reward_spec,
-            "done": ReplayItemSpec.create((), np.uint8),
+            "truncated": ReplayItemSpec.create((), np.uint8),
             "terminated": ReplayItemSpec.create((), np.uint8),
             "value": ReplayItemSpec.create((), np.float32),
             "logprob": ReplayItemSpec.create((), np.float32),
@@ -75,7 +76,6 @@ class OnPolicyReplayBuffer(BaseReplayBuffer):
         self._compute_advantage_fn = default(
             compute_advantage_fn, compute_standard_advantages
         )
-        self._num_sources = num_sources
         self._num_added = 0
 
     def size(self):
@@ -96,7 +96,7 @@ class OnPolicyReplayBuffer(BaseReplayBuffer):
 
     def add_transitions(
         self,
-        sources: np.ndarray,
+        source: np.ndarray,
         **transitions: Mapping[str, np.ndarray],
     ):
         for key in self._specs:
@@ -110,12 +110,12 @@ class OnPolicyReplayBuffer(BaseReplayBuffer):
                     f"Key {key} has wrong dtype. Expected {self._specs[key].dtype},"
                     f"received {type(transitions[key])}."
                 )
-        cursors = self._cursors[sources]
+        cursors = self._cursors[source]
         for k, v in transitions.items():
             if k in self._specs:
-                self._storage[k][cursors][sources] = v
-        self._cursors[sources] += 1
-        self._num_added += len(sources)
+                self._storage[k][cursors][source] = v
+        self._cursors[source] += 1
+        self._num_added += len(source)
 
     def compute_advantages(self, last_values, sources):
         max_steps = np.max(self._cursors)
@@ -129,8 +129,8 @@ class OnPolicyReplayBuffer(BaseReplayBuffer):
         advantages, returns = self._compute_advantage_fn(
             values, next_values, terminated, done, rewards, self._gamma
         )
-        self._storage["advantage"][:max_steps] = advantages
-        self._storage["return"][:max_steps] = returns
+        self._storage["advantage"] = advantages
+        self._storage["return"] = returns
 
     def sample(self, batch_size):
         full_batch = self._make_full_batch()
@@ -148,5 +148,31 @@ class OnPolicyReplayBuffer(BaseReplayBuffer):
                 tuple(array[i][: self._cursors[i]] for i in range(self._num_sources)),
                 axis=0,
             )
+        batch["done"] = batch["terminated"] | batch["truncated"]
 
         return batch
+
+    def add(self, source, **transition):
+        for key in self._specs:
+            obj_type = (
+                transition[key].dtype  # type: ignore
+                if hasattr(transition[key], "dtype")
+                else type(transition[key])
+            )
+            if not np.can_cast(obj_type, self._specs[key].dtype, casting="same_kind"):
+                raise ValueError(
+                    f"Key {key} has wrong dtype. Expected {self._specs[key].dtype},"
+                    f"received {type(transition[key])}."
+                )
+        cursors = self._cursors[source]
+        for k, v in transition.items():
+            if k in self._specs:
+                self._storage[k][cursors][source] = v
+        self._cursors[source] += 1
+        self._num_added += 1
+
+    def load(self, dname):
+        pass
+
+    def save(self, dname):
+        pass

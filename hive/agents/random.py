@@ -12,19 +12,13 @@ class RandomAgent(Agent):
     """An agent that takes random steps at each timestep."""
 
     def __init__(
-        self,
-        observation_space: gym.Space,
-        action_space: gym.Space,
-        id=0,
-        logger=None,
-        **kwargs
+        self, observation_space: gym.Space, action_space: gym.Space, id=0, **kwargs
     ):
         """
         Args:
             observation_space (gym.Space): The shape of the observations.
             action_space (gym.Space): The number of actions available to the agent.
             id: Agent identifier.
-            logger (ScheduledLogger): Logger used to log agent's metrics.
         """
         super().__init__(
             observation_space=observation_space, action_space=action_space, id=id

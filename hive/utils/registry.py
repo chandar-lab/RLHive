@@ -121,7 +121,7 @@ class Registry:
 
     def get(
         self, config: Config, type: Type[T], prefix: Optional[str] = None
-    ) -> Tuple[Creates[T], Config]:
+    ) -> Tuple[Creates[T], Config, Set[str]]:
         return self._get(config, Creates[type], prefix)  # type: ignore
 
     def _get(
@@ -287,7 +287,7 @@ def construct_objects(
     type_hints = get_type_hints(object_constructor.constructor)
     prefix = "" if prefix is None else f"{prefix}."
     expanded_config = deepcopy(config)
-    all_unused_args = get_all_arguments()
+    unused_arg_sets = [get_all_arguments()]
     for argument in type_hints:
         if argument not in config:
             continue
@@ -297,13 +297,13 @@ def construct_objects(
             (
                 config[argument],
                 expanded_config[argument],
-                all_unused_args,
+                unused_args,
             ) = registry._get(config[argument], expected_type, f"{prefix}{argument}")
+            unused_arg_sets.append(unused_args)
         elif isinstance(config[argument], Sequence) and not isinstance(
             config[argument], str
         ):
             sequence_type = tuple(intersect_generic_types(expected_type, Sequence))
-            unused_arg_sets = []
             for idx, item in enumerate(config[argument]):
                 if isinstance(item, Config):
                     if not sequence_type:
@@ -320,7 +320,6 @@ def construct_objects(
                     unused_arg_sets.append(unused_args)
                 else:
                     config[argument][idx] = item
-            all_unused_args = set.intersection(*unused_arg_sets)
         elif isinstance(config[argument], Mapping):
             mapping_type = tuple(intersect_generic_types(expected_type, Mapping))
             unused_arg_sets = []
@@ -336,8 +335,8 @@ def construct_objects(
                     unused_arg_sets.append(unused_args)
                 else:
                     config[argument][key] = item
-            all_unused_args = set.intersection(*unused_arg_sets)
-    return config, expanded_config, all_unused_args
+
+    return config, expanded_config, set.intersection(*unused_arg_sets)
 
 
 def get_callable_parsed_args(

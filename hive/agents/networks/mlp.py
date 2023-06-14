@@ -6,7 +6,7 @@ import torch
 from torch import nn
 
 from hive.agents.networks.noisy_linear import NoisyLinear
-from hive.agents.networks.utils import ModuleInitFn
+from hive.utils.torch_utils import ModuleInitFn
 from hive.types import Creates, Partial, default
 from hive.utils.utils import ActivationFn
 

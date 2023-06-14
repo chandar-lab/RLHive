@@ -1,7 +1,7 @@
 from typing import Protocol, Tuple, runtime_checkable
 
 import numpy as np
-from numba import guvectorize, njit, prange, stencil
+from numba import njit
 
 from hive.utils.registry import registry
 
@@ -66,7 +66,6 @@ def compute_gae_advantages(
     return advantages, returns
 
 
-@njit(parallel=True)
 def compute_standard_advantages(
     values: np.ndarray,
     last_values: np.ndarray,
