@@ -46,10 +46,9 @@ kwargs:
           name: 'variance_scaling'
         id: 0
         replay_buffer:
-          name: 'LegalMovesBuffer'
+          name: 'PrioritizedReplayBuffer'
           kwargs:
             capacity: 1000000
-            num_players_sharing_buffer: *num_agents
         discount_rate: .99
         update_period_schedule:
           name: 'PeriodicSchedule'

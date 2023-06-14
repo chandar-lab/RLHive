@@ -1,8 +1,11 @@
 import os
 import pickle
+from typing import Mapping, MutableMapping, Optional
 
 import numpy as np
+
 from hive.replays.circular_replay import CircularReplayBuffer
+from hive.replays.replay_buffer import ReplayItemSpec
 
 
 class RecurrentReplayBuffer(CircularReplayBuffer):
@@ -16,15 +19,13 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         max_seq_len: int = 1,
         n_step: int = 1,
         gamma: float = 0.99,
-        observation_shape=(),
-        observation_dtype=np.uint8,
-        action_shape=(),
-        action_dtype=np.int8,
-        reward_shape=(),
-        reward_dtype=np.float32,
-        extra_storage_types=None,
-        hidden_spec=None,
-        num_players_sharing_buffer: int = None,
+        observation_spec: ReplayItemSpec = ReplayItemSpec.create((), np.uint8),
+        action_spec: ReplayItemSpec = ReplayItemSpec.create((), np.int8),
+        reward_spec: ReplayItemSpec = ReplayItemSpec.create((), np.float32),
+        extra_storage_specs: Optional[MutableMapping[str, ReplayItemSpec]] = None,
+        optimize_storage: bool = True,
+        commit_at_done: bool = True,
+        hidden_spec: Optional[Mapping[str, ReplayItemSpec]] = None,
     ):
         """Constructor for RecurrentReplayBuffer.
 
@@ -48,30 +49,27 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
             reward_shape: Shape of rewards that will be stored in the buffer.
             reward_dtype: Type of rewards that will be stored in the buffer. Format is
                 described in the description of observation_dtype.
-            extra_storage_types (dict): A dictionary describing extra items to store
+            extra_storage_specs (dict): A dictionary describing extra items to store
                 in the buffer. The mapping should be from the name of the item to a
                 (type, shape) tuple.
             num_players_sharing_buffer (int): Number of agents that share their
                 buffers. It is used for self-play.
         """
-        if hidden_spec is not None:
-            if extra_storage_types is None:
-                extra_storage_types = {}
-            extra_storage_types.update(hidden_spec)
-        self._hidden_spec = hidden_spec
+        self._hidden_spec = hidden_spec if hidden_spec is not None else {}
+        if extra_storage_specs is None:
+            extra_storage_specs = {}
+        extra_storage_specs.update(self._hidden_spec)
         super().__init__(
             capacity=capacity,
             stack_size=max_seq_len,
             n_step=n_step,
             gamma=gamma,
-            observation_shape=observation_shape,
-            observation_dtype=observation_dtype,
-            action_shape=action_shape,
-            action_dtype=action_dtype,
-            reward_shape=reward_shape,
-            reward_dtype=reward_dtype,
-            extra_storage_types=extra_storage_types,
-            num_players_sharing_buffer=num_players_sharing_buffer,
+            observation_spec=observation_spec,
+            action_spec=action_spec,
+            reward_spec=reward_spec,
+            extra_storage_specs=extra_storage_specs,
+            optimize_storage=optimize_storage,
+            commit_at_done=commit_at_done,
         )
         self._max_seq_len = max_seq_len
 
@@ -83,6 +81,7 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
         reward,
         terminated,
         truncated,
+        source,
         **kwargs,
     ):
         """Adds a transition to the buffer.
@@ -108,19 +107,19 @@ class RecurrentReplayBuffer(CircularReplayBuffer):
                 if hasattr(transition[key], "dtype")
                 else type(transition[key])
             )
-            if not np.can_cast(obj_type, self._specs[key][0], casting="same_kind"):
+            if not np.can_cast(obj_type, self._specs[key].dtype, casting="same_kind"):
                 raise ValueError(
-                    f"Key {key} has wrong dtype. Expected {self._specs[key][0]},"
+                    f"Key {key} has wrong dtype. Expected {self._specs[key].dtype},"
                     f"received {type(transition[key])}."
                 )
-        if self._num_players_sharing_buffer is None:
+        if not self._commit_at_done:
             self._add_transition(**transition)
         else:
-            self._episode_storage[kwargs["agent_id"]].append(transition)
+            self._episode_storage[source].append(transition)
             if done:
-                for transition in self._episode_storage[kwargs["agent_id"]]:
+                for transition in self._episode_storage[source]:
                     self._add_transition(**transition)
-                self._episode_storage[kwargs["agent_id"]] = []
+                self._episode_storage[source] = []
 
     def _get_from_array(self, array, indices, num_to_access=1):
         """Retrieves consecutive elements in the array, wrapping around if necessary.

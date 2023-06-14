@@ -1,34 +1,31 @@
 import copy
 import os
-from collections import deque
+from typing import Optional
 
 import gymnasium as gym
-from gymnasium.vector.utils.numpy_utils import create_empty_array, concatenate
 import numpy as np
 import torch
 from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents.agent import Agent
-from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.qnet_heads import DQNNetwork
 from hive.agents.qnets.utils import (
-    InitializationFn,
+    ModuleInitFn,
     calculate_output_dim,
     create_init_weights_fn,
 )
 from hive.agents.utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer, ReplayItemSpec
 from hive.utils.loggers import logger
+from hive.utils.registry import Creates, OCreates, default
 from hive.utils.schedule import (
     LinearSchedule,
     PeriodicSchedule,
     Schedule,
     SwitchSchedule,
 )
-from hive.utils.utils import LossFn, create_folder, seeder, DL_to_LD
-from hive.utils.registry import Creates, OCreates, default
-from typing import Optional
-from functools import partial
+from hive.utils.utils import LossFn, create_folder, seeder
+from hive.utils.registry import Partial
 
 
 class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
@@ -40,12 +37,12 @@ class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Discrete,
-        representation_net: Creates[FunctionApproximator],
+        representation_net: Creates[torch.nn.Module],
         stack_size: int = 1,
         id=0,
         optimizer_fn: OCreates[torch.optim.Optimizer] = None,
         loss_fn: OCreates[LossFn] = None,
-        init_fn: OCreates[InitializationFn] = None,
+        init_fn: Optional[Partial[ModuleInitFn]] = None,
         replay_buffer: OCreates[BaseReplayBuffer] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
@@ -66,13 +63,13 @@ class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
         Args:
             observation_space (gym.spaces.Box): Observation space for the agent.
             action_space (gym.spaces.Discrete): Action space for the agent.
-            representation_net (FunctionApproximator): A network that outputs the
+            representation_net (torch.nn.Module): A network that outputs the
                 representations that will be used to compute Q-values (e.g.
                 everything except the final layer of the DQN).
             stack_size: Number of observations stacked to create the state fed to the
                 DQN.
             id: Agent identifier.
-            optimizer_fn (OptimizerFn): A function that takes in a list of parameters
+            optimizer_fn (torch.optim.Optimizer): A function that takes in a list of parameters
                 to optimize and returns the optimizer. If None, defaults to
                 :py:class:`~torch.optim.Adam`.
             loss_fn (LossFn): Loss function used by the agent. If None, defaults to
@@ -119,7 +116,7 @@ class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
             stack_size * self._observation_space.shape[0],
             *self._observation_space.shape[1:],
         )
-        self._init_fn = create_init_weights_fn(init_fn)
+        self._init_fn = default(init_fn, lambda m: None)
         self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
         self.create_q_networks(representation_net)
         optimizer_fn = default(optimizer_fn, torch.optim.Adam)
@@ -206,7 +203,7 @@ class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
             .flatten(0, 1)
             .unsqueeze(0)
         )
-        return state, observation_stack
+        return (state,), observation_stack
 
     def preprocess_update_info(self, update_info):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
@@ -277,7 +274,7 @@ class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
-        qvals = self._qnet(state)
+        qvals = self._qnet(*state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._action_space.n)
         else:
@@ -333,12 +330,12 @@ class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(current_state_inputs)
+            pred_qvals = self._qnet(*current_state_inputs)
             actions = batch["action"].long()
             pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
             # Compute 1-step Q targets
-            next_qvals = self._target_qnet(next_state_inputs)
+            next_qvals = self._target_qnet(*next_state_inputs)
             next_qvals, _ = torch.max(next_qvals, dim=1)
 
             q_targets = batch["reward"] + self._discount_rate * next_qvals * (

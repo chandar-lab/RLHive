@@ -1,15 +1,14 @@
 import copy
-from typing import List
-from typing import Optional, Union, cast
-from collections.abc import Sequence
-from hive.utils.registry import Creates, OCreates, default
+from typing import Optional, Union, cast, Sequence
+
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.runners.base import Runner
 from hive.runners.utils import TransitionInfo
 from hive.utils import utils
 from hive.utils.experiment import Experiment
-from hive.utils.loggers import CompositeLogger, NullLogger, Logger
+from hive.utils.loggers import CompositeLogger, Logger, NullLogger
+from hive.utils.registry import Creates, OCreates, default
 
 
 class MultiAgentRunner(Runner):
@@ -137,7 +136,9 @@ class MultiAgentRunner(Runner):
         else:
             transition_info.start_agent(agent)
 
-        action, agent_traj_state = agent.act(observation, agent_traj_state)
+        action, agent_traj_state = agent.act(
+            observation, agent_traj_state, self._train_steps
+        )
         (
             next_observation,
             reward,
@@ -153,15 +154,9 @@ class MultiAgentRunner(Runner):
                 "next_observation": next_observation,
                 "action": action,
                 "info": other_info,
+                "source": agent.id,
             },
         )
-        if self._self_play:
-            transition_info.record_info(
-                agent,
-                {
-                    "agent_id": agent.id,
-                },
-            )
         transition_info.update_all_rewards(reward)
         agent_traj_states[turn] = agent_traj_state
         return terminated, truncated, next_observation, turn, agent_traj_states

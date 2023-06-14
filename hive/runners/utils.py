@@ -1,13 +1,13 @@
 import os
+import sys
 from collections import deque
 from typing import Optional
-import sys
 
 import numpy as np
-import torch
 import yaml
 
 from hive.utils.utils import PACKAGE_ROOT
+from hive.utils.registry import dict_to_config
 
 
 def load_config(
@@ -53,7 +53,8 @@ def load_config(
     if logger_config is not None:
         with open(logger_config) as f:
             yaml_config["kwargs"]["loggers"] = yaml.safe_load(f)
-    return yaml_config
+
+    return dict_to_config(yaml_config)
 
 
 class Metrics:

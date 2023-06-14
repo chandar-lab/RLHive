@@ -1,17 +1,18 @@
 """Implementation of a simple experiment class."""
 import logging
-from pathlib import Path
 import shutil
-from typing import Union, Sequence, Mapping
+from pathlib import Path
+from typing import Mapping, Sequence, Union
 
 import yaml
 
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.utils.loggers import logger
-from hive.utils.registry import registry, Creates
+from hive.utils.registry import Creates, registry
 from hive.utils.schedule import Schedule
 from hive.utils.utils import Chomp, Counter, create_folder
+from hive.runners.utils import dict_to_config
 
 
 class Experiment:
@@ -133,7 +134,7 @@ class Experiment:
             if self._config is not None:
                 file_name = save_dir / "config.yml"
                 with file_name.open() as f:
-                    self._config = Chomp(yaml.safe_load(f))
+                    self._config = dict(yaml.safe_load(f))
 
             load_component(self._experiment_components, save_dir)
             file_name = save_dir / "experiment_state.p"
@@ -187,4 +188,4 @@ def load_component(component, prefix: Path):
                 logging.info(f"{component} not loaded")
 
 
-registry.register("Experiment", Experiment, Experiment)
+registry.register_class("Experiment", Experiment)

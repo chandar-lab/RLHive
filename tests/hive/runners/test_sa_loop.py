@@ -1,15 +1,18 @@
-import os
 import sys
 from argparse import Namespace
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 import hive
 from hive import main, runners
-from hive.runners import single_agent_loop
+from hive.agents.dqn import DQNAgent
+from hive.agents.qnets import MLPNetwork
+from hive.runners import Runner, single_agent_loop
 from hive.runners.utils import TransitionInfo, load_config
-from hive.utils.loggers import Logger, logger
+from hive.utils.loggers import CompositeLogger, Logger, logger
+from hive.utils.registry import registry
 
 
 class FakeLogger1(Logger):
@@ -54,8 +57,8 @@ class FakeLogger2(Logger):
         pass
 
 
-hive.registry.register("FakeLogger1", FakeLogger1, FakeLogger1)
-hive.registry.register("FakeLogger2", FakeLogger2, FakeLogger2)
+hive.registry.register_class("FakeLogger1", FakeLogger1)
+hive.registry.register_class("FakeLogger2", FakeLogger2)
 
 
 @pytest.fixture()
@@ -76,10 +79,10 @@ def initial_runner(args, tmpdir):
         env_config=args.env_config,
         logger_config=args.logger_config,
     )
-    config["kwargs"]["experiment_manager"]["kwargs"]["save_dir"] = os.path.join(
-        tmpdir, config["kwargs"]["experiment_manager"]["kwargs"]["save_dir"]
+    config.kwargs["experiment_manager"].kwargs["save_dir"] = (
+        Path(tmpdir) / config.kwargs["experiment_manager"].kwargs["save_dir"]
     )
-    runner_fn, config = runners.get_runner(config)
+    runner_fn, config = registry.get(config, Runner)
     runner = runner_fn()
     return runner, config
 
@@ -165,7 +168,7 @@ def test_run_training(initial_runner):
     """
     single_agent_runner, config = initial_runner
     single_agent_runner.run_training()
-    assert single_agent_runner._train_steps == config["kwargs"]["train_steps"]
+    assert single_agent_runner._train_steps == config.kwargs["train_steps"]
 
 
 def test_run_testing(initial_runner):
@@ -218,10 +221,13 @@ def test_cl_parsing(mock_seeder, args, arg_string, cl_args):
         env_config=args.env_config,
         logger_config=args.logger_config,
     )
-    runner_fn, config = runners.get_runner(config)
+    runner_fn, config = registry.get(config, Runner)
     runner = runner_fn()
     runner.register_config(config)
     full_config = runner._experiment_manager._config
+    assert full_config is not None
+    assert isinstance(runner._agents[0], DQNAgent)
+    assert isinstance(runner._agents[0]._qnet.base_network, MLPNetwork)
     # Check hidden units
     assert (
         runner._agents[0]._qnet.base_network.network[0].out_features
@@ -237,12 +243,15 @@ def test_cl_parsing(mock_seeder, args, arg_string, cl_args):
     assert runner._agents[0]._discount_rate == expected_args[1]
     assert full_config["kwargs"]["agent"]["kwargs"]["discount_rate"] == expected_args[1]
     # Check Logger 1 arg
+    assert isinstance(logger._logger, CompositeLogger)
+    assert isinstance(logger._logger._logger_list[0], FakeLogger1)
     assert logger._logger._logger_list[0].arg1 == expected_args[3]
     if cl_args[3]:
         assert full_config["kwargs"]["loggers"][0]["kwargs"]["arg1"] == expected_args[3]
     else:
         assert "arg1" not in full_config["kwargs"]["loggers"][0]["kwargs"]
     # Check Logger 2 arg
+    assert isinstance(logger._logger._logger_list[1], FakeLogger2)
     assert logger._logger._logger_list[1].arg2 == expected_args[4]
     if cl_args[4]:
         assert full_config["kwargs"]["loggers"][1]["kwargs"]["arg2"] == expected_args[4]

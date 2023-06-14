@@ -1,10 +1,10 @@
 import abc
-from typing import Tuple, TypeVar, Generic
+from typing import Generic, Tuple, TypeVar
 
 import numpy as np
 
-from hive.utils.registry import registry, Float
 from hive.types import Shape
+from hive.utils.registry import Float, registry
 
 
 # taken from https://github.com/openai/baselines/blob/master/baselines/common/vec_env/vec_normalize.py
@@ -164,8 +164,7 @@ class RewardNormalizer(Normalizer):
         self._return_rms.load_state_dict(state_dict)
 
 
-registry.register_all(
-    Normalizer,
+registry.register_classes(
     {
         "RewardNormalizer": RewardNormalizer,
         "MovingAvgNormalizer": MovingAvgNormalizer,

@@ -12,8 +12,7 @@ from hive.agents.sac_discrete import DiscreteSACAgent
 from hive.agents.td3 import TD3
 from hive.utils.registry import registry
 
-registry.register_all(
-    Agent,
+registry.register_classes(
     {
         "DDPG": DDPG,
         "DiscreteSACAgent": DiscreteSACAgent,
@@ -27,5 +26,3 @@ registry.register_all(
         "TD3": TD3,
     },
 )
-
-get_agent = getattr(registry, f"get_{Agent.type_name()}")

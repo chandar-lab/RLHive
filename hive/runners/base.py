@@ -1,20 +1,14 @@
 from abc import ABC
-from typing import Union, Sequence, Optional, cast
+from typing import Optional, Sequence, Union, cast
+
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
-
 from hive.runners.utils import Metrics
 from hive.utils import schedule
 from hive.utils.experiment import Experiment
-from hive.utils.loggers import (
-    Logger,
-    NullLogger,
-    CompositeLogger,
-    logger,
-)
-from hive.utils.utils import seeder, Counter
-from hive.utils.registry import Creates
-from hive.runners.utils import Metrics
+from hive.utils.loggers import CompositeLogger, Logger, NullLogger, logger
+from hive.utils.registry import Creates, Config, config_to_dict
+from hive.utils.utils import Counter, seeder
 
 
 class Runner(ABC):
@@ -98,9 +92,15 @@ class Runner(ABC):
         self._save_experiment = False
         self._run_testing = False
 
-    def register_config(self, config):
-        self._experiment_manager.register_config(config)
-        logger.log_config(config)
+    def register_config(self, config: Config):
+        """Register the config for the experiment.
+
+        Args:
+            config (Config): Config to register.
+        """
+        config_dict = config_to_dict(config)
+        self._experiment_manager.register_config(config_dict)
+        logger.log_config(config_dict)
 
     def train_mode(self, training):
         """If training is true, sets all agents to training mode. If training is false,

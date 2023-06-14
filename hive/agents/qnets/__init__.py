@@ -4,10 +4,8 @@ from hive.agents.qnets.conv import ConvNetwork
 from hive.agents.qnets.mlp import MLPNetwork
 from hive.agents.qnets.sequence_models import SequenceFn, SequenceModel
 from hive.utils.registry import registry
-from hive.agents.qnets.base import FunctionApproximator
 
-registry.register_all(
-    torch.nn.Module,
+registry.register_classes(
     {
         "ConvNetwork": ConvNetwork,
         "MLPNetwork": MLPNetwork,

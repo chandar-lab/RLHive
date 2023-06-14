@@ -4,8 +4,8 @@ import logging
 import os
 import pickle
 from collections import defaultdict
-from typing import Optional, Any, Callable
-from collections.abc import Sequence, Mapping
+from typing import Any, Callable, Optional, Mapping, Sequence
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd

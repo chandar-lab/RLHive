@@ -1,7 +1,9 @@
+from typing import Optional
+
 import torch
 import torch.nn.functional as F
 from torch import nn
-from typing import Optional
+
 from hive.utils.registry import OCreates, default
 
 
@@ -36,7 +38,7 @@ class DQNNetwork(nn.Module):
         self.output_layer = linear_fn(hidden_dim, out_dim)
 
     def forward(self, x):
-        x = self.base_network(*x)
+        x = self.base_network(x)
         x = x.flatten(start_dim=1)
         return self.output_layer(x)
 
@@ -86,7 +88,7 @@ class DuelingNetwork(nn.Module):
         self.output_layer_val = self._linear_fn(self._hidden_dim, 1 * self._atoms)
 
     def forward(self, x):
-        x = self.base_network(*x)
+        x = self.base_network(x)
         x = x.flatten(start_dim=1)
         adv = self.output_layer_adv(x)
         val = self.output_layer_val(x)
@@ -141,7 +143,7 @@ class DistributionalNetwork(nn.Module):
 
     def dist(self, x):
         """Computes a categorical distribution over values for each action."""
-        x = self.base_network(*x)
+        x = self.base_network(x)
         x = x.view(-1, self._out_dim, self._atoms)
         x = F.softmax(x, dim=-1)
         return x

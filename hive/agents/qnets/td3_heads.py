@@ -1,4 +1,5 @@
 from typing import Tuple, Union, cast
+
 import numpy as np
 import torch
 
@@ -24,7 +25,7 @@ class TD3ActorNetwork(torch.nn.Module):
         Args:
             representation_network (torch.nn.Module): Network that encodes the
                 observations.
-            actor_net (FunctionApproximator): Function that takes in the shape of the
+            actor_net (torch.nn.Module): Function that takes in the shape of the
                 encoded observations and creates a network. This network takes the
                 encoded observations from representation_net and outputs the
                 representations used to compute the actions (ie everything except the
@@ -69,7 +70,7 @@ class TD3CriticNetwork(torch.nn.Module):
         Args:
             representation_network (torch.nn.Module): Network that encodes the
                 observations.
-            critic_net (FunctionApproximator): Function that takes in the shape of the
+            critic_net (torch.nn.Module): Function that takes in the shape of the
                 encoded observations and creates a network. This network takes two
                 inputs: the encoded observations from representation_net and actions.
                 It outputs the representations used to compute the values of the

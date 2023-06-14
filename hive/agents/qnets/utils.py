@@ -1,9 +1,18 @@
 import math
-from typing import Any, Callable, Protocol, Union, TypeVar, cast
-from collections.abc import Sequence, Mapping
-import torch
+from typing import (
+    Callable,
+    Protocol,
+    TypeVar,
+    Union,
+    runtime_checkable,
+    Sequence,
+    Optional,
+)
+
 import optree
-from hive.utils.registry import registry
+import torch
+
+from hive.utils.registry import registry, Partial
 
 T = TypeVar("T")
 # NestedType = Union[T, Sequence["NestedType[T]"], Mapping[str, "NestedType[T]"]]
@@ -43,28 +52,6 @@ def apply_to_tensor(
     x: optree.PyTree[torch.Tensor], fn: Callable[[torch.Tensor], T]
 ) -> optree.PyTree[T]:
     return optree.tree_map(fn, x)
-
-
-#     """Applies a function to a tensor or a tuple/list of tensors.
-
-#     Args:
-#         x (torch.Tensor | tuple | list | dict): The tensor or tuple/list/dict of
-#             tensors to apply the function to.
-#         fn (callable): The function to apply to the tensor or tuple/list/dict of
-#             tensors.
-#     Returns:
-#         The result of applying the function to the tensor or tuple/list/dict of tensors.
-#     """
-#     if isinstance(x, torch.Tensor):
-#         return fn(x)
-#     elif isinstance(x, tuple):
-#         return tuple(apply_to_tensor(y, fn) for y in x)
-#     elif isinstance(x, list):
-#         return list(apply_to_tensor(y, fn) for y in x)
-#     elif isinstance(x, dict):
-#         return {k: apply_to_tensor(v, fn) for k, v in x.items()}
-#     else:
-#         raise ValueError("Invalid argument type")
 
 
 def create_init_weights_fn(initialization_fn):
@@ -160,13 +147,33 @@ def variance_scaling_(tensor, scale=1.0, mode="fan_in", distribution="uniform"):
 #         return "init_fn"
 
 
-class InitializationFn(Protocol):
+@runtime_checkable
+class TensorInitFn(Protocol):
     def __call__(self, tensor: torch.Tensor):
         ...
 
 
-registry.register_all(
-    InitializationFn,
+@runtime_checkable
+class ModuleInitFn(Protocol):
+    def __call__(self, module: torch.nn.Module):
+        ...
+
+
+def layer_init(
+    weight_init_fn: Optional[Partial[TensorInitFn]],
+    bias_init_fn: Optional[Partial[TensorInitFn]],
+) -> ModuleInitFn:
+    def init_fn(module: torch.nn.Module):
+        if hasattr(module, "weight") and weight_init_fn is not None:
+            weight_init_fn(module.weight)  # type: ignore
+        if hasattr(module, "bias") and bias_init_fn is not None:
+            bias_init_fn(module.bias)  # type: ignore
+
+    return init_fn
+
+
+registry.register_all_with_type(
+    TensorInitFn,
     {
         "uniform": torch.nn.init.uniform_,
         "normal": torch.nn.init.normal_,

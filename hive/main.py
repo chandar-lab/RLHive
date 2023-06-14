@@ -1,7 +1,9 @@
 import argparse
 from pprint import pprint
+
+from hive.runners import Runner
 from hive.runners.utils import load_config
-from hive.runners import get_runner
+from hive.utils.registry import registry
 
 
 def main():
@@ -46,7 +48,7 @@ def main():
         args.env_config,
         args.logger_config,
     )
-    runner_fn, full_config = get_runner(config)
+    runner_fn, full_config = registry.get(config, Runner)
     runner = runner_fn()
     runner.register_config(full_config)
     if args.resume:

@@ -2,6 +2,9 @@ import copy
 import time
 from typing import List
 
+import numpy as np
+from gymnasium.vector.utils.numpy_utils import concatenate, create_empty_array
+
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.envs.parallel_env import AsyncEnv
@@ -10,8 +13,6 @@ from hive.runners.utils import Metrics, TransitionInfo
 from hive.utils import utils
 from hive.utils.experiment import Experiment
 from hive.utils.loggers import logger
-from gymnasium.vector.utils.numpy_utils import create_empty_array, concatenate
-import numpy as np
 
 
 class TransitionInfo:

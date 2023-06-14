@@ -1,4 +1,5 @@
-import torch
 from typing import NewType
 
-FunctionApproximator = NewType("FunctionApproximator", torch.nn.Module)
+import torch
+
+torch.nn.Module = NewType("torch.nn.Module", torch.nn.Module)

@@ -1,8 +1,7 @@
 import abc
+from typing import Generic, TypeVar
 
 import gymnasium as gym
-
-from typing import TypeVar, Generic
 
 OSpace = TypeVar("OSpace", bound=gym.Space)
 ASpace = TypeVar("ASpace", bound=gym.Space)

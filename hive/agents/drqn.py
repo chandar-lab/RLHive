@@ -1,20 +1,20 @@
 import copy
+from typing import Any, Mapping, Optional
 
 import gymnasium as gym
 import numpy as np
 import torch
 
 from hive.agents.dqn import DQNAgent
-from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.sequence_models import DRQNNetwork, SequenceFn, SequenceModel
 from hive.agents.qnets.utils import (
-    InitializationFn,
+    TensorInitFn,
     apply_to_tensor,
     calculate_output_dim,
     create_init_weights_fn,
 )
-from hive.replays.recurrent_replay import RecurrentReplayBuffer
 from hive.replays import ReplayItemSpec
+from hive.replays.recurrent_replay import RecurrentReplayBuffer
 from hive.utils.loggers import logger
 from hive.utils.registry import Creates, OCreates, default
 from hive.utils.schedule import (
@@ -23,8 +23,7 @@ from hive.utils.schedule import (
     Schedule,
     SwitchSchedule,
 )
-from hive.utils.utils import LossFn, OptimizerFn, seeder
-from typing import Optional, Mapping, Any
+from hive.utils.utils import LossFn, seeder
 
 
 class DRQNAgent(DQNAgent):
@@ -36,12 +35,12 @@ class DRQNAgent(DQNAgent):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Discrete,
-        representation_net: Creates[FunctionApproximator],
+        representation_net: Creates[torch.nn.Module],
         sequence_fn: Creates[SequenceFn],
         id=0,
-        optimizer_fn: OCreates[OptimizerFn] = None,
+        optimizer_fn: OCreates[torch.optim.Optimizer] = None,
         loss_fn: OCreates[LossFn] = None,
-        init_fn: OCreates[InitializationFn] = None,
+        init_fn: OCreates[TensorInitFn] = None,
         replay_buffer: OCreates[RecurrentReplayBuffer] = None,
         max_seq_len: int = 1,
         discount_rate: float = 0.99,
@@ -66,7 +65,7 @@ class DRQNAgent(DQNAgent):
         Args:
             observation_space (gym.spaces.Box): Observation space for the agent.
             action_space (gym.spaces.Discrete): Action space for the agent.
-            representation_net (SequenceFunctionApproximator): A network that outputs the
+            representation_net (Sequencetorch.nn.Module): A network that outputs the
                 representations that will be used to compute Q-values (e.g.
                 everything except the final layer of the DRQN), as well as the
                 hidden states of the recurrent component. The structure should be
@@ -76,7 +75,7 @@ class DRQNAgent(DQNAgent):
                 of the recurrent module if the computation requires hidden states
                 as input/output.
             id: Agent identifier.
-            optimizer_fn (OptimizerFn): A function that takes in a list of parameters
+            optimizer_fn (torch.optim.Optimizer): A function that takes in a list of parameters
                 to optimize and returns the optimizer. If None, defaults to
                 :py:class:`~torch.optim.Adam`.
             loss_fn (LossFn): Loss function used by the agent. If None, defaults to
@@ -286,8 +285,10 @@ class DRQNAgent(DQNAgent):
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
         # Insert batch_size and sequence_len dimensions to observation
-        state, hidden_state = self.preprocess_observation(observation, agent_traj_state)
-        qvals, hidden_state = self._qnet(state, hidden_state)
+        state, prev_hidden_state = self.preprocess_observation(
+            observation, agent_traj_state
+        )
+        qvals, hidden_state = self._qnet(state, prev_hidden_state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._action_space.n)
         else:
@@ -303,7 +304,10 @@ class DRQNAgent(DQNAgent):
             and agent_traj_state is None
         ):
             logger.log_scalar("train_qval", torch.max(qvals), self.id)
-        return action, {"hidden_state": hidden_state}
+        return action, {
+            "prev_hidden_state": prev_hidden_state,
+            "hidden_state": hidden_state,
+        }
 
     def update(self, update_info, agent_traj_state, global_step):
         """
@@ -326,7 +330,7 @@ class DRQNAgent(DQNAgent):
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(
             **self.preprocess_update_info(
-                update_info, hidden_state=agent_traj_state["hidden_state"]
+                update_info, hidden_state=agent_traj_state["prev_hidden_state"]
             )
         )
 
@@ -348,13 +352,13 @@ class DRQNAgent(DQNAgent):
             # Compute predicted Q values
             self._optimizer.zero_grad()
 
-            pred_qvals, _ = self._qnet(current_state_inputs)
+            pred_qvals, _ = self._qnet(*current_state_inputs)
             pred_qvals = pred_qvals.view(self._batch_size, self._max_seq_len, -1)
             actions = batch["action"].long()
             pred_qvals = torch.gather(pred_qvals, -1, actions.unsqueeze(-1)).squeeze(-1)
 
             # Compute 1-step Q targets
-            next_qvals, _ = self._target_qnet(next_state_inputs)
+            next_qvals, _ = self._target_qnet(*next_state_inputs)
             next_qvals = next_qvals.view(self._batch_size, self._max_seq_len, -1)
             next_qvals, _ = torch.max(next_qvals, dim=-1)
 

@@ -1,6 +1,9 @@
 import argparse
 import inspect
+import logging
+import pprint
 from copy import deepcopy
+from dataclasses import dataclass, field
 from functools import partial
 from typing import _GenericAlias  # type: ignore
 from typing import (
@@ -11,94 +14,123 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Protocol,
     Sequence,
+    Set,
     Tuple,
     Type,
     TypeVar,
     Union,
+    get_args,
+    get_origin,
 )
+from typing import get_type_hints as _get_type_hints
+from typing import runtime_checkable
 
+import numpy as np
 import yaml
+from typing_extensions import Annotated
 
 R = TypeVar("R", covariant=True)
 
 SeqOrSingle = Union[Sequence[R], R]
 
-from typing import Protocol
+
+@dataclass
+class Config:
+    name: str
+    kwargs: dict = field(default_factory=dict)
+
+    def __repr__(self) -> str:
+        return 'Config(name="{}", kwargs={})'.format(
+            self.name, pprint.pformat(self.kwargs, indent=2, compact=False), width=40
+        )
 
 
-class Creates(Protocol[R]):
-    def __call__(self, *args, **kwargs) -> R:
-        ...
+def config_to_dict(config):
+    if isinstance(config, Config):
+        return {
+            "name": config.name,
+            "kwargs": {k: config_to_dict(v) for k, v in config.kwargs.items()},
+        }
+    elif isinstance(config, dict):
+        return {k: config_to_dict(v) for k, v in config.items()}
+    elif isinstance(config, list):
+        return [config_to_dict(v) for v in config]
+    else:
+        return config
 
 
-class PartialCreates(Creates[R]):
-    # class Creates(Generic[R], Protocol):
-    #     return super().__call__(*args, **kwds)
-    def __init__(self, creator: Callable[..., R]):
-        self._creator = creator
+def dict_to_config(dict_config: Mapping) -> Config:
+    config = Config(
+        name=dict_config["name"],
+        kwargs={k: parse_item(v) for k, v in dict_config.get("kwargs", {}).items()},
+    )
+    return config
 
-    def update_args(self, *args, **kwargs):
-        self._creator = partial(self._creator, *args, **kwargs)
 
-    def __call__(self, *args: Any, **kwds: Any) -> R:
-        return self._creator(*args, **kwds)
+def parse_item(item):
+    if is_config_dict(item):
+        return dict_to_config(item)
+    elif isinstance(item, dict):
+        return {k: parse_item(v) for k, v in item.items()}
+    elif isinstance(item, list):
+        return [parse_item(v) for v in item]
+    else:
+        return item
 
-    def signature(self):
-        return inspect.signature(self._creator)
+
+def is_config_dict(config):
+    return isinstance(config, dict) and set(config.keys()).issubset({"name", "kwargs"})
+
+
+T = TypeVar("T")
+
+Creates = Annotated[Callable[..., R], "configured", "creates"]
+
+C = TypeVar("C", bound=Callable)
+Partial = Annotated[C, "configured", "partial"]
 
 
 OCreates = Optional[Creates[R]]
-import numpy as np
 
 Float = Union[float, np.float32, np.float64]
 Int = Union[int, np.int32, np.int64]
 
 
-def default(fn: OCreates[R], default_fn: Callable) -> Creates[R]:
+def default(fn: Optional[T], default_fn: T) -> T:
     if fn is None:
-        return cast(Creates[R], default_fn)
+        return default_fn
     else:
         return fn
 
 
-# Creates = NewType('Creates', Callable)
-# [Callable[..., Union[R_co, Any]]]
 T = TypeVar("T")
 U = TypeVar("U")
-import pprint
-from typing import cast
 
 
-class RegistryTree(Generic[T]):
+@dataclass(frozen=True)
+class Creator(Generic[T]):
+    constructor: Callable[..., T]
+    type: Type[T]
+
+
+class RegistryStore:
     def __init__(self) -> None:
-        self.creators: Dict[str, Callable[..., T]] = {}
-        self.subtrees: Dict[Type, "RegistryTree"] = {}
+        self.creators: Dict[str, Set[Creator]] = {}
 
-    def get_tree(self, ty: Type[U]) -> "RegistryTree[U]":
-        for registry_type in self.subtrees:
-            if ty == registry_type:
-                return self.subtrees[registry_type]
-            elif issubclass(ty, registry_type):
-                return self.subtrees[registry_type].get_tree(ty)
-        self.subtrees[ty] = RegistryTree[ty]()
-        return self.subtrees[ty]
+    def add_constructor(self, name: str, constructor: Callable[..., T], type: Type[T]):
+        if name in self.creators:
+            logging.warning(f"Multiple constructors registered with {name}.")
+            self.creators[name].add(Creator(constructor, type))
+        else:
+            self.creators[name] = {Creator(constructor, type)}
 
-    def register_creator(self, name: str, creator: Callable[..., T]) -> None:
-        self.creators[name] = creator
-
-    def get_constructors(self) -> Dict[str, Callable[..., T]]:
-        constructors: Dict[str, Callable[..., T]] = {}
-        for subtree in self.subtrees.values():
-            constructors.update(subtree.get_constructors())
-        constructors.update(self.creators)
-        return constructors
-
-    def __repr__(self) -> str:
-        return pprint.pformat(
-            (self.creators, self.subtrees),
-            indent=2,
-        )
+    def get_constructors(self, name: str) -> Set[Creator]:
+        if name in self.creators:
+            return self.creators[name]
+        else:
+            raise KeyError(f"Name {name} not found in registry.")
 
 
 class Registry:
@@ -135,7 +167,7 @@ class Registry:
     """
 
     def __init__(self) -> None:
-        self._registry = RegistryTree[object]()
+        self._registry = RegistryStore()
 
     def register(self, name: str, constructor: Callable[..., U], type: Type[U]) -> None:
         """Register a Registrable class/object with RLHive.
@@ -148,59 +180,66 @@ class Registry:
                 Registrable.
 
         """
-        # if not issubclass(type, Registrable):
-        #     raise ValueError(f"{type} is not Registrable")
-        registry_tree = self._registry.get_tree(type)
-        registry_tree.register_creator(name, constructor)
-        # if type.type_name() not in self._registry:
-        #     self._registry[type.type_name()] = {}
+        self._registry.add_constructor(name, constructor, type)
 
-        #     def getter(self, object_or_config, prefix=None):
-        #         if object_or_config is None:
-        #             return None, {}
-        #         elif isinstance(object_or_config, type):
-        #             return object_or_config, {}
-        #         name = object_or_config["name"]
-        #         kwargs = object_or_config.get("kwargs", {})
-        #         expanded_config = deepcopy(object_or_config)
-        #         try:
-        #             object_class = self._registry[type.type_name()][name]
-        #             parsed_args = get_callable_parsed_args(object_class, prefix=prefix)
-        #             kwargs.update(parsed_args)
-        #             kwargs, kwargs_config = construct_objects(
-        #                 object_class, kwargs, prefix
-        #             )
-        #             expanded_config["kwargs"] = kwargs_config
-        #             return partial(object_class, **kwargs), expanded_config
-        #         except:
-        #             raise ValueError(f"Error creating {name} class")
+    def register_class(self, name: str, type: Type) -> None:
+        """Register a Registrable class/object with RLHive.
 
-        #     setattr(self.__class__, f"get_{type.type_name()}", getter)
-        # self._registry[type.type_name()][name] = constructor
+        Args:
+            name (str): Name of the class/object being registered.
+            constructor (callable): Callable that will be passed all kwargs from
+                configs and be analyzed to get type annotations.
+            type (type): Type of class/object being registered. Should be subclass of
+                Registrable.
+
+        """
+        self._registry.add_constructor(name, type, type)
 
     def get(
-        self, config: Dict[str, Any], type: Type[U], prefix: Optional[str] = None
-    ) -> Tuple[PartialCreates[U], Dict[str, Any]]:
+        self, config: Config, type: Type[U], prefix: Optional[str] = None
+    ) -> Tuple[Creates[U], Config]:
+        return self._get(config, Creates[type], prefix)  # type: ignore
+
+    def _get(
+        self,
+        config: Config,
+        type: Type[Union[Creates[T], Partial[C]]],
+        prefix: Optional[str] = None,
+    ) -> Tuple[Union[Creates[T], Partial[C]], Config]:
         if config is None:
             raise ValueError(f"Config for {type} is None")
-        name = config["name"]
-        kwargs = config.get("kwargs", {})
-        expanded_config = deepcopy(config)
+        name = config.name
+        kwargs = config.kwargs
+        # expanded_config = deepcopy(config)
+
         try:
-            object_creator = self._registry.get_tree(type).creators[name]
-            object_creator = PartialCreates(object_creator)
+            object_creators = self._registry.get_constructors(name)
+            object_creator = resolve_creator(object_creators, type)
+            # object_creator = PartialCreates(object_creator.constructor)
             parsed_args, unused_args = get_callable_parsed_args(
-                object_creator, prefix=prefix
+                object_creator.constructor, prefix=prefix
             )
             kwargs.update(parsed_args)
-            kwargs, kwargs_config = construct_objects(object_creator, kwargs)
-            expanded_config["kwargs"] = kwargs_config
-            object_creator.update_args(**kwargs)
-            return object_creator, expanded_config
+            kwargs, kwargs_config = construct_objects(object_creator, kwargs, prefix)
+            # expanded_config["kwargs"] = kwargs_config
+            constructor = partial(object_creator.constructor, **kwargs)
+            return constructor, Config(name=config.name, kwargs=kwargs_config)
         except:
-            raise ValueError(f"Error creating {name} class")
+            logging.error(f"Error creating {name} class")
+            raise
 
-    def register_all(
+    def register_classes(self, class_dict: Dict[str, Type]):
+        """Bulk register function.
+
+        Args:
+            base_class (type): Corresponds to the `type` of the register function
+            class_dict (dict[str, callable]): A dictionary mapping from name to
+                constructor.
+        """
+        for cls in class_dict:
+            self.register_class(cls, class_dict[cls])
+
+    def register_all_with_type(
         self, base_class: Type[U], class_dict: Dict[str, Callable[..., U]]
     ):
         """Bulk register function.
@@ -214,11 +253,85 @@ class Registry:
             self.register(cls, class_dict[cls], base_class)
 
     def __repr__(self):
-        return str(self._registry)
+        return pprint.pformat(self._registry, indent=2)
+
+
+def resolve_creator(object_creators: Set[Creator], type: Type) -> Creator:
+    create_types = get_configured_types(type)
+
+    filtered_creators = {
+        creator
+        for creator in object_creators
+        if any(check_subclass(creator.type, ct) for ct in create_types)
+    }
+    if len(filtered_creators) > 1:
+        raise ValueError(f"Multiple creators for {type}")
+    elif len(filtered_creators) == 0:
+        raise ValueError(f"No creators for {type}")
+    else:
+        return filtered_creators.pop()
+
+
+def get_configured_types(ty: Type):
+    base_types = get_base_types(ty)
+    configured_types = set()
+    for base_type in base_types:
+        if (
+            type(base_type) is type(Creates)
+            and hasattr(base_type, "__metadata__")
+            and "configured" in base_type.__metadata__
+        ):
+            for t in get_args(base_type):
+                if "partial" in base_type.__metadata__:
+                    configured_types = configured_types.union(get_base_types(t))
+                else:
+                    create_type = get_args(t)[1]
+                    configured_types = configured_types.union(
+                        get_base_types(create_type)
+                    )
+    return configured_types
+
+
+def intersect_generic_types(type1: Type, type2: Type) -> Set[Type]:
+    base_types = get_base_types(type1)
+    create_types = set()
+    for base_type in base_types:
+        if get_origin(base_type) and check_subclass(base_type, type2):  # type: ignore
+            for t in get_args(base_type):
+                create_types = create_types.union(get_base_types(t))
+    return create_types
+
+
+def get_base_types(type: Type) -> Sequence[Type]:
+    base_types = []
+    if get_origin(type) is Union:
+        for t in get_args(type):
+            base_types += get_base_types(t)
+    else:
+        base_types.append(type)
+    return tuple(base_types)
+
+
+def check_subclass(type1: Type, type2: Type) -> bool:
+    try:
+        if get_origin(type1):
+            type1 = get_origin(type1)
+        if get_origin(type2):
+            type2 = get_origin(type2)
+        return issubclass(type1, type2)
+    except TypeError:
+        return False
+
+
+def get_type_hints(fn):
+    if hasattr(fn, "__init__"):
+        return _get_type_hints(fn.__init__)
+    else:
+        return _get_type_hints(fn)
 
 
 def construct_objects(
-    object_constructor: PartialCreates,
+    object_constructor: Creator,
     config: Dict[str, Any],
     prefix: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -239,67 +352,50 @@ def construct_objects(
         prefix (str): Prefix that is attached to the argument names when looking for
             command line arguments.
     """
-    signature = object_constructor.signature()
+    type_hints = get_type_hints(object_constructor.constructor)
     prefix = "" if prefix is None else f"{prefix}."
     expanded_config = deepcopy(config)
-    for argument in signature.parameters:
-        # if argument not in config:
-        #     continue
-        expected_type = signature.parameters[argument].annotation
+    for argument in type_hints:
+        if argument not in config:
+            continue
+        expected_type = type_hints[argument]
 
-        # if isinstance(expected_type, type) and issubclass(expected_type, Creates):
-        #     config[argument], expanded_config[argument] = registry.__getattribute__(
-        #         f"get_{expected_type.type_name()}"
-        #     )(config[argument], f"{prefix}{argument}")
-        if is_creates(expected_type):
-            object_type = expected_type.__args__[0]
-            config[argument], expanded_config[argument] = registry.get(
-                config[argument], object_type, f"{prefix}{argument}"
+        if isinstance(config[argument], Config):
+            config[argument], expanded_config[argument] = registry._get(
+                config[argument], expected_type, f"{prefix}{argument}"
             )
-        if isinstance(expected_type, _GenericAlias):
-            origin = expected_type.__origin__
-            args = expected_type.__args__
-            if (
-                (origin == List or origin == list)
-                and len(args) == 1
-                and is_creates(args[0])
-                and isinstance(config[argument], Sequence)
-            ):
-                objs = []
-                expanded_config[argument] = []
-                object_type = args[0].__args__[0]
-                for idx, item in enumerate(config[argument]):
-                    obj, obj_config = registry.get(
-                        item, object_type, f"{prefix}{argument}.{idx}"
+        elif isinstance(config[argument], Sequence) and not isinstance(
+            config[argument], str
+        ):
+            sequence_type = tuple(intersect_generic_types(expected_type, Sequence))
+            for idx, item in enumerate(config[argument]):
+                if isinstance(item, Config):
+                    if not sequence_type:
+                        raise ValueError(
+                            f"Could not find type match for {config[argument]} with {expected_type}"
+                        )
+                    (
+                        config[argument][idx],
+                        expanded_config[argument][idx],
+                    ) = registry._get(
+                        item, Union[sequence_type], f"{prefix}{argument}.{idx}"  # type: ignore
                     )
-                    objs.append(obj)
-                    expanded_config[argument].append(obj_config)
-                config[argument] = objs
-            elif (
-                origin == dict
-                and len(args) == 2
-                and is_creates(args[1])
-                and isinstance(config[argument], Mapping)
-            ):
-                objs = {}
-                expanded_config[argument] = {}
-                object_type = args[1].__args__[0]
-                for key, val in config[argument].items():
-                    obj, obj_config = registry.get(
-                        val, object_type, f"{prefix}{argument}.{key}"
+                else:
+                    config[argument][idx] = item
+        elif isinstance(config[argument], Mapping):
+            mapping_type = tuple(intersect_generic_types(expected_type, Mapping))
+            for key, item in config[argument].items():
+                if isinstance(item, Config):
+                    (
+                        config[argument][key],
+                        expanded_config[argument][key],
+                    ) = registry._get(
+                        item, Union[mapping_type], f"{prefix}{argument}.{key}"  # type: ignore
                     )
-                    objs[key] = obj
-                    expanded_config[argument][key] = obj_config
-                config[argument] = objs
+                else:
+                    config[argument][key] = item
 
     return config, expanded_config
-
-
-def is_creates(annotation) -> bool:
-    return (
-        isinstance(annotation, _GenericAlias)
-        and annotation.__origin__ == PartialCreates
-    )
 
 
 def get_callable_parsed_args(
@@ -313,6 +409,7 @@ def get_callable_parsed_args(
         prefix (str): Prefix that is attached to the argument names when looking for
             command line arguments.
     """
+    callable = callable.__init__ if hasattr(callable, "__init__") else callable
     signature = inspect.signature(callable)
     arguments = {
         argument: signature.parameters[argument]

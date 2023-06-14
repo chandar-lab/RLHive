@@ -1,6 +1,5 @@
 import copy
-from collections.abc import Sequence
-from typing import List, Optional, Union
+from typing import Optional, Union, Sequence
 
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv

@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
+from pytest_lazyfixture import lazy_fixture
 
-from hive.replays import CircularReplayBuffer, PrioritizedReplayBuffer
+from hive.replays import CircularReplayBuffer, PrioritizedReplayBuffer, ReplayItemSpec
 
 OBS_SHAPE = (4, 4)
 CAPACITY = 60
@@ -14,9 +15,8 @@ GAMMA = 0.99
 def efficient_buffer():
     return CircularReplayBuffer(
         capacity=CAPACITY,
-        observation_shape=OBS_SHAPE,
-        observation_dtype=np.float32,
-        extra_storage_types={"priority": (np.int8, ())},
+        observation_spec=ReplayItemSpec(OBS_SHAPE, np.float32),
+        extra_storage_specs={"priority": ReplayItemSpec((), np.int8)},
         commit_at_done=False,
     )
 
@@ -25,16 +25,15 @@ def efficient_buffer():
 def prioritized_buffer():
     return PrioritizedReplayBuffer(
         capacity=CAPACITY,
-        observation_shape=OBS_SHAPE,
-        observation_dtype=np.float32,
+        observation_spec=ReplayItemSpec(OBS_SHAPE, np.float32),
         commit_at_done=False,
     )
 
 
 @pytest.fixture(
     params=[
-        pytest.lazy_fixture("prioritized_buffer"),
-        pytest.lazy_fixture("efficient_buffer"),
+        lazy_fixture("prioritized_buffer"),
+        lazy_fixture("efficient_buffer"),
     ]
 )
 def buffer(request):
@@ -62,9 +61,8 @@ def stacked_efficient_buffer():
     return CircularReplayBuffer(
         capacity=CAPACITY,
         stack_size=STACK_SIZE,
-        observation_shape=OBS_SHAPE,
-        observation_dtype=np.float32,
-        extra_storage_types={"priority": (np.int8, ())},
+        observation_spec=ReplayItemSpec(OBS_SHAPE, np.float32),
+        extra_storage_specs={"priority": ReplayItemSpec((), np.int8)},
         commit_at_done=False,
     )
 
@@ -74,16 +72,15 @@ def stacked_prioritized_buffer():
     return PrioritizedReplayBuffer(
         capacity=CAPACITY,
         stack_size=STACK_SIZE,
-        observation_shape=OBS_SHAPE,
-        observation_dtype=np.float32,
+        observation_spec=ReplayItemSpec(OBS_SHAPE, np.float32),
         commit_at_done=False,
     )
 
 
 @pytest.fixture(
     params=[
-        pytest.lazy_fixture("stacked_prioritized_buffer"),
-        pytest.lazy_fixture("stacked_efficient_buffer"),
+        lazy_fixture("stacked_prioritized_buffer"),
+        lazy_fixture("stacked_efficient_buffer"),
     ]
 )
 def stacked_buffer(request):
@@ -110,8 +107,7 @@ def full_stacked_buffer(stacked_buffer):
 def full_n_step_buffer():
     n_step_buffer = CircularReplayBuffer(
         capacity=CAPACITY,
-        observation_shape=OBS_SHAPE,
-        observation_dtype=np.float32,
+        observation_spec=ReplayItemSpec(OBS_SHAPE, np.float32),
         n_step=N_STEP_HORIZON,
         gamma=GAMMA,
     )
@@ -135,7 +131,9 @@ def full_n_step_buffer():
 @pytest.mark.parametrize("action_dtype", [np.int8, np.float32])
 @pytest.mark.parametrize("reward_shape", [(), (6,)])
 @pytest.mark.parametrize("reward_dtype", [np.int8, np.float32])
-@pytest.mark.parametrize("extra_storage_types", [None, {"foo": (np.float32, (7,))}])
+@pytest.mark.parametrize(
+    "extra_storage_specs", [None, {"foo": ReplayItemSpec((7,), np.float32)}]
+)
 def test_constructor(
     constructor,
     observation_shape,
@@ -144,17 +142,14 @@ def test_constructor(
     action_dtype,
     reward_shape,
     reward_dtype,
-    extra_storage_types,
+    extra_storage_specs,
 ):
     buffer = constructor(
         capacity=10,
-        observation_shape=observation_shape,
-        observation_dtype=observation_dtype,
-        action_shape=action_shape,
-        action_dtype=action_dtype,
-        reward_shape=reward_shape,
-        reward_dtype=reward_dtype,
-        extra_storage_types=extra_storage_types,
+        observation_spec=ReplayItemSpec(observation_shape, observation_dtype),
+        action_spec=ReplayItemSpec(action_shape, action_dtype),
+        reward_spec=ReplayItemSpec(reward_shape, reward_dtype),
+        extra_storage_specs=extra_storage_specs,
     )
     assert buffer.size() == 0
     assert buffer._storage["observation"].shape == (10,) + observation_shape
@@ -163,10 +158,10 @@ def test_constructor(
     assert buffer._storage["action"].dtype == action_dtype
     assert buffer._storage["reward"].shape == (10,) + reward_shape
     assert buffer._storage["reward"].dtype == reward_dtype
-    if extra_storage_types is not None:
-        for key in extra_storage_types:
-            assert buffer._storage[key].shape == (10,) + extra_storage_types[key][1]
-            assert buffer._storage[key].dtype == extra_storage_types[key][0]
+    if extra_storage_specs is not None:
+        for key in extra_storage_specs:
+            assert buffer._storage[key].shape == (10,) + extra_storage_specs[key].shape
+            assert buffer._storage[key].dtype == extra_storage_specs[key].dtype
 
 
 def test_add(buffer):
@@ -228,8 +223,7 @@ def test_sample_few_transitions(stack_size, n_step, num_added):
         capacity=CAPACITY,
         stack_size=stack_size,
         n_step=n_step,
-        observation_shape=OBS_SHAPE,
-        observation_dtype=np.float32,
+        observation_spec=ReplayItemSpec(OBS_SHAPE, np.float32),
     )
     for i in range(num_added):
         buffer.add(
@@ -250,15 +244,13 @@ def test_save_load(full_buffer, tmpdir):
     if isinstance(full_buffer, PrioritizedReplayBuffer):
         buffer = PrioritizedReplayBuffer(
             capacity=CAPACITY,
-            observation_shape=OBS_SHAPE,
-            observation_dtype=np.float32,
+            observation_spec=ReplayItemSpec(OBS_SHAPE, np.float32),
         )
     else:
         buffer = CircularReplayBuffer(
             capacity=CAPACITY,
-            observation_shape=OBS_SHAPE,
-            observation_dtype=np.float32,
-            extra_storage_types={"priority": (np.int8, ())},
+            observation_spec=ReplayItemSpec(OBS_SHAPE, np.float32),
+            extra_storage_specs={"priority": ReplayItemSpec((), np.int8)},
         )
     buffer.load(save_dir)
     for key in full_buffer._storage:

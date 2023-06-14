@@ -1,11 +1,13 @@
+from typing import Optional
+
 import gymnasium as gym
-from hive.agents.qnets.utils import InitializationFn
+import torch
+
+from hive.agents.qnets.utils import TensorInitFn
 from hive.agents.td3 import TD3
 from hive.replays import BaseReplayBuffer
-from hive.utils.utils import LossFn, OptimizerFn
 from hive.utils.registry import OCreates
-from hive.agents.qnets import FunctionApproximator
-from typing import Optional
+from hive.utils.utils import LossFn
 
 
 class DDPG(TD3):
@@ -19,12 +21,12 @@ class DDPG(TD3):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Box,
-        representation_net: OCreates[FunctionApproximator] = None,
-        actor_net: OCreates[FunctionApproximator] = None,
-        critic_net: OCreates[FunctionApproximator] = None,
-        init_fn: OCreates[InitializationFn] = None,
-        actor_optimizer_fn: OCreates[OptimizerFn] = None,
-        critic_optimizer_fn: OCreates[OptimizerFn] = None,
+        representation_net: OCreates[torch.nn.Module] = None,
+        actor_net: OCreates[torch.nn.Module] = None,
+        critic_net: OCreates[torch.nn.Module] = None,
+        init_fn: OCreates[TensorInitFn] = None,
+        actor_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
+        critic_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
         critic_loss_fn: OCreates[LossFn] = None,
         stack_size: int = 1,
         replay_buffer: OCreates[BaseReplayBuffer] = None,
@@ -45,22 +47,22 @@ class DDPG(TD3):
         Args:
             observation_space (gym.spaces.Box): Observation space for the agent.
             action_space (gym.spaces.Box): Action space for the agent.
-            representation_net (FunctionApproximator): The network that encodes the
+            representation_net (torch.nn.Module): The network that encodes the
                 observations that are then fed into the actor_net and critic_net. If
                 None, defaults to :py:class:`~torch.nn.Identity`.
-            actor_net (FunctionApproximator): The network that takes the encoded
+            actor_net (torch.nn.Module): The network that takes the encoded
                 observations from representation_net and outputs the representations
                 used to compute the actions (ie everything except the last layer).
-            critic_net (FunctionApproximator): The network that takes two inputs: the
+            critic_net (torch.nn.Module): The network that takes two inputs: the
                 encoded observations from representation_net and actions. It outputs
                 the representations used to compute the values of the actions (ie
                 everything except the last layer).
             init_fn (InitializationFn): Initializes the weights of agent networks using
                 create_init_weights_fn.
-            actor_optimizer_fn (OptimizerFn): A function that takes in the list of
+            actor_optimizer_fn (torch.optim.Optimizer): A function that takes in the list of
                 parameters of the actor returns the optimizer for the actor. If None,
                 defaults to :py:class:`~torch.optim.Adam`.
-            critic_optimizer_fn (OptimizerFn): A function that takes in the list of
+            critic_optimizer_fn (torch.optim.Optimizer): A function that takes in the list of
                 parameters of the critic returns the optimizer for the critic. If None,
                 defaults to :py:class:`~torch.optim.Adam`.
             critic_loss_fn (LossFn): The loss function used to optimize the critic. If

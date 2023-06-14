@@ -104,8 +104,7 @@ wrappers = [
     and issubclass(getattr(wrappers, x), gym.Wrapper)
 ]
 
-registry.register_all(
-    gym.Wrapper,
+registry.register_classes(
     {wrapper.__name__: wrapper for wrapper in wrappers},
 )
 

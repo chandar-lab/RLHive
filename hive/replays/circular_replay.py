@@ -1,14 +1,12 @@
-import copy
-import os
 import pickle
 from collections import defaultdict
-from collections.abc import Mapping
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any, Optional, Mapping, MutableMapping
 
 import numpy as np
 import numpy.typing as npt
 
-from hive.replays.replay_buffer import BaseReplayBuffer, ReplayItemSpec
+from hive.replays.replay_buffer import Alignment, BaseReplayBuffer, ReplayItemSpec
 from hive.utils.utils import create_folder, seeder
 
 
@@ -54,11 +52,14 @@ class CircularReplayBuffer(BaseReplayBuffer):
             reward_shape: Shape of rewards that will be stored in the buffer.
             reward_dtype: Type of rewards that will be stored in the buffer. Format is
                 described in the description of observation_dtype.
-            extra_storage_types (dict): A dictionary describing extra items to store
+            extra_storage_specs (dict): A dictionary describing extra items to store
                 in the buffer. The mapping should be from the name of the item to a
                 (type, shape) tuple.
-            num_players_sharing_buffer (int): Number of agents that share their
-                buffers. It is used for self-play.
+            commit_at_done (bool): If True, the buffer will wait to commit transitions
+                until the trajectory is finished. This should be used when experience is
+                being generated from multiple sources at once (e.g. with multiple
+                environments or agents). If False, the buffer will commit transitions
+                as they are added.
             optimize_storage (bool): If True, the buffer will only store each
                 observation once. Otherwise, next_observation will be stored for
                 each transition. Note, if optimize_storage is True, the
@@ -69,13 +70,22 @@ class CircularReplayBuffer(BaseReplayBuffer):
         self._optimize_storage = optimize_storage
         self._specs = {
             "observation": observation_spec,
-            "done": ReplayItemSpec.create((), np.uint8),
-            "terminated": ReplayItemSpec.create((), np.uint8),
+            "done": ReplayItemSpec.create((), np.uint8, False, Alignment.end, 1),
+            "terminated": ReplayItemSpec.create((), np.uint8, False, Alignment.end, 1),
             "action": action_spec,
             "reward": reward_spec,
         }
         if not optimize_storage:
             self._specs["next_observation"] = observation_spec
+        else:
+            self._specs["observation"] = ReplayItemSpec.create(
+                observation_spec.shape,
+                observation_spec.dtype,
+                True,
+                Alignment.start,
+                stack_size,
+            )
+
         if extra_storage_specs is not None:
             self._specs.update(extra_storage_specs)
         self._storage = self._create_storage(capacity, self._specs)
@@ -238,9 +248,9 @@ class CircularReplayBuffer(BaseReplayBuffer):
             num_to_access: how many consecutive elements to access
         """
         if not isinstance(indices, np.ndarray):
-            indices = np.array([indices])
+            indices = np.array([indices], dtype=np.int32)
         if num_to_access == 0:
-            return np.array([])
+            return np.array([], dtype=self._specs[key].dtype)
         elif num_to_access == 1:
             return self._storage[key][
                 indices % (self.size() + self._stack_size + self._n_step - 1)
@@ -274,7 +284,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
             indices = indices[~done.any(axis=1)]
         return indices
 
-    def sample(self, batch_size: int) -> Mapping[str, npt.NDArray]:
+    def sample(self, batch_size: int) -> MutableMapping[str, npt.NDArray]:
         """Sample transitions from the buffer. For a given transition, if it's
         done is True, the next_observation value should not be taken to have any
         meaning.
@@ -330,7 +340,20 @@ class CircularReplayBuffer(BaseReplayBuffer):
                 rewards = np.sum(rewards * mask, axis=1)
                 batch["reward"] = rewards
             else:
-                batch[key] = self._get_from_storage(key, indices)
+                offset = (
+                    -self._stack_size + 1
+                    if self._specs[key].alignment == Alignment.start
+                    else 0
+                )
+                batch[key] = self._get_from_storage(
+                    key, indices + offset, self._specs[key].num_to_retrieve
+                )
+
+                batch[f"next_{key}"] = self._get_from_storage(
+                    key,
+                    indices + offset + trajectory_lengths,
+                    self._specs[key].num_to_retrieve,
+                )
 
         batch["trajectory_lengths"] = trajectory_lengths
         if "next_observation" not in batch:
@@ -348,11 +371,11 @@ class CircularReplayBuffer(BaseReplayBuffer):
             dname (str): directory where to save buffer. Should already have been
                 created.
         """
-        storage_path = os.path.join(dname, "storage")
+        storage_path = Path(dname) / "storage"
         create_folder(storage_path)
         for key in self._specs:
             np.save(
-                os.path.join(storage_path, f"{key}"),
+                storage_path / f"{key}.npy",
                 self._storage[key],
                 allow_pickle=False,
             )
@@ -362,7 +385,7 @@ class CircularReplayBuffer(BaseReplayBuffer):
             "num_added": self._num_added,
             "rng": self._rng,
         }
-        with open(os.path.join(dname, "replay.pkl"), "wb") as f:
+        with (Path(dname) / "replay.pkl").open("wb") as f:
             pickle.dump(state, f)
 
     def load(self, dname: str):
@@ -371,12 +394,12 @@ class CircularReplayBuffer(BaseReplayBuffer):
         Args:
             dname (str): directory where to load buffer from.
         """
-        storage_path = os.path.join(dname, "storage")
+        storage_path = Path(dname) / "storage"
         self._storage = {
-            key: np.load(os.path.join(storage_path, f"{key}.npy"), allow_pickle=False)
+            key: np.load(storage_path / f"{key}.npy", allow_pickle=False)
             for key in self._specs
         }
-        with open(os.path.join(dname, "replay.pkl"), "rb") as f:
+        with (Path(dname) / "replay.pkl").open("rb") as f:
             state = pickle.load(f)
         self._episode_start = state["episode_start"]
         self._cursor = state["cursor"]
@@ -466,6 +489,28 @@ class SimpleReplayBuffer(BaseReplayBuffer):
                 transition[key], dtype=self._dtype[key].dtype
             )
 
+    def add_transitions(
+        self,
+        observations,
+        next_observations,
+        actions,
+        rewards,
+        terminateds,
+        truncateds,
+        **kwargs,
+    ):
+        for i in range(len(observations)):
+            single_kwargs = {k: v[i] for k, v in kwargs.items()}
+            self.add(
+                observations[i],
+                next_observations[i],
+                actions[i],
+                rewards[i],
+                terminateds[i],
+                truncateds[i],
+                **single_kwargs,
+            )
+
     def sample(self, batch_size=32):
         """
         sample a minibatch
@@ -506,8 +551,8 @@ class SimpleReplayBuffer(BaseReplayBuffer):
         sdict["n"] = self._n
         sdict["data"] = self._data
 
-        full_name = os.path.join(dname, "meta.ckpt")
-        with open(full_name, "wb") as f:
+        full_name = Path(dname) / "meta.ckpt"
+        with full_name.open("wb") as f:
             pickle.dump(sdict, f)
 
     def load(self, dname):
@@ -520,8 +565,8 @@ class SimpleReplayBuffer(BaseReplayBuffer):
         Returns:
             True if successfully loaded the buffer. False otherwise.
         """
-        full_name = os.path.join(dname, "meta.ckpt")
-        with open(full_name, "rb") as f:
+        full_name = Path(dname) / "meta.ckpt"
+        with full_name.open("rb") as f:
             sdict = pickle.load(f)
 
         self._capacity = sdict["capacity"]

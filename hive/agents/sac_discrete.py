@@ -1,7 +1,6 @@
 import copy
 import os
-from dataclasses import dataclass
-from typing import Optional, cast, Sequence
+from typing import Optional, Sequence, cast
 
 import gymnasium as gym
 import numpy as np
@@ -10,13 +9,9 @@ from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents import Agent
 from hive.agents.agent import Agent
-from hive.agents.qnets.base import FunctionApproximator
-from hive.agents.qnets.sac_heads import (
-    SACActorNetwork,
-    SACDiscreteCriticNetwork,
-)
+from hive.agents.qnets.sac_heads import SACActorNetwork, SACDiscreteCriticNetwork
 from hive.agents.qnets.utils import (
-    InitializationFn,
+    TensorInitFn,
     calculate_output_dim,
     create_init_weights_fn,
 )
@@ -26,7 +21,7 @@ from hive.types import Shape
 from hive.utils.loggers import logger
 from hive.utils.registry import OCreates, default
 from hive.utils.schedule import DoublePeriodicSchedule, PeriodicSchedule, SwitchSchedule
-from hive.utils.utils import LossFn, OptimizerFn, create_folder
+from hive.utils.utils import LossFn, create_folder
 
 
 class DiscreteSACAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
@@ -34,12 +29,12 @@ class DiscreteSACAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Discrete,
-        representation_net: OCreates[FunctionApproximator] = None,
-        actor_net: OCreates[FunctionApproximator] = None,
-        critic_net: OCreates[FunctionApproximator] = None,
-        init_fn: OCreates[InitializationFn] = None,
-        actor_optimizer_fn: OCreates[OptimizerFn] = None,
-        critic_optimizer_fn: OCreates[OptimizerFn] = None,
+        representation_net: OCreates[torch.nn.Module] = None,
+        actor_net: OCreates[torch.nn.Module] = None,
+        critic_net: OCreates[torch.nn.Module] = None,
+        init_fn: OCreates[TensorInitFn] = None,
+        actor_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
+        critic_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
         critic_loss_fn: OCreates[LossFn] = None,
         n_critics: int = 2,
         stack_size: int = 1,
@@ -58,7 +53,7 @@ class DiscreteSACAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
         auto_alpha: bool = True,
         alpha: float = 0.2,
         target_entropy_scale: float = 0.98,
-        alpha_optimizer_fn: OCreates[OptimizerFn] = None,
+        alpha_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
         device="cpu",
         id=0,
     ):
@@ -302,9 +297,9 @@ class DiscreteSACAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
         return agent_traj_state
 
     def _update_actor(self, current_state_inputs):
-        _, log_probs, action_probs = self._actor(current_state_inputs)
+        _, log_probs, action_probs = self._actor(*current_state_inputs)
         with torch.no_grad():
-            action_values = self._critic(current_state_inputs)
+            action_values = self._critic(*current_state_inputs)
         min_action_values = torch.amin(torch.stack(action_values), dim=0)
         actor_loss = torch.mean(
             action_probs * (self._alpha * log_probs - min_action_values)
@@ -328,14 +323,14 @@ class DiscreteSACAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
         self._alpha_optimizer.zero_grad()
         alpha_loss.backward()
         self._alpha_optimizer.step()
-        self._alpha = self._log_alpha.exp().item()
+        self._alpha = self._log_alpha.exp()
         return {"alpha": self._alpha, "alpha_loss": alpha_loss}
 
     def _update_critics(self, batch, current_state_inputs, next_state_inputs):
         target_q_values = self._calculate_target_q_values(batch, next_state_inputs)
 
         # Critic losses
-        pred_qvals = torch.stack(self._critic(current_state_inputs))
+        pred_qvals = torch.stack(self._critic(*current_state_inputs))
         pred_qvals = pred_qvals[:, torch.arange(pred_qvals.shape[1]), batch["action"]]
         critic_losses = torch.stack(
             [self._critic_loss_fn(qvals, target_q_values) for qvals in pred_qvals]
@@ -356,8 +351,8 @@ class DiscreteSACAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
 
     def _calculate_target_q_values(self, batch, next_state_inputs):
         with torch.no_grad():
-            _, next_log_prob, next_probs = self._actor(next_state_inputs)
-            next_q_vals = torch.stack(self._target_critic(next_state_inputs))
+            _, next_log_prob, next_probs = self._actor(*next_state_inputs)
+            next_q_vals = torch.stack(self._target_critic(*next_state_inputs))
             next_q_vals = torch.amin(next_q_vals, dim=0)
             next_q_vals = next_probs * (next_q_vals - self._alpha * next_log_prob)
             next_q_vals = torch.sum(next_q_vals, dim=1)

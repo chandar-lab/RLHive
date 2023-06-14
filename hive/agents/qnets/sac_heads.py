@@ -1,12 +1,11 @@
-from typing import Tuple, Union
-from collections.abc import Sequence
+from typing import Tuple, Union, Sequence
 
 import gymnasium as gym
 import numpy as np
 import torch
 
 from hive.agents.qnets.utils import calculate_output_dim
-from hive.utils.registry import Creates, default, OCreates
+from hive.utils.registry import Creates, OCreates, default
 
 MIN_LOG_STD = -5
 MAX_LOG_STD = 2
@@ -105,7 +104,7 @@ class SACActorNetwork(torch.nn.Module):
         Args:
             representation_network (torch.nn.Module): Network that encodes the
                 observations.
-            actor_net (FunctionApproximator): Function that takes in the shape of the
+            actor_net (torch.nn.Module): Function that takes in the shape of the
                 encoded observations and creates a network. This network takes the
                 encoded observations from representation_net and outputs the
                 representations used to compute the actions (ie everything except the
@@ -149,7 +148,7 @@ class SACContinuousCriticNetwork(torch.nn.Module):
         Args:
             representation_network (torch.nn.Module): Network that encodes the
                 observations.
-            critic_net (FunctionApproximator): Function that takes in the shape of the
+            critic_net (torch.nn.Module): Function that takes in the shape of the
                 encoded observations and creates a network. This network takes two
                 inputs: the encoded observations from representation_net and actions.
                 It outputs the representations used to compute the values of the
@@ -198,7 +197,7 @@ class SACDiscreteCriticNetwork(torch.nn.Module):
         Args:
             representation_network (torch.nn.Module): Network that encodes the
                 observations.
-            critic_net (FunctionApproximator): Function that takes in the shape of the
+            critic_net (torch.nn.Module): Function that takes in the shape of the
                 encoded observations and creates a network. This network takes two
                 inputs: the encoded observations from representation_net and actions.
                 It outputs the representations used to compute the values of the

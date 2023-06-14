@@ -1,26 +1,21 @@
 import os
-from typing import Union
+from typing import Optional, Union, cast
 
 import gymnasium as gym
 import numpy as np
 import torch
 
 from hive.agents.agent import Agent
-from hive.agents.qnets.base import FunctionApproximator
-from hive.agents.qnets.normalizer import (
-    MovingAvgNormalizer,
-    RewardNormalizer,
-)
 from hive.agents.qnets.ac_nets import ActorCriticNetwork
-from hive.agents.qnets.utils import calculate_output_dim, InitializationFn
-from hive.replays.on_policy_replay import OnPolicyReplayBuffer
+from hive.agents.qnets.normalizer import MovingAvgNormalizer, RewardNormalizer
+from hive.agents.qnets.utils import TensorInitFn, calculate_output_dim
 from hive.replays import ReplayItemSpec
-from hive.utils.loggers import logger
-from hive.utils.schedule import PeriodicSchedule, Schedule, ConstantSchedule
-from hive.utils.utils import LossFn, OptimizerFn, create_folder
-from hive.utils.registry import OCreates, default
-from typing import Optional, cast
+from hive.replays.on_policy_replay import OnPolicyReplayBuffer
 from hive.types import Shape
+from hive.utils.loggers import logger
+from hive.utils.registry import OCreates, default
+from hive.utils.schedule import ConstantSchedule, PeriodicSchedule, Schedule
+from hive.utils.utils import LossFn, create_folder
 
 
 class PPOAgent(Agent):
@@ -30,17 +25,17 @@ class PPOAgent(Agent):
         self,
         observation_space: gym.spaces.Box,
         action_space: Union[gym.spaces.Discrete, gym.spaces.Box],
-        representation_net: OCreates[FunctionApproximator] = None,
-        actor_net: OCreates[FunctionApproximator] = None,
-        critic_net: OCreates[FunctionApproximator] = None,
-        actor_head_init_fn: OCreates[InitializationFn] = None,
-        critic_head_init_fn: OCreates[InitializationFn] = None,
-        optimizer_fn: OCreates[OptimizerFn] = None,
+        representation_net: OCreates[torch.nn.Module] = None,
+        actor_net: OCreates[torch.nn.Module] = None,
+        critic_net: OCreates[torch.nn.Module] = None,
+        actor_head_init_fn: OCreates[TensorInitFn] = None,
+        critic_head_init_fn: OCreates[TensorInitFn] = None,
+        optimizer_fn: OCreates[torch.optim.Optimizer] = None,
         anneal_lr_schedule: OCreates[Schedule[float]] = None,
         critic_loss_fn: OCreates[LossFn] = None,
         observation_normalizer: OCreates[MovingAvgNormalizer] = None,
         reward_normalizer: OCreates[RewardNormalizer] = None,
-        stack_size: int = 1,
+        # stack_size: int = 1,
         replay_buffer: OCreates[OnPolicyReplayBuffer] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
@@ -62,13 +57,13 @@ class PPOAgent(Agent):
         Args:
             observation_space (gym.spaces.Box): Observation space for the agent.
             action_space (gym.spaces.Box): Action space for the agent.
-            representation_net (FunctionApproximator): The network that encodes the
+            representation_net (torch.nn.Module): The network that encodes the
                 observations that are then fed into the actor_net and critic_net. If
                 None, defaults to :py:class:`~torch.nn.Identity`.
-            actor_net (FunctionApproximator): The network that takes the encoded
+            actor_net (torch.nn.Module): The network that takes the encoded
                 observations from representation_net and outputs the representations
                 used to compute the actions (ie everything except the last layer).
-            critic_net (FunctionApproximator): The network that takes two inputs: the
+            critic_net (torch.nn.Module): The network that takes two inputs: the
                 encoded observations from representation_net and actions. It outputs
                 the representations used to compute the values of the actions (ie
                 everything except the last layer).
@@ -76,7 +71,7 @@ class PPOAgent(Agent):
                 head of the actor network.
             critic_head_init_fn (InitializationFn): The function used to initialize the
                 head of the critic network.
-            optimizer_fn (OptimizerFn): A function that takes in the list of
+            optimizer_fn (torch.optim.Optimizer): A function that takes in the list of
                 parameters of the actor and critic returns the optimizer for the actor.
                 If None, defaults to :py:class:`~torch.optim.Adam`.
             critic_loss_fn (LossFn): The loss function used to optimize the critic. If
@@ -120,10 +115,7 @@ class PPOAgent(Agent):
         """
         super().__init__(observation_space, action_space, id)
         self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
-        self._state_size = (
-            stack_size * self._observation_space.shape[0],
-            *self._observation_space.shape[1:],
-        )
+        self._state_size = self._observation_space.shape
         self.create_networks(
             representation_net,
             actor_net,
@@ -145,7 +137,7 @@ class PPOAgent(Agent):
         anneal_lr_schedule = default(anneal_lr_schedule, lambda: ConstantSchedule(1.0))
         lr_schedule = anneal_lr_schedule()
         self._lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self._optimizer, lambda global_step: lr_schedule(global_step)
+            self._optimizer, lr_schedule
         )
         replay_buffer = default(replay_buffer, OnPolicyReplayBuffer)
         self._replay_buffer = replay_buffer(
@@ -156,7 +148,6 @@ class PPOAgent(Agent):
             action_spec=ReplayItemSpec.create(
                 shape=self._action_space.shape, dtype=self._action_space.dtype
             ),
-            stack_size=stack_size,
             gamma=discount_rate,
             n_step=n_step,
         )
@@ -240,17 +231,17 @@ class PPOAgent(Agent):
 
         preprocessed_update_info = {
             "observation": update_info["observation"],
+            "next_observation": update_info["next_observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
             "terminated": update_info["terminated"],
             "truncated": update_info["truncated"],
+            "source": update_info["source"],
             "logprob": agent_traj_state["logprob"],
             "values": agent_traj_state["value"],
             "returns": np.empty(agent_traj_state["value"].shape),
             "advantages": np.empty(agent_traj_state["value"].shape),
         }
-        if "agent_id" in update_info:
-            preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
 
         return preprocessed_update_info
 
@@ -326,7 +317,7 @@ class PPOAgent(Agent):
             _, _, values = self.get_action_logprob_value(
                 update_info["next_observation"]
             )
-            self._replay_buffer.compute_advantages(values)
+            self._replay_buffer.compute_advantages(values, update_info["source"])
             clip_fraction = 0
             num_updates = 0
             metrics = {}

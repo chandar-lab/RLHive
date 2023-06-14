@@ -1,14 +1,13 @@
 from functools import partial
-from typing import Union, Optional, Callable
-from collections.abc import Sequence
+from typing import Sequence, Union, Optional
+
 import numpy as np
 import torch
 from torch import nn
-
 from hive.agents.qnets.noisy_linear import NoisyLinear
+from hive.agents.qnets.utils import ModuleInitFn
+from hive.utils.registry import OCreates, default, Partial
 from hive.utils.utils import ActivationFn
-from hive.agents.qnets.utils import InitializationFn
-from hive.utils.registry import Creates, OCreates, default
 
 
 class MLPNetwork(nn.Module):
@@ -23,10 +22,10 @@ class MLPNetwork(nn.Module):
         self,
         in_dim: Union[int, Sequence[int]],
         hidden_units: Union[int, Sequence[int]] = 256,
-        activation_fn: OCreates[nn.Module] = None,
+        activation_fn: OCreates[ActivationFn] = None,
         noisy: bool = False,
         std_init: float = 0.5,
-        initialization_fn: OCreates[None] = None,
+        init_fn: Optional[Partial[ModuleInitFn]] = None,
     ):
         """
         Args:
@@ -49,9 +48,9 @@ class MLPNetwork(nn.Module):
         for i in range(len(hidden_units) - 1):
             modules.append(linear_fn(hidden_units[i], hidden_units[i + 1]))
             modules.append(activation_fn())
-
-        if initialization_fn is not None:
-            self.network = torch.nn.Sequential(*modules).apply(initialization_fn)
+        self.network = torch.nn.Sequential(*modules)
+        if init_fn is not None:
+            self.network.apply(init_fn)
 
     def forward(self, x):
         x = x.float()

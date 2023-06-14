@@ -9,13 +9,14 @@ import torch
 from pytest_lazyfixture import lazy_fixture
 from torch.optim import Adam
 
-from hive.agents import DQNAgent, RainbowDQNAgent, get_agent
+from hive.agents import DQNAgent, RainbowDQNAgent, Agent
 from hive.agents.qnets import MLPNetwork
-from hive.agents.qnets.base import FunctionApproximator
 from hive.envs import EnvSpec
 from hive.replays import SimpleReplayBuffer
 from hive.utils import schedule
 from hive.utils.utils import Counter
+from hive.utils.registry import registry
+from hive.runners.utils import dict_to_config
 
 
 @pytest.fixture
@@ -254,7 +255,7 @@ def test_create_agent_with_configs(env_spec):
             "device": "cpu",
         },
     }
-    agent, _ = get_agent(agent_config)
+    agent, _ = registry.get(dict_to_config(agent_config), Agent)
     agent = agent()
     agent_traj_state = None
     action, agent_traj_state = agent.act(np.zeros(2), agent_traj_state, Counter())

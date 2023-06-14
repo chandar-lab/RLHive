@@ -1,6 +1,5 @@
 import abc
-from collections.abc import Mapping
-from typing import Any, Optional, Tuple, cast
+from typing import Any, Optional, Tuple, cast, Mapping
 
 import numpy as np
 import torch
@@ -9,7 +8,7 @@ from torch import nn
 from hive.agents.qnets.mlp import MLPNetwork
 from hive.agents.qnets.utils import calculate_output_dim
 from hive.types import Shape
-from hive.utils.registry import Creates, default, registry
+from hive.utils.registry import Creates, registry
 
 
 class SequenceFn(nn.Module):
@@ -303,12 +302,11 @@ class DRQNNetwork(nn.Module):
         return self.base_network.get_hidden_spec()
 
 
-registry.register_all(
-    SequenceFn,
+registry.register_classes(
     {
         "LSTM": LSTMModel,
         "GRU": GRUModel,
     },
 )
 
-registry.register("SequenceModel", SequenceModel, SequenceModel)
+registry.register_class("SequenceModel", SequenceModel)

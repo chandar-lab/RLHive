@@ -83,8 +83,7 @@ class PermuteImageWrapper(gym.ObservationWrapper):
             return np.transpose(obs, [2, 1, 0])
 
 
-registry.register_all(
-    gym.Wrapper,
+registry.register_classes(
     {"PermuteImageWrapper": PermuteImageWrapper, "FlattenWrapper": FlattenWrapper},
 )
 
@@ -98,8 +97,7 @@ try:
         and issubclass(getattr(wrappers, x), gym.Wrapper)
     ]
 
-    registry.register_all(
-        gym.Wrapper,
+    registry.register_classes(
         {"minigrid.{}".format(wrapper.__name__): wrapper for wrapper in wrappers},
     )
 

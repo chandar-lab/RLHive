@@ -1,6 +1,6 @@
 import copy
 import os
-from dataclasses import dataclass
+from typing import Optional, cast
 
 import gymnasium as gym
 import numpy as np
@@ -8,21 +8,19 @@ import torch
 from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents.agent import Agent
-from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.sac_heads import SACActorNetwork, SACContinuousCriticNetwork
 from hive.agents.qnets.utils import (
-    InitializationFn,
+    TensorInitFn,
     calculate_output_dim,
     create_init_weights_fn,
 )
 from hive.agents.utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer, ReplayItemSpec
-from hive.utils.loggers import logger
-from hive.utils.schedule import DoublePeriodicSchedule, PeriodicSchedule, SwitchSchedule
-from hive.utils.utils import LossFn, OptimizerFn, create_folder
-from hive.utils.registry import OCreates, default
-from typing import Optional, cast
 from hive.types import Shape
+from hive.utils.loggers import logger
+from hive.utils.registry import OCreates, default
+from hive.utils.schedule import DoublePeriodicSchedule, PeriodicSchedule, SwitchSchedule
+from hive.utils.utils import LossFn, create_folder
 
 
 class SACAgent(Agent[gym.spaces.Box, gym.spaces.Box]):
@@ -32,13 +30,13 @@ class SACAgent(Agent[gym.spaces.Box, gym.spaces.Box]):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Box,
-        representation_net: OCreates[FunctionApproximator] = None,
-        actor_net: OCreates[FunctionApproximator] = None,
-        critic_net: OCreates[FunctionApproximator] = None,
-        init_fn: OCreates[InitializationFn] = None,
-        actor_optimizer_fn: OCreates[OptimizerFn] = None,
-        critic_optimizer_fn: OCreates[OptimizerFn] = None,
-        alpha_optimizer_fn: OCreates[OptimizerFn] = None,
+        representation_net: OCreates[torch.nn.Module] = None,
+        actor_net: OCreates[torch.nn.Module] = None,
+        critic_net: OCreates[torch.nn.Module] = None,
+        init_fn: OCreates[TensorInitFn] = None,
+        actor_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
+        critic_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
+        alpha_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
         critic_loss_fn: OCreates[LossFn] = None,
         auto_alpha: bool = True,
         alpha: float = 0.2,
@@ -64,25 +62,25 @@ class SACAgent(Agent[gym.spaces.Box, gym.spaces.Box]):
         Args:
             observation_space (gym.spaces.Box): Observation space for the agent.
             action_space (gym.spaces.Box): Action space for the agent.
-            representation_net (FunctionApproximator): The network that encodes the
+            representation_net (torch.nn.Module): The network that encodes the
                 observations that are then fed into the actor_net and critic_net. If
                 None, defaults to :py:class:`~torch.nn.Identity`.
-            actor_net (FunctionApproximator): The network that takes the encoded
+            actor_net (torch.nn.Module): The network that takes the encoded
                 observations from representation_net and outputs the representations
                 used to compute the actions (ie everything except the last layer).
-            critic_net (FunctionApproximator): The network that takes two inputs: the
+            critic_net (torch.nn.Module): The network that takes two inputs: the
                 encoded observations from representation_net and actions. It outputs
                 the representations used to compute the values of the actions (ie
                 everything except the last layer).
             init_fn (InitializationFn): Initializes the weights of agent networks using
                 create_init_weights_fn.
-            actor_optimizer_fn (OptimizerFn): A function that takes in the list of
+            actor_optimizer_fn (torch.optim.Optimizer): A function that takes in the list of
                 parameters of the actor returns the optimizer for the actor. If None,
                 defaults to :py:class:`~torch.optim.Adam`.
-            critic_optimizer_fn (OptimizerFn): A function that takes in the list of
+            critic_optimizer_fn (torch.optim.Optimizer): A function that takes in the list of
                 parameters of the critic returns the optimizer for the critic. If None,
                 defaults to :py:class:`~torch.optim.Adam`.
-            alpha_optimizer_fn (OptimizerFn): A function that takes in the
+            alpha_optimizer_fn (torch.optim.Optimizer): A function that takes in the
                 log_alpha parameter and returns the optimizer for log_alpha. If
                 None, defaults to :py:class:`~torch.optim.Adam`.
             critic_loss_fn (LossFn): The loss function used to optimize the critic. If
@@ -383,8 +381,8 @@ class SACAgent(Agent[gym.spaces.Box, gym.spaces.Box]):
         return metrics
 
     def _update_actor(self, current_state_inputs):
-        actions, log_probs, _ = self._actor(current_state_inputs)
-        action_values = self._critic(current_state_inputs, actions)
+        actions, log_probs, _ = self._actor(*current_state_inputs)
+        action_values = self._critic(*current_state_inputs, actions)
         min_action_values = torch.min(action_values[0], action_values[1]).view(-1)
         actor_loss = torch.mean(self._alpha * log_probs - min_action_values)
         self._actor_optimizer.zero_grad()
@@ -401,21 +399,21 @@ class SACAgent(Agent[gym.spaces.Box, gym.spaces.Box]):
 
     def _update_alpha(self, current_state_inputs):
         with torch.no_grad():
-            _, log_probs, _ = self._actor(current_state_inputs)
+            _, log_probs, _ = self._actor(*current_state_inputs)
         alpha_loss = (
             -self._log_alpha * (log_probs + self._target_entropy).detach()
         ).mean()
         self._alpha_optimizer.zero_grad()
         alpha_loss.backward()
         self._alpha_optimizer.step()
-        self._alpha = self._log_alpha.exp().item()
+        self._alpha = self._log_alpha.exp()
         return {"alpha": self._alpha, "alpha_loss": alpha_loss}
 
     def _update_critics(self, batch, current_state_inputs, next_state_inputs):
         target_q_values = self._calculate_target_q_values(batch, next_state_inputs)
 
         # Critic losses
-        pred_qvals = self._critic(current_state_inputs, batch["action"])
+        pred_qvals = self._critic(*current_state_inputs, batch["action"])
         critic_losses = torch.stack(
             [self._critic_loss_fn(qvals, target_q_values) for qvals in pred_qvals]
         )
@@ -436,9 +434,9 @@ class SACAgent(Agent[gym.spaces.Box, gym.spaces.Box]):
 
     def _calculate_target_q_values(self, batch, next_state_inputs):
         with torch.no_grad():
-            next_actions, next_log_prob, _ = self._actor(next_state_inputs)
+            next_actions, next_log_prob, _ = self._actor(*next_state_inputs)
             next_q_vals = torch.stack(
-                self._target_critic(next_state_inputs, next_actions)
+                self._target_critic(*next_state_inputs, next_actions)
             )
             next_q_vals = torch.min(next_q_vals, dim=0)[0] - self._alpha * next_log_prob
             target_q_values = (

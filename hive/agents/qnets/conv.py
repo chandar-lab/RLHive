@@ -1,10 +1,10 @@
+from typing import Callable, Optional, Sequence, TypeVar, Union, cast
+
 import torch
 from torch import nn
 
 from hive.agents.qnets.mlp import MLPNetwork
 from hive.agents.qnets.utils import calculate_output_dim
-from typing import Optional, TypeVar, Union, Callable, cast
-from collections.abc import Sequence, Mapping
 
 T = TypeVar("T")
 

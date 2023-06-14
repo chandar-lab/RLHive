@@ -1,8 +1,8 @@
 import abc
+from typing import Generic, TypeVar, Union
 
 from hive.utils.registry import registry
 from hive.utils.utils import Counter
-from typing import TypeVar, Generic, Union
 
 T = TypeVar("T")
 Numeric = TypeVar("Numeric", int, float)
@@ -162,8 +162,7 @@ class PeriodicSchedule(DoublePeriodicSchedule[T]):
         )
 
 
-registry.register_all(
-    Schedule,
+registry.register_classes(
     {
         "LinearSchedule": LinearSchedule,
         "ConstantSchedule": ConstantSchedule,
@@ -172,5 +171,3 @@ registry.register_all(
         "DoublePeriodicSchedule": DoublePeriodicSchedule,
     },
 )
-
-get_schedule = getattr(registry, f"get_{Schedule.type_name()}")

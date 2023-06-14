@@ -1,11 +1,12 @@
-from collections import defaultdict
-from pathlib import Path
 import pickle
 import random
+from collections import defaultdict
+from pathlib import Path
+from typing import Callable, TypeVar
 
 import numpy as np
 import torch
-from typing import TypeVar, Callable
+
 from hive.types import PathLike
 
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
@@ -134,23 +135,25 @@ class Chomp(dict):
 #         Returns:
 #             "loss_fn"
 #         """
+
 #         return "loss_fn"
-from typing import NewType, Protocol, TypeVar, Union, Any
-import os
+from typing import Any, NewType, Protocol, TypeVar, Union, runtime_checkable
 
 T = TypeVar("T")
 
 # LossFn = NewType("LossFn", torch.nn.Module)
 # ActivationFn = NewType("ActivationFn", torch.nn.Module)
 
-OptimizerFn = NewType("OptimizerFn", torch.optim.Optimizer)
+OptimizerFn = torch.optim.Optimizer
 
 
+@runtime_checkable
 class ActivationFn(Protocol):
     def __call__(self, x: T) -> T:
         ...
 
 
+@runtime_checkable
 class LossFn(Protocol):
     def __call__(self, pred, target) -> Any:
         ...

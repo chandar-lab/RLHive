@@ -1,6 +1,7 @@
 import copy
 import os
 from collections import deque
+from typing import Optional, cast
 
 import gymnasium as gym
 import numpy as np
@@ -8,22 +9,19 @@ import torch
 from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents.agent import Agent
-from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.td3_heads import TD3ActorNetwork, TD3CriticNetwork
 from hive.agents.qnets.utils import (
-    InitializationFn,
+    TensorInitFn,
     calculate_output_dim,
     create_init_weights_fn,
 )
 from hive.agents.utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer, ReplayItemSpec
-from hive.utils.loggers import logger
-from hive.utils.schedule import PeriodicSchedule, SwitchSchedule
-from hive.utils.utils import LossFn, OptimizerFn, create_folder
-
-from hive.utils.registry import OCreates, default
-from typing import Optional, cast
 from hive.types import Shape
+from hive.utils.loggers import logger
+from hive.utils.registry import OCreates, default
+from hive.utils.schedule import PeriodicSchedule, SwitchSchedule
+from hive.utils.utils import LossFn, create_folder
 
 
 class TD3(Agent):
@@ -33,12 +31,12 @@ class TD3(Agent):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Box,
-        representation_net: OCreates[FunctionApproximator] = None,
-        actor_net: OCreates[FunctionApproximator] = None,
-        critic_net: OCreates[FunctionApproximator] = None,
-        init_fn: OCreates[InitializationFn] = None,
-        actor_optimizer_fn: OCreates[OptimizerFn] = None,
-        critic_optimizer_fn: OCreates[OptimizerFn] = None,
+        representation_net: OCreates[torch.nn.Module] = None,
+        actor_net: OCreates[torch.nn.Module] = None,
+        critic_net: OCreates[torch.nn.Module] = None,
+        init_fn: OCreates[TensorInitFn] = None,
+        actor_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
+        critic_optimizer_fn: OCreates[torch.optim.Optimizer] = None,
         critic_loss_fn: OCreates[LossFn] = None,
         n_critics: int = 2,
         stack_size: int = 1,
@@ -63,22 +61,22 @@ class TD3(Agent):
         Args:
             observation_space (gym.spaces.Box): Observation space for the agent.
             action_space (gym.spaces.Box): Action space for the agent.
-            representation_net (FunctionApproximator): The network that encodes the
+            representation_net (torch.nn.Module): The network that encodes the
                 observations that are then fed into the actor_net and critic_net. If
                 None, defaults to :py:class:`~torch.nn.Identity`.
-            actor_net (FunctionApproximator): The network that takes the encoded
+            actor_net (torch.nn.Module): The network that takes the encoded
                 observations from representation_net and outputs the representations
                 used to compute the actions (ie everything except the last layer).
-            critic_net (FunctionApproximator): The network that takes two inputs: the
+            critic_net (torch.nn.Module): The network that takes two inputs: the
                 encoded observations from representation_net and actions. It outputs
                 the representations used to compute the values of the actions (ie
                 everything except the last layer).
             init_fn (InitializationFn): Initializes the weights of agent networks using
                 create_init_weights_fn.
-            actor_optimizer_fn (OptimizerFn): A function that takes in the list of
+            actor_optimizer_fn (torch.optim.Optimizer): A function that takes in the list of
                 parameters of the actor returns the optimizer for the actor. If None,
                 defaults to :py:class:`~torch.optim.Adam`.
-            critic_optimizer_fn (OptimizerFn): A function that takes in the list of
+            critic_optimizer_fn (torch.optim.Optimizer): A function that takes in the list of
                 parameters of the critic returns the optimizer for the critic. If None,
                 defaults to :py:class:`~torch.optim.Adam`.
             critic_loss_fn (LossFn): The loss function used to optimize the critic. If
@@ -367,7 +365,7 @@ class TD3(Agent):
                 noise = torch.clamp(
                     noise, -self._target_noise_clip, self._target_noise_clip
                 )
-                next_actions = self._target_actor(next_state_inputs) + noise
+                next_actions = self._target_actor(*next_state_inputs) + noise
                 if self._scale_actions:
                     next_actions = torch.clamp(next_actions, -1, 1)
                 else:
@@ -376,7 +374,7 @@ class TD3(Agent):
                     )
 
                 next_q_vals = torch.cat(
-                    self._target_critic(next_state_inputs, next_actions), dim=1
+                    self._target_critic(*next_state_inputs, next_actions), dim=1
                 )
                 next_q_vals, _ = torch.min(next_q_vals, dim=1, keepdim=True)
                 target_q_values = (
@@ -387,7 +385,7 @@ class TD3(Agent):
                 )
 
             # Critic losses
-            pred_qvals = self._critic(current_state_inputs, batch["action"])
+            pred_qvals = self._critic(*current_state_inputs, batch["action"])
             critic_loss = torch.stack(
                 [self._critic_loss_fn(qvals, target_q_values) for qvals in pred_qvals]
             ).sum()
@@ -405,7 +403,7 @@ class TD3(Agent):
             if self._policy_update_schedule(global_step):
                 actor_loss = -torch.mean(
                     self._critic.q1(
-                        current_state_inputs, self._actor(current_state_inputs)
+                        current_state_inputs, self._actor(*current_state_inputs)
                     )
                 )
                 self._actor_optimizer.zero_grad()

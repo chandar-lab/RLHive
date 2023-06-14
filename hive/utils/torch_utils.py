@@ -3,7 +3,7 @@ import torch
 from torch import optim
 
 from hive.utils.registry import registry
-from hive.utils.utils import LossFn, OptimizerFn, ActivationFn
+from hive.utils.utils import ActivationFn, LossFn
 
 
 def numpify(t):
@@ -175,8 +175,7 @@ class RMSpropTF(optim.Optimizer):
         return loss
 
 
-registry.register_all(
-    optim.Optimizer,
+registry.register_classes(
     {
         "Adadelta": optim.Adadelta,
         "Adagrad": optim.Adagrad,
@@ -193,7 +192,7 @@ registry.register_all(
     },
 )
 
-registry.register_all(
+registry.register_all_with_type(
     LossFn,
     {
         "BCELoss": torch.nn.BCELoss,
@@ -218,7 +217,7 @@ registry.register_all(
     },
 )
 
-registry.register_all(
+registry.register_all_with_type(
     ActivationFn,
     {
         "ELU": torch.nn.ELU,

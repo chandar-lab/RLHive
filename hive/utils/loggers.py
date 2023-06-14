@@ -1,15 +1,13 @@
 import abc
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Mapping, Sequence
 
 import torch
 
 import wandb
-from hive.utils.registry import registry, Creates
-from hive.utils.utils import Chomp, create_folder, Counter
 from hive.types import PathLike
-
-from collections.abc import Mapping, Sequence
+from hive.utils.registry import Creates, registry
+from hive.utils.utils import Chomp, Counter, create_folder
 
 
 class Logger(abc.ABC):
@@ -22,7 +20,7 @@ class Logger(abc.ABC):
         self._global_step = global_step
 
     @abc.abstractmethod
-    def log_config(self, config: Mapping) -> None:
+    def log_config(self, config) -> None:
         """Log the config.
 
         Args:
@@ -251,8 +249,7 @@ class CompositeLogger(Logger):
             logger.load(path / f"logger_{idx}")
 
 
-registry.register_all(
-    Logger,
+registry.register_classes(
     {
         "NullLogger": NullLogger,
         "WandbLogger": WandbLogger,

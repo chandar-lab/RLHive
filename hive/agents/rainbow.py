@@ -1,27 +1,25 @@
 import copy
 from functools import partial
+from typing import Optional
 
 import gymnasium as gym
 import numpy as np
 import torch
 
 from hive.agents.dqn import DQNAgent
-from hive.agents.qnets.base import FunctionApproximator
 from hive.agents.qnets.noisy_linear import NoisyLinear
 from hive.agents.qnets.qnet_heads import (
     DistributionalNetwork,
     DQNNetwork,
     DuelingNetwork,
 )
-from hive.agents.qnets.utils import InitializationFn, calculate_output_dim
+from hive.agents.qnets.utils import ModuleInitFn, calculate_output_dim
 from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.utils.loggers import logger
+from hive.utils.registry import Creates, OCreates, default, Partial
 from hive.utils.schedule import Schedule
-from hive.utils.utils import LossFn, OptimizerFn
-from hive.utils.registry import Creates, default, OCreates
-from typing import Optional
-from hive.types import typed_partial
+from hive.utils.utils import LossFn
 
 
 class RainbowDQNAgent(DQNAgent):
@@ -31,11 +29,11 @@ class RainbowDQNAgent(DQNAgent):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Discrete,
-        representation_net: Creates[FunctionApproximator],
+        representation_net: Creates[torch.nn.Module],
         stack_size: int = 1,
-        optimizer_fn: OCreates[OptimizerFn] = None,
+        optimizer_fn: OCreates[torch.optim.Optimizer] = None,
         loss_fn: OCreates[LossFn] = None,
-        init_fn: OCreates[InitializationFn] = None,
+        init_fn: Optional[Partial[ModuleInitFn]] = None,
         id=0,
         replay_buffer: OCreates[BaseReplayBuffer] = None,
         discount_rate: float = 0.99,
@@ -66,13 +64,13 @@ class RainbowDQNAgent(DQNAgent):
         Args:
             observation_space (gym.spaces.Box): Observation space for the agent.
             action_space (gym.spaces.Discrete): Action space for the agent.
-            representation_net (FunctionApproximator): A network that outputs the
+            representation_net (torch.nn.Module): A network that outputs the
                 representations that will be used to compute Q-values (e.g.
                 everything except the final layer of the DQN).
             stack_size: Number of observations stacked to create the state fed to the
                 DQN.
             id: Agent identifier.
-            optimizer_fn (OptimizerFn): A function that takes in a list of parameters
+            optimizer_fn (torch.optim.Optimizer): A function that takes in a list of parameters
                 to optimize and returns the optimizer. If None, defaults to
                 :py:class:`~torch.optim.Adam`.
             loss_fn (LossFn): Loss function used by the agent. If None, defaults to
@@ -183,9 +181,9 @@ class RainbowDQNAgent(DQNAgent):
 
         # Use NoisyLinear when creating output heads if noisy is true
         linear_fn = (
-            typed_partial(NoisyLinear, std_init=self._std_init)
+            partial(NoisyLinear, std_init=self._std_init)
             if self._noisy
-            else typed_partial(torch.nn.Linear)
+            else partial(torch.nn.Linear)
         )
 
         # Set up Dueling heads
@@ -252,7 +250,7 @@ class RainbowDQNAgent(DQNAgent):
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
-        qvals = self._qnet(state)
+        qvals = self._qnet(*state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._action_space.n)
         else:
@@ -306,18 +304,18 @@ class RainbowDQNAgent(DQNAgent):
 
             # Compute predicted Q values
             self._optimizer.zero_grad()
-            pred_qvals = self._qnet(current_state_inputs)
+            pred_qvals = self._qnet(*current_state_inputs)
             actions = batch["action"].long()
 
             if self._double:
-                next_action = self._qnet(next_state_inputs)
+                next_action = self._qnet(*next_state_inputs)
             else:
-                next_action = self._target_qnet(next_state_inputs)
+                next_action = self._target_qnet(*next_state_inputs)
             next_action = next_action.argmax(1)
 
             if self._distributional:
                 current_dist = self._qnet.dist(
-                    current_state_inputs  # pyright: ignore reportGeneralTypeIssues
+                    *current_state_inputs  # pyright: ignore reportGeneralTypeIssues
                 )
                 probs = current_dist[torch.arange(actions.size(0)), actions]
                 probs = torch.clamp(probs, 1e-6, 1)  # NaN-guard
@@ -335,7 +333,7 @@ class RainbowDQNAgent(DQNAgent):
             else:
                 pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
 
-                next_qvals = self._target_qnet(next_state_inputs)
+                next_qvals = self._target_qnet(*next_state_inputs)
                 next_qvals = next_qvals[torch.arange(next_qvals.size(0)), next_action]
 
                 q_targets = batch["reward"] + self._discount_rate * next_qvals * (

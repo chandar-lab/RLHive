@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import TypeVar, Generic
+from typing import Generic, TypeVar
+
 import gymnasium as gym
+
 from hive.envs.env_spec import EnvSpec
 
 OSpace = TypeVar("OSpace", bound=gym.Space)

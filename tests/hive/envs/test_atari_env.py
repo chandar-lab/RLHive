@@ -1,8 +1,10 @@
+from functools import partial
+
 import numpy as np
 import pytest
-from functools import partial
-from hive.envs import GymEnv
 from gymnasium.wrappers.atari_preprocessing import AtariPreprocessing
+
+from hive.envs import GymEnv
 from hive.envs.gym.gym_wrappers import PermuteImageWrapper
 
 test_env_configs = [("ALE/Pong-v5", 4, 84), ("ALE/Asterix-v5", 1, 100)]
@@ -79,4 +81,4 @@ def test_step_func(env_name, frame_skip, screen_size):
         hive_observation, _, _, _, _, _ = hive_env.step(
             hive_env.env_spec.action_space[0].sample()
         )
-    assert (init_observation == hive_observation).all() == False
+    assert (init_observation == hive_observation).all() == False  # type: ignore

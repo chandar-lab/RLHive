@@ -1,19 +1,19 @@
 from functools import partial
-from typing import Tuple, Union, Sequence
+from typing import Sequence, Tuple, Union, Optional
 
 import gymnasium as gym
 import numpy as np
 import torch
 from gymnasium.spaces import Box, Discrete
 
-from hive.agents.qnets.utils import InitializationFn, calculate_output_dim
-from hive.utils.registry import OCreates, default, registry
+from hive.agents.qnets.utils import TensorInitFn, calculate_output_dim, ModuleInitFn
+from hive.utils.registry import OCreates, default, registry, Partial
 
 
-def actor_critic_init_fn(layer, std=np.sqrt(2), bias_const=0.0):
-    if type(layer) == torch.nn.Linear:
-        torch.nn.init.orthogonal_(layer.weight, std)
-        torch.nn.init.constant_(layer.bias, bias_const)
+def actor_critic_init_fn(module, std=np.sqrt(2), bias_const=0.0):
+    if type(module) == torch.nn.Linear:
+        torch.nn.init.orthogonal_(module.weight, std)
+        torch.nn.init.constant_(module.bias, bias_const)
 
 
 class CategoricalHead(torch.nn.Module):
@@ -82,8 +82,8 @@ class ActorCriticNetwork(torch.nn.Module):
         network_output_dim: Union[int, Sequence[int]],
         actor_net: OCreates[torch.nn.Module] = None,
         critic_net: OCreates[torch.nn.Module] = None,
-        actor_head_init_fn: OCreates[InitializationFn] = None,
-        critic_head_init_fn: OCreates[InitializationFn] = None,
+        actor_head_init_fn: Optional[Partial[ModuleInitFn]] = None,
+        critic_head_init_fn: Optional[Partial[ModuleInitFn]] = None,
     ) -> None:
         super().__init__()
         self._network = representation_network
@@ -134,4 +134,4 @@ class ActorCriticNetwork(torch.nn.Module):
         return action, logprob, entropy, value
 
 
-registry.register("actor_critic_init", actor_critic_init_fn, InitializationFn)
+registry.register("actor_critic_init", actor_critic_init_fn, TensorInitFn)

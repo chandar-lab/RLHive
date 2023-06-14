@@ -3,6 +3,7 @@ import os
 import gymnasium as gym
 import numpy as np
 import pytest
+from pytest_lazyfixture import lazy_fixture
 
 from hive.envs.gym.gym_env import GymEnv
 
