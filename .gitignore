@@ -140,3 +140,6 @@ dmypy.json
 
 # WandB
 wandb/
+
+# Hive
+experiment/
