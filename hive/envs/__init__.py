@@ -3,11 +3,6 @@ from hive.envs.env_spec import EnvSpec
 from hive.envs.gym.gym_env import GymEnv
 
 try:
-    from hive.envs.marlgrid import MarlGridEnv
-except ImportError:
-    MarlGridEnv = None
-
-try:
     from hive.envs.pettingzoo import PettingZooEnv
 except ImportError:
     PettingZooEnv = None
@@ -19,7 +14,6 @@ registry.register_all(
     BaseEnv,
     {
         "GymEnv": GymEnv,
-        "MarlGridEnv": MarlGridEnv,
         "PettingZooEnv": PettingZooEnv,
     },
 )
