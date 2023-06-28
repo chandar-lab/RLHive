@@ -3,7 +3,7 @@ import random
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Protocol, TypeVar, Union, runtime_checkable
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 import numpy as np
 import torch

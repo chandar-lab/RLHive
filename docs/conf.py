@@ -17,7 +17,6 @@
 
 # -- Project information -----------------------------------------------------
 
-import inspect
 import os
 import sys
 

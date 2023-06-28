@@ -1,5 +1,5 @@
 import pathlib
-from typing import Callable, Optional, Sequence, TypeVar, Union
+from typing import Callable, Optional, TypeVar, Union
 
 from typing_extensions import Annotated
 

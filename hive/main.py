@@ -1,6 +1,6 @@
 import argparse
 import logging
-from pprint import pprint
+from pprint import pformat
 
 from hive.runners import Runner
 from hive.utils.registry import registry
@@ -61,6 +61,7 @@ def main():
             "The following command line arguments were not used in the experiment configuration: "
             f"{unused_args}"
         )
+    logging.info(f"Experiment configuration:{pformat(full_config)}")
     runner = runner_fn()
     runner.register_config(full_config)
     if args.resume:

@@ -1,4 +1,3 @@
-from collections import deque
 from functools import partial
 from typing import Optional
 
@@ -8,10 +7,9 @@ import torch
 
 from hive.agents.dqn.rainbow import RainbowDQNAgent
 from hive.replays import PrioritizedReplayBuffer
-from hive.replays.replay_buffer import Alignment, ReplayItemSpec
+from hive.replays.replay_buffer import ReplayItemSpec
 from hive.types import Creates, Partial, default
 from hive.utils.loggers import logger
-from hive.utils.np_utils import roll_state
 from hive.utils.schedule import Schedule
 from hive.utils.torch_utils import ModuleInitFn
 from hive.utils.utils import LossFn

@@ -1,6 +1,6 @@
 import copy
 import os
-from typing import Optional, Sequence
+from typing import Optional
 
 import gymnasium as gym
 import numpy as np
