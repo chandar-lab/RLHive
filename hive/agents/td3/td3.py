@@ -335,7 +335,7 @@ class TD3(Agent):
         """
 
         if not self._training:
-            return
+            return agent_traj_state
 
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(**self.preprocess_update_info(update_info))

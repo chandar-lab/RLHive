@@ -296,7 +296,7 @@ class PPOAgent(Agent):
                 and "truncated".
         """
         if not self._training:
-            return
+            return agent_traj_state
 
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(
