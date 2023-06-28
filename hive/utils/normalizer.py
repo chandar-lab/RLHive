@@ -1,9 +1,11 @@
 import abc
-from typing import Tuple
+from typing import Generic, Sequence, TypeVar
 
 import numpy as np
 
-from hive.utils.registry import Registrable, registry
+from hive.utils.registry import registry
+
+T = TypeVar("T")
 
 
 # taken from https://github.com/openai/baselines/blob/master/baselines/common/vec_env/vec_normalize.py
@@ -11,7 +13,7 @@ class MeanStd:
     """Tracks the mean, variance and count of values."""
 
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
-    def __init__(self, epsilon=1e-4, shape=()):
+    def __init__(self, epsilon: float = 1e-4, shape=()):
         """Tracks the mean, variance and count of values."""
         self.mean = np.zeros(shape, "float64")
         self.var = np.ones(shape, "float64")
@@ -58,20 +60,16 @@ class MeanStd:
         self.count = state_dict["count"]
 
 
-class Normalizer(Registrable):
+class Normalizer(Generic[T]):
     """A wrapper for callables that produce normalization functions.
 
     These wrapped callables can be partially initialized through configuration
     files or command line arguments.
     """
 
-    @classmethod
-    def type_name(cls):
-        """
-        Returns:
-            "norm_fn"
-        """
-        return "norm_fn"
+    @abc.abstractmethod
+    def __call__(self, input: T) -> T:
+        ...
 
     @abc.abstractmethod
     def state_dict(self):
@@ -89,12 +87,12 @@ class MovingAvgNormalizer(Normalizer):
     """
 
     def __init__(
-        self, shape: Tuple[int, ...], epsilon: float = 1e-4, clip: np.float32 = np.inf
+        self, shape: Sequence[int], epsilon: float = 1e-4, clip: float = np.inf
     ):
         """
         Args:
             epsilon (float): minimum value of variance to avoid division by 0.
-            shape (tuple[int]): The shape of input data.
+            shape (Sequence[int]): The shape of input data.
             clip (np.float32): The clip value for the normalised data.
         """
         super().__init__()
@@ -129,7 +127,7 @@ class RewardNormalizer(Normalizer):
     specified range.
     """
 
-    def __init__(self, gamma: float, epsilon: float = 1e-4, clip: np.float32 = np.inf):
+    def __init__(self, gamma: float, epsilon: float = 1e-4, clip: float = np.inf):
         """
         Args:
             gamma (float): discount factor for the agent.
@@ -166,12 +164,9 @@ class RewardNormalizer(Normalizer):
         self._return_rms.load_state_dict(state_dict)
 
 
-registry.register_all(
-    Normalizer,
+registry.register_classes(
     {
         "RewardNormalizer": RewardNormalizer,
         "MovingAvgNormalizer": MovingAvgNormalizer,
     },
 )
-
-get_norm_fn = getattr(registry, f"get_{Normalizer.type_name()}")

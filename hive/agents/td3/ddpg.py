@@ -1,10 +1,13 @@
+from typing import Optional
+
 import gymnasium as gym
-from hive.agents.qnets.base import FunctionApproximator
-from hive.agents.qnets.utils import InitializationFn
-from hive.agents.td3 import TD3
+import torch
+
+from hive.agents.td3.td3 import TD3
 from hive.replays import BaseReplayBuffer
-from hive.utils.loggers import Logger
-from hive.utils.utils import LossFn, OptimizerFn
+from hive.types import Creates, Partial
+from hive.utils.torch_utils import ModuleInitFn
+from hive.utils.utils import LossFn
 
 
 class DDPG(TD3):
@@ -18,22 +21,21 @@ class DDPG(TD3):
         self,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Box,
-        representation_net: FunctionApproximator = None,
-        actor_net: FunctionApproximator = None,
-        critic_net: FunctionApproximator = None,
-        init_fn: InitializationFn = None,
-        actor_optimizer_fn: OptimizerFn = None,
-        critic_optimizer_fn: OptimizerFn = None,
-        critic_loss_fn: LossFn = None,
+        representation_net: Optional[Creates[torch.nn.Module]] = None,
+        actor_net: Optional[Creates[torch.nn.Module]] = None,
+        critic_net: Optional[Creates[torch.nn.Module]] = None,
+        init_fn: Optional[Partial[ModuleInitFn]] = None,
+        actor_optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
+        critic_optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
+        critic_loss_fn: Optional[Creates[LossFn]] = None,
         stack_size: int = 1,
-        replay_buffer: BaseReplayBuffer = None,
+        replay_buffer: Optional[Creates[BaseReplayBuffer]] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
-        grad_clip: float = None,
-        reward_clip: float = None,
+        grad_clip: Optional[float] = None,
+        reward_clip: Optional[float] = None,
         soft_update_fraction: float = 0.005,
         batch_size: int = 64,
-        logger: Logger = None,
         log_frequency: int = 100,
         update_frequency: int = 1,
         action_noise: float = 0,
@@ -45,22 +47,22 @@ class DDPG(TD3):
         Args:
             observation_space (gym.spaces.Box): Observation space for the agent.
             action_space (gym.spaces.Box): Action space for the agent.
-            representation_net (FunctionApproximator): The network that encodes the
+            representation_net (torch.nn.Module): The network that encodes the
                 observations that are then fed into the actor_net and critic_net. If
                 None, defaults to :py:class:`~torch.nn.Identity`.
-            actor_net (FunctionApproximator): The network that takes the encoded
+            actor_net (torch.nn.Module): The network that takes the encoded
                 observations from representation_net and outputs the representations
                 used to compute the actions (ie everything except the last layer).
-            critic_net (FunctionApproximator): The network that takes two inputs: the
+            critic_net (torch.nn.Module): The network that takes two inputs: the
                 encoded observations from representation_net and actions. It outputs
                 the representations used to compute the values of the actions (ie
                 everything except the last layer).
             init_fn (InitializationFn): Initializes the weights of agent networks using
                 create_init_weights_fn.
-            actor_optimizer_fn (OptimizerFn): A function that takes in the list of
+            actor_optimizer_fn (torch.optim.Optimizer): A function that takes in the list of
                 parameters of the actor returns the optimizer for the actor. If None,
                 defaults to :py:class:`~torch.optim.Adam`.
-            critic_optimizer_fn (OptimizerFn): A function that takes in the list of
+            critic_optimizer_fn (torch.optim.Optimizer): A function that takes in the list of
                 parameters of the critic returns the optimizer for the critic. If None,
                 defaults to :py:class:`~torch.optim.Adam`.
             critic_loss_fn (LossFn): The loss function used to optimize the critic. If
@@ -82,7 +84,6 @@ class DDPG(TD3):
                 net parameters in a soft (polyak) update. Also known as tau.
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
-            logger (Logger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
             update_frequency (int): How frequently to update the agent. A value of 1
                 means the agent will be updated every time update is called.
@@ -112,7 +113,6 @@ class DDPG(TD3):
             reward_clip=reward_clip,
             soft_update_fraction=soft_update_fraction,
             batch_size=batch_size,
-            logger=logger,
             log_frequency=log_frequency,
             update_frequency=update_frequency,
             policy_update_frequency=1,

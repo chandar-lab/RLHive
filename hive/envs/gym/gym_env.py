@@ -1,12 +1,12 @@
 import inspect
-from typing import List
+from typing import Optional, Sequence
 
 import gymnasium as gym
 from gymnasium import wrappers
 
 from hive.envs.base import BaseEnv
 from hive.envs.env_spec import EnvSpec
-from hive.envs.env_wrapper import GymWrapper, apply_wrappers
+from hive.types import Creates
 from hive.utils.registry import registry
 
 
@@ -18,9 +18,9 @@ class GymEnv(BaseEnv):
     def __init__(
         self,
         env_name: str,
-        env_wrappers: List[GymWrapper] = None,
+        env_wrappers: Optional[Sequence[Creates[gym.Wrapper]]] = None,
         num_players: int = 1,
-        render_mode: str = None,
+        render_mode: Optional[str] = None,
         **kwargs
     ):
         """
@@ -39,7 +39,12 @@ class GymEnv(BaseEnv):
         super().__init__(self.create_env_spec(env_name, **kwargs), num_players)
         self._seed = None
 
-    def create_env(self, env_name, env_wrappers, **kwargs):
+    def create_env(
+        self,
+        env_name: str,
+        env_wrappers: Optional[Sequence[Creates[gym.Wrapper]]] = None,
+        **kwargs
+    ):
         """Function used to create the environment. Subclasses can override this method
         if they are using a gym style environment that needs special logic.
 
@@ -100,7 +105,12 @@ wrappers = [
     and issubclass(getattr(wrappers, x), gym.Wrapper)
 ]
 
-registry.register_all(
-    GymWrapper,
+registry.register_classes(
     {wrapper.__name__: wrapper for wrapper in wrappers},
 )
+
+
+def apply_wrappers(env: gym.Env, env_wrappers: Sequence[Creates[gym.Wrapper]]):
+    for wrapper in env_wrappers:
+        env = wrapper(env)
+    return env

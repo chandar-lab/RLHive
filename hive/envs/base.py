@@ -1,14 +1,20 @@
 from abc import ABC, abstractmethod
+from typing import Generic, TypeVar
 
-from hive.utils.registry import Registrable
+import gymnasium as gym
+
+from hive.envs.env_spec import EnvSpec
+
+OSpace = TypeVar("OSpace", bound=gym.Space)
+ASpace = TypeVar("ASpace", bound=gym.Space)
 
 
-class BaseEnv(ABC, Registrable):
+class BaseEnv(Generic[OSpace, ASpace], ABC):
     """
     Base class for environments.
     """
 
-    def __init__(self, env_spec, num_players):
+    def __init__(self, env_spec: EnvSpec[OSpace, ASpace], num_players: int):
         """
         Args:
             env_spec (EnvSpec): An object containing information about the
@@ -93,7 +99,7 @@ class BaseEnv(ABC, Registrable):
         return self._env_spec
 
     @env_spec.setter
-    def env_spec(self, env_spec):
+    def env_spec(self, env_spec: EnvSpec[OSpace, ASpace]):
         self._env_spec = env_spec
 
     @classmethod
@@ -131,7 +137,7 @@ class ParallelEnv(BaseEnv):
     def __init__(self, env_name, num_players, **kwargs):
         super().__init__(env_name, num_players, **kwargs)
         self._actions = []
-        self._obs = None
+        self._obs = [None] * self._num_players
         self._info = None
         self._termination = False
         self._truncation = False

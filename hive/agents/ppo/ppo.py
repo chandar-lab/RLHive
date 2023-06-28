@@ -1,22 +1,20 @@
 import os
-from typing import Union
+from typing import Optional, Union
 
 import gymnasium as gym
 import numpy as np
 import torch
 
 from hive.agents.agent import Agent
-from hive.agents.qnets.base import FunctionApproximator
-from hive.agents.qnets.normalizer import (
-    MovingAvgNormalizer,
-    RewardNormalizer,
-)
-from hive.agents.qnets.ac_nets import ActorCriticNetwork
-from hive.agents.qnets.utils import calculate_output_dim, InitializationFn
+from hive.agents.ppo.ac_nets import ActorCriticNetwork
+from hive.replays import ReplayItemSpec
 from hive.replays.on_policy_replay import OnPolicyReplayBuffer
-from hive.utils.loggers import Logger, NullLogger
-from hive.utils.schedule import PeriodicSchedule, Schedule, ConstantSchedule
-from hive.utils.utils import LossFn, OptimizerFn, create_folder
+from hive.types import Creates, default
+from hive.utils.loggers import logger
+from hive.utils.normalizer import MovingAvgNormalizer, RewardNormalizer
+from hive.utils.schedule import ConstantSchedule, PeriodicSchedule, Schedule
+from hive.utils.torch_utils import TensorInitFn, calculate_output_dim
+from hive.utils.utils import LossFn, create_folder
 
 
 class PPOAgent(Agent):
@@ -26,32 +24,30 @@ class PPOAgent(Agent):
         self,
         observation_space: gym.spaces.Box,
         action_space: Union[gym.spaces.Discrete, gym.spaces.Box],
-        representation_net: FunctionApproximator = None,
-        actor_net: FunctionApproximator = None,
-        critic_net: FunctionApproximator = None,
-        actor_head_init_fn: InitializationFn = None,
-        critic_head_init_fn: InitializationFn = None,
-        optimizer_fn: OptimizerFn = None,
-        anneal_lr_schedule: Schedule = None,
-        critic_loss_fn: LossFn = None,
-        observation_normalizer: MovingAvgNormalizer = None,
-        reward_normalizer: RewardNormalizer = None,
-        stack_size: int = 1,
-        replay_buffer: OnPolicyReplayBuffer = None,
+        representation_net: Optional[Creates[torch.nn.Module]] = None,
+        actor_net: Optional[Creates[torch.nn.Module]] = None,
+        critic_net: Optional[Creates[torch.nn.Module]] = None,
+        actor_head_init_fn: Optional[Creates[TensorInitFn]] = None,
+        critic_head_init_fn: Optional[Creates[TensorInitFn]] = None,
+        optimizer_fn: Optional[Creates[torch.optim.Optimizer]] = None,
+        anneal_lr_schedule: Optional[Creates[Schedule[float]]] = None,
+        critic_loss_fn: Optional[Creates[LossFn]] = None,
+        observation_normalizer: Optional[Creates[MovingAvgNormalizer]] = None,
+        reward_normalizer: Optional[Creates[RewardNormalizer]] = None,
+        replay_buffer: Optional[Creates[OnPolicyReplayBuffer]] = None,
         discount_rate: float = 0.99,
         n_step: int = 1,
-        grad_clip: float = None,
+        grad_clip: Optional[float] = None,
         batch_size: int = 64,
-        logger: Logger = None,
         log_frequency: int = 1,
         clip_coefficient: float = 0.2,
         entropy_coefficient: float = 0.01,
         clip_value_loss: bool = True,
         value_fn_coefficient: float = 0.5,
-        transitions_per_update: int = 1024,
+        steps_per_update: int = 1024,
         num_epochs_per_update: int = 4,
         normalize_advantages: bool = True,
-        target_kl: float = None,
+        target_kl: Optional[float] = None,
         device="cpu",
         id=0,
     ):
@@ -59,13 +55,13 @@ class PPOAgent(Agent):
         Args:
             observation_space (gym.spaces.Box): Observation space for the agent.
             action_space (gym.spaces.Box): Action space for the agent.
-            representation_net (FunctionApproximator): The network that encodes the
+            representation_net (torch.nn.Module): The network that encodes the
                 observations that are then fed into the actor_net and critic_net. If
                 None, defaults to :py:class:`~torch.nn.Identity`.
-            actor_net (FunctionApproximator): The network that takes the encoded
+            actor_net (torch.nn.Module): The network that takes the encoded
                 observations from representation_net and outputs the representations
                 used to compute the actions (ie everything except the last layer).
-            critic_net (FunctionApproximator): The network that takes two inputs: the
+            critic_net (torch.nn.Module): The network that takes two inputs: the
                 encoded observations from representation_net and actions. It outputs
                 the representations used to compute the values of the actions (ie
                 everything except the last layer).
@@ -73,7 +69,7 @@ class PPOAgent(Agent):
                 head of the actor network.
             critic_head_init_fn (InitializationFn): The function used to initialize the
                 head of the critic network.
-            optimizer_fn (OptimizerFn): A function that takes in the list of
+            optimizer_fn (torch.optim.Optimizer): A function that takes in the list of
                 parameters of the actor and critic returns the optimizer for the actor.
                 If None, defaults to :py:class:`~torch.optim.Adam`.
             critic_loss_fn (LossFn): The loss function used to optimize the critic. If
@@ -82,8 +78,6 @@ class PPOAgent(Agent):
                 normalizing observations
             reward_normalizer (RewardNormalizer): The function for normalizing
                 rewards
-            stack_size (int): Number of observations stacked to create the state fed
-                to the agent.
             replay_buffer (OnPolicyReplayBuffer): The replay buffer that the agent will
                 push observations to and sample from during learning. If None,
                 defaults to
@@ -95,7 +89,6 @@ class PPOAgent(Agent):
                 [-grad_clip, grad_clip].
             batch_size (int): The size of the batch sampled from the replay buffer
                 during learning.
-            logger (Logger): Logger used to log agent's metrics.
             log_frequency (int): How often to log the agent's metrics.
             clip_coefficient (float): A number between 0 and 1 specifying the clip ratio
                 for the surrogate objective function to penalise large changes in
@@ -104,7 +97,7 @@ class PPOAgent(Agent):
             clip_value_loss (bool): Flag to use the clipped objective for the value
                 function.
             value_fn_coefficient (float): Coefficient for the value function loss.
-            transitions_per_update (int): Total number of observations that are
+            steps_per_update (int): Total number of observations that are
                 stored before the update.
             num_epochs_per_update (int): Number of iterations over the entire
                 buffer during an update step.
@@ -117,10 +110,7 @@ class PPOAgent(Agent):
         """
         super().__init__(observation_space, action_space, id)
         self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
-        self._state_size = (
-            stack_size * self._observation_space.shape[0],
-            *self._observation_space.shape[1:],
-        )
+        self._state_size = self._observation_space.shape
         self.create_networks(
             representation_net,
             actor_net,
@@ -137,46 +127,36 @@ class PPOAgent(Agent):
             self._reward_normalizer = reward_normalizer(discount_rate)
         else:
             self._reward_normalizer = None
-
-        if optimizer_fn is None:
-            optimizer_fn = torch.optim.Adam
+        optimizer_fn = default(optimizer_fn, torch.optim.Adam)
         self._optimizer = optimizer_fn(self._actor_critic.parameters())
-        if anneal_lr_schedule is None:
-            anneal_lr_schedule = ConstantSchedule(1.0)
-        else:
-            anneal_lr_schedule = anneal_lr_schedule()
-
+        anneal_lr_schedule = default(anneal_lr_schedule, lambda: ConstantSchedule(1.0))
+        lr_schedule = anneal_lr_schedule()
         self._lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self._optimizer, lambda x: anneal_lr_schedule.update()
+            self._optimizer, lr_schedule
         )
-        if replay_buffer is None:
-            replay_buffer = OnPolicyReplayBuffer
+        replay_buffer = default(replay_buffer, OnPolicyReplayBuffer)
         self._replay_buffer = replay_buffer(
-            capacity=transitions_per_update,
-            observation_shape=self._observation_space.shape,
-            observation_dtype=self._observation_space.dtype,
-            action_shape=self._action_space.shape,
-            action_dtype=self._action_space.dtype,
+            steps_per_update=steps_per_update,
+            observation_spec=ReplayItemSpec.create(
+                shape=self._observation_space.shape, dtype=self._observation_space.dtype
+            ),
+            action_spec=ReplayItemSpec.create(
+                shape=self._action_space.shape, dtype=self._action_space.dtype
+            ),
             gamma=discount_rate,
+            n_step=n_step,
         )
         self._discount_rate = discount_rate**n_step
         self._grad_clip = grad_clip
-        if critic_loss_fn is None:
-            critic_loss_fn = torch.nn.MSELoss
+        critic_loss_fn = default(critic_loss_fn, torch.nn.MSELoss)
         self._critic_loss_fn = critic_loss_fn(reduction="none")
         self._batch_size = batch_size
-        self._logger = logger
-        if self._logger is None:
-            self._logger = NullLogger([])
-        self._timescale = self.id
-        self._logger.register_timescale(
-            self._timescale, PeriodicSchedule(False, True, log_frequency)
-        )
+        self._log_schedule = PeriodicSchedule(False, True, log_frequency)
         self._clip_coefficient = clip_coefficient
         self._entropy_coefficient = entropy_coefficient
         self._clip_value_loss = clip_value_loss
         self._value_fn_coefficient = value_fn_coefficient
-        self._transitions_per_update = transitions_per_update
+        self._steps_per_update = steps_per_update
         self._num_epochs_per_update = num_epochs_per_update
         self._normalize_advantages = normalize_advantages
         self._target_kl = target_kl
@@ -204,16 +184,17 @@ class PPOAgent(Agent):
         else:
             network = representation_net(self._state_size)
 
-        network_output_shape = calculate_output_dim(network, self._state_size)
+        network_output_shape = network_output_shape = calculate_output_dim(
+            network, self._state_size
+        )
         self._actor_critic = ActorCriticNetwork(
+            self._action_space,
             network,
+            network_output_shape,
             actor_net,
             critic_net,
             actor_head_init_fn,
             critic_head_init_fn,
-            network_output_shape,
-            self._action_space,
-            isinstance(self._action_space, gym.spaces.Box),
         ).to(self._device)
 
     def train(self):
@@ -245,17 +226,15 @@ class PPOAgent(Agent):
 
         preprocessed_update_info = {
             "observation": update_info["observation"],
+            "next_observation": update_info["next_observation"],
             "action": update_info["action"],
             "reward": update_info["reward"],
             "terminated": update_info["terminated"],
             "truncated": update_info["truncated"],
+            "source": update_info["source"],
             "logprob": agent_traj_state["logprob"],
-            "values": agent_traj_state["value"],
-            "returns": np.empty(agent_traj_state["value"].shape),
-            "advantages": np.empty(agent_traj_state["value"].shape),
+            "value": agent_traj_state["value"],
         }
-        if "agent_id" in update_info:
-            preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
 
         return preprocessed_update_info
 
@@ -289,7 +268,7 @@ class PPOAgent(Agent):
         return action, logprob, value
 
     @torch.no_grad()
-    def act(self, observation, agent_traj_state=None):
+    def act(self, observation, agent_traj_state, global_step):
         """Returns the action for the agent.
 
         Args:
@@ -305,7 +284,7 @@ class PPOAgent(Agent):
         agent_traj_state["value"] = value
         return action, agent_traj_state
 
-    def update(self, update_info, agent_traj_state=None):
+    def update(self, update_info, agent_traj_state, global_step):
         """
         Updates the PPO agent.
 
@@ -316,14 +295,14 @@ class PPOAgent(Agent):
                 and "truncated".
         """
         if not self._training:
-            return
+            return agent_traj_state
 
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(
             **self.preprocess_update_info(update_info, agent_traj_state)
         )
 
-        if self._replay_buffer.size() >= self._transitions_per_update - 1:
+        if self._replay_buffer.size() >= self._steps_per_update - 1:
             if self._observation_normalizer:
                 update_info["next_observation"] = self._observation_normalizer(
                     update_info["next_observation"]
@@ -331,99 +310,93 @@ class PPOAgent(Agent):
             _, _, values = self.get_action_logprob_value(
                 update_info["next_observation"]
             )
-            self._replay_buffer.compute_advantages(values)
+            self._replay_buffer.compute_advantages(values, update_info["source"])
             clip_fraction = 0
             num_updates = 0
+            metrics = {}
             for _ in range(self._num_epochs_per_update):
                 for batch in self._replay_buffer.sample(batch_size=self._batch_size):
-                    batch = self.preprocess_update_batch(batch)
-                    self._optimizer.zero_grad()
-
-                    _, logprob, entropy, values = self._actor_critic(
-                        batch["observation"], batch["action"]
+                    approx_kl, metrics = self.update_on_batch(
+                        clip_fraction, num_updates, batch
                     )
-                    logratios = logprob - batch["logprob"]
-                    ratios = torch.exp(logratios)
-                    advantages = batch["advantages"]
-                    if self._normalize_advantages:
-                        advantages = (advantages - advantages.mean()) / (
-                            advantages.std() + 1e-8
-                        )
-                    # Actor loss
-                    loss_unclipped = -advantages * ratios
-                    loss_clipped = -advantages * torch.clamp(
-                        ratios, 1 - self._clip_coefficient, 1 + self._clip_coefficient
-                    )
-                    actor_loss = torch.max(loss_unclipped, loss_clipped).mean()
-                    entropy_loss = entropy.mean()
 
-                    # Critic loss
-                    values = values.view(-1)
-                    if self._clip_value_loss:
-                        v_loss_unclipped = self._critic_loss_fn(
-                            values, batch["returns"]
-                        )
-                        v_clipped = batch["values"] + torch.clamp(
-                            values - batch["values"],
-                            -self._clip_coefficient,
-                            self._clip_coefficient,
-                        )
-                        v_loss_clipped = self._critic_loss_fn(
-                            v_clipped, batch["returns"]
-                        )
-                        v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                        critic_loss = 0.5 * v_loss_max.mean()
-                    else:
-                        critic_loss = (
-                            0.5 * self._critic_loss_fn(values, batch["returns"]).mean()
-                        )
-
-                    loss = (
-                        actor_loss
-                        - self._entropy_coefficient * entropy_loss
-                        + self._value_fn_coefficient * critic_loss
-                    )
-                    loss.backward()
-
-                    if self._grad_clip is not None:
-                        torch.nn.utils.clip_grad_norm_(
-                            self._actor_critic.parameters(), self._grad_clip
-                        )
-
-                    self._optimizer.step()
-                    num_updates += 1
-
-                    with torch.no_grad():
-                        # calculate approx_kl
-                        # http://joschu.net/blog/kl-approx.html
-                        old_approx_kl = (-logratios).mean()
-                        approx_kl = ((ratios - 1) - logratios).mean()
-                        clip_fraction += (
-                            ((ratios - 1.0).abs() > self._clip_coefficient)
-                            .float()
-                            .mean()
-                            .item()
-                        )
-
-                if self._target_kl is not None and self._target_kl < approx_kl:
+                if self._target_kl is not None and self._target_kl < approx_kl:  # type: ignore
                     break
             self._replay_buffer.reset()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_metrics(
-                    {
-                        "loss": loss,
-                        "actor_loss": actor_loss,
-                        "critic_loss": critic_loss,
-                        "entropy_loss": entropy_loss,
-                        "approx_kl": approx_kl,
-                        "old_approx_kl": old_approx_kl,
-                        "clip_fraction": clip_fraction / num_updates,
-                        "lr": self._lr_scheduler.get_last_lr()[0],
-                    },
-                    prefix=self._timescale,
-                )
+            if self._log_schedule(global_step):
+                metrics["clip_fraction"] /= num_updates
+                metrics["lr"] = self._lr_scheduler.get_last_lr()[0]
+                logger.log_metrics(metrics, prefix=self.id)
             self._lr_scheduler.step()
         return agent_traj_state
+
+    def update_on_batch(self, clip_fraction, num_updates, batch):
+        batch = self.preprocess_update_batch(batch)
+
+        _, logprob, entropy, values = self._actor_critic(
+            batch["observation"], batch["action"]
+        )
+        logratios = logprob - batch["logprob"]
+        ratios = torch.exp(logratios)
+        advantages = batch["advantage"]
+        if self._normalize_advantages:
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        # Actor loss
+        loss_unclipped = -advantages * ratios
+        loss_clipped = -advantages * torch.clamp(
+            ratios, 1 - self._clip_coefficient, 1 + self._clip_coefficient
+        )
+        actor_loss = torch.max(loss_unclipped, loss_clipped).mean()
+        entropy_loss = entropy.mean()
+
+        # Critic loss
+        values = values.view(-1)
+        if self._clip_value_loss:
+            v_loss_unclipped = self._critic_loss_fn(values, batch["return"])
+            v_clipped = batch["value"] + torch.clamp(
+                values - batch["value"],
+                -self._clip_coefficient,
+                self._clip_coefficient,
+            )
+            v_loss_clipped = self._critic_loss_fn(v_clipped, batch["return"])
+            v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+            critic_loss = 0.5 * v_loss_max.mean()
+        else:
+            critic_loss = 0.5 * self._critic_loss_fn(values, batch["return"]).mean()
+
+        loss = (
+            actor_loss
+            - self._entropy_coefficient * entropy_loss
+            + self._value_fn_coefficient * critic_loss
+        )
+        self._optimizer.zero_grad()
+        loss.backward()
+
+        if self._grad_clip is not None:
+            torch.nn.utils.clip_grad_norm_(  # type: ignore
+                self._actor_critic.parameters(), self._grad_clip
+            )
+
+        self._optimizer.step()
+        num_updates += 1
+
+        with torch.no_grad():
+            # calculate approx_kl
+            # http://joschu.net/blog/kl-approx.html
+            old_approx_kl = (-logratios).mean()
+            approx_kl = ((ratios - 1) - logratios).mean()
+            clip_fraction += (
+                ((ratios - 1.0).abs() > self._clip_coefficient).float().mean().item()
+            )
+        metrics = {
+            "actor_loss": actor_loss,
+            "entropy_loss": entropy_loss,
+            "critic_loss": critic_loss,
+            "loss": loss,
+            "old_approx_kl": old_approx_kl,
+            "approx_kl": approx_kl,
+        }
+        return approx_kl, metrics
 
     def save(self, dname):
         state_dict = {

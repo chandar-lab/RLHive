@@ -1,9 +1,12 @@
-from typing import List, Union
+from typing import Generic, Sequence, TypeVar, Union
 
 import gymnasium as gym
 
+OSpace = TypeVar("OSpace", bound=gym.Space)
+ASpace = TypeVar("ASpace", bound=gym.Space)
 
-class EnvSpec:
+
+class EnvSpec(Generic[OSpace, ASpace]):
     """Object used to store information about environment configuration.
     Every environment should create an EnvSpec object.
     """
@@ -11,8 +14,8 @@ class EnvSpec:
     def __init__(
         self,
         env_name,
-        observation_space: Union[gym.Space, List[gym.Space]],
-        action_space: Union[gym.Space, List[gym.Space]],
+        observation_space: Union[OSpace, Sequence[OSpace]],
+        action_space: Union[ASpace, Sequence[ASpace]],
         env_info=None,
     ):
         """

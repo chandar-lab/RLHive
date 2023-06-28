@@ -1,24 +1,60 @@
 import argparse
 import inspect
+import logging
+import pprint
 from copy import deepcopy
+from dataclasses import dataclass
 from functools import partial
-from typing import List, Mapping, Sequence, _GenericAlias
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
 
+import numpy as np
 import yaml
+from typing_extensions import get_type_hints as _get_type_hints
+
+from hive.types import Creates, Partial
+from hive.utils.config import Config
+
+T = TypeVar("T")
+C = TypeVar("C", bound=Callable)
 
 
-class Registrable:
-    """Class used to denote which types of objects can be registered in the RLHive
-    Registry. These objects can also be configured directly from the command line, and
-    recursively built from the config, assuming type annotations are present.
-    """
+@dataclass(frozen=True)
+class Creator(Generic[T]):
+    constructor: Callable[..., T]
+    type: Type[T]
 
-    @classmethod
-    def type_name(cls):
-        """This should represent a string that denotes the which type of class you are
-        creating. For example, "logger", "agent", or "env".
-        """
-        raise ValueError
+
+class RegistryStore:
+    def __init__(self) -> None:
+        self.creators: Dict[str, Set[Creator]] = {}
+
+    def add_constructor(self, name: str, constructor: Callable[..., T], type: Type[T]):
+        if name in self.creators:
+            logging.warning(f"Multiple constructors registered with {name}.")
+            self.creators[name].add(Creator(constructor, type))
+        else:
+            self.creators[name] = {Creator(constructor, type)}
+
+    def get_constructors(self, name: str) -> Set[Creator]:
+        if name in self.creators:
+            return self.creators[name]
+        else:
+            raise KeyError(f"Name {name} not found in registry.")
 
 
 class Registry:
@@ -55,9 +91,9 @@ class Registry:
     """
 
     def __init__(self) -> None:
-        self._registry = {}
+        self._registry = RegistryStore()
 
-    def register(self, name, constructor, type):
+    def register(self, name: str, constructor: Callable[..., T], type: Type[T]) -> None:
         """Register a Registrable class/object with RLHive.
 
         Args:
@@ -68,35 +104,71 @@ class Registry:
                 Registrable.
 
         """
-        if not issubclass(type, Registrable):
-            raise ValueError(f"{type} is not Registrable")
-        if type.type_name() not in self._registry:
-            self._registry[type.type_name()] = {}
+        self._registry.add_constructor(name, constructor, type)
 
-            def getter(self, object_or_config, prefix=None):
-                if object_or_config is None:
-                    return None, {}
-                elif isinstance(object_or_config, type):
-                    return object_or_config, {}
-                name = object_or_config["name"]
-                kwargs = object_or_config.get("kwargs", {})
-                expanded_config = deepcopy(object_or_config)
-                try:
-                    object_class = self._registry[type.type_name()][name]
-                    parsed_args = get_callable_parsed_args(object_class, prefix=prefix)
-                    kwargs.update(parsed_args)
-                    kwargs, kwargs_config = construct_objects(
-                        object_class, kwargs, prefix
-                    )
-                    expanded_config["kwargs"] = kwargs_config
-                    return partial(object_class, **kwargs), expanded_config
-                except:
-                    raise ValueError(f"Error creating {name} class")
+    def register_class(self, name: str, type: Type) -> None:
+        """Register a Registrable class/object with RLHive.
 
-            setattr(self.__class__, f"get_{type.type_name()}", getter)
-        self._registry[type.type_name()][name] = constructor
+        Args:
+            name (str): Name of the class/object being registered.
+            constructor (callable): Callable that will be passed all kwargs from
+                configs and be analyzed to get type annotations.
+            type (type): Type of class/object being registered. Should be subclass of
+                Registrable.
 
-    def register_all(self, base_class, class_dict):
+        """
+        self._registry.add_constructor(name, type, type)
+
+    def get(
+        self, config: Config, type: Type[T], prefix: Optional[str] = None
+    ) -> Tuple[Creates[T], Config, Set[str]]:
+        return self._get(config, Creates[type], prefix)  # type: ignore
+
+    def _get(
+        self,
+        config: Config,
+        type: Type[Union[Creates[T], Partial[C]]],
+        prefix: Optional[str] = None,
+    ) -> Tuple[Union[Creates[T], Partial[C]], Config, Set[str]]:
+        if config is None:
+            raise ValueError(f"Config for {type} is None")
+        name = config.name
+        kwargs = config.kwargs
+
+        try:
+            object_creators = self._registry.get_constructors(name)
+            object_creator = resolve_creator(object_creators, type)
+            parsed_args, all_unused_args = get_callable_parsed_args(
+                object_creator.constructor, prefix=prefix
+            )
+            kwargs.update(parsed_args)
+            kwargs, kwargs_config, unused_args = construct_objects(
+                object_creator, kwargs, prefix
+            )
+            constructor = partial(object_creator.constructor, **kwargs)
+            return (
+                constructor,
+                Config(name=config.name, kwargs=kwargs_config),
+                all_unused_args & unused_args,
+            )
+        except:
+            logging.error(f"Error creating {name} class")
+            raise
+
+    def register_classes(self, class_dict: Dict[str, Type]):
+        """Bulk register function.
+
+        Args:
+            base_class (type): Corresponds to the `type` of the register function
+            class_dict (dict[str, callable]): A dictionary mapping from name to
+                constructor.
+        """
+        for cls in class_dict:
+            self.register_class(cls, class_dict[cls])
+
+    def register_all_with_type(
+        self, base_class: Type[T], class_dict: Dict[str, Callable[..., T]]
+    ):
         """Bulk register function.
 
         Args:
@@ -108,10 +180,91 @@ class Registry:
             self.register(cls, class_dict[cls], base_class)
 
     def __repr__(self):
-        return str(self._registry)
+        return pprint.pformat(self._registry, indent=2)
 
 
-def construct_objects(object_constructor, config, prefix=None):
+def resolve_creator(object_creators: Set[Creator], type: Type) -> Creator:
+    create_types = get_configured_types(type)
+
+    filtered_creators = {
+        creator
+        for creator in object_creators
+        if any(check_subclass(creator.type, ct) for ct in create_types)
+    }
+    if len(filtered_creators) > 1:
+        raise ValueError(f"Multiple creators for {type}")
+    elif len(filtered_creators) == 0:
+        raise ValueError(f"No creators for {type}")
+    else:
+        return filtered_creators.pop()
+
+
+def get_configured_types(ty: Type):
+    base_types = get_base_types(ty)
+    configured_types = set()
+    for base_type in base_types:
+        if (
+            type(base_type) is type(Creates)
+            and hasattr(base_type, "__metadata__")
+            and "configured" in base_type.__metadata__
+        ):
+            t = get_args(base_type)[0]
+            if "partial" in base_type.__metadata__:
+                configured_types = configured_types.union(get_base_types(t))
+            else:
+                create_type = get_args(t)[1]
+                configured_types = configured_types.union(get_base_types(create_type))
+    return configured_types
+
+
+def intersect_generic_types(type1: Type, type2: Type) -> Set[Type]:
+    base_types = get_base_types(type1)
+    create_types = set()
+    for base_type in base_types:
+        if get_origin(base_type) and check_subclass(base_type, type2):  # type: ignore
+            for t in get_args(base_type):
+                create_types = create_types.union(get_base_types(t))
+    return create_types
+
+
+def get_base_types(type: Type) -> Sequence[Type]:
+    base_types = []
+    if get_origin(type) is Union:
+        for t in get_args(type):
+            base_types += get_base_types(t)
+    else:
+        base_types.append(type)
+    return tuple(base_types)
+
+
+def check_subclass(type1: Type, type2: Type) -> bool:
+    try:
+        if get_origin(type1):
+            type1 = get_origin(type1)
+        if get_origin(type2):
+            type2 = get_origin(type2)
+        return issubclass(type1, type2)
+    except TypeError:
+        return False
+
+
+def get_type_hints(fn):
+    if hasattr(fn, "__init__"):
+        return _get_type_hints(fn.__init__, include_extras=True)
+    else:
+        return _get_type_hints(fn, include_extras=True)
+
+
+def get_all_arguments() -> Set[str]:
+    _, args = argparse.ArgumentParser().parse_known_args()
+    return set(args)
+
+
+def construct_objects(
+    object_constructor: Creator,
+    config: Dict[str, Any],
+    prefix: Optional[str] = None,
+) -> Tuple[Dict[str, Any], Dict[str, Any], Set[str]]:
     """Helper function that constructs any objects specified in the config that
     are registrable.
 
@@ -129,58 +282,64 @@ def construct_objects(object_constructor, config, prefix=None):
         prefix (str): Prefix that is attached to the argument names when looking for
             command line arguments.
     """
-    signature = inspect.signature(object_constructor)
+    type_hints = get_type_hints(object_constructor.constructor)
     prefix = "" if prefix is None else f"{prefix}."
     expanded_config = deepcopy(config)
-    for argument in signature.parameters:
+    unused_arg_sets = [get_all_arguments()]
+    for argument in type_hints:
         if argument not in config:
             continue
-        expected_type = signature.parameters[argument].annotation
+        expected_type = type_hints[argument]
 
-        if isinstance(expected_type, type) and issubclass(expected_type, Registrable):
-            config[argument], expanded_config[argument] = registry.__getattribute__(
-                f"get_{expected_type.type_name()}"
-            )(config[argument], f"{prefix}{argument}")
-        if isinstance(expected_type, _GenericAlias):
-            origin = expected_type.__origin__
-            args = expected_type.__args__
-            if (
-                (origin == List or origin == list)
-                and len(args) == 1
-                and isinstance(args[0], type)
-                and issubclass(args[0], Registrable)
-                and isinstance(config[argument], Sequence)
-            ):
-                objs = []
-                expanded_config[argument] = []
-                for idx, item in enumerate(config[argument]):
-                    obj, obj_config = registry.__getattribute__(
-                        f"get_{args[0].type_name()}"
-                    )(item, f"{prefix}{argument}.{idx}")
-                    objs.append(obj)
-                    expanded_config[argument].append(obj_config)
-                config[argument] = objs
-            elif (
-                origin == dict
-                and len(args) == 2
-                and isinstance(args[1], type)
-                and issubclass(args[1], Registrable)
-                and isinstance(config[argument], Mapping)
-            ):
-                objs = {}
-                expanded_config[argument] = {}
-                for key, val in config[argument].items():
-                    obj, obj_config = registry.__getattribute__(
-                        f"get_{args[1].type_name()}"
-                    )(val, f"{prefix}{argument}.{key}")
-                    objs[key] = obj
-                    expanded_config[argument][key] = obj_config
-                config[argument] = objs
+        if isinstance(config[argument], Config):
+            (
+                config[argument],
+                expanded_config[argument],
+                unused_args,
+            ) = registry._get(config[argument], expected_type, f"{prefix}{argument}")
+            unused_arg_sets.append(unused_args)
+        elif isinstance(config[argument], Sequence) and not isinstance(
+            config[argument], str
+        ):
+            sequence_type = tuple(intersect_generic_types(expected_type, Sequence))
+            for idx, item in enumerate(config[argument]):
+                if isinstance(item, Config):
+                    if not sequence_type:
+                        raise ValueError(
+                            f"Could not find type match for {config[argument]} with {expected_type}"
+                        )
+                    (
+                        config[argument][idx],
+                        expanded_config[argument][idx],
+                        unused_args,
+                    ) = registry._get(
+                        item, Union[sequence_type], f"{prefix}{argument}.{idx}"  # type: ignore
+                    )
+                    unused_arg_sets.append(unused_args)
+                else:
+                    config[argument][idx] = item
+        elif isinstance(config[argument], Mapping):
+            mapping_type = tuple(intersect_generic_types(expected_type, Mapping))
+            unused_arg_sets = []
+            for key, item in config[argument].items():
+                if isinstance(item, Config):
+                    (
+                        config[argument][key],
+                        expanded_config[argument][key],
+                        unused_args,
+                    ) = registry._get(
+                        item, Union[mapping_type], f"{prefix}{argument}.{key}"  # type: ignore
+                    )
+                    unused_arg_sets.append(unused_args)
+                else:
+                    config[argument][key] = item
 
-    return config, expanded_config
+    return config, expanded_config, set.intersection(*unused_arg_sets)
 
 
-def get_callable_parsed_args(callable, prefix=None):
+def get_callable_parsed_args(
+    callable: Callable, prefix=None
+) -> Tuple[Dict[str, Any], Set[str]]:
     """Helper function that extracts the command line arguments for a given function.
 
     Args:
@@ -189,6 +348,7 @@ def get_callable_parsed_args(callable, prefix=None):
         prefix (str): Prefix that is attached to the argument names when looking for
             command line arguments.
     """
+    callable = callable.__init__ if hasattr(callable, "__init__") else callable
     signature = inspect.signature(callable)
     arguments = {
         argument: signature.parameters[argument]
@@ -198,7 +358,9 @@ def get_callable_parsed_args(callable, prefix=None):
     return get_parsed_args(arguments, prefix)
 
 
-def get_parsed_args(arguments, prefix=None):
+def get_parsed_args(
+    arguments: Dict[str, inspect.Parameter], prefix=None
+) -> Tuple[Dict[str, Any], Set[str]]:
     """Helper function that takes a dictionary mapping argument names to types, and
     extracts command line arguments for those arguments. If the dictionary contains
     a key-value pair "bar": int, and the prefix passed is "foo", this function will
@@ -217,7 +379,7 @@ def get_parsed_args(arguments, prefix=None):
     parser = argparse.ArgumentParser()
     for argument in arguments:
         parser.add_argument(f"--{prefix}{argument}")
-    parsed_args, _ = parser.parse_known_args()
+    parsed_args, unused_args = parser.parse_known_args()
     parsed_args = vars(parsed_args)
 
     # Strip the prefix from the parsed arguments and remove arguments not present
@@ -239,7 +401,7 @@ def get_parsed_args(arguments, prefix=None):
         else:
             parsed_args[argument] = yaml.safe_load(parsed_args[argument])
 
-    return parsed_args
+    return parsed_args, set(unused_args)
 
 
 registry = Registry()

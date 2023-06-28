@@ -1,5 +1,3 @@
-import os
-
 import setuptools
 
 with open("version.txt") as f:

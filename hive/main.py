@@ -1,7 +1,15 @@
 import argparse
-from pprint import pprint
-from hive.runners.utils import load_config
-from hive.runners import get_runner
+import logging
+from pprint import pformat
+
+from hive.runners import Runner
+from hive.utils.registry import registry
+from hive.utils.runner_utils import load_config
+
+logging.basicConfig(
+    format="[%(levelname)s %(asctime)s %(filename)s:%(lineno)s] %(message)s",
+    level=logging.INFO,
+)
 
 
 def main():
@@ -36,7 +44,7 @@ def main():
         action="store_true",
         help="Whether to resume the experiment from given experiment directory",
     )
-    args, _ = parser.parse_known_args()
+    args, config_unused_arguments = parser.parse_known_args()
     if args.config is None and args.preset_config is None:
         raise ValueError("Config needs to be provided")
     config = load_config(
@@ -46,7 +54,14 @@ def main():
         args.env_config,
         args.logger_config,
     )
-    runner_fn, full_config = get_runner(config)
+    runner_fn, full_config, unused_args = registry.get(config, Runner)
+    unused_args = set(unused_args) & set(config_unused_arguments)
+    if len(unused_args) > 0:
+        logging.warning(
+            "The following command line arguments were not used in the experiment configuration: "
+            f"{unused_args}"
+        )
+    logging.info(f"Experiment configuration:{pformat(full_config)}")
     runner = runner_fn()
     runner.register_config(full_config)
     if args.resume:

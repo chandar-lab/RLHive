@@ -1,13 +1,14 @@
 from functools import partial
-from typing import List, Tuple, Union
+from typing import Optional, Sequence, Union
 
 import numpy as np
 import torch
 from torch import nn
 
-from hive.agents.qnets.noisy_linear import NoisyLinear
+from hive.agents.networks.noisy_linear import NoisyLinear
+from hive.types import Creates, Partial, default
+from hive.utils.torch_utils import ModuleInitFn
 from hive.utils.utils import ActivationFn
-from hive.agents.qnets.utils import InitializationFn
 
 
 class MLPNetwork(nn.Module):
@@ -20,16 +21,16 @@ class MLPNetwork(nn.Module):
 
     def __init__(
         self,
-        in_dim: Tuple[int],
-        hidden_units: Union[int, List[int]] = 256,
-        activation_fn: ActivationFn = None,
+        in_dim: Union[int, Sequence[int]],
+        hidden_units: Union[int, Sequence[int]] = 256,
+        activation_fn: Optional[Creates[ActivationFn]] = None,
         noisy: bool = False,
         std_init: float = 0.5,
-        initialization_fn: InitializationFn = lambda x: x,
+        init_fn: Optional[Partial[ModuleInitFn]] = None,
     ):
         """
         Args:
-            in_dim (tuple[int]): The shape of input observations.
+            in_dim (Sequence[int]): The shape of input observations.
             hidden_units (int | list[int]): The number of neurons for each mlp layer.
             noisy (bool): Whether the MLP should use
                 :py:class:`~hive.agents.qnets.noisy_linear.NoisyLinear` layers or normal
@@ -40,16 +41,17 @@ class MLPNetwork(nn.Module):
         super().__init__()
         if isinstance(hidden_units, int):
             hidden_units = [hidden_units]
-        if activation_fn is None:
-            activation_fn = torch.nn.ReLU
+
+        activation_fn = default(activation_fn, torch.nn.ReLU)
 
         linear_fn = partial(NoisyLinear, std_init=std_init) if noisy else nn.Linear
-        modules = [linear_fn(np.prod(in_dim), hidden_units[0]), activation_fn()]
+        modules = [linear_fn(int(np.prod(in_dim)), hidden_units[0]), activation_fn()]
         for i in range(len(hidden_units) - 1):
             modules.append(linear_fn(hidden_units[i], hidden_units[i + 1]))
             modules.append(activation_fn())
-
-        self.network = torch.nn.Sequential(*modules).apply(initialization_fn)
+        self.network = torch.nn.Sequential(*modules)
+        if init_fn is not None:
+            self.network.apply(init_fn)
 
     def forward(self, x):
         x = x.float()

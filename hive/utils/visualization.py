@@ -4,6 +4,7 @@ import logging
 import os
 import pickle
 from collections import defaultdict
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,7 +22,7 @@ def find_single_run_data(run_folder):
         run_folder (str): Which folder to search for the chomp logger data.
 
     Returns:
-        The Chomp object containing the logger data.
+        The dictionary object containing the logger data.
     """
     run_data_file = None
     for path, _, filenames in os.walk(run_folder):
@@ -57,6 +58,8 @@ def find_all_runs_data(runs_folder):
         full_run_folder = os.path.join(runs_folder, run_folder)
         if os.path.isdir(full_run_folder):
             run_data = find_single_run_data(full_run_folder)
+            if run_data is None:
+                continue
             for key in run_data:
                 all_runs_data[key].append(run_data[key])
     return all_runs_data
@@ -181,13 +184,13 @@ def find_and_standardize_data(
 
 
 def generate_lineplot(
-    x_datas,
-    y_datas,
-    smoothing_fn=None,
-    line_labels=None,
-    xlabel=None,
-    ylabel=None,
-    cmap_name=None,
+    x_datas: Sequence[np.ndarray],
+    y_datas: Sequence[np.ndarray],
+    smoothing_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+    line_labels: Optional[Sequence[Optional[str]]] = None,
+    xlabel: Optional[str] = None,
+    ylabel: Optional[str] = None,
+    cmap_name: Optional[str] = None,
     rc_params={},
     output_file="output.png",
 ):
@@ -209,10 +212,12 @@ def generate_lineplot(
             std_ys = smoothing_fn(std_ys)
         plt.plot(x_data, mean_ys, label=line_label, color=cmap(idx))
         plt.fill_between(
-            x_data, mean_ys - std_ys, mean_ys + std_ys, color=cmap(idx), alpha=0.1
+            x_data, mean_ys - std_ys, mean_ys + std_ys, color=cmap(idx), alpha=0.1  # type: ignore
         )
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
+    if xlabel is not None:
+        plt.xlabel(xlabel)
+    if ylabel is not None:
+        plt.ylabel(ylabel)
     plt.legend()
     plt.rcParams.update(rc_params)
     plt.savefig(output_file)
@@ -223,13 +228,13 @@ def plot_results(
     experiments_folder,
     x_key,
     y_key,
-    runs_folders=None,
-    drop_last=True,
-    run_names=None,
-    x_label=None,
-    y_label=None,
-    cmap_name=None,
-    smoothing_fn=None,
+    runs_folders: Optional[Sequence[str]] = None,
+    drop_last: Optional[bool] = True,
+    run_names: Optional[Sequence[str]] = None,
+    x_label: Optional[str] = None,
+    y_label: Optional[str] = None,
+    cmap_name: Optional[str] = None,
+    smoothing_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     num_sampled_points=100,
     rc_params={},
     output_file="output.png",
@@ -258,22 +263,22 @@ def plot_results(
     )
 
 
-def create_exponential_smoothing_fn(smoothing=0.1):
-    def fn(values):
+def create_exponential_smoothing_fn(smoothing: float = 0.1):
+    def fn(values: np.ndarray) -> np.ndarray:
         values = np.array(values)
         return np.array(pd.DataFrame(values).ewm(alpha=1 - smoothing).mean()[0])
 
     return fn
 
 
-def create_moving_average_smoothing_fn(running_average=10):
-    def fn(values):
+def create_moving_average_smoothing_fn(running_average: int = 10):
+    def fn(values: np.ndarray) -> np.ndarray:
         return np.convolve(values, np.ones(running_average), "valid") / running_average
 
     return fn
 
 
-def get_smoothing_fn(smoothing_fn, smoothing_fn_kwargs):
+def get_smoothing_fn(smoothing_fn: str, smoothing_fn_kwargs: Mapping[str, Any]):
     if smoothing_fn == "exponential":
         return create_exponential_smoothing_fn(**smoothing_fn_kwargs)
     elif smoothing_fn == "moving_average":
@@ -303,6 +308,8 @@ if __name__ == "__main__":
     if args.smoothing_fn is not None:
         if args.smoothing_fn_kwargs is not None:
             smoothing_fn_kwargs = json.loads(args.smoothing_fn_kwargs)
+        else:
+            smoothing_fn_kwargs = {}
         smoothing_fn = get_smoothing_fn(args.smoothing_fn, smoothing_fn_kwargs)
     else:
         smoothing_fn = None

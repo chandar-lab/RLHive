@@ -1,20 +1,18 @@
-import os
-from collections import deque
-import sys
+from typing import Optional
 
 import numpy as np
-import torch
 import yaml
 
+from hive.utils.config import dict_to_config
 from hive.utils.utils import PACKAGE_ROOT
 
 
 def load_config(
-    config=None,
-    preset_config=None,
-    agent_config=None,
-    env_config=None,
-    logger_config=None,
+    config: Optional[str] = None,
+    preset_config: Optional[str] = None,
+    agent_config: Optional[str] = None,
+    env_config: Optional[str] = None,
+    logger_config: Optional[str] = None,
 ):
     """Used to load config for experiments. Agents, environment, and loggers components
     in main config file can be overrided based on other log files.
@@ -35,9 +33,11 @@ def load_config(
     if config is not None:
         with open(config) as f:
             yaml_config = yaml.safe_load(f)
-    else:
-        with open(os.path.join(PACKAGE_ROOT, "configs", preset_config)) as f:
+    elif preset_config is not None:
+        with (PACKAGE_ROOT / "configs" / preset_config).open() as f:
             yaml_config = yaml.safe_load(f)
+    else:
+        raise ValueError("Either config or preset_config must be passed.")
     if agent_config is not None:
         with open(agent_config) as f:
             if "agents" in yaml_config["kwargs"]:
@@ -50,7 +50,8 @@ def load_config(
     if logger_config is not None:
         with open(logger_config) as f:
             yaml_config["kwargs"]["loggers"] = yaml.safe_load(f)
-    return yaml_config
+
+    return dict_to_config(yaml_config)
 
 
 class Metrics:
@@ -121,28 +122,21 @@ class TransitionInfo:
     be completely reset between episodes. After any info is extracted, it is
     automatically removed from the object. Also keeps track of which agents have
     started their episodes.
-
-    This object also handles padding and stacking observations for agents.
     """
 
-    def __init__(self, agents, stack_size):
+    def __init__(self, agents):
         """
         Args:
             agents (list[Agent]): list of agents that will be kept track of.
-            stack_size (int): How many observations will be stacked.
         """
         self._agent_ids = [agent.id for agent in agents]
         self._num_agents = len(agents)
-        self._stack_size = stack_size
         self.reset()
 
     def reset(self):
         """Reset the object by clearing all info."""
         self._transitions = {agent_id: {"reward": 0.0} for agent_id in self._agent_ids}
         self._started = {agent_id: False for agent_id in self._agent_ids}
-        self._previous_observations = {
-            agent_id: deque(maxlen=self._stack_size - 1) for agent_id in self._agent_ids
-        }
 
     def is_started(self, agent):
         """Check if agent has started its episode.
@@ -168,8 +162,6 @@ class TransitionInfo:
             info (dict): Info to add to the agent's state.
         """
         self._transitions[agent.id].update(info)
-        if "observation" in info:
-            self._previous_observations[agent.id].append(info["observation"])
 
     def update_reward(self, agent, reward):
         """Add a reward to the agent.
@@ -215,67 +207,10 @@ class TransitionInfo:
         self._transitions[agent.id] = {"reward": 0.0}
         return info
 
-    def get_stacked_state(self, agent, observation):
-        """Create a stacked state for the agent. The previous observations recorded
-        by this agent are stacked with the current observation. If not enough
-        observations have been recorded, zero arrays are appended.
-
-        Args:
-            agent (Agent): Agent to get stacked state for.
-            observation: Current observation.
-        """
-
-        if self._stack_size == 1:
-            return observation
-        while len(self._previous_observations[agent.id]) < self._stack_size - 1:
-            self._previous_observations[agent.id].append(zeros_like(observation))
-
-        stacked_observation = concatenate(
-            list(self._previous_observations[agent.id]) + [observation]
-        )
-        return stacked_observation
-
     def __repr__(self):
         return str(
             {
                 "transitions": self._transitions,
                 "started": self._started,
-                "previous_observations": self._previous_observations,
             }
         )
-
-
-def zeros_like(x):
-    """Create a zero state like some state. This handles slightly more complex
-    objects such as lists and dictionaries of numpy arrays and torch Tensors.
-
-    Args:
-        x (np.ndarray | torch.Tensor | dict | list): State used to define
-            structure/state of zero state.
-    """
-    if isinstance(x, np.ndarray):
-        return np.zeros_like(x)
-    elif isinstance(x, torch.Tensor):
-        return torch.zeros_like(x)
-    elif isinstance(x, dict):
-        return {k: zeros_like(v) for k, v in x.items()}
-    elif isinstance(x, list):
-        return [zeros_like(item) for item in x]
-    else:
-        return 0
-
-
-def concatenate(xs):
-    """Concatenates numpy arrays or dictionaries of numpy arrays.
-
-    Args:
-        xs (list): List of objects to concatenate.
-    """
-
-    if len(xs) == 0:
-        return np.array([])
-
-    if isinstance(xs[0], dict):
-        return {k: np.concatenate([x[k] for x in xs], axis=0) for k in xs[0]}
-    else:
-        return np.concatenate(xs, axis=0)

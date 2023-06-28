@@ -1,16 +1,18 @@
 import abc
+from typing import Generic, TypeVar
 
 import gymnasium as gym
 
-from hive.utils.registry import Registrable
+OSpace = TypeVar("OSpace", bound=gym.Space)
+ASpace = TypeVar("ASpace", bound=gym.Space)
 
 
-class Agent(abc.ABC, Registrable):
+class Agent(Generic[OSpace, ASpace], abc.ABC):
     """Base class for agents. Every implemented agent should be a subclass of
     this class.
     """
 
-    def __init__(self, observation_space: gym.Space, action_space: gym.Space, id=0):
+    def __init__(self, observation_space: OSpace, action_space: ASpace, id=0):
         """
         Args:
             observation_space (gym.Space): Observation space for agent.
@@ -27,7 +29,7 @@ class Agent(abc.ABC, Registrable):
         return self._id
 
     @abc.abstractmethod
-    def act(self, observation, agent_traj_state):
+    def act(self, observation, agent_traj_state, global_step):
         """Returns an action for the agent to perform based on the observation.
 
         Args:
@@ -38,10 +40,10 @@ class Agent(abc.ABC, Registrable):
             - Action for the current timestep.
             - Agent trajectory state.
         """
-        pass
+        raise NotImplementedError
 
     @abc.abstractmethod
-    def update(self, update_info, agent_traj_state):
+    def update(self, update_info, agent_traj_state, global_step):
         """
         Updates the agent.
 
@@ -54,7 +56,7 @@ class Agent(abc.ABC, Registrable):
         Returns:
             Agent trajectory state.
         """
-        pass
+        raise NotImplementedError
 
     def train(self):
         """Changes the agent to training mode."""
@@ -72,7 +74,7 @@ class Agent(abc.ABC, Registrable):
         Args:
             dname (str): directory where agent should save all relevant info.
         """
-        pass
+        raise NotImplementedError
 
     @abc.abstractmethod
     def load(self, dname):
@@ -82,7 +84,7 @@ class Agent(abc.ABC, Registrable):
         Args:
             dname (str): directory where agent checkpoint info is stored.
         """
-        pass
+        raise NotImplementedError
 
     @classmethod
     def type_name(cls):

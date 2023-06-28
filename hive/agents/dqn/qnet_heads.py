@@ -1,6 +1,10 @@
+from typing import Optional
+
 import torch
 import torch.nn.functional as F
 from torch import nn
+
+from hive.types import Creates, default
 
 
 class DQNNetwork(nn.Module):
@@ -14,7 +18,7 @@ class DQNNetwork(nn.Module):
         base_network: nn.Module,
         hidden_dim: int,
         out_dim: int,
-        linear_fn: nn.Module = None,
+        linear_fn: Optional[Creates[nn.Module]] = None,
     ):
         """
         Args:
@@ -30,8 +34,8 @@ class DQNNetwork(nn.Module):
         """
         super().__init__()
         self.base_network = base_network
-        self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
-        self.output_layer = self._linear_fn(hidden_dim, out_dim)
+        linear_fn = default(linear_fn, nn.Linear)
+        self.output_layer = linear_fn(hidden_dim, out_dim)
 
     def forward(self, x):
         x = self.base_network(x)
@@ -50,7 +54,7 @@ class DuelingNetwork(nn.Module):
         base_network: nn.Module,
         hidden_dim: int,
         out_dim: int,
-        linear_fn: nn.Module = None,
+        linear_fn: Optional[Creates[nn.Module]] = None,
         atoms: int = 1,
     ):
         """
@@ -73,7 +77,7 @@ class DuelingNetwork(nn.Module):
         self._hidden_dim = hidden_dim
         self._out_dim = out_dim
         self._atoms = atoms
-        self._linear_fn = linear_fn if linear_fn is not None else nn.Linear
+        self._linear_fn = default(linear_fn, nn.Linear)
         self.init_networks()
 
     def init_networks(self):

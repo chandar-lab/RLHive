@@ -1,26 +1,25 @@
 import abc
+from typing import Any, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
 from torch import nn
 
-from hive.agents.qnets.mlp import MLPNetwork
-from hive.agents.qnets.utils import calculate_output_dim
-from hive.utils.registry import Registrable, registry
+from hive.agents.networks.mlp import MLPNetwork
+from hive.replays import Alignment, ReplayItemSpec
+from hive.types import Creates
+from hive.utils.registry import registry
+from hive.utils.torch_utils import calculate_output_dim
 
 
-class SequenceFn(Registrable, nn.Module):
+class SequenceFn(nn.Module):
     """A wrapper for callables that produce sequence functions."""
-
-    @classmethod
-    def type_name(cls):
-        return "SequenceFn"
 
     @abc.abstractmethod
     def init_hidden(self, batch_size):
         raise NotImplementedError
 
-    def get_hidden_spec(self):
+    def get_hidden_spec(self) -> Optional[Mapping[str, Sequence[int]]]:
         return None
 
 
@@ -31,10 +30,10 @@ class LSTMModel(SequenceFn):
 
     def __init__(
         self,
-        rnn_input_size,
-        rnn_hidden_size=128,
-        num_rnn_layers=1,
-        batch_first=True,
+        rnn_input_size: int,
+        rnn_hidden_size: int = 128,
+        num_rnn_layers: int = 1,
+        batch_first: bool = True,
     ):
         """
         Args:
@@ -53,28 +52,43 @@ class LSTMModel(SequenceFn):
             num_layers=self._num_rnn_layers,
             batch_first=batch_first,
         )
+        self._batch_first = batch_first
         self._device = next(self.core.parameters()).device
 
-    def forward(self, x, hidden_state):
-        x, hidden_state = self.core(
+    def forward(self, x, full_hidden_state):
+        hidden_state, cell_state = (
+            full_hidden_state["hidden_state"],
+            full_hidden_state["cell_state"],
+        )
+        if not self._batch_first:
+            x = x.transpose(0, 1)
+            hidden_state = hidden_state.transpose(0, 1)
+            cell_state = cell_state.transpose(0, 1)
+
+        x, (hidden_state, cell_state) = self.core(
             x, (hidden_state["hidden_state"], hidden_state["cell_state"])
         )
-        return x, {"hidden_state": hidden_state[0], "cell_state": hidden_state[1]}
+        if not self._batch_first:
+            x = x.transpose(0, 1)
+            hidden_state = hidden_state.transpose(0, 1)
+            cell_state = cell_state.transpose(0, 1)
+
+        return x, {"hidden_state": hidden_state, "cell_state": cell_state}
 
     def _apply(self, *args, **kwargs):
         ret = super()._apply(*args, **kwargs)
         self._device = next(self.core.parameters()).device
         return ret
 
-    def init_hidden(self, batch_size):
+    def init_hidden(self, batch_size: int):
         return {
             "hidden_state": torch.zeros(
-                (self._num_rnn_layers, batch_size, self._rnn_hidden_size),
+                (batch_size, self._num_rnn_layers, self._rnn_hidden_size),
                 dtype=torch.float32,
                 device=self._device,
             ),
             "cell_state": torch.zeros(
-                (self._num_rnn_layers, batch_size, self._rnn_hidden_size),
+                (batch_size, self._num_rnn_layers, self._rnn_hidden_size),
                 dtype=torch.float32,
                 device=self._device,
             ),
@@ -82,19 +96,17 @@ class LSTMModel(SequenceFn):
 
     def get_hidden_spec(self):
         return {
-            "hidden_state": (
-                (
-                    np.float32,
-                    (self._num_rnn_layers, 1, self._rnn_hidden_size),
-                ),
-                1,
+            "hidden_state": ReplayItemSpec.create(
+                (self._num_rnn_layers, self._rnn_hidden_size),
+                np.float32,
+                return_next=True,
+                alignment=Alignment.start,
             ),
-            "cell_state": (
-                (
-                    np.float32,
-                    (self._num_rnn_layers, 1, self._rnn_hidden_size),
-                ),
-                1,
+            "cell_state": ReplayItemSpec.create(
+                (self._num_rnn_layers, self._rnn_hidden_size),
+                np.float32,
+                return_next=True,
+                alignment=Alignment.start,
             ),
         }
 
@@ -128,10 +140,18 @@ class GRUModel(SequenceFn):
             num_layers=self._num_rnn_layers,
             batch_first=batch_first,
         )
+        self._batch_first = batch_first
         self._device = next(self.core.parameters()).device
 
-    def forward(self, x, hidden_state):
+    def forward(self, x, full_hidden_state):
+        hidden_state = full_hidden_state["hidden_state"]
+        if not self._batch_first:
+            x = x.transpose(0, 1)
+            hidden_state = hidden_state.transpose(0, 1)
         x, hidden_state = self.core(x, hidden_state)
+        if not self._batch_first:
+            x = x.transpose(0, 1)
+            hidden_state = hidden_state.transpose(0, 1)
         return x, {"hidden_state": hidden_state}
 
     def _apply(self, *args, **kwargs):
@@ -149,20 +169,15 @@ class GRUModel(SequenceFn):
         }
 
     def get_hidden_spec(self):
-        return (
-            {
-                "hidden_state": (
-                    (
-                        np.float32,
-                        (self._num_rnn_layers, 1, self._rnn_hidden_size),
-                    ),
-                    1,
-                )
-            },
-        )
+        return {
+            "hidden_state": (
+                np.float32,
+                (self._num_rnn_layers, 1, self._rnn_hidden_size),
+            )
+        }
 
 
-class SequenceModel(Registrable, nn.Module):
+class SequenceModel(nn.Module):
     """
     Basic convolutional recurrent neural network architecture. Applies a number of
     convolutional layers (each followed by a ReLU activation), recurrent layers, and then
@@ -175,15 +190,11 @@ class SequenceModel(Registrable, nn.Module):
     :py:class:`torch.nn.Identity` module.
     """
 
-    @classmethod
-    def type_name(cls):
-        return "SequenceModel"
-
     def __init__(
         self,
         in_dim,
-        representation_network: torch.nn.Module,
-        sequence_fn: SequenceFn,
+        representation_network: Creates[torch.nn.Module],
+        sequence_fn: Creates[SequenceFn],
         mlp_layers=None,
         normalization_factor=255,
         noisy=False,
@@ -208,7 +219,7 @@ class SequenceModel(Registrable, nn.Module):
         super().__init__()
 
         self._normalization_factor = normalization_factor
-        self.representation_network = representation_network
+        self.representation_network = representation_network(in_dim)
 
         # RNN Layers
         conv_output_size = calculate_output_dim(self.representation_network, in_dim)
@@ -218,9 +229,10 @@ class SequenceModel(Registrable, nn.Module):
 
         if mlp_layers is not None:
             # MLP Layers
-            sequence_output_size, _ = calculate_output_dim(
+            sequence_output_size, _ = calculate_output_dim(  # type: ignore
                 self.sequence_fn, conv_output_size
             )
+            x = calculate_output_dim(self.sequence_fn, conv_output_size)
             self.mlp = MLPNetwork(
                 sequence_output_size,
                 mlp_layers,
@@ -230,7 +242,7 @@ class SequenceModel(Registrable, nn.Module):
         else:
             self.mlp = nn.Identity()
 
-    def forward(self, x, hidden_state=None):
+    def forward(self, x, hidden_state=None) -> Tuple[torch.Tensor, Any]:
         B, L = x.shape[0], x.shape[1]
         x = x.reshape(B * L, *x.shape[2:])
         x = self.representation_network(x)
@@ -263,7 +275,7 @@ class DRQNNetwork(nn.Module):
         base_network: SequenceModel,
         hidden_dim: int,
         out_dim: int,
-        linear_fn: nn.Module = None,
+        linear_fn: Optional[nn.Module] = None,
     ):
         """
         Args:
@@ -293,15 +305,11 @@ class DRQNNetwork(nn.Module):
         return self.base_network.get_hidden_spec()
 
 
-registry.register_all(
-    SequenceFn,
+registry.register_classes(
     {
         "LSTM": LSTMModel,
         "GRU": GRUModel,
     },
 )
 
-registry.register("SequenceModel", SequenceModel, SequenceModel)
-
-get_sequence_fn = getattr(registry, f"get_{SequenceFn.type_name()}")
-get_sequence_model = getattr(registry, f"get_{SequenceModel.type_name()}")
+registry.register_class("SequenceModel", SequenceModel)

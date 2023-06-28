@@ -1,18 +1,22 @@
 from copy import deepcopy
 from functools import partial
 from unittest.mock import Mock
+
 import gymnasium as gym
 import numpy as np
 import pytest
 import torch
+from pytest_lazyfixture import lazy_fixture
 from torch.optim import Adam
 
-from hive.agents import DQNAgent, RainbowDQNAgent, get_agent
-from hive.agents.qnets import MLPNetwork
-from hive.agents.qnets.base import FunctionApproximator
+from hive.agents import Agent, DQNAgent, RainbowDQNAgent
+from hive.agents.networks import MLPNetwork
 from hive.envs import EnvSpec
 from hive.replays import SimpleReplayBuffer
 from hive.utils import schedule
+from hive.utils.config import dict_to_config
+from hive.utils.registry import registry
+from hive.utils.utils import Counter
 
 
 @pytest.fixture
@@ -27,9 +31,9 @@ ddnd = double, dueling, noisy, distributional. x = False.
 
 @pytest.fixture(
     params=[
-        pytest.lazy_fixture("xxxx_agent_with_mock_optimizer"),
-        pytest.lazy_fixture("dxxx_agent_with_mock_optimizer"),
-        pytest.lazy_fixture("xdxx_agent_with_mock_optimizer"),
+        lazy_fixture("xxxx_agent_with_mock_optimizer"),
+        lazy_fixture("dxxx_agent_with_mock_optimizer"),
+        lazy_fixture("xdxx_agent_with_mock_optimizer"),
     ]
 )
 def agent_with_mock_optimizer(request):
@@ -251,21 +255,22 @@ def test_create_agent_with_configs(env_spec):
             "device": "cpu",
         },
     }
-    agent, _ = get_agent(agent_config)
+    agent, _, _ = registry.get(dict_to_config(agent_config), Agent)
     agent = agent()
     agent_traj_state = None
-    action, agent_traj_state = agent.act(np.zeros(2), agent_traj_state)
+    action, agent_traj_state = agent.act(np.zeros(2), agent_traj_state, Counter())
     assert action < 2
 
 
 def test_train_step(agent_with_mock_optimizer):
     agent_with_mock_optimizer.train()
     agent_traj_state = None
+    episode_step = Counter()
     for idx in range(8):
         observation = np.ones(2) * (idx + 1)
         next_observation = np.ones(2) * (idx + 2)
         action, agent_traj_state = agent_with_mock_optimizer.act(
-            observation, agent_traj_state
+            observation, agent_traj_state, episode_step
         )
         assert action < 2
         agent_traj_state = agent_with_mock_optimizer.update(
@@ -276,22 +281,30 @@ def test_train_step(agent_with_mock_optimizer):
                 "reward": 1,
                 "terminated": False,
                 "truncated": False,
+                "source": 0,
             },
             agent_traj_state,
+            episode_step,
         )
+        episode_step.increment()
     assert agent_with_mock_optimizer._optimizer.step.call_count == 6
     assert agent_with_mock_optimizer._replay_buffer.size() == 8
-    assert agent_with_mock_optimizer._epsilon_schedule._value == pytest.approx(0.82)
+    assert episode_step == 8
+    assert agent_with_mock_optimizer._epsilon_schedule(episode_step) == pytest.approx(
+        0.64
+    )
+    assert episode_step == 8
 
 
 def test_eval_step(agent_with_mock_optimizer):
     agent_with_mock_optimizer.eval()
     agent_traj_state = None
+    episode_step = Counter()
     for idx in range(8):
         observation = np.ones(2) * (idx + 1)
         next_observation = np.ones(2) * (idx + 2)
         action, agent_traj_state = agent_with_mock_optimizer.act(
-            observation, agent_traj_state
+            observation, agent_traj_state, episode_step
         )
         assert action < 2
         agent_traj_state = agent_with_mock_optimizer.update(
@@ -302,12 +315,17 @@ def test_eval_step(agent_with_mock_optimizer):
                 "reward": 1,
                 "terminated": False,
                 "truncated": False,
+                "source": 0,
             },
             agent_traj_state,
+            episode_step,
         )
     assert agent_with_mock_optimizer._optimizer.step.call_count == 0
     assert agent_with_mock_optimizer._replay_buffer.size() == 0
-    assert agent_with_mock_optimizer._epsilon_schedule._value == pytest.approx(1.045)
+    assert agent_with_mock_optimizer._epsilon_schedule(episode_step) == pytest.approx(
+        1.0
+    )
+    assert episode_step == 0
 
 
 def test_target_net_soft_update(agent_with_mock_optimizer):
@@ -323,6 +341,8 @@ def test_target_net_soft_update(agent_with_mock_optimizer):
     # Run the network until its time to update the target network
     agent_with_mock_optimizer.train()
     agent_traj_state = None
+
+    episode_step = Counter()
     for idx in range(5):
         # Assert that the target network hasn't changed
         check_target_network_value(agent_with_mock_optimizer._target_qnet, 0.0)
@@ -330,10 +350,10 @@ def test_target_net_soft_update(agent_with_mock_optimizer):
         observation = np.ones(2) * (idx + 1)
         next_observation = np.ones(2) * (idx + 2)
         action, agent_traj_state = agent_with_mock_optimizer.act(
-            observation, agent_traj_state
+            observation, agent_traj_state, episode_step
         )
         assert action < 2
-        agent_with_mock_optimizer.update(
+        agent_traj_state = agent_with_mock_optimizer.update(
             {
                 "action": action,
                 "observation": observation,
@@ -341,8 +361,12 @@ def test_target_net_soft_update(agent_with_mock_optimizer):
                 "reward": 1,
                 "terminated": False,
                 "truncated": False,
-            }
+                "source": 0,
+            },
+            agent_traj_state,
+            episode_step,
         )
+        episode_step.increment()
 
     # Assert that the target network was updated successfully
     check_target_network_value(agent_with_mock_optimizer._target_qnet, 0.25)
@@ -363,16 +387,17 @@ def test_target_net_hard_update(agent_with_mock_optimizer):
     agent_with_mock_optimizer.train()
     observation = np.ones(2)
     agent_traj_state = None
+    episode_step = Counter()
     for idx in range(5):
         # Assert that the target network hasn't changed
         check_target_network_value(agent_with_mock_optimizer._target_qnet, 0.0)
         observation = np.ones(2) * (idx + 1)
         next_observation = np.ones(2) * (idx + 2)
         action, agent_traj_state = agent_with_mock_optimizer.act(
-            observation, agent_traj_state
+            observation, agent_traj_state, episode_step
         )
         assert action < 2
-        agent_with_mock_optimizer.update(
+        agent_traj_state = agent_with_mock_optimizer.update(
             {
                 "action": action,
                 "observation": observation,
@@ -380,8 +405,12 @@ def test_target_net_hard_update(agent_with_mock_optimizer):
                 "reward": 1,
                 "terminated": False,
                 "truncated": False,
-            }
+                "source": 0,
+            },
+            agent_traj_state,
+            episode_step,
         )
+        episode_step.increment()
 
     # Assert that the target network was updated successfully
     check_target_network_value(agent_with_mock_optimizer._target_qnet, 1.0)
@@ -393,11 +422,15 @@ def test_save_load(agent_with_optimizer, tmpdir):
     agent_1.train()
     agent_1_traj_state = None
     agent_2_traj_state = None
+    episode_1_step = Counter()
+    episode_2_step = Counter()
     # Run agent_1 so that it's internal state is different than agent_2
     for idx in range(10):
         observation = np.ones(2) * (idx + 1)
         next_observation = np.ones(2) * (idx + 2)
-        action, agent_1_traj_state = agent_1.act(observation, agent_1_traj_state)
+        action, agent_1_traj_state = agent_1.act(
+            observation, agent_1_traj_state, episode_1_step
+        )
         assert action < 2
         agent_1_traj_state = agent_1.update(
             {
@@ -407,9 +440,12 @@ def test_save_load(agent_with_optimizer, tmpdir):
                 "reward": 1,
                 "terminated": False,
                 "truncated": False,
+                "source": 0,
             },
             agent_1_traj_state,
+            episode_1_step,
         )
+        episode_1_step.increment()
 
     # Make sure agent_1 and agent_2 have different internal states
     assert not check_dicts_equal(agent_1._qnet.state_dict(), agent_2._qnet.state_dict())
@@ -418,12 +454,6 @@ def test_save_load(agent_with_optimizer, tmpdir):
     )
     assert not check_dicts_equal(
         agent_1._optimizer.state_dict(), agent_2._optimizer.state_dict()
-    )
-    assert agent_1._learn_schedule._steps != agent_2._learn_schedule._steps
-    assert agent_1._epsilon_schedule._value != agent_2._epsilon_schedule._value
-    assert (
-        agent_1._target_net_update_schedule._steps
-        != agent_2._target_net_update_schedule._steps
     )
     assert agent_1._rng.bit_generator.state != agent_2._rng.bit_generator.state
 
@@ -439,12 +469,6 @@ def test_save_load(agent_with_optimizer, tmpdir):
     )
     assert check_dicts_equal(
         agent_1._optimizer.state_dict(), agent_2._optimizer.state_dict()
-    )
-    assert agent_1._learn_schedule._steps == agent_2._learn_schedule._steps
-    assert agent_1._epsilon_schedule._value == agent_2._epsilon_schedule._value
-    assert (
-        agent_1._target_net_update_schedule._steps
-        == agent_2._target_net_update_schedule._steps
     )
     assert agent_1._rng.bit_generator.state == agent_2._rng.bit_generator.state
 

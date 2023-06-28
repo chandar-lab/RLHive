@@ -16,7 +16,6 @@ kwargs:
   test_frequency: 1000
   test_episodes: 10
   max_steps_per_episode: 500
-  stack_size: &stack_size 1
   environment:
     name: 'GymEnv'
     kwargs:
@@ -29,13 +28,13 @@ kwargs:
         name: 'MLPNetwork'
         kwargs: 
           hidden_units: [256, 256]
-        initialization_fn:
+          init_fn:
             name: 'actor_critic_init'
       critic_net:
         name: 'MLPNetwork'
         kwargs: 
           hidden_units: [256, 256]
-        initialization_fn:
+          init_fn:
             name: 'actor_critic_init'
       actor_head_init_fn:
         name: 'actor_critic_init'
@@ -63,14 +62,12 @@ kwargs:
       entropy_coefficient: .01
       clip_value_loss: True
       value_fn_coefficient: .5
-      transitions_per_update: 2048
+      steps_per_update: 2048
       num_epochs_per_update: 4
       normalize_advantages: True
       batch_size: 128
       device: 'cuda'
       id: 'agent'
-      init_fn: 
-        name: 'orthogonal'
   # List of logger configs used.
   loggers:
     -

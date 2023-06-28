@@ -1,10 +1,11 @@
 import os
 import pickle
-from typing import Dict, Tuple
+from typing import Mapping, Optional
 
 import numpy as np
 
 from hive.replays.circular_replay import CircularReplayBuffer
+from hive.replays.replay_buffer import ReplayItemSpec
 from hive.utils.torch_utils import numpify
 from hive.utils.utils import seeder
 
@@ -22,14 +23,12 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
         stack_size: int = 1,
         n_step: int = 1,
         gamma: float = 0.9,
-        observation_shape: Tuple = (),
-        observation_dtype: type = np.uint8,
-        action_shape: Tuple = (),
-        action_dtype: type = np.int8,
-        reward_shape: Tuple = (),
-        reward_dtype: type = np.float32,
-        extra_storage_types: Dict = None,
-        num_players_sharing_buffer=None,
+        observation_spec: ReplayItemSpec = ReplayItemSpec.create((), np.uint8),
+        action_spec: ReplayItemSpec = ReplayItemSpec.create((), np.int8),
+        reward_spec: ReplayItemSpec = ReplayItemSpec.create((), np.float32),
+        extra_storage_specs: Optional[Mapping[str, ReplayItemSpec]] = None,
+        optimize_storage: bool = True,
+        commit_at_done: bool = True,
     ):
         """
         Args:
@@ -56,7 +55,7 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
             reward_shape: Shape of rewards that will be stored in the buffer.
             reward_dtype: Type of rewards that will be stored in the buffer. Format is
                 described in the description of observation_dtype.
-            extra_storage_types (dict): A dictionary describing extra items to store
+            extra_storage_specs (dict): A dictionary describing extra items to store
                 in the buffer. The mapping should be from the name of the item to a
                 (type, shape) tuple.
             num_players_sharing_buffer (int): Number of agents that share their
@@ -67,14 +66,12 @@ class PrioritizedReplayBuffer(CircularReplayBuffer):
             stack_size=stack_size,
             n_step=n_step,
             gamma=gamma,
-            observation_shape=observation_shape,
-            observation_dtype=observation_dtype,
-            action_shape=action_shape,
-            action_dtype=action_dtype,
-            reward_shape=reward_shape,
-            reward_dtype=reward_dtype,
-            extra_storage_types=extra_storage_types,
-            num_players_sharing_buffer=num_players_sharing_buffer,
+            observation_spec=observation_spec,
+            action_spec=action_spec,
+            reward_spec=reward_spec,
+            extra_storage_specs=extra_storage_specs,
+            optimize_storage=optimize_storage,
+            commit_at_done=commit_at_done,
         )
         self._sum_tree = SumTree(self._capacity)
         self._alpha = alpha

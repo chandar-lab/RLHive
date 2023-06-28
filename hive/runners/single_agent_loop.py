@@ -1,13 +1,13 @@
 import copy
-from typing import List
+from typing import Optional, Sequence, Union
 
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.runners import Runner
-from hive.runners.utils import TransitionInfo
+from hive.types import Creates, default
 from hive.utils import utils
 from hive.utils.experiment import Experiment
-from hive.utils.loggers import CompositeLogger, NullLogger, ScheduledLogger
+from hive.utils.loggers import Logger
 
 
 class SingleAgentRunner(Runner):
@@ -15,17 +15,16 @@ class SingleAgentRunner(Runner):
 
     def __init__(
         self,
-        environment: BaseEnv,
-        agent: Agent,
-        loggers: List[ScheduledLogger],
-        experiment_manager: Experiment,
+        environment: Creates[BaseEnv],
+        agent: Creates[Agent],
+        loggers: Optional[Union[Creates[Logger], Sequence[Creates[Logger]]]],
+        experiment_manager: Creates[Experiment],
         train_steps: int,
-        eval_environment: BaseEnv = None,
+        eval_environment: Optional[Creates[BaseEnv]] = None,
         test_frequency: int = -1,
         test_episodes: int = 1,
-        stack_size: int = 1,
-        max_steps_per_episode: int = 1e9,
-        seed: int = None,
+        max_steps_per_episode: int = 1_000_000_000,
+        seed: Optional[int] = None,
     ):
         """Initializes the SingleAgentRunner.
 
@@ -45,7 +44,6 @@ class SingleAgentRunner(Runner):
                 episodes. If this is -1, testing is not run.
             test_episodes (int): How many episodes to run testing for duing each test
                 phase.
-            stack_size (int): The number of frames in an observation sent to an agent.
             max_steps_per_episode (int): The maximum number of steps to run an episode
                 for.
             seed (int): Seed used to set the global seed for libraries used by
@@ -53,45 +51,33 @@ class SingleAgentRunner(Runner):
         """
         if seed is not None:
             utils.seeder.set_global_seed(seed)
-        if eval_environment is None:
-            eval_environment = environment
-        environment = environment()
-        eval_environment = eval_environment() if test_frequency != -1 else None
-        env_spec = environment.env_spec
-        # Set up loggers
-        if loggers is None:
-            logger = NullLogger()
-        else:
-            logger = CompositeLogger(loggers)
+        eval_environment = default(eval_environment, environment)
+        created_environment = environment()
+        created_eval_environment = eval_environment() if test_frequency != -1 else None
+        env_spec = created_environment.env_spec
 
-        agent = agent(
+        created_agent = agent(
             observation_space=env_spec.observation_space[0],
             action_space=env_spec.action_space[0],
-            stack_size=stack_size,
-            logger=logger,
         )
 
-        # Set up experiment manager
-        experiment_manager = experiment_manager()
         super().__init__(
-            environment=environment,
-            eval_environment=eval_environment,
-            agents=[agent],
-            logger=logger,
-            experiment_manager=experiment_manager,
+            environment=created_environment,
+            eval_environment=created_eval_environment,
+            agents=[created_agent],
+            loggers=loggers,
+            experiment_manager=experiment_manager(),
             train_steps=train_steps,
             test_frequency=test_frequency,
             test_episodes=test_episodes,
             max_steps_per_episode=max_steps_per_episode,
         )
-        self._stack_size = stack_size
 
     def run_one_step(
         self,
-        environment,
+        environment: BaseEnv,
         observation,
         episode_metrics,
-        transition_info,
         agent_traj_state,
     ):
         """Run one step of the training loop.
@@ -102,8 +88,9 @@ class SingleAgentRunner(Runner):
             episode_metrics (Metrics): Keeps track of metrics for current episode.
         """
         agent = self._agents[0]
-        stacked_observation = transition_info.get_stacked_state(agent, observation)
-        action, agent_traj_state = agent.act(stacked_observation, agent_traj_state)
+        action, agent_traj_state = agent.act(
+            observation, agent_traj_state, self._train_steps
+        )
         (
             next_observation,
             reward,
@@ -121,11 +108,13 @@ class SingleAgentRunner(Runner):
             "terminated": terminated,
             "truncated": truncated,
             "info": other_info,
+            "source": 0,
         }
         if self._training:
-            agent_traj_state = agent.update(copy.deepcopy(info), agent_traj_state)
+            agent_traj_state = agent.update(
+                copy.deepcopy(info), agent_traj_state, self._train_steps
+            )
 
-        transition_info.record_info(agent, info)
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1
         episode_metrics["full_episode_length"] += 1
@@ -137,7 +126,6 @@ class SingleAgentRunner(Runner):
         environment,
         observation,
         episode_metrics,
-        transition_info,
         agent_traj_state,
     ):
         """Run the final step of an episode.
@@ -150,17 +138,16 @@ class SingleAgentRunner(Runner):
                 for.
             episode_metrics (Metrics): Keeps track of metrics for current
                 episode.
-            transition_info (TransitionInfo): Used to keep track of the most
-                recent transition for the agent.
             agent_traj_state: Trajectory state object that will be passed to the
                 agent when act and update are called. The agent returns a new
                 trajectory state object to replace the state passed in.
 
         """
         agent = self._agents[0]
-        stacked_observation = transition_info.get_stacked_state(agent, observation)
 
-        action, agent_traj_state = agent.act(stacked_observation, agent_traj_state)
+        action, agent_traj_state = agent.act(
+            observation, agent_traj_state, self._train_steps
+        )
         next_observation, reward, terminated, _, _, other_info = environment.step(
             action
         )
@@ -174,11 +161,13 @@ class SingleAgentRunner(Runner):
             "terminated": terminated,
             "truncated": truncated,
             "info": other_info,
+            "source": 0,
         }
         if self._training:
-            agent_traj_state = agent.update(copy.deepcopy(info), agent_traj_state)
+            agent_traj_state = agent.update(
+                copy.deepcopy(info), agent_traj_state, self._train_steps
+            )
 
-        transition_info.record_info(agent, info)
         episode_metrics[agent.id]["reward"] += info["reward"]
         episode_metrics[agent.id]["episode_length"] += 1
         episode_metrics["full_episode_length"] += 1
@@ -194,32 +183,30 @@ class SingleAgentRunner(Runner):
         episode_metrics = self.create_episode_metrics()
         terminated, truncated = False, False
         observation, _ = environment.reset()
-        transition_info = TransitionInfo(self._agents, self._stack_size)
-        transition_info.start_agent(self._agents[0])
         agent_traj_state = None
         steps = 0
         # Run the loop until the episode ends or times out
         while (
             not (terminated or truncated)
             and steps < self._max_steps_per_episode - 1
-            and (not self._training or self._train_schedule.get_value())
+            and (not self._training or self._train_schedule(self._train_steps))
         ):
             terminated, truncated, observation, agent_traj_state = self.run_one_step(
                 environment,
                 observation,
                 episode_metrics,
-                transition_info,
                 agent_traj_state,
             )
             steps += 1
             self.update_step()
 
-        if not (terminated or truncated):
+        if not (terminated or truncated) and (
+            not self._training or self._train_schedule(self._train_steps)
+        ):
             self.run_end_step(
                 environment,
                 observation,
                 episode_metrics,
-                transition_info,
                 agent_traj_state,
             )
             self.update_step()

@@ -6,10 +6,9 @@ import gymnasium as gym
 import numpy as np
 
 from hive.utils.registry import registry
-from hive.envs.env_wrapper import GymWrapper
 
 
-class FlattenWrapper(gym.core.ObservationWrapper):
+class FlattenWrapper(gym.ObservationWrapper):
     """
     Flatten the observation to one dimensional vector.
     """
@@ -31,11 +30,12 @@ class FlattenWrapper(gym.core.ObservationWrapper):
             )
             self._is_tuple = True
         else:
+            assert isinstance(env.observation_space, gym.spaces.Box)
             self.observation_space = gym.spaces.Box(
                 low=env.observation_space.low.flatten(),
                 high=env.observation_space.high.flatten(),
                 shape=(reduce(operator.mul, env.observation_space.shape, 1),),
-                dtype=env.observation_space.dtype,
+                dtype=env.observation_space.dtype,  # type: ignore
             )
             self._is_tuple = False
 
@@ -46,7 +46,7 @@ class FlattenWrapper(gym.core.ObservationWrapper):
             return obs.flatten()
 
 
-class PermuteImageWrapper(gym.core.ObservationWrapper):
+class PermuteImageWrapper(gym.ObservationWrapper):
     """Changes the image format from HWC to CHW"""
 
     def __init__(self, env):
@@ -66,12 +66,13 @@ class PermuteImageWrapper(gym.core.ObservationWrapper):
             )
             self._is_tuple = True
         else:
+            assert isinstance(env.observation_space, gym.spaces.Box)
             self.observation_space = gym.spaces.Box(
                 low=np.transpose(env.observation_space.low, [2, 1, 0]),
                 high=np.transpose(env.observation_space.high, [2, 1, 0]),
                 shape=(env.observation_space.shape[-1],)
                 + env.observation_space.shape[:-1],
-                dtype=env.observation_space.dtype,
+                dtype=env.observation_space.dtype,  # type: ignore
             )
             self._is_tuple = False
 
@@ -82,25 +83,23 @@ class PermuteImageWrapper(gym.core.ObservationWrapper):
             return np.transpose(obs, [2, 1, 0])
 
 
-registry.register_all(
-    GymWrapper,
+registry.register_classes(
     {"PermuteImageWrapper": PermuteImageWrapper, "FlattenWrapper": FlattenWrapper},
 )
 
 try:
     from minigrid import wrappers
 
-    wrappers = [
+    wrappers_list = [
         getattr(wrappers, x)
         for x in dir(wrappers)
         if inspect.isclass(getattr(wrappers, x))
         and issubclass(getattr(wrappers, x), gym.Wrapper)
     ]
 
-    registry.register_all(
-        GymWrapper,
-        {"minigrid.{}".format(wrapper.__name__): wrapper for wrapper in wrappers},
+    registry.register_classes(
+        {"minigrid.{}".format(wrapper.__name__): wrapper for wrapper in wrappers_list},
     )
 
-except:
+except ImportError:
     pass
