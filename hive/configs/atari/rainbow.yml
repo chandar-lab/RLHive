@@ -15,7 +15,6 @@ kwargs:
   test_frequency: 250000
   test_episodes: 10
   max_steps_per_episode: 27000
-  stack_size: &stack_size 4
   environment:
     name: 'AtariEnv'
     kwargs:
@@ -32,6 +31,7 @@ kwargs:
           strides: [4, 2, 1]
           paddings: [2, 2, 1]
           mlp_layers: [512]
+      stack_size: 4
       optimizer_fn:
         name: 'Adam'
         kwargs:
@@ -43,15 +43,12 @@ kwargs:
           scale: 0.577350269
       loss_fn:
         name: "MSELoss"
-      n_step: &n_step 3
+      n_step: 3
       replay_buffer:
         name: 'PrioritizedReplayBuffer'
         kwargs:
           capacity: 1000000
-          stack_size: *stack_size
-          gamma: &gamma .99
-          n_step: *n_step
-      discount_rate: *gamma
+      discount_rate: .99
       reward_clip: 1
       update_period_schedule:
         name: 'PeriodicSchedule'

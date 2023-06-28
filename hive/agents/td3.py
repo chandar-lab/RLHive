@@ -1,9 +1,11 @@
 import copy
 import os
+from collections import deque
 
 import gymnasium as gym
 import numpy as np
 import torch
+from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
@@ -13,8 +15,9 @@ from hive.agents.qnets.utils import (
     calculate_output_dim,
     create_init_weights_fn,
 )
+from hive.agents.utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
-from hive.utils.loggers import Logger, NullLogger
+from hive.utils.loggers import logger
 from hive.utils.schedule import PeriodicSchedule, SwitchSchedule
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
 
@@ -42,7 +45,6 @@ class TD3(Agent):
         reward_clip: float = None,
         soft_update_fraction: float = 0.005,
         batch_size: int = 64,
-        logger: Logger = None,
         log_frequency: int = 100,
         update_frequency: int = 1,
         policy_update_frequency: int = 2,
@@ -119,6 +121,7 @@ class TD3(Agent):
         """
         super().__init__(observation_space, action_space, id)
         self._device = torch.device("cpu" if not torch.cuda.is_available() else device)
+        self._stack_size = stack_size
         self._state_size = (
             stack_size * self._observation_space.shape[0],
             *self._observation_space.shape[1:],
@@ -145,6 +148,7 @@ class TD3(Agent):
             observation_dtype=self._observation_space.dtype,
             action_shape=self._action_space.shape,
             action_dtype=self._action_space.dtype,
+            stack_size=stack_size,
             gamma=discount_rate,
         )
         self._discount_rate = discount_rate**n_step
@@ -155,16 +159,10 @@ class TD3(Agent):
             critic_loss_fn = torch.nn.MSELoss
         self._critic_loss_fn = critic_loss_fn(reduction="mean")
         self._batch_size = batch_size
-        self._logger = logger
-        if self._logger is None:
-            self._logger = NullLogger([])
-        self._timescale = self.id
-        self._logger.register_timescale(
-            self._timescale, PeriodicSchedule(False, True, log_frequency)
-        )
+        self._log_schedule = PeriodicSchedule(False, True, log_frequency)
         self._update_schedule = PeriodicSchedule(False, True, update_frequency)
         self._policy_update_schedule = PeriodicSchedule(
-            False, True, policy_update_frequency
+            False, True, policy_update_frequency * update_frequency
         )
         self._action_noise = action_noise
         self._target_noise = target_noise
@@ -238,6 +236,21 @@ class TD3(Agent):
         else:
             return actions
 
+    def preprocess_observation(self, observation, agent_traj_state):
+        if agent_traj_state is None:
+            observation_stack = create_empty_array(
+                self._observation_space, n=self._stack_size
+            )
+        else:
+            observation_stack = agent_traj_state["observation_stack"]
+        observation_stack = roll_state(observation, observation_stack)
+        state = (
+            torch.tensor(observation_stack, device=self._device, dtype=torch.float32)
+            .flatten(0, 1)
+            .unsqueeze(0)
+        )
+        return state, observation_stack
+
     def preprocess_update_info(self, update_info):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
         Scales the action to [-1, 1].
@@ -280,7 +293,7 @@ class TD3(Agent):
         return (batch["observation"],), (batch["next_observation"],), batch
 
     @torch.no_grad()
-    def act(self, observation, agent_traj_state=None):
+    def act(self, observation, agent_traj_state, global_step):
         """Returns the action for the agent. If in training mode, adds noise with
         standard deviation :py:obj:`self._action_noise`.
 
@@ -293,12 +306,16 @@ class TD3(Agent):
             - action
             - agent trajectory state
         """
-
         # Calculate action and add noise if training.
-        observation = torch.tensor(
-            np.expand_dims(observation, axis=0), device=self._device
-        ).float()
-        action = self._actor(observation)
+        state, observation_stack = self.preprocess_observation(
+            observation, agent_traj_state
+        )
+        if self._training and not self._learn_schedule(global_step):
+            return (
+                self._action_space.sample(),
+                {"observation_stack": observation_stack},
+            )
+        action = self._actor(state)
         if self._training:
             noise = torch.randn_like(action, requires_grad=False) * self._action_noise
             action = action + noise
@@ -306,9 +323,9 @@ class TD3(Agent):
         if self._scale_actions:
             action = self.unscale_actions(action)
         action = np.clip(action, self._action_min, self._action_max)
-        return np.squeeze(action, axis=0), agent_traj_state
+        return np.squeeze(action, axis=0), {"observation_stack": observation_stack}
 
-    def update(self, update_info, agent_traj_state=None):
+    def update(self, update_info, agent_traj_state, global_step):
         """
         Updates the TD3 agent.
 
@@ -333,9 +350,9 @@ class TD3(Agent):
 
         # Update the agent based on a sample batch from the replay buffer.
         if (
-            self._learn_schedule.update()
+            self._learn_schedule(global_step)
             and self._replay_buffer.size() > 0
-            and self._update_schedule.update()
+            and self._update_schedule(global_step)
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             (
@@ -379,11 +396,11 @@ class TD3(Agent):
                     self._critic.parameters(), self._grad_clip
                 )
             self._critic_optimizer.step()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_scalar("critic_loss", critic_loss, self._timescale)
+            if self._log_schedule(global_step):
+                logger.log_scalar("critic_loss", critic_loss, self.id)
 
             # Update policy with policy delay
-            if self._policy_update_schedule.update():
+            if self._policy_update_schedule(global_step):
                 actor_loss = -torch.mean(
                     self._critic.q1(
                         *current_state_inputs, self._actor(*current_state_inputs)
@@ -397,8 +414,8 @@ class TD3(Agent):
                     )
                 self._actor_optimizer.step()
                 self._update_target()
-                if self._logger.should_log(self._timescale):
-                    self._logger.log_scalar("actor_loss", actor_loss, self._timescale)
+                if self._log_schedule(global_step):
+                    logger.log_scalar("actor_loss", actor_loss, self.id)
         return agent_traj_state
 
     def _update_target(self):
@@ -424,9 +441,6 @@ class TD3(Agent):
                 "actor": self._actor.state_dict(),
                 "target_actor": self._target_actor.state_dict(),
                 "actor_optimizer": self._actor_optimizer.state_dict(),
-                "learn_schedule": self._learn_schedule,
-                "update_schedule": self._update_schedule,
-                "policy_update_schedule": self._policy_update_schedule,
             },
             os.path.join(dname, "agent.pt"),
         )
@@ -442,7 +456,4 @@ class TD3(Agent):
         self._actor.load_state_dict(checkpoint["actor"])
         self._target_actor.load_state_dict(checkpoint["target_actor"])
         self._actor_optimizer.load_state_dict(checkpoint["actor_optimizer"])
-        self._learn_schedule = checkpoint["learn_schedule"]
-        self._update_schedule = checkpoint["update_schedule"]
-        self._policy_update_schedule = checkpoint["policy_update_schedule"]
         self._replay_buffer.load(os.path.join(dname, "replay"))

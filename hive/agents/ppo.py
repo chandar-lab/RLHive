@@ -14,7 +14,7 @@ from hive.agents.qnets.normalizer import (
 from hive.agents.qnets.ac_nets import ActorCriticNetwork
 from hive.agents.qnets.utils import calculate_output_dim, InitializationFn
 from hive.replays.on_policy_replay import OnPolicyReplayBuffer
-from hive.utils.loggers import Logger, NullLogger
+from hive.utils.loggers import logger
 from hive.utils.schedule import PeriodicSchedule, Schedule, ConstantSchedule
 from hive.utils.utils import LossFn, OptimizerFn, create_folder
 
@@ -42,7 +42,6 @@ class PPOAgent(Agent):
         n_step: int = 1,
         grad_clip: float = None,
         batch_size: int = 64,
-        logger: Logger = None,
         log_frequency: int = 1,
         clip_coefficient: float = 0.2,
         entropy_coefficient: float = 0.01,
@@ -147,7 +146,7 @@ class PPOAgent(Agent):
             anneal_lr_schedule = anneal_lr_schedule()
 
         self._lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self._optimizer, lambda x: anneal_lr_schedule.update()
+            self._optimizer, lambda global_step: anneal_lr_schedule(global_step)
         )
         if replay_buffer is None:
             replay_buffer = OnPolicyReplayBuffer
@@ -165,13 +164,7 @@ class PPOAgent(Agent):
             critic_loss_fn = torch.nn.MSELoss
         self._critic_loss_fn = critic_loss_fn(reduction="none")
         self._batch_size = batch_size
-        self._logger = logger
-        if self._logger is None:
-            self._logger = NullLogger([])
-        self._timescale = self.id
-        self._logger.register_timescale(
-            self._timescale, PeriodicSchedule(False, True, log_frequency)
-        )
+        self._log_schedule = PeriodicSchedule(False, True, log_frequency)
         self._clip_coefficient = clip_coefficient
         self._entropy_coefficient = entropy_coefficient
         self._clip_value_loss = clip_value_loss
@@ -289,7 +282,7 @@ class PPOAgent(Agent):
         return action, logprob, value
 
     @torch.no_grad()
-    def act(self, observation, agent_traj_state=None):
+    def act(self, observation, agent_traj_state, global_step):
         """Returns the action for the agent.
 
         Args:
@@ -305,7 +298,7 @@ class PPOAgent(Agent):
         agent_traj_state["value"] = value
         return action, agent_traj_state
 
-    def update(self, update_info, agent_traj_state=None):
+    def update(self, update_info, agent_traj_state, global_step):
         """
         Updates the PPO agent.
 
@@ -408,8 +401,8 @@ class PPOAgent(Agent):
                 if self._target_kl is not None and self._target_kl < approx_kl:
                     break
             self._replay_buffer.reset()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_metrics(
+            if self._log_schedule(global_step):
+                logger.log_metrics(
                     {
                         "loss": loss,
                         "actor_loss": actor_loss,
@@ -420,7 +413,7 @@ class PPOAgent(Agent):
                         "clip_fraction": clip_fraction / num_updates,
                         "lr": self._lr_scheduler.get_last_lr()[0],
                     },
-                    prefix=self._timescale,
+                    prefix=self.id,
                 )
             self._lr_scheduler.step()
         return agent_traj_state

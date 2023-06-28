@@ -17,6 +17,7 @@ def efficient_buffer():
         observation_shape=OBS_SHAPE,
         observation_dtype=np.float32,
         extra_storage_types={"priority": (np.int8, ())},
+        commit_at_done=False,
     )
 
 
@@ -26,6 +27,7 @@ def prioritized_buffer():
         capacity=CAPACITY,
         observation_shape=OBS_SHAPE,
         observation_dtype=np.float32,
+        commit_at_done=False,
     )
 
 
@@ -50,6 +52,7 @@ def full_buffer(buffer):
             truncated=((i + 1) % 15) == 0,
             terminated=((i + 1) % 15) == 0,
             priority=(i % 10) + 1,
+            source=0,
         )
     return buffer
 
@@ -62,6 +65,7 @@ def stacked_efficient_buffer():
         observation_shape=OBS_SHAPE,
         observation_dtype=np.float32,
         extra_storage_types={"priority": (np.int8, ())},
+        commit_at_done=False,
     )
 
 
@@ -72,6 +76,7 @@ def stacked_prioritized_buffer():
         stack_size=STACK_SIZE,
         observation_shape=OBS_SHAPE,
         observation_dtype=np.float32,
+        commit_at_done=False,
     )
 
 
@@ -96,6 +101,7 @@ def full_stacked_buffer(stacked_buffer):
             truncated=((i + 1) % 15) == 0,
             terminated=((i + 1) % 15) == 0,
             priority=(i % 10) + 1,
+            source=0,
         )
     return stacked_buffer
 
@@ -117,6 +123,7 @@ def full_n_step_buffer():
             reward=i % 10,
             truncated=((i + 1) % 15) == 0,
             terminated=((i + 1) % 15) == 0,
+            source=0,
         )
     return n_step_buffer
 
@@ -173,6 +180,7 @@ def test_add(buffer):
             truncated=((i + 1) % 15) == 0,
             terminated=((i + 1) % 15) == 0,
             priority=(i % 10) + 1,
+            source=0,
         )
         assert buffer.size() == i
         assert buffer._cursor == ((i + 1) % CAPACITY)
@@ -186,6 +194,7 @@ def test_add(buffer):
             truncated=((i + 1) % 15) == 0,
             terminated=((i + 1) % 15) == 0,
             priority=(i % 10) + 1,
+            source=0,
         )
         assert buffer.size() == CAPACITY - 1
         assert buffer._cursor == ((i + 1) % CAPACITY)
@@ -230,6 +239,7 @@ def test_sample_few_transitions(stack_size, n_step, num_added):
             reward=i % 10,
             truncated=(i + 1) % 15,
             terminated=(i + 1) % 15,
+            source=0,
         )
     buffer.sample(1)
 
@@ -272,6 +282,7 @@ def test_stacked_buffer_add(stacked_buffer):
             truncated=((i + 1) % 15) == 0,
             terminated=((i + 1) % 15) == 0,
             priority=(i % 10) + 1,
+            source=0,
         )
         assert (
             stacked_buffer.size()
@@ -287,6 +298,7 @@ def test_stacked_buffer_add(stacked_buffer):
             truncated=((i + 1) % 15) == 0,
             terminated=((i + 1) % 15) == 0,
             priority=(i % 10) + 1,
+            source=0,
         )
         assert stacked_buffer.size() == CAPACITY - STACK_SIZE
     assert stacked_buffer._num_added == CAPACITY + 20 + 1 + (CAPACITY + 20) // 15

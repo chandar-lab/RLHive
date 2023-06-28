@@ -16,7 +16,7 @@ from hive.agents.qnets.qnet_heads import (
 from hive.agents.qnets.utils import InitializationFn, calculate_output_dim
 from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
-from hive.utils.loggers import Logger
+from hive.utils.loggers import logger
 from hive.utils.schedule import Schedule
 from hive.utils.utils import LossFn, OptimizerFn
 
@@ -48,7 +48,6 @@ class RainbowDQNAgent(DQNAgent):
         min_replay_history: int = 5000,
         batch_size: int = 32,
         device="cpu",
-        logger: Logger = None,
         log_frequency: int = 100,
         noisy: bool = True,
         std_init: float = 0.5,
@@ -162,7 +161,6 @@ class RainbowDQNAgent(DQNAgent):
             min_replay_history=min_replay_history,
             batch_size=batch_size,
             device=device,
-            logger=logger,
             log_frequency=log_frequency,
         )
 
@@ -220,40 +218,53 @@ class RainbowDQNAgent(DQNAgent):
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
 
     @torch.no_grad()
-    def act(self, observation, agent_traj_state=None):
+    def act(self, observation, agent_traj_state, global_step):
+        """Returns the action for the agent. If in training mode, follows an epsilon
+        greedy policy. Otherwise, returns the action with the highest Q-value.
+
+        Args:
+            observation: The current observation.
+            agent_traj_state: Contains necessary state information for the agent
+                to process current trajectory. This should be updated and returned.
+
+        Returns:
+            - action
+            - agent trajectory state
+        """
+
+        # Determine and log the value of epsilon
         if self._training:
-            if not self._learn_schedule.get_value():
+            if not self._learn_schedule(global_step):
                 epsilon = 1.0
-            elif not self._use_eps_greedy:
-                epsilon = 0.0
             else:
-                epsilon = self._epsilon_schedule.update()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_scalar("epsilon", epsilon, self._timescale)
+                epsilon = self._epsilon_schedule(global_step)
+            if self._log_schedule(global_step):
+                logger.log_scalar("epsilon", epsilon, self.id)
         else:
             epsilon = self._test_epsilon
 
-        observation = torch.tensor(
-            np.expand_dims(observation, axis=0), device=self._device
-        ).float()
-        qvals = self._qnet(observation)
+        state, observation_stack = self.preprocess_observation(
+            observation, agent_traj_state
+        )
 
+        # Sample action. With epsilon probability choose random action,
+        # otherwise select the action with the highest q-value.
+        qvals = self._qnet(state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._action_space.n)
         else:
+            # Note: not explicitly handling the ties
             action = torch.argmax(qvals).item()
 
         if (
             self._training
-            and self._logger.should_log(self._timescale)
+            and self._log_schedule(global_step)
             and agent_traj_state is None
         ):
-            self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
-            agent_traj_state = {}
+            logger.log_scalar("train_qval", torch.max(qvals), self.id)
+        return action, {"observation_stack": observation_stack}
 
-        return action, agent_traj_state
-
-    def update(self, update_info, agent_traj_state=None):
+    def update(self, update_info, agent_traj_state, global_step):
         """
         Updates the DQN agent.
 
@@ -279,9 +290,9 @@ class RainbowDQNAgent(DQNAgent):
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
         if (
-            self._learn_schedule.update()
+            self._learn_schedule(global_step)
             and self._replay_buffer.size() > 0
-            and self._update_period_schedule.update()
+            and self._update_period_schedule(global_step)
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             (
@@ -334,11 +345,11 @@ class RainbowDQNAgent(DQNAgent):
                 loss *= batch["weights"]
             loss = loss.mean()
 
-            if self._logger.should_log(self._timescale):
-                self._logger.log_scalar(
+            if self._log_schedule(global_step):
+                logger.log_scalar(
                     "train_loss",
                     loss,
-                    self._timescale,
+                    self.id,
                 )
             loss.backward()
             if self._grad_clip is not None:
@@ -348,7 +359,7 @@ class RainbowDQNAgent(DQNAgent):
             self._optimizer.step()
 
         # Update target network
-        if self._target_net_update_schedule.update():
+        if self._target_net_update_schedule(global_step):
             self._update_target()
         return agent_traj_state
 

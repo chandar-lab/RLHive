@@ -12,6 +12,7 @@ try:
 except ImportError:
     PettingZooEnv = None
 
+
 from hive.utils.registry import registry
 
 registry.register_all(

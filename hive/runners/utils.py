@@ -121,28 +121,21 @@ class TransitionInfo:
     be completely reset between episodes. After any info is extracted, it is
     automatically removed from the object. Also keeps track of which agents have
     started their episodes.
-
-    This object also handles padding and stacking observations for agents.
     """
 
-    def __init__(self, agents, stack_size):
+    def __init__(self, agents):
         """
         Args:
             agents (list[Agent]): list of agents that will be kept track of.
-            stack_size (int): How many observations will be stacked.
         """
         self._agent_ids = [agent.id for agent in agents]
         self._num_agents = len(agents)
-        self._stack_size = stack_size
         self.reset()
 
     def reset(self):
         """Reset the object by clearing all info."""
         self._transitions = {agent_id: {"reward": 0.0} for agent_id in self._agent_ids}
         self._started = {agent_id: False for agent_id in self._agent_ids}
-        self._previous_observations = {
-            agent_id: deque(maxlen=self._stack_size - 1) for agent_id in self._agent_ids
-        }
 
     def is_started(self, agent):
         """Check if agent has started its episode.
@@ -168,8 +161,6 @@ class TransitionInfo:
             info (dict): Info to add to the agent's state.
         """
         self._transitions[agent.id].update(info)
-        if "observation" in info:
-            self._previous_observations[agent.id].append(info["observation"])
 
     def update_reward(self, agent, reward):
         """Add a reward to the agent.
@@ -215,67 +206,10 @@ class TransitionInfo:
         self._transitions[agent.id] = {"reward": 0.0}
         return info
 
-    def get_stacked_state(self, agent, observation):
-        """Create a stacked state for the agent. The previous observations recorded
-        by this agent are stacked with the current observation. If not enough
-        observations have been recorded, zero arrays are appended.
-
-        Args:
-            agent (Agent): Agent to get stacked state for.
-            observation: Current observation.
-        """
-
-        if self._stack_size == 1:
-            return observation
-        while len(self._previous_observations[agent.id]) < self._stack_size - 1:
-            self._previous_observations[agent.id].append(zeros_like(observation))
-
-        stacked_observation = concatenate(
-            list(self._previous_observations[agent.id]) + [observation]
-        )
-        return stacked_observation
-
     def __repr__(self):
         return str(
             {
                 "transitions": self._transitions,
                 "started": self._started,
-                "previous_observations": self._previous_observations,
             }
         )
-
-
-def zeros_like(x):
-    """Create a zero state like some state. This handles slightly more complex
-    objects such as lists and dictionaries of numpy arrays and torch Tensors.
-
-    Args:
-        x (np.ndarray | torch.Tensor | dict | list): State used to define
-            structure/state of zero state.
-    """
-    if isinstance(x, np.ndarray):
-        return np.zeros_like(x)
-    elif isinstance(x, torch.Tensor):
-        return torch.zeros_like(x)
-    elif isinstance(x, dict):
-        return {k: zeros_like(v) for k, v in x.items()}
-    elif isinstance(x, list):
-        return [zeros_like(item) for item in x]
-    else:
-        return 0
-
-
-def concatenate(xs):
-    """Concatenates numpy arrays or dictionaries of numpy arrays.
-
-    Args:
-        xs (list): List of objects to concatenate.
-    """
-
-    if len(xs) == 0:
-        return np.array([])
-
-    if isinstance(xs[0], dict):
-        return {k: np.concatenate([x[k] for x in xs], axis=0) for k in xs[0]}
-    else:
-        return np.concatenate(xs, axis=0)

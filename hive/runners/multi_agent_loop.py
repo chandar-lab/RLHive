@@ -7,7 +7,7 @@ from hive.runners.base import Runner
 from hive.runners.utils import TransitionInfo
 from hive.utils import utils
 from hive.utils.experiment import Experiment
-from hive.utils.loggers import CompositeLogger, NullLogger, ScheduledLogger
+from hive.utils.loggers import CompositeLogger, NullLogger, Logger
 
 
 class MultiAgentRunner(Runner):
@@ -17,14 +17,13 @@ class MultiAgentRunner(Runner):
         self,
         environment: BaseEnv,
         agents: List[Agent],
-        loggers: List[ScheduledLogger],
+        loggers: List[Logger],
         experiment_manager: Experiment,
         train_steps: int,
         num_agents: int,
         eval_environment: BaseEnv = None,
         test_frequency: int = -1,
         test_episodes: int = 1,
-        stack_size: int = 1,
         self_play: bool = False,
         max_steps_per_episode: int = 1e9,
         seed: int = None,
@@ -48,7 +47,6 @@ class MultiAgentRunner(Runner):
                 episodes. If this is -1, testing is not run.
             test_episodes (int): How many episodes to run testing for duing each test
                 phase.
-            stack_size (int): The number of frames in an observation sent to an agent.
             self_play (bool): Whether this multiagent experiment is run in
                 self-play mode. In this mode, only the first agent in the list
                 of agents provided in the config is created. This agent performs
@@ -79,14 +77,14 @@ class MultiAgentRunner(Runner):
                 agent = agent_fn(
                     observation_space=env_spec.observation_space[idx],
                     action_space=env_spec.action_space[idx],
-                    stack_size=stack_size,
                     logger=logger,
                 )
                 agent_list.append(agent)
             else:
                 agent_list.append(copy.copy(agent_list[0]))
                 agent_list[-1]._id = f"{agent_list[0]._id}_{idx}"
-
+        if self_play:
+            agent_list[0]._id = f"{agent_list[0]._id}_{0}"
         # Set up experiment manager
         experiment_manager = experiment_manager()
 
@@ -101,7 +99,6 @@ class MultiAgentRunner(Runner):
             test_episodes=test_episodes,
             max_steps_per_episode=max_steps_per_episode,
         )
-        self._stack_size = stack_size
         self._self_play = self_play
 
     def run_one_step(
@@ -144,8 +141,7 @@ class MultiAgentRunner(Runner):
         else:
             transition_info.start_agent(agent)
 
-        stacked_observation = transition_info.get_stacked_state(agent, observation)
-        action, agent_traj_state = agent.act(stacked_observation, agent_traj_state)
+        action, agent_traj_state = agent.act(observation, agent_traj_state)
         (
             next_observation,
             reward,
@@ -217,7 +213,7 @@ class MultiAgentRunner(Runner):
         """
         episode_metrics = self.create_episode_metrics()
         observation, turn = environment.reset()
-        transition_info = TransitionInfo(self._agents, self._stack_size)
+        transition_info = TransitionInfo(self._agents)
         steps = 0
         agent_traj_states = [None] * len(self._agents)
         terminated, truncated = False, False
@@ -226,7 +222,7 @@ class MultiAgentRunner(Runner):
         while (
             not (terminated or truncated)
             and steps < self._max_steps_per_episode
-            and (not self._training or self._train_schedule.get_value())
+            and (not self._training or self._train_schedule(global_step))
         ):
             (
                 terminated,

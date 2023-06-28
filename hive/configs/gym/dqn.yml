@@ -15,7 +15,6 @@ kwargs:
   test_frequency: 200
   test_episodes: 10
   max_steps_per_episode: 1000
-  stack_size: &stack_size 1
   environment:
     name: 'GymEnv'
     kwargs:
@@ -27,6 +26,7 @@ kwargs:
         name: 'MLPNetwork'
         kwargs:
           hidden_units: [256, 256]
+      stack_size: 1
       optimizer_fn:
         name: 'Adam'
         kwargs: {}
@@ -35,11 +35,8 @@ kwargs:
       replay_buffer:
         name: 'CircularReplayBuffer'
         kwargs:
-          observation_dtype: np.float64
           capacity: 1000
-          stack_size: *stack_size
-          gamma: &gamma .99
-      discount_rate: *gamma
+      discount_rate: .99
       reward_clip: 1
       target_net_update_schedule:
         name: 'PeriodicSchedule'

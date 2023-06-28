@@ -1,9 +1,11 @@
 import copy
 import os
+from collections import deque
 
 import gymnasium as gym
 import numpy as np
 import torch
+from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents.agent import Agent
 from hive.agents.qnets.base import FunctionApproximator
@@ -13,8 +15,9 @@ from hive.agents.qnets.utils import (
     calculate_output_dim,
     create_init_weights_fn,
 )
+from hive.agents.utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer
-from hive.utils.loggers import Logger, NullLogger
+from hive.utils.loggers import logger
 from hive.utils.schedule import (
     LinearSchedule,
     PeriodicSchedule,
@@ -53,7 +56,6 @@ class DQNAgent(Agent):
         min_replay_history: int = 5000,
         batch_size: int = 32,
         device="cpu",
-        logger: Logger = None,
         log_frequency: int = 100,
     ):
         """
@@ -108,6 +110,7 @@ class DQNAgent(Agent):
         super().__init__(
             observation_space=observation_space, action_space=action_space, id=id
         )
+        self._stack_size = stack_size
         self._state_size = (
             stack_size * self._observation_space.shape[0],
             *self._observation_space.shape[1:],
@@ -124,6 +127,11 @@ class DQNAgent(Agent):
         self._replay_buffer = replay_buffer(
             observation_shape=self._observation_space.shape,
             observation_dtype=self._observation_space.dtype,
+            action_shape=self._action_space.shape,
+            action_dtype=self._action_space.dtype,
+            stack_size=stack_size,
+            gamma=discount_rate,
+            n_step=n_step,
         )
         self._discount_rate = discount_rate**n_step
         self._grad_clip = grad_clip
@@ -134,13 +142,7 @@ class DQNAgent(Agent):
             loss_fn = torch.nn.SmoothL1Loss
         self._loss_fn = loss_fn(reduction="none")
         self._batch_size = batch_size
-        self._logger = logger
-        if self._logger is None:
-            self._logger = NullLogger([])
-        self._timescale = self.id
-        self._logger.register_timescale(
-            self._timescale, PeriodicSchedule(False, True, log_frequency)
-        )
+        self._log_schedule = PeriodicSchedule(False, True, log_frequency)
         if update_period_schedule is None:
             self._update_period_schedule = PeriodicSchedule(False, True, 1)
         else:
@@ -189,6 +191,21 @@ class DQNAgent(Agent):
         self._qnet.eval()
         self._target_qnet.eval()
 
+    def preprocess_observation(self, observation, agent_traj_state):
+        if agent_traj_state is None:
+            observation_stack = create_empty_array(
+                self._observation_space, n=self._stack_size
+            )
+        else:
+            observation_stack = agent_traj_state["observation_stack"]
+        observation_stack = roll_state(observation, observation_stack)
+        state = (
+            torch.tensor(observation_stack, device=self._device, dtype=torch.float32)
+            .flatten(0, 1)
+            .unsqueeze(0)
+        )
+        return state, observation_stack
+
     def preprocess_update_info(self, update_info):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
         Clips the reward in update_info.
@@ -208,9 +225,8 @@ class DQNAgent(Agent):
             "reward": update_info["reward"],
             "terminated": update_info["terminated"],
             "truncated": update_info["truncated"],
+            "source": update_info["source"],
         }
-        if "agent_id" in update_info:
-            preprocessed_update_info["agent_id"] = int(update_info["agent_id"])
 
         return preprocessed_update_info
 
@@ -231,37 +247,35 @@ class DQNAgent(Agent):
         return (batch["observation"],), (batch["next_observation"],), batch
 
     @torch.no_grad()
-    def act(self, observation, agent_traj_state=None):
+    def act(self, observation, agent_traj_state, global_step):
         """Returns the action for the agent. If in training mode, follows an epsilon
         greedy policy. Otherwise, returns the action with the highest Q-value.
-
         Args:
             observation: The current observation.
             agent_traj_state: Contains necessary state information for the agent
                 to process current trajectory. This should be updated and returned.
-
         Returns:
             - action
             - agent trajectory state
         """
-
         # Determine and log the value of epsilon
         if self._training:
-            if not self._learn_schedule.get_value():
+            if not self._learn_schedule(global_step):
                 epsilon = 1.0
             else:
-                epsilon = self._epsilon_schedule.update()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_scalar("epsilon", epsilon, self._timescale)
+                epsilon = self._epsilon_schedule(global_step)
+            if self._log_schedule(global_step):
+                logger.log_scalar("epsilon", epsilon, self.id)
         else:
             epsilon = self._test_epsilon
 
+        state, observation_stack = self.preprocess_observation(
+            observation, agent_traj_state
+        )
+
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
-        observation = torch.tensor(
-            np.expand_dims(observation, axis=0), device=self._device
-        ).float()
-        qvals = self._qnet(observation)
+        qvals = self._qnet(state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._action_space.n)
         else:
@@ -270,14 +284,14 @@ class DQNAgent(Agent):
 
         if (
             self._training
-            and self._logger.should_log(self._timescale)
+            and self._log_schedule(global_step)
             and agent_traj_state is None
         ):
-            self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
-            agent_traj_state = {}
+            logger.log_scalar("train_qval", torch.max(qvals), self.id)
+        agent_traj_state = {"observation_stack": observation_stack}
         return action, agent_traj_state
 
-    def update(self, update_info, agent_traj_state=None):
+    def update(self, update_info, agent_traj_state, global_step):
         """
         Updates the DQN agent.
 
@@ -297,15 +311,16 @@ class DQNAgent(Agent):
             return
 
         # Add the most recent transition to the replay buffer.
-        self._replay_buffer.add(**self.preprocess_update_info(update_info))
+        transition = self.preprocess_update_info(update_info)
+        self._replay_buffer.add(**transition)
 
         # Update the q network based on a sample batch from the replay buffer.
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
         if (
-            self._learn_schedule.update()
+            self._learn_schedule(global_step)
             and self._replay_buffer.size() > 0
-            and self._update_period_schedule.update()
+            and self._update_period_schedule(global_step)
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             (
@@ -330,8 +345,8 @@ class DQNAgent(Agent):
 
             loss = self._loss_fn(pred_qvals, q_targets).mean()
 
-            if self._logger.should_log(self._timescale):
-                self._logger.log_scalar("train_loss", loss, self._timescale)
+            if self._log_schedule(global_step):
+                logger.log_scalar("train_loss", loss, self.id)
 
             loss.backward()
             if self._grad_clip is not None:
@@ -341,7 +356,7 @@ class DQNAgent(Agent):
             self._optimizer.step()
 
         # Update target network
-        if self._target_net_update_schedule.update():
+        if self._target_net_update_schedule(global_step):
             self._update_target()
         return agent_traj_state
 
@@ -368,9 +383,6 @@ class DQNAgent(Agent):
                 "qnet": self._qnet.state_dict(),
                 "target_qnet": self._target_qnet.state_dict(),
                 "optimizer": self._optimizer.state_dict(),
-                "learn_schedule": self._learn_schedule,
-                "epsilon_schedule": self._epsilon_schedule,
-                "target_net_update_schedule": self._target_net_update_schedule,
                 "rng": self._rng,
             },
             os.path.join(dname, "agent.pt"),
@@ -384,8 +396,5 @@ class DQNAgent(Agent):
         self._qnet.load_state_dict(checkpoint["qnet"])
         self._target_qnet.load_state_dict(checkpoint["target_qnet"])
         self._optimizer.load_state_dict(checkpoint["optimizer"])
-        self._learn_schedule = checkpoint["learn_schedule"]
-        self._epsilon_schedule = checkpoint["epsilon_schedule"]
-        self._target_net_update_schedule = checkpoint["target_net_update_schedule"]
         self._rng = checkpoint["rng"]
         self._replay_buffer.load(os.path.join(dname, "replay"))

@@ -14,7 +14,7 @@ from hive.agents.qnets.utils import (
     apply_to_tensor,
 )
 from hive.replays.recurrent_replay import RecurrentReplayBuffer
-from hive.utils.loggers import Logger, NullLogger
+from hive.utils.loggers import logger
 from hive.utils.schedule import (
     LinearSchedule,
     PeriodicSchedule,
@@ -54,7 +54,6 @@ class DRQNAgent(DQNAgent):
         min_replay_history: int = 5000,
         batch_size: int = 32,
         device="cpu",
-        logger: Logger = None,
         log_frequency: int = 100,
         store_hidden: bool = True,
         burn_frames: int = 0,
@@ -157,13 +156,7 @@ class DRQNAgent(DQNAgent):
             loss_fn = torch.nn.SmoothL1Loss
         self._loss_fn = loss_fn(reduction="none")
         self._batch_size = batch_size
-        self._logger = logger
-        if self._logger is None:
-            self._logger = NullLogger([])
-        self._timescale = self.id
-        self._logger.register_timescale(
-            self._timescale, PeriodicSchedule(False, True, log_frequency)
-        )
+        self._log_schedule = PeriodicSchedule(False, True, log_frequency)
         if update_period_schedule is None:
             self._update_period_schedule = PeriodicSchedule(False, True, 1)
         else:
@@ -206,6 +199,18 @@ class DRQNAgent(DQNAgent):
 
         self._qnet.apply(self._init_fn)
         self._target_qnet = copy.deepcopy(self._qnet).requires_grad_(False)
+
+    def preprocess_observation(self, observation, agent_traj_state):
+        # Reset hidden state if it is episode beginning.
+        if agent_traj_state is None:
+            hidden_state = self._qnet.init_hidden(batch_size=1)
+        else:
+            hidden_state = agent_traj_state["hidden_state"]
+
+        state = torch.tensor(
+            np.expand_dims(observation, axis=(0, 1)), device=self._device
+        ).float()
+        return state, hidden_state
 
     def preprocess_update_info(self, update_info, hidden_state):
         """Preprocesses the :obj:`update_info` before it goes into the replay buffer.
@@ -265,7 +270,7 @@ class DRQNAgent(DQNAgent):
             return (batch["observation"]), (batch["next_observation"]), batch
 
     @torch.no_grad()
-    def act(self, observation, agent_traj_state=None):
+    def act(self, observation, agent_traj_state, global_step):
         """Returns the action for the agent. If in training mode, follows an epsilon
         greedy policy. Otherwise, returns the action with the highest Q-value.
 
@@ -280,37 +285,38 @@ class DRQNAgent(DQNAgent):
 
         # Determine and log the value of epsilon
         if self._training:
-            if not self._learn_schedule.get_value():
+            if not self._learn_schedule(global_step):
                 epsilon = 1.0
             else:
-                epsilon = self._epsilon_schedule.update()
-            if self._logger.update_step(self._timescale):
-                self._logger.log_scalar("epsilon", epsilon, self._timescale)
+                epsilon = self._epsilon_schedule(global_step)
+            if self._log_schedule(global_step):
+                logger.log_scalar("epsilon", epsilon, self.id)
         else:
             epsilon = self._test_epsilon
 
         # Sample action. With epsilon probability choose random action,
         # otherwise select the action with the highest q-value.
         # Insert batch_size and sequence_len dimensions to observation
-        observation = torch.tensor(
-            np.expand_dims(observation, axis=(0, 1)), device=self._device
-        ).float()
-        hidden_state = (
-            None if agent_traj_state is None else agent_traj_state["hidden_state"]
-        )
-        qvals, hidden_state = self._qnet(observation, hidden_state)
+        state, hidden_state = self.preprocess_observation(observation, agent_traj_state)
+        qvals, hidden_state = self._qnet(state, hidden_state)
         if self._rng.random() < epsilon:
             action = self._rng.integers(self._action_space.n)
         else:
             # Note: not explicitly handling the ties
             action = torch.argmax(qvals).item()
         if agent_traj_state is None:
-            if self._training and self._logger.should_log(self._timescale):
-                self._logger.log_scalar("train_qval", torch.max(qvals), self._timescale)
+            if self._training and self._log_schedule(global_step):
+                logger.log_scalar("train_qval", torch.max(qvals), self.id)
 
+        if (
+            self._training
+            and self._log_schedule(global_step)
+            and agent_traj_state is None
+        ):
+            logger.log_scalar("train_qval", torch.max(qvals), self.id)
         return action, {"hidden_state": hidden_state}
 
-    def update(self, update_info, agent_traj_state=None):
+    def update(self, update_info, agent_traj_state, global_step):
         """
         Updates the DRQN agent.
 
@@ -339,9 +345,9 @@ class DRQNAgent(DQNAgent):
         # If the replay buffer doesn't have enough samples, catch the exception
         # and move on.
         if (
-            self._learn_schedule.update()
+            self._learn_schedule(global_step)
             and self._replay_buffer.size() > 0
-            and self._update_period_schedule.update()
+            and self._update_period_schedule(global_step)
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
             (
@@ -385,8 +391,8 @@ class DRQNAgent(DQNAgent):
                 interm_loss *= batch["mask"]
                 loss = interm_loss.sum() / batch["mask"].sum()
 
-            if self._logger.should_log(self._timescale):
-                self._logger.log_scalar("train_loss", loss, self._timescale)
+            if self._log_schedule(global_step):
+                logger.log_scalar("train_loss", loss, self.id)
 
             loss.backward()
             if self._grad_clip is not None:
@@ -396,6 +402,6 @@ class DRQNAgent(DQNAgent):
             self._optimizer.step()
 
         # Update target network
-        if self._target_net_update_schedule.update():
+        if self._target_net_update_schedule(global_step):
             self._update_target()
         return agent_traj_state
