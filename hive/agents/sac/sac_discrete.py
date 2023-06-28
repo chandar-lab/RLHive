@@ -271,24 +271,28 @@ class DiscreteSACAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
             and self._update_schedule(global_step)
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            (
-                current_state_inputs,
-                next_state_inputs,
-                batch,
-            ) = self.preprocess_update_batch(batch)
-
-            metrics = {}
-            metrics.update(
-                self._update_critics(batch, current_state_inputs, next_state_inputs)
-            )
-            # Update policy with policy delay
-            while self._policy_update_schedule(global_step):
-                metrics.update(self._update_actor(current_state_inputs))
+            metrics = self.update_on_batch(batch, global_step)
             if self._target_net_update_schedule(global_step):
                 self._update_target()
             if self._log_schedule(global_step):
                 logger.log_metrics(metrics, self.id)
         return agent_traj_state
+
+    def update_on_batch(self, batch, global_step):
+        (
+            current_state_inputs,
+            next_state_inputs,
+            batch,
+        ) = self.preprocess_update_batch(batch)
+
+        metrics = {}
+        metrics.update(
+            self._update_critics(batch, current_state_inputs, next_state_inputs)
+        )
+        # Update policy with policy delay
+        while self._policy_update_schedule(global_step):
+            metrics.update(self._update_actor(current_state_inputs))
+        return metrics
 
     def _update_actor(self, current_state_inputs):
         _, log_probs, action_probs = self._actor(*current_state_inputs)

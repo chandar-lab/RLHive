@@ -9,18 +9,17 @@ from gymnasium.vector.utils.numpy_utils import create_empty_array
 
 from hive.agents.agent import Agent
 from hive.agents.dqn.qnet_heads import DQNNetwork
-from hive.utils.torch_utils import calculate_output_dim
-from hive.utils.np_utils import roll_state
 from hive.replays import BaseReplayBuffer, CircularReplayBuffer, ReplayItemSpec
 from hive.types import Creates, Partial, default
 from hive.utils.loggers import logger
+from hive.utils.np_utils import roll_state
 from hive.utils.schedule import (
     LinearSchedule,
     PeriodicSchedule,
     Schedule,
     SwitchSchedule,
 )
-from hive.utils.torch_utils import ModuleInitFn
+from hive.utils.torch_utils import ModuleInitFn, calculate_output_dim
 from hive.utils.utils import LossFn, create_folder, seeder
 
 
@@ -303,7 +302,7 @@ class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
             - agent trajectory state
         """
         if not self._training:
-            return
+            return agent_traj_state
 
         # Add the most recent transition to the replay buffer.
         transition = self.preprocess_update_info(update_info)
@@ -318,42 +317,47 @@ class DQNAgent(Agent[gym.spaces.Box, gym.spaces.Discrete]):
             and self._update_period_schedule(global_step)
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            (
-                current_state_inputs,
-                next_state_inputs,
-                batch,
-            ) = self.preprocess_update_batch(batch)
-
-            # Compute predicted Q values
-            self._optimizer.zero_grad()
-            pred_qvals = self._qnet(*current_state_inputs)
-            actions = batch["action"].long()
-            pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
-
-            # Compute 1-step Q targets
-            next_qvals = self._target_qnet(*next_state_inputs)
-            next_qvals, _ = torch.max(next_qvals, dim=1)
-
-            q_targets = batch["reward"] + self._discount_rate * next_qvals * (
-                1 - batch["terminated"]
-            )
-
-            loss = self._loss_fn(pred_qvals, q_targets).mean()
-
+            metrics = self.update_on_batch(batch)
             if self._log_schedule(global_step):
-                logger.log_scalar("train_loss", loss, self.id)
-
-            loss.backward()
-            if self._grad_clip is not None:
-                torch.nn.utils.clip_grad_value_(  # type: ignore
-                    self._qnet.parameters(), self._grad_clip
-                )
-            self._optimizer.step()
+                logger.log_metrics(metrics, self.id)
 
         # Update target network
         if self._target_net_update_schedule(global_step):
             self._update_target()
         return agent_traj_state
+
+    def update_on_batch(self, batch):
+        (
+            current_state_inputs,
+            next_state_inputs,
+            batch,
+        ) = self.preprocess_update_batch(batch)
+        loss = self._compute_loss(batch, current_state_inputs, next_state_inputs)
+
+        self._optimizer.zero_grad()
+        loss.backward()
+        if self._grad_clip is not None:
+            torch.nn.utils.clip_grad_value_(  # type: ignore
+                self._qnet.parameters(), self._grad_clip
+            )
+        self._optimizer.step()
+        return {"train_loss": loss}
+
+    def _compute_loss(self, batch, current_state_inputs, next_state_inputs):
+        pred_qvals = self._qnet(*current_state_inputs)
+        actions = batch["action"].long()
+        pred_qvals = pred_qvals[torch.arange(pred_qvals.size(0)), actions]
+
+        # Compute 1-step Q targets
+        next_qvals = self._target_qnet(*next_state_inputs)
+        next_qvals, _ = torch.max(next_qvals, dim=1)
+
+        q_targets = batch["reward"] + self._discount_rate * next_qvals * (
+            1 - batch["terminated"]
+        )
+
+        loss = self._loss_fn(pred_qvals, q_targets).mean()
+        return loss
 
     def _update_target(self):
         """Update the target network."""

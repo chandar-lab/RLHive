@@ -117,12 +117,6 @@ class Runner(ABC):
         Args:
             training (bool): Whether to be in training mode.
         """
-        if training and not self._training:
-            self._train_timer.start()
-            self._eval_timer.stop()
-        elif not training and self._training:
-            self._train_timer.stop()
-            self._eval_timer.start()
         self._training = training
 
         for agent in self._agents:
@@ -142,7 +136,11 @@ class Runner(ABC):
             self._train_steps.increment()
             self._phase_steps.increment()
             if self._test_schedule(self._train_steps):
+                self._train_timer.stop()
+                self._eval_timer.start()
                 self.run_testing()
+                self._eval_timer.stop()
+
                 metrics = {
                     "current_fps": self._phase_steps / self._train_timer.get_time(),
                     "train_time": self._train_timer.get_time(),
@@ -157,7 +155,6 @@ class Runner(ABC):
                 )
                 self._phase_steps = Counter()
                 self._train_timer.start()
-                self.run_testing()
             if self._experiment_manager.should_save(self._train_steps):
                 self._experiment_manager.save(self._train_steps)
 

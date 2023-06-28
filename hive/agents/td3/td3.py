@@ -347,68 +347,79 @@ class TD3(Agent):
             and self._update_schedule(global_step)
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            (
-                current_state_inputs,
-                next_state_inputs,
-                batch,
-            ) = self.preprocess_update_batch(batch)
-            with torch.no_grad():
-                noise = torch.randn_like(batch["action"]) * self._target_noise
-                noise = torch.clamp(
-                    noise, -self._target_noise_clip, self._target_noise_clip
-                )
-                next_actions = self._target_actor(*next_state_inputs) + noise
-                if self._scale_actions:
-                    next_actions = torch.clamp(next_actions, -1, 1)
-                else:
-                    next_actions = torch.clamp(
-                        next_actions, self._action_min_tensor, self._action_max_tensor
-                    )
-
-                next_q_vals = torch.cat(
-                    self._target_critic(*next_state_inputs, next_actions), dim=1
-                )
-                next_q_vals, _ = torch.min(next_q_vals, dim=1, keepdim=True)
-                target_q_values = (
-                    batch["reward"][:, None]
-                    + (1 - batch["terminated"][:, None])
-                    * self._discount_rate
-                    * next_q_vals
-                )
-
-            # Critic losses
-            pred_qvals = self._critic(*current_state_inputs, batch["action"])
-            critic_loss = torch.stack(
-                [self._critic_loss_fn(qvals, target_q_values) for qvals in pred_qvals]
-            ).sum()
-            self._critic_optimizer.zero_grad()
-            critic_loss.backward()
-            if self._grad_clip is not None:
-                torch.nn.utils.clip_grad_norm_(  # pyright: ignore ReportPrivateImportUsage
-                    self._critic.parameters(), self._grad_clip
-                )
-            self._critic_optimizer.step()
+            metrics = self.update_on_batch(batch, global_step)
             if self._log_schedule(global_step):
-                logger.log_scalar("critic_loss", critic_loss, self.id)
-
-            # Update policy with policy delay
-            if self._policy_update_schedule(global_step):
-                actor_loss = -torch.mean(
-                    self._critic.q1(
-                        current_state_inputs, self._actor(*current_state_inputs)
-                    )
-                )
-                self._actor_optimizer.zero_grad()
-                actor_loss.backward()
-                if self._grad_clip is not None:
-                    torch.nn.utils.clip_grad_norm_(  # pyright: ignore ReportPrivateImportUsage
-                        self._actor.parameters(), self._grad_clip
-                    )
-                self._actor_optimizer.step()
-                self._update_target()
-                if self._log_schedule(global_step):
-                    logger.log_scalar("actor_loss", actor_loss, self.id)
+                logger.log_metrics(metrics, self.id)
         return agent_traj_state
+
+    def update_on_batch(self, batch, global_step):
+        (
+            current_state_inputs,
+            next_state_inputs,
+            batch,
+        ) = self.preprocess_update_batch(batch)
+        metrics = self._update_critics(batch, current_state_inputs, next_state_inputs)
+
+        # Update policy with policy delay
+        if self._policy_update_schedule(global_step):
+            metrics.update(self._update_actor(current_state_inputs))
+            self._update_target()
+        return metrics
+
+    def _update_actor(self, current_state_inputs):
+        actor_loss = -torch.mean(
+            self._critic.q1(current_state_inputs, self._actor(*current_state_inputs))
+        )
+        self._actor_optimizer.zero_grad()
+        actor_loss.backward()
+        if self._grad_clip is not None:
+            torch.nn.utils.clip_grad_norm_(  # pyright: ignore ReportPrivateImportUsage
+                self._actor.parameters(), self._grad_clip
+            )
+        self._actor_optimizer.step()
+        return {"actor_loss": actor_loss}
+
+    def _update_critics(self, batch, current_state_inputs, next_state_inputs):
+        target_q_values = self._calculate_target_q_values(batch, next_state_inputs)
+
+        # Critic losses
+        pred_qvals = self._critic(*current_state_inputs, batch["action"])
+        critic_loss = torch.stack(
+            [self._critic_loss_fn(qvals, target_q_values) for qvals in pred_qvals]
+        ).sum()
+        self._critic_optimizer.zero_grad()
+        critic_loss.backward()
+        if self._grad_clip is not None:
+            torch.nn.utils.clip_grad_norm_(  # pyright: ignore ReportPrivateImportUsage
+                self._critic.parameters(), self._grad_clip
+            )
+        self._critic_optimizer.step()
+        return {"critic_loss": critic_loss}
+
+    def _calculate_target_q_values(self, batch, next_state_inputs):
+        with torch.no_grad():
+            noise = torch.randn_like(batch["action"]) * self._target_noise
+            noise = torch.clamp(
+                noise, -self._target_noise_clip, self._target_noise_clip
+            )
+            next_actions = self._target_actor(*next_state_inputs) + noise
+            if self._scale_actions:
+                next_actions = torch.clamp(next_actions, -1, 1)
+            else:
+                next_actions = torch.clamp(
+                    next_actions, self._action_min_tensor, self._action_max_tensor
+                )
+
+            next_q_vals = torch.cat(
+                self._target_critic(*next_state_inputs, next_actions), dim=1
+            )
+            next_q_vals, _ = torch.min(next_q_vals, dim=1, keepdim=True)
+            target_q_values = (
+                batch["reward"][:, None]
+                + (1 - batch["terminated"][:, None]) * self._discount_rate * next_q_vals
+            )
+
+        return target_q_values
 
     def _update_target(self):
         """Update the target network."""

@@ -322,7 +322,7 @@ class DRQNAgent(DQNAgent):
             - agent trajectory state
         """
         if not self._training:
-            return
+            return agent_traj_state
 
         # Add the most recent transition to the replay buffer.
         self._replay_buffer.add(
@@ -340,58 +340,61 @@ class DRQNAgent(DQNAgent):
             and self._update_period_schedule(global_step)
         ):
             batch = self._replay_buffer.sample(batch_size=self._batch_size)
-            (
-                current_state_inputs,
-                next_state_inputs,
-                batch,
-            ) = self.preprocess_update_batch(batch)
-
-            # Compute predicted Q values
-            self._optimizer.zero_grad()
-
-            pred_qvals, _ = self._qnet(*current_state_inputs)
-            pred_qvals = pred_qvals.view(self._batch_size, self._max_seq_len, -1)
-            actions = batch["action"].long()
-            pred_qvals = torch.gather(pred_qvals, -1, actions.unsqueeze(-1)).squeeze(-1)
-
-            # Compute 1-step Q targets
-            next_qvals, _ = self._target_qnet(*next_state_inputs)
-            next_qvals = next_qvals.view(self._batch_size, self._max_seq_len, -1)
-            next_qvals, _ = torch.max(next_qvals, dim=-1)
-
-            q_targets = batch["reward"] + self._discount_rate * next_qvals * (
-                1 - batch["terminated"]
-            )
-
-            if self._burn_frames > 0:
-                interm_loss = self._loss_fn(pred_qvals, q_targets)
-                mask = torch.zeros(
-                    self._replay_buffer._max_seq_len,
-                    device=self._device,
-                    dtype=torch.float,
-                )
-                mask[self._burn_frames :] = 1.0
-                mask = mask.unsqueeze(0).repeat(len(batch["reward"]), 1)
-                mask = mask & batch["mask"]
-                interm_loss *= mask
-                loss = interm_loss.sum() / mask.sum()
-
-            else:
-                interm_loss = self._loss_fn(pred_qvals, q_targets)
-                interm_loss *= batch["mask"]
-                loss = interm_loss.sum() / batch["mask"].sum()
-
+            metrics = self.update_on_batch(batch)
             if self._log_schedule(global_step):
-                logger.log_scalar("train_loss", loss, self.id)
-
-            loss.backward()
-            if self._grad_clip is not None:
-                torch.nn.utils.clip_grad_value_(  # pyright: ignore reportPrivateImportUsage
-                    self._qnet.parameters(), self._grad_clip
-                )
-            self._optimizer.step()
+                logger.log_metrics(metrics, self.id)
 
         # Update target network
         if self._target_net_update_schedule(global_step):
             self._update_target()
         return agent_traj_state
+
+    def update_on_batch(self, batch):
+        (
+            current_state_inputs,
+            next_state_inputs,
+            batch,
+        ) = self.preprocess_update_batch(batch)
+
+        # Compute predicted Q values
+        self._optimizer.zero_grad()
+
+        pred_qvals, _ = self._qnet(*current_state_inputs)
+        pred_qvals = pred_qvals.view(self._batch_size, self._max_seq_len, -1)
+        actions = batch["action"].long()
+        pred_qvals = torch.gather(pred_qvals, -1, actions.unsqueeze(-1)).squeeze(-1)
+
+        # Compute 1-step Q targets
+        next_qvals, _ = self._target_qnet(*next_state_inputs)
+        next_qvals = next_qvals.view(self._batch_size, self._max_seq_len, -1)
+        next_qvals, _ = torch.max(next_qvals, dim=-1)
+
+        q_targets = batch["reward"] + self._discount_rate * next_qvals * (
+            1 - batch["terminated"]
+        )
+
+        if self._burn_frames > 0:
+            interm_loss = self._loss_fn(pred_qvals, q_targets)
+            mask = torch.zeros(
+                self._replay_buffer._max_seq_len,
+                device=self._device,
+                dtype=torch.float,
+            )
+            mask[self._burn_frames :] = 1.0
+            mask = mask.unsqueeze(0).repeat(len(batch["reward"]), 1)
+            mask = mask & batch["mask"]
+            interm_loss *= mask
+            loss = interm_loss.sum() / mask.sum()
+
+        else:
+            interm_loss = self._loss_fn(pred_qvals, q_targets)
+            interm_loss *= batch["mask"]
+            loss = interm_loss.sum() / batch["mask"].sum()
+
+        loss.backward()
+        if self._grad_clip is not None:
+            torch.nn.utils.clip_grad_value_(  # pyright: ignore reportPrivateImportUsage
+                self._qnet.parameters(), self._grad_clip
+            )
+        self._optimizer.step()
+        return {"train_loss": loss}

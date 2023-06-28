@@ -4,3 +4,5 @@ numpy>=1.20.0
 PyYAML>=5.4
 torch==1.9.0
 wandb==0.12.18
+optree
+numba

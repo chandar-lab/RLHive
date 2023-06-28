@@ -21,10 +21,10 @@ from typing import (
     get_args,
     get_origin,
 )
-from typing import get_type_hints as _get_type_hints
 
 import numpy as np
 import yaml
+from typing_extensions import get_type_hints as _get_type_hints
 
 from hive.types import Creates, Partial
 from hive.utils.config import Config
@@ -208,14 +208,12 @@ def get_configured_types(ty: Type):
             and hasattr(base_type, "__metadata__")
             and "configured" in base_type.__metadata__
         ):
-            for t in get_args(base_type):
-                if "partial" in base_type.__metadata__:
-                    configured_types = configured_types.union(get_base_types(t))
-                else:
-                    create_type = get_args(t)[1]
-                    configured_types = configured_types.union(
-                        get_base_types(create_type)
-                    )
+            t = get_args(base_type)[0]
+            if "partial" in base_type.__metadata__:
+                configured_types = configured_types.union(get_base_types(t))
+            else:
+                create_type = get_args(t)[1]
+                configured_types = configured_types.union(get_base_types(create_type))
     return configured_types
 
 
@@ -252,9 +250,9 @@ def check_subclass(type1: Type, type2: Type) -> bool:
 
 def get_type_hints(fn):
     if hasattr(fn, "__init__"):
-        return _get_type_hints(fn.__init__)
+        return _get_type_hints(fn.__init__, include_extras=True)
     else:
-        return _get_type_hints(fn)
+        return _get_type_hints(fn, include_extras=True)
 
 
 def get_all_arguments() -> Set[str]:

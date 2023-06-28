@@ -240,6 +240,21 @@ def calculate_output_dim(
     return optree.tree_map(get_size, output)
 
 
+def torchify(
+    x: optree.PyTree[np.ndarray], device=None, dtype=None
+) -> optree.PyTree[torch.Tensor]:
+    """Converts a PyTree of numpy arrays to a PyTree of PyTorch tensors.
+
+    Args:
+        x (PyTree[np.ndarray]): PyTree of numpy arrays.
+    Returns:
+        PyTree[torch.Tensor]: PyTree of PyTorch tensors.
+    """
+    return optree.tree_map(
+        lambda data: torch.as_tensor(data, device=device, dtype=dtype), x
+    )
+
+
 def apply_to_tensor(
     x: optree.PyTree[torch.Tensor], fn: Callable[[torch.Tensor], T]
 ) -> optree.PyTree[T]:
