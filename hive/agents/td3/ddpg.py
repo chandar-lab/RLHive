@@ -3,10 +3,10 @@ from typing import Optional
 import gymnasium as gym
 import torch
 
-from hive.utils.torch_utils import ModuleInitFn
 from hive.agents.td3 import TD3
 from hive.replays import BaseReplayBuffer
 from hive.types import Creates, Partial
+from hive.utils.torch_utils import ModuleInitFn
 from hive.utils.utils import LossFn
 
 

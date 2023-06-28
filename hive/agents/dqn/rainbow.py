@@ -7,19 +7,14 @@ import numpy as np
 import torch
 
 from hive.agents.dqn import DQNAgent
+from hive.agents.dqn.qnet_heads import DistributionalNetwork, DQNNetwork, DuelingNetwork
 from hive.agents.networks.noisy_linear import NoisyLinear
-from hive.agents.dqn.qnet_heads import (
-    DistributionalNetwork,
-    DQNNetwork,
-    DuelingNetwork,
-)
-from hive.utils.torch_utils import calculate_output_dim
 from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import BaseReplayBuffer
 from hive.types import Creates, Partial, default
 from hive.utils.loggers import logger
 from hive.utils.schedule import Schedule
-from hive.utils.torch_utils import ModuleInitFn
+from hive.utils.torch_utils import ModuleInitFn, calculate_output_dim
 from hive.utils.utils import LossFn
 
 

@@ -6,10 +6,10 @@ import torch
 from torch import nn
 
 from hive.agents.networks.mlp import MLPNetwork
-from hive.utils.torch_utils import calculate_output_dim
+from hive.replays import Alignment, ReplayItemSpec
 from hive.types import Creates
 from hive.utils.registry import registry
-from hive.replays import ReplayItemSpec, Alignment
+from hive.utils.torch_utils import calculate_output_dim
 
 
 class SequenceFn(nn.Module):

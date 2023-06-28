@@ -10,9 +10,9 @@ from hive import main, runners
 from hive.agents.dqn import DQNAgent
 from hive.agents.networks import MLPNetwork
 from hive.runners import Runner, single_agent_loop
-from hive.utils.runner_utils import TransitionInfo, load_config
 from hive.utils.loggers import CompositeLogger, Logger, logger
 from hive.utils.registry import registry
+from hive.utils.runner_utils import TransitionInfo, load_config
 
 
 class FakeLogger1(Logger):

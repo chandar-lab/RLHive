@@ -5,10 +5,10 @@ from typing import Any, Mapping, MutableMapping, Optional
 
 import numpy as np
 import numpy.typing as npt
+from numba import njit
 
 from hive.replays.replay_buffer import Alignment, BaseReplayBuffer, ReplayItemSpec
 from hive.utils.utils import create_folder, seeder
-from numba import njit
 
 
 class CircularReplayBuffer(BaseReplayBuffer):

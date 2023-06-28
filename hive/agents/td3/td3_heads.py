@@ -3,8 +3,8 @@ from typing import Optional, Sequence
 import numpy as np
 import torch
 
-from hive.utils.torch_utils import calculate_output_dim
 from hive.types import Creates, default
+from hive.utils.torch_utils import calculate_output_dim
 
 
 class TD3ActorNetwork(torch.nn.Module):

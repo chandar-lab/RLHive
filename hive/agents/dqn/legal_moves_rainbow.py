@@ -6,14 +6,14 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from hive.utils.torch_utils import ModuleInitFn
 from hive.agents.dqn.rainbow import RainbowDQNAgent
-from hive.utils.np_utils import roll_state
 from hive.replays import PrioritizedReplayBuffer
 from hive.replays.replay_buffer import Alignment, ReplayItemSpec
 from hive.types import Creates, Partial, default
 from hive.utils.loggers import logger
+from hive.utils.np_utils import roll_state
 from hive.utils.schedule import Schedule
+from hive.utils.torch_utils import ModuleInitFn
 from hive.utils.utils import LossFn
 
 

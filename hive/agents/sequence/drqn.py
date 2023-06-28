@@ -7,12 +7,9 @@ import torch
 
 from hive.agents.dqn import DQNAgent
 from hive.agents.sequence.sequence_models import DRQNNetwork, SequenceFn, SequenceModel
-from hive.utils.torch_utils import (
-    apply_to_tensor,
-)
 from hive.replays import ReplayItemSpec
 from hive.replays.recurrent_replay import RecurrentReplayBuffer
-from hive.types import Creates, default, Partial
+from hive.types import Creates, Partial, default
 from hive.utils.loggers import logger
 from hive.utils.schedule import (
     LinearSchedule,
@@ -20,7 +17,7 @@ from hive.utils.schedule import (
     Schedule,
     SwitchSchedule,
 )
-from hive.utils.torch_utils import ModuleInitFn, calculate_output_dim
+from hive.utils.torch_utils import ModuleInitFn, apply_to_tensor, calculate_output_dim
 from hive.utils.utils import LossFn, seeder
 
 

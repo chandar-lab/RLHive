@@ -6,10 +6,9 @@ import numpy as np
 import torch
 from gymnasium.spaces import Box, Discrete
 
-from hive.utils.torch_utils import calculate_output_dim
 from hive.types import Creates, Partial, default
 from hive.utils.registry import registry
-from hive.utils.torch_utils import ModuleInitFn
+from hive.utils.torch_utils import ModuleInitFn, calculate_output_dim
 
 
 def actor_critic_init_fn(module, std=np.sqrt(2), bias_const=0.0):

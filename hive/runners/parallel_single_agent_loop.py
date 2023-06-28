@@ -9,10 +9,10 @@ from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.envs.parallel_env import AsyncEnv
 from hive.runners.base import Runner
-from hive.utils.runner_utils import Metrics, TransitionInfo
 from hive.utils import utils
 from hive.utils.experiment import Experiment
 from hive.utils.loggers import logger
+from hive.utils.runner_utils import Metrics, TransitionInfo
 
 
 class TransitionInfo:

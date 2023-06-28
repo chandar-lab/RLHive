@@ -4,12 +4,12 @@ from typing import Optional, Sequence, Union, cast
 
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
-from hive.utils.runner_utils import Metrics
 from hive.types import Creates
 from hive.utils import schedule
 from hive.utils.config import Config, config_to_dict
 from hive.utils.experiment import Experiment
 from hive.utils.loggers import CompositeLogger, Logger, NullLogger, logger
+from hive.utils.runner_utils import Metrics
 from hive.utils.utils import Counter, Timer, seeder
 
 

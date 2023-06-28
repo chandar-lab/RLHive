@@ -3,8 +3,8 @@ import logging
 from pprint import pprint
 
 from hive.runners import Runner
-from hive.utils.runner_utils import load_config
 from hive.utils.registry import registry
+from hive.utils.runner_utils import load_config
 
 logging.basicConfig(
     format="[%(levelname)s %(asctime)s %(filename)s:%(lineno)s] %(message)s",

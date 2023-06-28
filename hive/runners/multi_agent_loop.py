@@ -4,11 +4,11 @@ from typing import Optional, Sequence, Union
 from hive.agents.agent import Agent
 from hive.envs.base import BaseEnv
 from hive.runners.base import Runner
-from hive.utils.runner_utils import TransitionInfo
 from hive.types import Creates, default
 from hive.utils import utils
 from hive.utils.experiment import Experiment
 from hive.utils.loggers import Logger
+from hive.utils.runner_utils import TransitionInfo
 
 
 class MultiAgentRunner(Runner):

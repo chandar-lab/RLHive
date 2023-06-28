@@ -7,14 +7,13 @@ import torch
 
 from hive.agents.agent import Agent
 from hive.agents.ppo.ac_nets import ActorCriticNetwork
-from hive.utils.normalizer import MovingAvgNormalizer, RewardNormalizer
-from hive.utils.torch_utils import calculate_output_dim
 from hive.replays import ReplayItemSpec
 from hive.replays.on_policy_replay import OnPolicyReplayBuffer
 from hive.types import Creates, default
 from hive.utils.loggers import logger
+from hive.utils.normalizer import MovingAvgNormalizer, RewardNormalizer
 from hive.utils.schedule import ConstantSchedule, PeriodicSchedule, Schedule
-from hive.utils.torch_utils import TensorInitFn
+from hive.utils.torch_utils import TensorInitFn, calculate_output_dim
 from hive.utils.utils import LossFn, create_folder
 
 
