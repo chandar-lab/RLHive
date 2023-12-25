@@ -14,6 +14,7 @@ from hive.envs import EnvSpec
 from hive.replays import SimpleReplayBuffer
 from hive.utils import schedule
 
+import pytest_lazyfixture  ##Added this line 
 
 @pytest.fixture
 def env_spec():
@@ -25,11 +26,11 @@ ddnd = double, dueling, noisy, distributional. x = False.
 """
 
 
-@pytest.fixture(
+@pytest.fixture(  ##Modified this
     params=[
-        pytest.lazy_fixture("xxxx_agent_with_mock_optimizer"),
-        pytest.lazy_fixture("dxxx_agent_with_mock_optimizer"),
-        pytest.lazy_fixture("xdxx_agent_with_mock_optimizer"),
+        pytest_lazyfixture.lazy_fixture("xxxx_agent_with_mock_optimizer"), 
+        pytest_lazyfixture.lazy_fixture("dxxx_agent_with_mock_optimizer"),
+        pytest_lazyfixture.lazy_fixture("xdxx_agent_with_mock_optimizer"),
     ]
 )
 def agent_with_mock_optimizer(request):

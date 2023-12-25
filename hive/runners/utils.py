@@ -227,9 +227,9 @@ class TransitionInfo:
 
         if self._stack_size == 1:
             return observation
+        
         while len(self._previous_observations[agent.id]) < self._stack_size - 1:
             self._previous_observations[agent.id].append(zeros_like(observation))
-
         stacked_observation = concatenate(
             list(self._previous_observations[agent.id]) + [observation]
         )

@@ -1,0 +1,54 @@
+# General training loop config
+run_name: &run_name 'dqn-metrics'
+train_steps: 450
+test_frequency: 10
+test_num_episodes: 1
+self_play: False
+num_agents: 2
+saving_schedule:
+  name: 'PeriodicSchedule'
+  kwargs:
+    off_value: False
+    on_value: True
+    period: 15000
+save_dir: 'experiment'
+
+environment:
+  name: 'GymEnv'
+  kwargs:
+    env_name: 'CartPole-v0'
+
+# List of agents for the experiment. In single agent, only the first agent in
+# the list is used.
+agent:
+  name: 'DQNAgent'
+  kwargs:
+    representation_net:
+      name: 'MLPNetwork'
+      kwargs:
+        hidden_units: [256, 256]
+    optimizer_fn:
+      name: 'Adam'
+      kwargs: {}
+    id: 0
+    replay_buffer:
+      name: 'CircularReplayBuffer'
+      kwargs:
+        capacity: 10000
+        observation_dtype: 'np.float32'
+    discount_rate: .99
+    target_net_update_schedule:
+      name: 'PeriodicSchedule'
+      kwargs:
+        off_value: False
+        on_value: True
+        period: 100
+    epsilon_schedule:
+      name: 'ConstantSchedule'
+      kwargs:
+        value: .01
+    min_replay_history: 500
+    batch_size: 128
+    device: 'cpu'
+    log_frequency: 100
+
