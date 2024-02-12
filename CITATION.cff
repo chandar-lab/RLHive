@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+title: RLHive
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: Patil
+    given-names: Darshan
+  - family-names: Rahimi-Kalahroudi
+    given-names: Ali
+  - family-names: Nekoei
+    given-names: Hadi
+  - family-names: Gottipati
+    given-names: Sai Krishna
+  - family-names: Samsami
+    given-names: Mohammad Reza
+  - family-names: Gupta
+    given-names: Kshitij
+  - family-names: Poddar
+    given-names: Sriyash
+  - family-names: Zholus
+    given-names: Artem
+  - family-names: Hashemzadeh
+    given-names: Maryam
+  - family-names: Zhao
+    given-names: Xutong
+  - family-names: Chandar
+    given-names: Sarath
+repository-code: 'https://github.com/chandar-lab/RLHive'
+url: 'https://github.com/chandar-lab/RLHive'
